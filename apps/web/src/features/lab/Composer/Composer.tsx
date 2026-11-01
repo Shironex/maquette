@@ -30,67 +30,69 @@ export default function Composer({ view }: ComposerProps) {
   return (
     <section
       aria-label="New direction"
-      className="flex w-[280px] flex-none max-[1023px]:w-[240px] min-[1280px]:w-[320px] flex-col gap-3.5 overflow-y-auto border-r border-line bg-panel px-[18px] pt-[18px] pb-4"
+      className="flex w-[280px] flex-none max-[1023px]:w-[240px] min-[1280px]:w-[320px] flex-col border-r border-line bg-panel"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="flex items-center gap-2 text-panel-title">
-          <Icon name={existing ? 'images' : 'plus'} size={14} className="text-clay-text" />
-          {existing ? 'Add to direction' : 'New direction'}
-        </h1>
-        {existing ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon="plus"
-            tooltip="Starts a fresh direction instead of adding to this one"
-            onClick={newDraft}
-          >
-            New
-          </Button>
-        ) : null}
-      </div>
-      <TextField
-        label="Direction name"
-        value={draft.name}
-        maxLength={60}
-        placeholder="Frozen lake arena"
-        onChange={e => setDraft({ name: e.target.value })}
-      />
-      <TextArea
-        label="Prompt"
-        rows={6}
-        value={draft.prompt}
-        placeholder="What should the concepts show? Setting, mood, light, the props that matter."
-        onChange={e => setDraft({ prompt: e.target.value })}
-      />
-      <References view={view} />
-      <StyleSwitch
-        view={view}
-        on={draft.useStyle}
-        onChange={useStyle => setDraft({ useStyle })}
-        offerSetup
-      />
-      <div className="grid grid-cols-2 gap-2.5">
-        <Select<Aspect>
-          label="Aspect"
-          options={ASPECTS}
-          value={draft.aspect}
-          onChange={aspect => setDraft({ aspect })}
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[18px] pt-[18px] pb-4">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="flex items-center gap-2 text-panel-title">
+            <Icon name={existing ? 'images' : 'plus'} size={14} className="text-clay-text" />
+            {existing ? 'Add to direction' : 'New direction'}
+          </h1>
+          {existing ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="plus"
+              tooltip="Starts a fresh direction instead of adding to this one"
+              onClick={newDraft}
+            >
+              New
+            </Button>
+          ) : null}
+        </div>
+        <TextField
+          label="Direction name"
+          value={draft.name}
+          maxLength={60}
+          placeholder="Frozen lake arena"
+          onChange={e => setDraft({ name: e.target.value })}
         />
-        <Field id="lab-count" label="Images">
-          <div className="[&>span]:h-[34px] [&>span]:w-full [&>span>span]:min-w-0 [&>span>span]:flex-1">
-            <NumberStepper
-              label="Images"
-              value={n}
-              min={1}
-              max={MAX_IMAGES}
-              onChange={count => setDraft({ count })}
-            />
-          </div>
-        </Field>
+        <TextArea
+          label="Prompt"
+          rows={6}
+          value={draft.prompt}
+          placeholder="What should the concepts show? Setting, mood, light, the props that matter."
+          onChange={e => setDraft({ prompt: e.target.value })}
+        />
+        <References view={view} />
+        <StyleSwitch
+          view={view}
+          on={draft.useStyle}
+          onChange={useStyle => setDraft({ useStyle })}
+          offerSetup
+        />
+        <div className="grid grid-cols-2 gap-2.5">
+          <Select<Aspect>
+            label="Aspect"
+            options={ASPECTS}
+            value={draft.aspect}
+            onChange={aspect => setDraft({ aspect })}
+          />
+          <Field id="lab-count" label="Images">
+            <div className="[&>span]:h-[34px] [&>span]:w-full [&>span>span]:min-w-0 [&>span>span]:flex-1">
+              <NumberStepper
+                label="Images"
+                value={n}
+                min={1}
+                max={MAX_IMAGES}
+                onChange={count => setDraft({ count })}
+              />
+            </div>
+          </Field>
+        </div>
+        {view.directions.length > 0 ? <EarlierDirections view={view} /> : null}
       </div>
-      {view.directions.length > 0 ? <EarlierDirections view={view} /> : null}
-      <div className="sticky bottom-0 -mx-[18px] -mb-4 mt-auto flex flex-col gap-2 border-t border-line bg-panel px-[18px] pt-3 pb-4">
+      <div className="flex flex-none flex-col gap-2 border-t border-line bg-panel px-[18px] pt-3 pb-4">
         {usageWarning ? (
           <p className="flex items-start gap-1.5 text-meta text-amber" role="note">
             <Icon name="warning" size={13} className="mt-px flex-none" />
