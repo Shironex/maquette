@@ -25,15 +25,15 @@ export function useMoreMenu() {
     open,
     setOpen,
     removed,
+    sends: jobs.length,
     failed: sendCounts(jobs).failed,
     missing: missingPreviews(project),
     rendering: asking || waiting > 0,
     waiting,
     allSends: () => setQueueOpen(true),
-    /** Every accepted model as one pack: the Library's pack sheet opens on it. */
+    /** Every accepted model as one pack: the pack sheet opens over the Board. */
     exportPack: () => {
       if (!project) return;
-      useAppStore.getState().setView('library');
       void usePackStore
         .getState()
         .show({ from: 'project', project: project.id }, { project: project.name });

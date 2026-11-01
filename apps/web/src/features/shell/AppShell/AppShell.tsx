@@ -23,6 +23,7 @@ import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
 import { QuitDialog } from '../QuitDialog';
 import { RepoPrompt } from '../RepoPrompt';
+import { PackSheet } from '@/features/library/PackSheet';
 import { RenderSheet } from '@/features/renders/RenderSheet';
 import { ShellStatusBar } from '../ShellStatusBar';
 import { SyncConflictBanner } from '../SyncConflictBanner';
@@ -91,6 +92,7 @@ export default function AppShell() {
       <CreditsSheet />
       <SplitSheet />
       <RenderSheet />
+      <PackSheet />
       <AssembleSheet />
       <ObjectRefsDialog />
       <StyleBoardDialog />

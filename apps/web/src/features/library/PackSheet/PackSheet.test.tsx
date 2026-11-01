@@ -8,6 +8,7 @@ import { usePackStore } from '@/state/use-pack-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
 import { follow, resetPacks } from '@/test/open-pack';
 import LibraryView from '../LibraryView/LibraryView';
+import PackSheet from './PackSheet';
 
 vi.mock('@/features/viewer/ModelPreview', () => ({ default: () => null }));
 
@@ -21,7 +22,12 @@ afterEach(() => {
 describe('export pack from the library', () => {
   it('packs the picked models: settings, then the check', async () => {
     await openMockLibrary('scale');
-    render(<LibraryView />);
+    render(
+      <>
+        <LibraryView />
+        <PackSheet />
+      </>
+    );
     const filters = await screen.findByRole('region', { name: 'Filters' });
     await userEvent.click(within(filters).getByRole('button', { name: /^Village props/ }));
     const models = screen.getByRole('region', { name: 'Models' });
@@ -42,7 +48,12 @@ describe('export pack from the library', () => {
 
   it('packs the collection on show from the top bar', async () => {
     await openMockLibrary('scale');
-    render(<LibraryView />);
+    render(
+      <>
+        <LibraryView />
+        <PackSheet />
+      </>
+    );
     const filters = await screen.findByRole('region', { name: 'Filters' });
     await userEvent.click(within(filters).getByRole('button', { name: /^Market set/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Export pack' }));

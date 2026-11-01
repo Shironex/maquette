@@ -8,10 +8,12 @@ import { usePackSheet } from './PackSheet.hooks';
  * Export pack: the settings for a selection, a collection or a project's
  * models, then the check while Blender writes and opens each model again,
  * then the finished pack. Closing it leaves a running pack running; Recent
- * packs opens it again.
+ * packs opens it again. The shell holds it, so it opens over the view that
+ * asked for it: the Library, or the Board.
  */
 export default function PackSheet() {
   const s = usePackSheet();
+  if (!s.open) return null;
   return (
     <Sheet
       id="export-pack"
