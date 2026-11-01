@@ -11,6 +11,7 @@
 pub mod backend;
 mod codex;
 pub mod codex_usage;
+pub mod import;
 pub mod jobs;
 pub mod objects;
 pub mod pick;

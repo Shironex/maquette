@@ -1,0 +1,256 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use super::*;
+use crate::concepts::{mark, send_picks};
+use crate::project::{NewProject, ProjectTemplate};
+
+struct Fixture {
+    root: tempfile::TempDir,
+    drops: tempfile::TempDir,
+    layout: FolderLayout,
+    id: String,
+    dir: PathBuf,
+}
+
+fn fixture() -> Fixture {
+    let root = tempfile::tempdir().expect("tempdir");
+    let layout = FolderLayout::default();
+    let manifest = project::create(
+        root.path(),
+        &layout,
+        NewProject {
+            name: "Moon".into(),
+            template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    let dir = project::dir(root.path(), &layout, &manifest.id).expect("dir");
+    Fixture {
+        root,
+        drops: tempfile::tempdir().expect("tempdir"),
+        layout,
+        id: manifest.id,
+        dir,
+    }
+}
+
+impl Fixture {
+    fn image(&self, name: &str) -> PathBuf {
+        let path = self.drops.path().join(name);
+        fs::write(&path, crate::inbox::images::write_png(2, 3, &[90; 18])).expect("png");
+        path
+    }
+
+    fn import(&self, paths: &[PathBuf]) -> CoreResult<ImportedConcepts> {
+        import_images(self.root.path(), &self.layout, &self.id, paths)
+    }
+}
+
+fn card_stage(imported: &ImportedConcepts, id: &str) -> Stage {
+    assets::find(&imported.project, id).expect("card").stage
+}
+
+#[test]
+fn images_become_a_direction_and_a_card_at_concept() {
+    let f = fixture();
+    let done = f
+        .import(&[f.image("stone_lantern.png"), f.image("other.png")])
+        .expect("import");
+    assert_eq!(done.direction.name, "Stone lantern");
+    assert_eq!(done.direction.images.len(), 2);
+    assert_eq!(done.direction.images[0].width, Some(2));
+    assert_eq!(done.direction.images[0].height, Some(3));
+    for file in &done.added {
+        assert!(f.dir.join(file).is_file(), "{file}");
+    }
+    assert_eq!(card_stage(&done, "stone-lantern"), Stage::Concept);
+    assert_eq!(done.asset.thumbnail.as_ref(), Some(&done.added[0]));
+    assert!(
+        load_direction(&f.dir, "stone-lantern")
+            .expect("read")
+            .is_some(),
+        "the Lab lists it"
+    );
+}
+
+#[test]
+fn a_second_drop_of_the_same_name_adds_to_it_without_overwriting() {
+    let f = fixture();
+    let first = f.import(&[f.image("lantern.png")]).expect("first");
+    let picture = fs::read(f.dir.join(&first.added[0])).expect("read");
+    let second = f.import(&[f.image("lantern.png")]).expect("second");
+    assert_ne!(first.added, second.added);
+    assert_eq!(second.direction.images.len(), 2);
+    assert_eq!(
+        fs::read(f.dir.join(&first.added[0])).expect("read"),
+        picture
+    );
+    assert_eq!(
+        second
+            .project
+            .assets
+            .iter()
+            .filter(|a| a.id == "lantern")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn it_keeps_the_brief_of_a_direction_of_that_name() {
+    let f = fixture();
+    let new = crate::concepts::NewConcepts {
+        project: f.id.clone(),
+        direction: "Lantern".into(),
+        prompt: "A lantern.".into(),
+        refs: vec![],
+        aspect: crate::concepts::Aspect::Wide,
+        count: 1,
+        use_style: true,
+    };
+    crate::concepts::prepare(&f.dir, &new).expect("prepare");
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    assert_eq!(done.direction.prompt, "A lantern.");
+    assert_eq!(done.direction.aspect, crate::concepts::Aspect::Wide);
+}
+
+#[test]
+fn nothing_is_copied_when_one_file_is_no_image() {
+    let f = fixture();
+    let bad = f.drops.path().join("notes.png");
+    fs::write(&bad, b"not an image").expect("write");
+    let error = f
+        .import(&[f.image("lantern.png"), bad])
+        .expect_err("refused");
+    assert!(error.to_string().contains("not a PNG, JPEG or WebP"));
+    assert!(load_direction(&f.dir, "lantern").expect("read").is_none());
+}
+
+#[test]
+fn the_extension_follows_the_header() {
+    let f = fixture();
+    let done = f.import(&[f.image("lantern.jpg")]).expect("import");
+    assert!(done.added[0].ends_with(".png"), "{}", done.added[0]);
+}
+
+#[test]
+fn a_name_with_no_letters_still_lands() {
+    let f = fixture();
+    let done = f.import(&[f.image("___.png")]).expect("import");
+    assert_eq!(done.direction.name, FALLBACK_NAME);
+}
+
+#[test]
+fn a_direction_of_refs_work_is_left_alone() {
+    let f = fixture();
+    let (mut held, _) = crate::concepts::prepare(
+        &f.dir,
+        &crate::concepts::NewConcepts {
+            project: f.id.clone(),
+            direction: "Lantern".into(),
+            prompt: String::new(),
+            refs: vec![],
+            aspect: crate::concepts::Aspect::Square,
+            count: 1,
+            use_style: false,
+        },
+    )
+    .expect("prepare");
+    held.source = Some("concepts/x/x_01.png".into());
+    save_direction(&f.dir, &held).expect("save");
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    assert_eq!(done.direction.name, "Lantern 2");
+}
+
+#[test]
+fn a_card_further_along_stays_where_it_is_with_its_picture() {
+    let f = fixture();
+    project::modify(f.root.path(), &f.layout, &f.id, |m| {
+        let added = assets::add(
+            m,
+            NewAsset {
+                name: "Lantern".into(),
+                kind: AssetKind::Character,
+                stage: Stage::Refs,
+            },
+        )?;
+        assets::set_ref_thumbnail(m, &added.id, "refs/lantern.png")?;
+        Ok(())
+    })
+    .expect("card");
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    assert_eq!(done.asset.stage, Stage::Refs);
+    assert_eq!(done.asset.kind, AssetKind::Character);
+    assert_eq!(done.asset.thumbnail.as_deref(), Some("refs/lantern.png"));
+}
+
+#[test]
+fn sending_a_pick_moves_the_card_up_with_the_kind_chosen_and_a_ref_picture() {
+    let f = fixture();
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    mark(&f.dir, "lantern", &done.added[0], None, Some(true)).expect("pick");
+    let sent = send_picks(
+        f.root.path(),
+        &f.layout,
+        &f.id,
+        "lantern",
+        AssetKind::Character,
+    )
+    .expect("send");
+    assert_eq!(sent.asset.id, "lantern");
+    assert_eq!(sent.asset.stage, Stage::Refs);
+    assert_eq!(
+        sent.asset.kind,
+        AssetKind::Character,
+        "the card was only a guess"
+    );
+    assert_eq!(sent.asset.thumbnail.as_deref(), Some("refs/lantern_01.png"));
+    assert!(Path::new(&f.dir.join("refs/lantern_01.png")).is_file());
+}
+
+#[test]
+fn a_card_made_by_hand_keeps_its_kind_when_a_pick_is_sent() {
+    let f = fixture();
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    project::modify(f.root.path(), &f.layout, &f.id, |m| {
+        assets::add(
+            m,
+            NewAsset {
+                name: "Porch".into(),
+                kind: AssetKind::Character,
+                stage: Stage::Concept,
+            },
+        )
+        .map(|_| ())
+    })
+    .expect("card");
+    drop(done);
+    let (_, files) = crate::concepts::prepare(
+        &f.dir,
+        &crate::concepts::NewConcepts {
+            project: f.id.clone(),
+            direction: "Porch".into(),
+            prompt: "p".into(),
+            refs: vec![],
+            aspect: crate::concepts::Aspect::Square,
+            count: 1,
+            use_style: false,
+        },
+    )
+    .expect("prepare");
+    let (index, file) = &files[0];
+    fs::write(
+        f.dir.join(file),
+        crate::inbox::images::write_png(2, 2, &[9; 12]),
+    )
+    .expect("png");
+    add_image(&f.dir, "porch", *index, file, None).expect("add");
+    mark(&f.dir, "porch", file, None, Some(true)).expect("pick");
+    let sent = send_picks(f.root.path(), &f.layout, &f.id, "porch", AssetKind::Prop).expect("send");
+    assert_eq!(sent.asset.kind, AssetKind::Character);
+}

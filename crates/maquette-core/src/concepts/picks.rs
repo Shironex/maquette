@@ -6,7 +6,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Direction, REFS_DIR, list_directions, load_direction, modify_direction};
+use super::{CONCEPTS_DIR, Direction, REFS_DIR, list_directions, load_direction, modify_direction};
 use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest, slugify};
@@ -86,7 +86,7 @@ pub fn send_picks(
 
 /// `armillary sphere` reads `Armillary sphere`: only the first letter
 /// changes, the rest stays as typed (`HUD panel`).
-fn capitalised(name: &str) -> String {
+pub(super) fn capitalised(name: &str) -> String {
     let name = name.trim();
     let mut chars = name.chars();
     chars.next().map_or_else(String::new, |first| {
@@ -105,6 +105,14 @@ pub(super) fn place_at_refs(
 ) -> CoreResult<Asset> {
     match assets::find_by_name(manifest, name).cloned() {
         Some(existing) if existing.stage < Stage::Refs => {
+            // A card images were dropped for only guessed its kind.
+            if existing
+                .thumbnail
+                .as_deref()
+                .is_some_and(|t| t.starts_with(&format!("{CONCEPTS_DIR}/")))
+            {
+                assets::find_mut(manifest, &existing.id)?.kind = kind;
+            }
             assets::move_to(manifest, &existing.id, Stage::Refs)
         }
         Some(existing) => Ok(existing),

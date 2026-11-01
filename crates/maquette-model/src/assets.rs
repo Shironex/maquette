@@ -421,9 +421,10 @@ pub fn set_thumbnail(
 }
 
 /// True when a ref image may stand in as the card's picture: there is no
-/// thumbnail yet, or it is an older ref. A model render or a poster stays.
+/// thumbnail yet, or it is an older ref or a dropped concept. A model render
+/// or a poster stays.
 pub fn ref_may_replace(thumbnail: Option<&str>) -> bool {
-    thumbnail.is_none_or(|t| t.starts_with("refs/"))
+    thumbnail.is_none_or(|t| t.starts_with("refs/") || t.starts_with("concepts/"))
 }
 
 /// Shows the ref image `file` (relative to the project folder) on the
