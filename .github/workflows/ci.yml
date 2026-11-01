@@ -1,6 +1,8 @@
 # The local gate (`pnpm gate`), split into jobs that run side by side. Each job
 # runs the same commands the gate runs, so a red job reproduces locally with
-# the command in its step.
+# the command in its step. Two differences on purpose: nothing here uses the
+# gate's Prettier cache, and the Rust tests run on `cargo test`,
+# which has the doc tests and needs no extra tool, not on nextest.
 #
 # Node jobs run on Linux: they only check TypeScript, formatting and the site
 # build, which do not depend on the OS. The Rust jobs run on macOS and Windows,

@@ -15,6 +15,12 @@ default-run = "maquette-desktop"
 name = "maquette_desktop_lib"
 crate-type = ["lib"]
 
+[[bin]]
+# main.rs has no tests, so `cargo test` need not link a Tauri test binary for it.
+name = "maquette-desktop"
+path = "src/main.rs"
+test = false
+
 [build-dependencies]
 tauri-build = { workspace = true }
 

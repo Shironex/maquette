@@ -107,7 +107,7 @@ needs.
 | `release.yml`   | pushed `v*` tags, or by hand as a dry run        | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
 | `pages.yml`     | pushes to `main` that touch the site, or by hand | `build · pages`, `deploy · pages`                                                                          |
 
-- **`ci.yml`** is `pnpm gate` split into parallel jobs. The Node jobs run on Linux; the Rust jobs
+- **`ci.yml`** is `pnpm gate` split into parallel jobs, uncached and with `cargo test`. The Node jobs run on Linux; the Rust jobs
   (clippy with warnings denied, then `cargo test`) run on macOS and Windows, the systems the app
   ships on, with a Rust cache that only `main` writes. Tests that need Blender skip on their own,
   as they do on any machine without it. After the tests, the macOS job fails if

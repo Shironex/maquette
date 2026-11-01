@@ -295,7 +295,9 @@ pub fn builder() -> Builder<tauri::Wry> {
         .types(&maquette_core::types())
 }
 
-/// Writes the bindings to [`GENERATED_FILE`].
+/// Writes the bindings to [`GENERATED_FILE`], when they changed and atomically,
+/// since `pnpm gate` runs this while the Node checks read the file. The exporter
+/// only writes to a path, so it writes to a scratch file first.
 ///
 /// # Errors
 ///
@@ -306,7 +308,13 @@ pub fn export() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    builder().export(Typescript::default().header(HEADER), &path)?;
+    let scratch = std::env::temp_dir().join(format!("maquette-bindings-{}.ts", std::process::id()));
+    let exported = builder()
+        .export(Typescript::default().header(HEADER), &scratch)
+        .map_err(Box::<dyn std::error::Error>::from)
+        .and_then(|()| Ok(std::fs::read_to_string(&scratch)?));
+    let _ = std::fs::remove_file(&scratch);
+    maquette_core::fs::write_if_changed(&path, &exported?)?;
     Ok(())
 }
 

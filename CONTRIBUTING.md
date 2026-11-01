@@ -56,12 +56,36 @@ Rust tests that call a real Blender skip themselves when it is not installed; se
 pnpm gate
 ```
 
-`pnpm gate` is the whole local gate and has to exit 0 before you open a pull request. In order:
-ESLint, the repo's own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the release scripts'
-tests (`pnpm test:scripts`), the site build, Prettier, `cargo fmt --check`, clippy with warnings
-denied, and `cargo test`. Husky runs lint-staged on commit and commitlint on the message. CI runs
-the same checks on every pull request, with the Rust ones on both macOS and Windows. Architecture rules (folder per component, one way
-dependencies, file size limits) are in [docs/architecture.md](docs/architecture.md).
+`pnpm gate` is the whole local gate and has to exit 0 before you open a pull request. It runs two
+lanes side by side and ends with each step's time and what failed. The Node lane: ESLint, the repo's
+own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the release scripts' tests
+(`pnpm test:scripts`), the site build and Prettier. The Rust lane: `cargo fmt --check`, clippy with
+warnings denied, and the tests. Vitest, clippy and the Rust tests each take every core, so they
+take turns; the rest overlap. Husky runs lint-staged on commit and commitlint on the message.
+
+The gate differs from CI in three ways:
+
+- **Rust tests:** it uses [cargo-nextest](https://nexte.st) (`cargo install cargo-nextest --locked`)
+  plus `cargo test --doc`. Without nextest it runs `cargo test` and says so; the tests are the same.
+  CI runs `cargo test`, on both macOS and Windows.
+- **Cache:** Prettier keeps a cache in `node_modules/.cache`, which is safe since it judges each file
+  alone. ESLint has none in the gate, because its rules read other files. CI has no cache.
+- **Generated files:** the gate fails if the Rust tests rewrote the IPC bindings or `tool-names.txt`,
+  because the Node lane may have read either version. Commit the new files and run it again.
+
+`pnpm gate:fast` checks only what changed since `main`, for quick rounds while you work, and does not
+replace `pnpm gate`. A change to a file it cannot place, a package's config or a file known to be read
+across parts of the repo (the list is in `scripts/gate/plan.mjs`) runs the whole gate. Otherwise it
+does not prove:
+
+- that unchanged files still pass ESLint and Prettier: it checks the changed files, with a cache, so a
+  rule that looks at other files can miss a deleted one;
+- that tests it did not pick still pass: after a module change Vitest runs only what imports it;
+- anything in a lane or step it skipped, such as Rust after a web change. A new read across parts that
+  the list and its test do not catch would be skipped too.
+
+Architecture rules (folder per component, one way dependencies, file size limits) are in
+[docs/architecture.md](docs/architecture.md).
 
 For any change you can see, also run:
 
