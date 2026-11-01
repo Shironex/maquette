@@ -11,7 +11,7 @@ Settings > Agents runs a Model Context Protocol server inside the app, so Claude
 
 - Off by default.
 - Listens on `127.0.0.1` only, at `/mcp`, over Streamable HTTP. The port is 4791 unless you change it.
-- Wants `Authorization: Bearer <token>`. The token is made the first time the server starts and kept in the app state on this machine, never in the workspace. New token replaces it.
+- Wants `Authorization: Bearer <token>`, where `<token>` stands for the real token: never paste the placeholder. The token is made the first time the server starts and kept in the app state on this machine, never in the workspace. New token replaces it.
 
 ## Before you connect
 
@@ -45,6 +45,12 @@ tool_timeout_sec = 150
 
 On Windows, the same `claude mcp add` line works in PowerShell. Then ask the agent to call `list_projects`. Every tool that works on a project takes its id as `project`. None of them changes which project the app has open.
 
+## The first call
+
+An agent starts with `get_started`. It works in a brand new setup and reads the workspace, the tools, whether each key is saved (true or false, never the value), every project with its stage, the gates only you can pass and a `next` list of what to do now. With no project yet, `create_project` makes one; it spends nothing and needs no approval.
+
+Everything still works without API keys: By hand sends and built assets cost nothing. `get_started` and the errors say so when a key, the Codex sign in or Blender is missing, because only you can fix those.
+
 ## What an agent cannot do
 
 The agent rules hold by construction.
@@ -60,6 +66,14 @@ The agent rules hold by construction.
 Every call shows in the activity list under Settings > Agents.
 
 ## If it does not connect
+
+`ECONNREFUSED` means nothing is listening on that port on this computer. It is not a token problem and not a network problem: the app is closed, the server is off, or the port differs from your config. A wrong token gets through to the server and comes back as 401 instead. To tell them apart without an agent:
+
+```sh
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4791/mcp
+```
+
+`000` means nothing is listening (see `ECONNREFUSED` below). `401` means the server is on and only wants the token.
 
 | What you see                                      | What to do                                                                                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |

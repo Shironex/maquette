@@ -5,7 +5,11 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 118 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 120 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+
+Every tool's description starts with its group in brackets: `[start]`, `[project]`, `[lab]`, `[refs]`, `[send]`, `[inbox]`, `[prepare]`, `[built]`, `[pipeline]`, `[game]`, `[library]`, `[animation]`, `[export]` and `[avatar-rig]`. Settings > Agents has a switch for the avatar and rig group: on by default, and off leaves its 7 tools out for the next agent that connects.
+
+A tool that fails answers JSON: `error` (the message), `code` (a stable word such as `not-found`, `invalid`, `taken` or `refused`), and where they help `fix`, `tryTool` and `personOnly` (true when only a person can fix it, such as a missing key, the Codex sign in or Blender). Empty answers carry a `next` list, and an answer with status `waiting for approval` carries `pollEverySeconds` and `whereToApprove`.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -17,6 +21,7 @@ These look at the workspace and change nothing.
 
 | Tool                                          | What it returns                                                                                                                                                                                                                                                                                                                                                        | Spends  | Approval |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
+| [`get_started`](#get_started)                 | Where to start: workspace, toolchain, whether each key is saved (never a value), image backend, Ask before shipping, projects with target and stage, gates only a person can pass, and a `next` list                                                                                                                                                                   |
 | [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app                                                                                                                                                                                                                                        | Nothing | No       |
 | `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                                                                                                                                                                                                                                                               | Nothing | No       |
 | `list_assets`                                 | A project's Board assets: kind, stage, status, version count, the latest version's file and stats, and its refs with their views (`refsTagged` false while they are read from the refs' order). Takes an optional `stage` filter                                                                                                                                       | Nothing | No       |
@@ -72,7 +77,8 @@ These look at the workspace and change nothing.
 | [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level                                                                                                                                                                                             | Nothing | No       |
 | [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs                                                                                                                                                                                        | Nothing | No       |
 | [`set_avatar`](#set_avatar)                           | Changes a character asset's VRM meta, bone map overrides, material mode and confirmed springs                                                                                                                                                                          | Nothing | No       |
-| [`set_ship_settings`](#set_ship_settings)             | Changes a website's Ship style, texture format, quality, per asset choice and file name, and the site folders                                                                                                                                                          | Nothing | No       |
+| [`create_project`](#create_project)                   | Makes a website or game project, as New project does; refuses a taken name                                                                                                                                                                                             |
+| [`set_ship_settings`](#set_ship_settings)             | Changes a website's site repo, Ship style, texture format, quality, per asset choice and file name, and the site folders                                                                                                                                               | Nothing | No       |
 | `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise                                                                                                                                                                                               | Nothing | No       |
 | `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                                                                                                                                                                             | Nothing | No       |
 | `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                                                                                                                                                                                                     | Nothing | No       |
@@ -148,6 +154,21 @@ These look at the workspace and change nothing.
 | `retry_usage_limited_jobs`                    | Runs the Lab jobs waiting for the Codex usage limit now, but only when a fresh read says the limit has lifted; otherwise says until when it holds                                                                                     | Codex usage                                                     | No                                                                                                         |
 
 ## The main tools
+
+### get_started
+
+Takes nothing and works with no workspace open. `toolchain` lists each tool with `status` (found, missing or broken), `version`, `hint` and `warning`. `keys` has `tripo`, `meshy` and `openai` as true or false, never a value. `projects` gives each project's `target`, `stage` (`empty`, or the earliest stage an asset is at) and `stages` (assets per stage). `personGates` lists what only a person can pass, with where. `next` lists what to do now: each step has `why`, and either `tool` or `person: true`.
+
+### create_project
+
+| Argument   | What it does                                                                                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`     | The name. One another project has, or that makes the same id, is refused with code `taken`                                                                                         |
+| `kind`     | `website` or `game`                                                                                                                                                                |
+| `template` | Optional. A website template such as `floating-diorama` (the default), `room` or `character-showcase`, or a game template: `prop-set`, `character`, `level-kit` or `level-kit-obj` |
+| `siteRepo` | Optional. The site repo, or the game repo for a game: a folder on this computer. Set it later with `set_ship_settings` or `set_game_settings`                                      |
+
+It takes the same path as New project in the app and spends nothing. The app's open project stays as it is unless none was open. No tool deletes a project.
 
 ### list_projects
 
@@ -388,6 +409,8 @@ Reads how a website project ships: the style, texture format and quality, each a
 | `project` | string | yes      | The project id. |
 
 ### set_ship_settings
+
+`siteRepo` sets a website's site repo, a folder on this computer, and null clears it. A game project is refused: its repo goes through `set_game_settings`.
 
 `changes the project`
 
