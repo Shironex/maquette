@@ -49,7 +49,7 @@ process-wrap = { version = "10.0.1", default-features = false, features = ["std"
 
 # The built in MCP server, pinned exactly on a release older than seven days.
 # It is served by plain hyper on 127.0.0.1.
-rmcp = { version = "=3.6.0", default-features = false }
+rmcp = { version = "=3.7.0", default-features = false }
 schemars = "1.2.2"
 tokio = { version = "1.53", default-features = false }
 hyper = { version = "1.11", default-features = false }
@@ -68,7 +68,7 @@ rustls = { version = "0.23.45", default-features = false, features = ["ring", "s
 base64 = "0.23.1"
 # Reads the .zip some web studios download a model as, with only the Deflate
 # decoder. Pinned exactly, on a release older than seven days.
-zip = { version = "=9.0.5", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "=9.1.0", default-features = false, features = ["deflate-flate2"] }
 # The Deflate decoder zip uses, on the pure Rust miniz_oxide backend that
 # the lock file already has.
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
