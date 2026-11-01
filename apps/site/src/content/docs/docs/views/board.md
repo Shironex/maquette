@@ -54,3 +54,7 @@ An asset that already has a model, for example one it got from the library, also
 ## Projects
 
 The project switcher at the top of the rail (Cmd+P on macOS, Ctrl+P on Windows) lists projects with their picture, template, asset count and age. A search field shows once there are more than six. Switching starts every view of the new project clean. Runs, Lab images and provider jobs keep going in the project they belong to. The Inbox is shared by the whole workspace.
+
+## Next step
+
+A strip under the header says what the project is waiting on, in one sentence with one button: a missing Blender, models in the Inbox, refs with no model, a first run, or a repo to ship to. It stays quiet during a run and once nothing waits on you. Dismiss a step and it stays away until a different one comes up.
