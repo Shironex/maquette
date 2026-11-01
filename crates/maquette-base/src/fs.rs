@@ -5,6 +5,23 @@ use std::io::{self, Write};
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Writes generated `text` to `path` atomically, only when it differs, and
+/// says whether it wrote. A current file keeps its modified time, so nothing
+/// that watches it rebuilds, and whoever reads it never sees it half written.
+/// Line endings do not count: a Windows checkout may hold the file with CRLF.
+pub fn write_if_changed(path: &Path, text: &str) -> io::Result<bool> {
+    let current = match fs::read_to_string(path) {
+        Ok(current) => Some(current),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error),
+    };
+    if current.is_some_and(|c| c.replace("\r\n", "\n") == text.replace("\r\n", "\n")) {
+        return Ok(false);
+    }
+    write_atomic(path, text.as_bytes())?;
+    Ok(true)
+}
+
 /// Writes `bytes` to `path` through a temp file in the same folder, so a crash
 /// never leaves a half written file behind.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
@@ -284,6 +301,26 @@ mod tests {
         for relative in ["projects/a", "C:", "a:b", ""] {
             assert!(!looks_absolute(relative), "{relative}");
         }
+    }
+
+    #[test]
+    fn write_if_changed_only_writes_a_difference() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("generated.txt");
+        assert!(write_if_changed(&path, "a\nb\n").expect("new file"));
+        assert_eq!(fs::read_to_string(&path).expect("read"), "a\nb\n");
+        assert!(!write_if_changed(&path, "a\nb\n").expect("same text"));
+        assert!(write_if_changed(&path, "a\nc\n").expect("new text"));
+        assert_eq!(fs::read_to_string(&path).expect("read"), "a\nc\n");
+    }
+
+    #[test]
+    fn write_if_changed_ignores_line_endings_and_keeps_the_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("generated.txt");
+        fs::write(&path, "a\r\nb\r\n").expect("write");
+        assert!(!write_if_changed(&path, "a\nb\n").expect("same text"));
+        assert_eq!(fs::read_to_string(&path).expect("read"), "a\r\nb\r\n");
     }
 
     #[test]
