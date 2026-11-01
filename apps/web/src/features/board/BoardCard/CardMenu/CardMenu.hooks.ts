@@ -328,13 +328,11 @@ export function useCardMenu(props: CardMenuProps) {
     hint: 'Takes the card off the Board and moves its files to the workspace trash, where Recently removed can restore it',
     onSelect: () => actions.setRemoving([asset]),
   };
-  // A card waiting for its model has one job: bringing that model in, so of
-  // Make only its refs stay, which help make it. Send to 3D and the rest come
-  // back once the send is stopped in Sends.
-  const refsOnly = make
-    .filter(item => item.id === 'refs' || item.id === 'objects')
-    .map(item => ({ ...item, section: 'handoff' }));
-  const first = waiting ? [...handoff, ...refsOnly] : make;
+  // A card waiting for its model leads with bringing it in. Sending it elsewhere
+  // stays possible; a second way to add a file and a rig that is about to change go.
+  const first = waiting
+    ? [...handoff, ...make.filter(i => i.id !== 'model-file' && i.id !== 'rig-doctor')]
+    : make;
   const items = [...first, ...assetItems, ...moveItems, remove];
   const closeAll = () => {
     actions.setMenuFor(null);

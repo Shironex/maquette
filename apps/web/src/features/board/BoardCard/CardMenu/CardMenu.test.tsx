@@ -155,9 +155,9 @@ describe('CardMenu', () => {
     ]);
     expect(screen.getByRole('group', { name: 'By hand' })).toBeInTheDocument();
     expect(labels.at(-1)).toBe('Remove from project...');
-    expect(labels).toContain('Refs and views...');
-    for (const making of ['Send to 3D', 'Add a model file as the next version...'])
-      expect(screen.queryByRole('menuitem', { name: making })).toBeNull();
+    expect(screen.getByRole('group', { name: 'Make' })).toBeInTheDocument();
+    expect(labels).toContain('Send to 3D');
+    expect(labels).not.toContain('Add a model file as the next version...');
     await user.click(screen.getByRole('menuitem', { name: 'Reveal image in Finder' }));
     expect(revealImage).toHaveBeenCalledWith('guardian-statues-1', 'front.png');
     await user.click(screen.getByRole('menuitem', { name: 'Open handoff folder' }));
