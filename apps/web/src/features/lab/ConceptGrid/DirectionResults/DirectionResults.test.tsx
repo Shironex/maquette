@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LabView } from '@/ipc/client';
@@ -28,6 +28,7 @@ const lab = useLabStore.getState();
 afterEach(() => {
   cleanup();
   clearMocks();
+  useAppStore.setState({ workspace: null });
   useLabStore.setState(lab, true);
 });
 
@@ -64,6 +65,48 @@ describe('the results of a direction', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send picks to Refs' }));
     expect(screen.getByRole('menuitem', { name: 'As a prop' })).toBeVisible();
     expect(sendPicks).not.toHaveBeenCalled();
+  });
+
+  it('keeps the cut out from under the line about adding to the Board', async () => {
+    render(<DirectionResults view={view} direction={arena} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Send picks to Refs' }));
+    const adds = screen.getByRole('group', { name: 'Adds Frozen lake arena to the Board at Refs' });
+    expect(within(adds).getByRole('menuitem', { name: 'As a prop' })).toBeVisible();
+    expect(within(adds).queryByRole('menuitem', { name: /Cut/ })).toBeNull();
+    expect(
+      screen.getByRole('menuitem', { name: 'Cut into objects first' })
+    ).toHaveAccessibleDescription(/adds nothing to the Board yet/);
+  });
+
+  it('says the cut works on the first of several picks', async () => {
+    const two = {
+      ...arena,
+      images: arena.images.map((image, i) => ({ ...image, picked: i < 2 })),
+    };
+    const openObjects = vi.fn();
+    useLabStore.setState({ openObjects });
+    render(<DirectionResults view={view} direction={two} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Send picks to Refs' }));
+    const cut = screen.getByRole('menuitem', { name: 'Cut the first pick into objects' });
+    expect(cut).toHaveAccessibleDescription(/first of your 2 picks/);
+    await userEvent.click(cut);
+    expect(openObjects).toHaveBeenCalledWith(
+      expect.objectContaining({ source: two.images[0]!.file })
+    );
+  });
+
+  it('points at object refs when a known card skips the menu', async () => {
+    await openMockWorkspace();
+    const project = useAppStore.getState().workspace!.project!;
+    act(() =>
+      useAppStore.getState().setProject({
+        ...project,
+        assets: [{ ...project.assets![0]!, name: arena.name, stage: 'refs', thumbnail: null }],
+      })
+    );
+    render(<DirectionResults view={view} direction={arena} />);
+    const send = screen.getByRole('button', { name: 'Send picks to Refs' });
+    expect(await tooltipText(send)).toMatch(/Make object refs/);
   });
 
   it('offers cutting a scene into objects before sending it whole', async () => {

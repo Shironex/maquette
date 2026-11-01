@@ -40,9 +40,12 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
   const kindItems = [
     {
       id: 'cut',
-      label: 'Cut into objects first',
+      label: picked > 1 ? 'Cut the first pick into objects' : 'Cut into objects first',
       icon: 'cube-focus' as const,
-      detail: 'Recommended for a scene: one image per object, so each becomes its own model',
+      detail:
+        picked > 1
+          ? `Works on the first of your ${picked} picks: one image per object, and adds nothing to the Board yet`
+          : 'Recommended for a scene: one image per object, each its own model. It adds nothing to the Board yet',
       section: 'cut',
       onSelect: cutFirstPick,
     },
@@ -126,7 +129,7 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
                 objects
                   ? 'Copies each pick into refs/ as its own asset, named after the object'
                   : known
-                    ? `Copies the picks into refs/ and moves ${known.name} to Refs`
+                    ? `Copies the picks into refs/ and moves ${known.name} to Refs. For a scene, use Make object refs on an image first`
                     : 'Copies the picks into refs/ and adds the asset at Refs'
               }
               aria-haspopup={known || objects ? undefined : 'menu'}
@@ -141,13 +144,12 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
                 label="Add the asset"
                 onClose={() => setKindMenu(null)}
                 className="absolute top-10 right-0 z-30 w-[240px]"
-                header={
-                  <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
-                    {kindMenu === '3d'
+                sections={{
+                  whole:
+                    kindMenu === '3d'
                       ? `Adds ${direction.name} at Refs, then opens Send to 3D`
-                      : `Adds ${direction.name} to the Board at Refs`}
-                  </p>
-                }
+                      : `Adds ${direction.name} to the Board at Refs`,
+                }}
                 items={kindItems}
               />
             ) : null}
