@@ -869,13 +869,16 @@ code below lives in `crates/maquette-preview`; core re-exports it as `site::prev
   `commands/site.rs`, so `start_page_preview`, `page_server_start` and `site_preview` all go through
   `gate::check`. A project in `AppState.agent_set_repos` needs its question in
   `AppState.preview_approvals`. `create_project`, `set_ship_settings` and `set_game_settings` write
-  the mark through `RepoSetBy` before the repo, so a failure in between asks; an agent clearing a repo
+  the mark through `RepoSetBy` before the repo, under `Session::repo_turn` with the write and any clear, so a failure or a race asks; an agent clearing a repo
   keeps it. A person's New project clears it, and a person's save only when the repo really moved:
   Settings and onboarding save the same repo as they click through.
   `PreviewAsk` (`maquette-preview`, `ask.rs`) is the question: the real folder, the command line, the
-  package script it invokes on any route with its `pre` and `post` scripts, `script-shell`, and hashes
-  of `.npmrc` (and of `package.json` when a package manager runs something no script names). A change
-  to any of it asks again. A yes trusts the repo's contents: files a script loads are not covered.
+  the card's reading of it, and a hash of each of `package.json`, `.npmrc`, `pnpm-workspace.yaml`,
+  `.yarnrc.yml`, `bunfig.toml` and `maquette.site.json` that exists. The key never depends on reading the
+  command: it is the command line and those hashes, whatever the program, so a changed folder, command,
+  `package.json` or listed manager config asks again. Reading only feeds the card, for exact forms with no
+  flags (or the script Maquette picked itself); anything else says Maquette cannot tell what it runs.
+  A yes trusts the repo, including nested packages and the files scripts load.
   This stops a dev command starting unseen and is not a sandbox: `add_built_asset` runs an agent's
   script in Blender on purpose.
   `Hub::request_preview` raises one `ApprovalKind::PagePreview` card per project and a thread waits: a
