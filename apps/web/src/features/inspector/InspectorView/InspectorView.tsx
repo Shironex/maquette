@@ -12,7 +12,7 @@ import { useInspectorView } from './InspectorView.hooks';
 
 /** The Inspector: compare the project's versions, lay out its scene or draw its paths. */
 export default function InspectorView() {
-  const { project, view, loading, error, load, tab } = useInspectorView();
+  const { project, view, loading, error, load, tab, estimate } = useInspectorView();
 
   if (project && tab === 'budget') {
     return (
@@ -95,7 +95,7 @@ export default function InspectorView() {
             </div>
           ) : (
             <div className="grid flex-1 place-items-center">
-              <Loader label="Reading the models..." />
+              <Loader label="Reading the models..." estimate={estimate} />
             </div>
           )}
         </main>

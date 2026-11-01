@@ -21,7 +21,9 @@ import {
 import { useAppStore } from '@/state/use-app-store';
 import { useInspectorStore } from '@/state/use-inspector-store';
 import { useMotionStore } from '@/state/use-motion-store';
+import { openInBlender as openBlender } from '@/state/open-in-blender';
 import { useSplitStore } from '@/state/use-split-store';
+import { useWait } from '@/lib/waiting';
 
 export type PartsMode = 'parts' | 'shaded' | 'wireframe';
 /** The parts themselves, or before and after the split side by side. */
@@ -69,6 +71,9 @@ export function usePartsPanel() {
   const [mode, setMode] = useState<PartsMode>('parts');
   const [page, setPage] = useState<PartsPage>('parts');
   const [uses, setUses] = useState<PartUse[]>([]);
+  const failed = error !== null;
+  const readEstimate = useWait(projectId && `parts:${projectId}`, busy && !splitting, failed);
+  const splitEstimate = useWait('parts-split', busy && splitting, failed);
 
   const load = useCallback(async (projectId: string, assetId: string, run: boolean) => {
     setBusy(true);
@@ -165,6 +170,7 @@ export function usePartsPanel() {
     rows,
     busy,
     splitting,
+    estimate: splitting ? splitEstimate : readEstimate,
     error,
     uses,
     game,
@@ -245,7 +251,6 @@ export function usePartsModel(asset: string | null, version: number | null) {
 export function usePartsSheets() {
   const openSplit = useSplitStore(s => s.openSplit);
   const openAssemble = useSplitStore(s => s.openAssemble);
-  const notify = useAppStore(s => s.notify);
   const setView = useAppStore(s => s.setView);
   const selectMotion = useMotionStore(s => s.select);
   const openMotion = (asset: string) => {
@@ -253,11 +258,7 @@ export function usePartsSheets() {
     setView('motion');
   };
   const openInBlender = async ({ project, asset, version }: AssetParts) => {
-    try {
-      await commands.assetOpenInBlender(project, asset, version);
-    } catch (error) {
-      notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
-    }
+    await openBlender(`v${version}`, () => commands.assetOpenInBlender(project, asset, version));
   };
   return { openSplit, openAssemble, openInBlender, openMotion };
 }

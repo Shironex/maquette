@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useWait } from '@/lib/waiting';
 import { isGame } from '@/state/game';
 import { shownInspectorTab } from '@/state/inspector-tabs';
 import { useAppStore } from '@/state/use-app-store';
@@ -24,5 +25,19 @@ export function useInspectorView() {
     // A finished run changes the shipped models, so it reloads too.
   }, [projectId, lastRun, load]);
 
-  return { project, view, loading, error, load, tab: shownInspectorTab(tab, isGame(project)) };
+  const estimate = useWait(
+    projectId ? `inspector:${projectId}` : null,
+    view === null && !error,
+    Boolean(error)
+  );
+
+  return {
+    project,
+    view,
+    loading,
+    error,
+    load,
+    estimate,
+    tab: shownInspectorTab(tab, isGame(project)),
+  };
 }

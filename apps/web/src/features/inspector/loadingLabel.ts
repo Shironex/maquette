@@ -1,4 +1,2 @@
-/** "Loading 66 models...", and how far it got once any are done. */
-export function loadingLabel(models: number, done: number): string {
-  return `Loading ${models} models...${done > 0 ? ` ${done} done` : ''}`;
-}
+/** What a stage says while its models load; the count goes beside it. */
+export const loadingLabel = 'Loading the models...';
