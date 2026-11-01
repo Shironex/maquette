@@ -215,10 +215,19 @@ describe('fastPlan', () => {
     assert.deepEqual(names(plan.node), ['lint:meta', 'typecheck', 'test']);
   });
 
-  test('a long list goes to the tools as the whole repo', () => {
-    const files = Array.from({ length: 201 }, (_, i) => `apps/web/src/f${i}.ts`);
-    const plan = fastPlan(files, options);
+  test('a list past the character cap goes to the tools as the whole repo', () => {
+    // Few paths, but long ones: the count alone would let these through.
+    const long = Array.from({ length: 40 }, (_, i) => `apps/web/src/${'a'.repeat(150)}${i}.ts`);
+    const plan = fastPlan(long, options);
+    assert.ok(long.join(' ').length > 6000);
     assert.equal(plan.node[0].args[0], 'lint');
     assert.equal(plan.node.at(-1).args[0], 'format:check');
+  });
+
+  test('many short paths under the cap stay a list', () => {
+    const short = Array.from({ length: 250 }, (_, i) => `apps/web/src/f${i}.ts`);
+    const plan = fastPlan(short, options);
+    assert.ok(short.join(' ').length < 6000);
+    assert.equal(plan.node[0].args[1], 'eslint');
   });
 });

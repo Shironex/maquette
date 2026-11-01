@@ -42,8 +42,12 @@ const readsAcrossParts = file =>
   WHOLE_GATE_FOLDERS.some(folder => file.startsWith(folder)) ||
   PACKAGE_CONFIG.test(file);
 
-/** More paths than this go to the tool as the whole repo, to stay under Windows' command line limit. */
-const MAX_FILE_ARGS = 200;
+/**
+ * The longest list of paths handed to a tool. cmd.exe stops at about 8,000
+ * characters, and a longer list would fail for no fault in the code.
+ */
+const MAX_PATH_CHARS = 6000;
+const fitsCommandLine = paths => paths.join(' ').length <= MAX_PATH_CHARS;
 
 const LINTABLE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 const NOT_LINTED = /(^|\/)generated\//;
@@ -146,7 +150,7 @@ export function fastPlan(files, { nextest, cacheDir, base, exists }) {
   const lintable = present.filter(f => LINTABLE.test(f) && !NOT_LINTED.test(f));
   const frontend = touched.web || touched.site || touched.scripts;
   const node = [];
-  if (lintable.length > MAX_FILE_ARGS) {
+  if (!fitsCommandLine(lintable)) {
     node.push(pnpm('lint', 'lint', ...cacheFlags('eslint', cacheDir)));
   } else if (lintable.length > 0) {
     const flags = cacheFlags('eslint', cacheDir);
@@ -172,7 +176,7 @@ export function fastPlan(files, { nextest, cacheDir, base, exists }) {
   if (touched.site || files.some(f => f.startsWith('packages/'))) {
     node.push(pnpm('build:site', 'build:site'));
   }
-  if (present.length > MAX_FILE_ARGS) {
+  if (!fitsCommandLine(present)) {
     node.push(pnpm('format:check', 'format:check', ...cacheFlags('prettier', cacheDir)));
   } else if (present.length > 0) {
     const flags = cacheFlags('prettier', cacheDir);
