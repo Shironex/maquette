@@ -1,4 +1,4 @@
-import { lastRunLabel, readLastRun } from '@/lib/waiting';
+import { usePastRun } from '@/lib/waiting';
 import { Button, Icon, NumberField, SegmentedControl, Select, Toggle, cn } from '@maquette/ui';
 import type { LoopFormat, PackSource, RenderLook } from '@/ipc/client';
 import { RenderProblemCard } from '@/features/common/RenderProblemCard';
@@ -35,6 +35,7 @@ const RULES: readonly [string, string][] = [
 /** One full turn: the format, the frames, the crop box, the GIF rules and the size. */
 export default function TurntableSheet({ source, assetId, name }: TurntableSheetProps) {
   const t = useTurntableSheet(source, assetId);
+  const lastRun = usePastRun(renderWait('turntable', t.settings));
   if (!t.open) return null;
   const { settings: s, moving } = t;
   const look = STYLE_LABEL[s.look].toLowerCase();
@@ -238,9 +239,7 @@ export default function TurntableSheet({ source, assetId, name }: TurntableSheet
         <span className="flex flex-1 items-center gap-1.5 text-meta text-fg-mute">
           <Icon name="clock" size={13} />
           Headless Blender · no credits
-          {lastRunLabel(readLastRun(renderWait('turntable', s)))
-            ? ` · ${lastRunLabel(readLastRun(renderWait('turntable', s)))}`
-            : ''}
+          {lastRun ? ` · ${lastRun}` : ''}
         </span>
         <Button variant="ghost" onClick={t.close}>
           Cancel

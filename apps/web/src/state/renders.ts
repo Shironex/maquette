@@ -91,37 +91,52 @@ export function isLook(style: RenderStyle): style is RenderLook {
   return style !== 'turntable' && style !== 'contact-sheet';
 }
 
-/** The name one picture's render is timed under: the same style, size and, for a loop, length. */
+/** The name one picture's render is timed under: a past one with the same work says the time. */
 export function renderWait(style: RenderStyle, settings: RenderSettings): string {
-  const length = style === 'turntable' ? `:${settings.length ?? 3}` : '';
-  return `render:${style}:${settings.size ?? 2048}${length}`;
+  const look = settings.look ?? RENDER_DEFAULTS.look;
+  if (style === 'turntable') {
+    const width = settings.width ?? RENDER_DEFAULTS.width;
+    return `render:turntable:${look}:${width}:${settings.length ?? RENDER_DEFAULTS.length}`;
+  }
+  const size = settings.size ?? RENDER_DEFAULTS.size;
+  return `render:${style}:${size}${style === 'contact-sheet' ? `:${look}` : ''}`;
 }
 
-/** The name a batch is timed under: only a batch of as many files says anything about this one. */
-export const renderBatchWait = (files: number) => `render-batch:${files}`;
+/** The name a batch is timed under: as many files, of the same styles, at the same size. */
+export function renderBatchWait(
+  record: Pick<RenderRecord, 'items' | 'sheet' | 'settings'>
+): string {
+  const files = counted(record);
+  const styles = [...new Set(files.map(f => f.style))].sort().join('+');
+  return `render-batch:${files.length}:${styles}:${record.settings.size ?? RENDER_DEFAULTS.size}`;
+}
 
-/** The names a finished render is remembered under, and how long it took; null if it did not finish. */
+/**
+ * The names a finished render is remembered under, and how long it took; null
+ * if it did not finish. The time is what each file's render took: the record's
+ * own dates also hold the wait behind another render in the lane, and any stop.
+ */
 export function finishedRender(record: RenderRecord): { keys: string[]; ms: number } | null {
   if (record.state !== 'done' || !record.finishedAt) return null;
-  const ms = Date.parse(record.finishedAt) - Date.parse(record.createdAt);
-  const files = filesOf(record).filter(f => f.state !== 'skipped');
-  if (!Number.isFinite(ms) || ms < 0 || files.length === 0) return null;
+  const files = counted(record);
+  const measured = files.every(f => f.state === 'done' && (f.seconds ?? 0) > 0);
+  if (files.length === 0 || !measured) return null;
   const only = files.length === 1 ? files[0] : undefined;
-  const clean = files.every(f => f.state === 'done');
-  if (!clean) return null;
   return {
-    ms,
-    keys: [
-      renderBatchWait(files.length),
-      ...(only ? [renderWait(only.style, record.settings)] : []),
-    ],
+    ms: files.reduce((sum, f) => sum + (f.seconds ?? 0) * 1000, 0),
+    keys: [renderBatchWait(record), ...(only ? [renderWait(only.style, record.settings)] : [])],
   };
 }
 
 /** Every file of a render, in the order they run. */
-export function filesOf(record: RenderRecord): RenderFile[] {
+export function filesOf(record: Pick<RenderRecord, 'items' | 'sheet'>): RenderFile[] {
   const files = record.items.flatMap(i => i.files);
   return record.sheet ? [...files, record.sheet] : files;
+}
+
+/** The files a render runs: what it left out says nothing about how long it takes. */
+function counted(record: Pick<RenderRecord, 'items' | 'sheet'>): RenderFile[] {
+  return filesOf(record).filter(f => f.state !== 'skipped');
 }
 
 const COUNTED: ReadonlySet<RenderFile['state']> = new Set(['done', 'warn', 'failed']);

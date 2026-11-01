@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { lastRunLabel, readLastRun } from '@/lib/waiting';
+import { usePastRun } from '@/lib/waiting';
 import { progressOf, renderBatchWait, runningOf, STYLE_LABEL } from '@/state/renders';
 import { useRenderStore } from '@/state/use-render-store';
 
@@ -22,10 +22,7 @@ export function useRenderSheet() {
         )
       )
     : [];
-  const estimate =
-    record?.state === 'running' && progress
-      ? lastRunLabel(readLastRun(renderBatchWait(progress.total)))
-      : null;
+  const estimate = usePastRun(record?.state === 'running' ? renderBatchWait(record) : null);
   const leftOut = record ? [] : picked.filter(t => !t.hasColour && rows[t.key]?.includes('toon'));
   return {
     ...s,
