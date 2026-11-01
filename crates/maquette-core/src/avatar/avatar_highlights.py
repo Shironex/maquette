@@ -31,7 +31,9 @@ A pixel is a baked highlight when all of these hold, each as a soft ramp, not a 
 
 A highlight moves `strength` of the way toward the colour around it, weighted by how sure
 each test is, so detail stays visible and nothing is painted over. An image where less than
-MIN_COVERAGE of the pixels are highlights is left as it is (no copy is written). The report
+MIN_COVERAGE of the pixels are highlights is left as it is (no copy is written), and so is an
+image where more than MAX_COVERAGE are: that many means pale islands beside dark ones in a
+shared atlas, which atlas neighbours cannot tell from shine. The report
 says, per image, how much of the texture the highlights cover and whether a copy was written.
 """
 
@@ -56,6 +58,11 @@ WARMER = (0.12, 0.07)      # red minus blue above the surroundings' at most this
 KEEP_BELOW = 0.05          # a pixel standing out less than this is part of the surroundings
 STRONG = 0.5               # a pixel this sure is counted as a highlight
 MIN_COVERAGE = 0.002       # an image with fewer highlights than this is left as it is
+# Baked shine is a few percent of a texture at most. Past this the "highlights" are almost
+# surely pale islands (skin, hair, lace) packed beside dark ones in one atlas: islands that
+# touch in the atlas are not neighbours on the surface, so the test cannot tell them from
+# shine, and softening would stain them with the dark cloth's colour.
+MAX_COVERAGE = 0.05
 JPEG_QUALITY = 92
 
 
@@ -220,6 +227,12 @@ def run_image(entry, strength):
     found.update(stats(sure, dark))
     if found["coverage"] < MIN_COVERAGE:
         found["skipped"] = "too few baked highlights to change"
+        return found
+    if found["coverage"] > MAX_COVERAGE:
+        found["skipped"] = (
+            f"{found['coverage'] * 100:.1f}% of the texture reads as baked highlights, more "
+            f"than shine can be (over {MAX_COVERAGE * 100:.0f}%): pale and dark parts share "
+            "this atlas, so the texture was kept as it is")
         return found
     out = px.copy()
     out[..., :3] = softened

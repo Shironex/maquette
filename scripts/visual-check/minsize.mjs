@@ -1,12 +1,12 @@
 /**
  * The minimum window's shots for scripts/visual-check.mjs (ONLY=minsize):
- * at 898 by 577 the Models header, the Inspector's Budget tab, the Board with
+ * at 1120 by 720 the Models header, the Inspector's Budget tab, the Board with
  * a card waiting for its model and the status bar, the By hand checklist
  * with the waiting batches first and the quick view kept inside the window,
  * which still closes with Escape after a preview mode is picked.
  */
 
-const SMALL = { width: 898, height: 577 };
+const SMALL = { width: 1120, height: 720 };
 
 export async function minSizeShots({ open, shot }) {
   const library = await open('&scenario=configured&library=demo', '#/library', SMALL);

@@ -48,14 +48,15 @@ Maquette and turn the server on in Settings > Agents. An error names its `code`,
    about the rest pose (no rig, a skin blocker) needs the model fixed first; report it.
 2. **Bones.** `readiness.naming` says which naming the joints matched (`convention`), how many
    required bones it found, any `ambiguous` matches and whether the map is `confident`;
-   `readiness.bones` gives each bone's joint and `naming` (`descriptive` is a guess from words
-   such as Left elbow; `override` is set by hand); `readiness.joints` lists the joints to pick
-   from. When bones are missing or unclear, ask the person, or map them with `set_avatar`
+   `get_avatar` with `include: ["bones"]` gives each bone's joint and `naming` under
+   `readiness.bones` (`descriptive` is a guess from words such as Left elbow; `override` is set
+   by hand), and `include: ["joints"]` lists the joints to pick from under `readiness.joints`;
+   the default answer only counts them and names `readiness.missingRequired`. When bones are missing or unclear, ask the person, or map them with `set_avatar`
    `{ bones: { leftUpperLeg: "Left thigh" } }` (null leaves a bone unmapped, `clearBones` maps it
-   by name again) and say which you set. Read `get_avatar` again to see the readiness follow.
+   by name again) and say which you set. `set_avatar` answers `changed`, `spec`, `problems` and `ready`; read `get_avatar` again to see the readiness follow.
 3. **Meta.** `set_avatar` `{ project, asset, meta?, bones?, clearBones?, material?, highlights? }`.
    Only the fields you give change. With `mtoon-soft`, `highlights: "soften"` (the default) softens
-   strong highlights baked into dark material on a copy of the texture; `keep` leaves it. A build needs `meta.name` and at least one of `meta.authors`. Ask the
+   strong highlights baked into dark material on a copy of the texture (a texture where over 5% reads as highlights is left as it is, with a note: pale and dark parts share its atlas); `keep` leaves it. A build needs `meta.name` and at least one of `meta.authors`. Ask the
    person for the licence (`avatarPermission`, `commercialUsage`, `modification` and the allow
    flags) rather than loosening the workspace defaults yourself.
 4. **Plan.** `build_avatar` `{ project, asset, dryRun: true }`: the version read, whether it

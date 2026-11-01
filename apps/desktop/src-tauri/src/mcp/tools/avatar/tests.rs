@@ -1,10 +1,15 @@
 use std::path::Path;
 
+use maquette_core::avatar::AvatarSpec;
 use maquette_core::avatar::export::AvatarExport;
-use maquette_core::avatar::export::{NoSprings, SpringCarried, SpringsChange, SpringsView};
+use maquette_core::avatar::export::{
+    AvatarView, NoSprings, SpringCarried, SpringsChange, SpringsView,
+};
 use maquette_core::avatar::highlights::{HighlightsReport, ImageHighlights};
-use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
-use maquette_core::avatar::reweight::{ReweightBridge, ReweightReport};
+use maquette_core::avatar::normalize::{
+    NormalizeReport, NormalizeSheets, NormalizeState, Normalized,
+};
+use maquette_core::avatar::reweight::{ReweightBridge, ReweightReport, Reweighted};
 use maquette_core::avatar::springs::{
     ChainBuilt, ChainReport, Chained, FoundSprings, SpringCandidate,
 };
@@ -467,4 +472,74 @@ fn a_small_piece_is_confirmed_by_id_with_its_short_chain() {
     let summary = springs::candidates_summary(found);
     assert_eq!(summary["candidates"][1]["small"], true);
     assert_eq!(summary["candidates"][0]["small"], false);
+}
+
+fn avatar_view() -> AvatarView {
+    let readiness = vrm::readiness(
+        &fixture::humanoid(&HumanoidSpec::default()),
+        Path::new("."),
+        &BoneOverrides::new(),
+    )
+    .expect("readiness");
+    AvatarView {
+        project: "pets".into(),
+        asset: "hero".into(),
+        name: "Hero".into(),
+        kind: maquette_core::AssetKind::Character,
+        version: Some(1),
+        model: Some("/p/hero.glb".into()),
+        spec: AvatarSpec::default(),
+        stored: true,
+        readiness: Some(readiness),
+        readiness_error: None,
+        needs_normalize: false,
+        needs_reweight: false,
+        reweighted: None,
+        normalized: None,
+        springs: view(),
+        export: None,
+        export_path: "/p/exports/hero.vrm".into(),
+        meta_problem: Some("The avatar needs a name.".into()),
+    }
+}
+
+#[test]
+fn get_avatar_is_short_until_bones_and_joints_are_asked_for() {
+    let view = avatar_view();
+    let short = view_summary(&view, false, Include::default());
+    let readiness = &short["readiness"];
+    assert!(readiness.get("bones").is_none() && readiness.get("joints").is_none());
+    assert!(readiness["jointCount"].as_u64().is_some());
+    assert_eq!(readiness["missingRequired"], json!([]));
+    assert_eq!(short["waitingApproval"], json!(false));
+    assert_eq!(short["springs"]["found"]["candidates"][0]["id"], "hair-1");
+
+    let words = ["Bones".to_string(), "joints".to_string()];
+    let full = view_summary(&view, true, Include::parse(&words).expect("include"));
+    assert!(
+        full["readiness"]["bones"]
+            .as_array()
+            .is_some_and(|b| b.len() == 55)
+    );
+    assert!(full["readiness"]["joints"].is_array());
+    assert!(short.to_string().len() < full.to_string().len() / 2);
+    assert!(Include::parse(&["spring".to_string()]).is_err());
+}
+
+#[test]
+fn set_avatar_answers_what_changed_the_spec_and_the_problems() {
+    let saved = avatar_view();
+    let mut before = saved.spec.clone();
+    before.material = MaterialMode::Pbr;
+    before.highlights = Highlights::Keep;
+    let answer = set_answer(&before, &saved);
+    assert_eq!(answer["status"], "saved");
+    assert_eq!(answer["changed"], json!(["highlights", "material"]));
+    assert_eq!(answer["problems"], json!(["The avatar needs a name."]));
+    assert_eq!(answer["ready"], json!(false));
+    assert!(answer.get("readiness").is_none() && answer.get("springs").is_none());
+
+    let same = set_answer(&saved.spec, &saved);
+    assert_eq!(same["status"], "unchanged");
+    assert_eq!(same["changed"], json!([]));
 }

@@ -206,3 +206,57 @@ fn soften_a_written_vrm_in_blender() {
     assert!(report.softened(), "{:?}", report.note);
     fs::write(out.join("softened.vrm"), &softened.bytes).expect("vrm");
 }
+
+/// An atlas like a generated character's: dark cloth with narrow pale grey
+/// and skin islands (strands, lace, a cheek) packed between its islands,
+/// each narrower than the window the script measures a highlight with.
+fn patchwork(side: usize) -> Vec<u8> {
+    let (cell, strip) = (36, 10);
+    let mut rgb = Vec::with_capacity(side * side * 3);
+    for y in 0..side {
+        for x in 0..side {
+            let (cx, cy) = (x / cell, y / cell);
+            let (ix, iy) = (x % cell, y % cell);
+            let pale = if (cx + cy) % 2 == 0 {
+                ix < strip
+            } else {
+                iy < strip
+            };
+            let colour = match (pale, (cx + 2 * cy) % 3) {
+                (false, _) => LEATHER,
+                (true, 0) => SKIN,
+                (true, _) => [190, 188, 200],
+            };
+            rgb.extend_from_slice(&colour);
+        }
+    }
+    rgb
+}
+
+#[test]
+#[ignore = "runs Blender"]
+fn an_atlas_of_pale_islands_beside_dark_ones_is_left_as_it_is() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("tempdir");
+    let image = BaseColorImage {
+        image: 0,
+        mime: "image/png".to_string(),
+        bytes: write_png(512, 512, &patchwork(512)),
+    };
+    let work = dir.path().join(HIGHLIGHTS_DIR);
+    let found = run(
+        &test_blender::runner(),
+        &test_blender::toolbox(&blender),
+        &work,
+        std::slice::from_ref(&image),
+    )
+    .expect("run");
+    let found = &found[0];
+    println!("coverage {:.4}", found.coverage);
+    assert!(found.coverage > MAX_COVERAGE, "{}", found.coverage);
+    assert!(found.output.is_none(), "no softened copy is written");
+    let note = found.skipped.as_deref().expect("a note");
+    assert!(note.contains("kept as it is"), "{note}");
+}

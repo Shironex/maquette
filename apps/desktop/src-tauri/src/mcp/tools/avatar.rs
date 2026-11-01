@@ -4,13 +4,16 @@
 //! sheets of each step in the app; no tool approves them.
 
 mod springs;
+mod summary;
+
+use summary::{Include, pose_summary, reweight_summary, set_answer, view_summary};
 
 use crate::mcp::tools::ToolError;
 use std::collections::BTreeMap;
 
 use maquette_core::avatar::export::{self, AvatarBuild, AvatarPatch};
-use maquette_core::avatar::normalize::{Elbows, Fingers, Normalized};
-use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
+use maquette_core::avatar::normalize::{Elbows, Fingers};
+use maquette_core::avatar::reweight::ReweightMode;
 use maquette_core::avatar::springs::SpringsMode;
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
@@ -34,6 +37,11 @@ pub struct GetAvatarArgs {
     pub asset: String,
     /// The version to read; the newest when left out.
     pub version: Option<u32>,
+    /// Extra detail the short answer leaves out: "bones" (all 55 humanoid bones with the joint
+    /// each maps to) and "joints" (every skin joint to pick from with set_avatar bones). The
+    /// answer is short by default; the missing required bones are always named.
+    #[serde(default)]
+    pub include: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -145,44 +153,6 @@ fn parse_reweight(word: Option<&str>) -> Result<ReweightMode, String> {
     })
 }
 
-/// A reweight, short: the sheets to judge and its counts.
-fn reweight_summary(found: &Reweighted) -> Value {
-    let report = &found.report;
-    json!({
-        "sourceVersion": found.source_version,
-        "state": to_short_value(found.state),
-        "sheets": to_short_value(&found.sheets),
-        "moved": report.moved,
-        "keptAsSleeve": report.kept_as_sleeve,
-        "band": report.band,
-        "bridges": to_short_value(&report.bridges),
-        "bridgeFaces": to_short_value(found.bridges),
-        "hiddenFaces": report.hidden_faces,
-        "fromBones": to_short_value(&report.from_bones),
-        "toBones": to_short_value(&report.to_bones),
-    })
-}
-
-/// A normalised rest pose, short: the sheets to judge and its numbers.
-fn pose_summary(found: &Normalized) -> Value {
-    json!({
-        "sourceVersion": found.source_version,
-        "state": to_short_value(found.state),
-        "sheets": to_short_value(&found.sheets),
-        "turnedDeg": found.report.turned_deg,
-        "elbows": to_short_value(found.report.elbows),
-        "fingers": to_short_value(found.report.fingers),
-        "straightened": to_short_value(&found.report.straightened),
-        "lifted": to_short_value(&found.report.lifted),
-        "after": to_short_value(&found.report.after),
-        "findingsAfter": to_short_value(&found.readiness.findings),
-        "reweight": found.reweight.as_ref().map(|r| json!({
-            "moved": r.moved,
-            "keptAsSleeve": r.kept_as_sleeve,
-        })),
-    })
-}
-
 /// The answer to a build, and the approval it leaves for a person.
 fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
     match built {
@@ -262,12 +232,13 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
 #[tool_router(router = avatar_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a character asset's VRM avatar: its readiness (the 55 humanoid bones with the joint each maps to, the 15 required, the naming report, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (meta, bone overrides, material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, needsReweight and the last reweight, the last normalised rest pose with its sheets and state (pending, approved or denied), the springs, the last export (path, size, what it still lacks) and whether an approval waits. springs.ready says the model the VRM is written from is ready. springs.found lists the parts that could swing that a build looked for, each with an id such as hair-1, a kind (hair, cloth, accessory), the bone it hangs from, its centre line, length, vertex count, how sure the finder is and a colour on springs.found.sheet; small pieces close to the body come after them as charm-1 with small true and a chain of 2 to 4 joints. springs.chained is the last chains with their sheets and state; the confirmed ones are spec.springs.",
+        description = "Get a character asset's VRM avatar, short by default: its readiness (bones mapped, the 15 required and any still missing, the naming report, the rest pose measures and the findings, blockers first; include [\"bones\"] adds the 55 humanoid bones and their joints, include [\"joints\"] the skin's joints for set_avatar bones), the spec (meta, bone overrides, material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, needsReweight and the last reweight, the last normalised rest pose with its sheets and state (pending, approved or denied), the springs, the last export (path, size, what it still lacks) and whether an approval waits. springs.ready says the model the VRM is written from is ready. springs.found lists the parts that could swing that a build looked for, each with an id such as hair-1, a kind (hair, cloth, accessory), the bone it hangs from, length, vertex count, confidence, the joints of its chain and a colour on springs.found.sheet (no centre line: a pick by id takes it); small pieces close to the body come after as charm-1 with small true. springs.chained is the last chains with their sheets and state; the confirmed ones are spec.springs.",
         annotations(read_only_hint = true)
     )]
     async fn get_avatar(&self, Parameters(args): Parameters<GetAvatarArgs>) -> Out {
         let found = self
             .blocking(move |host, hub| {
+                let include = Include::parse(&args.include)?;
                 let asset = asset_id(host, &args.project, &args.asset)?;
                 let target = Target {
                     project: &args.project,
@@ -279,20 +250,17 @@ impl McpTools {
                     springs: SpringsMode::default(),
                 };
                 let view = commands::view(host.session(), &target)?;
-                let mut value = to_short_value(&view);
-                value["waitingApproval"] = json!(
-                    hub.rest_pose_for(&args.project, &asset).is_some()
-                        || hub.reweight_for(&args.project, &asset).is_some()
-                        || hub.springs_for(&args.project, &asset).is_some()
-                );
-                Ok(value)
+                let waiting = hub.rest_pose_for(&args.project, &asset).is_some()
+                    || hub.reweight_for(&args.project, &asset).is_some()
+                    || hub.springs_for(&args.project, &asset).is_some();
+                Ok(view_summary(&view, waiting, include))
             })
             .await;
         respond(found)
     }
 
     #[tool(
-        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet; springs \"none\" confirms no springs, while an empty list only clears the picks). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
+        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet; springs \"none\" confirms no springs, while an empty list only clears the picks). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Answers short: status, changed (fields such as meta.name), the spec, problems (what stops a build) and ready; get_avatar reads the rest. The open app updates live.",
         annotations(idempotent_hint = true)
     )]
     async fn set_avatar(&self, Parameters(args): Parameters<SetAvatarArgs>) -> Out {
@@ -352,7 +320,7 @@ impl McpTools {
                 let next = export::apply_patch(&current.spec, &defaults, &patch)?;
                 let saved = commands::save(host.session(), &target, next)?;
                 host.avatar_changed(&args.project, &asset);
-                Ok(to_short_value(&saved))
+                Ok(set_answer(&current.spec, &saved))
             })
             .await;
         respond(found)
