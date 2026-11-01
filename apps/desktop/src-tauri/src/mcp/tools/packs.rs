@@ -163,6 +163,7 @@ fn summary(record: &PackRecord) -> Value {
         "of": record.items.len(),
         "needYou": needs,
         "message": record.message,
+        "leftOut": record.left_out,
         "items": items,
     })
 }
@@ -261,6 +262,7 @@ impl McpTools {
                             "dir": r.dir,
                             "zip": r.zip,
                             "message": r.message,
+                            "leftOut": r.left_out,
                         })
                     })
                     .collect();

@@ -301,6 +301,7 @@ pub fn finish(record: &mut PackRecord, choice: ZipChoice) -> CoreResult<()> {
     });
     record.state = PackState::Done;
     record.finished_at = Some(now_rfc3339());
+    record.left_out = u32::try_from(left.len()).unwrap_or(u32::MAX);
     record.message = (!left.is_empty()).then(|| {
         format!(
             "{} model{} left out of the pack.",

@@ -142,7 +142,19 @@ pub struct PackRecord {
     pub bytes: Option<f64>,
     /// Why it stopped or failed, or what finishing left out.
     pub message: Option<String>,
+    /// How many models finishing left out of the pack.
+    #[serde(default)]
+    pub left_out: u32,
     pub preset: Option<String>,
+}
+
+/// What a record from before `leftOut` said it left out, in its message.
+fn left_out_in(message: &str) -> u32 {
+    message
+        .split_once(" model")
+        .filter(|(_, rest)| rest.contains("left out of the pack"))
+        .and_then(|(count, _)| count.parse().ok())
+        .unwrap_or(0)
 }
 
 impl PackRecord {
@@ -200,7 +212,11 @@ pub fn load(root: &Path, id: &str) -> CoreResult<PackRecord> {
         }
         Err(err) => return Err(CoreError::io(&path, err)),
     };
-    let record: PackRecord = serde_json::from_str(&text).map_err(|e| CoreError::json(&path, e))?;
+    let mut record: PackRecord =
+        serde_json::from_str(&text).map_err(|e| CoreError::json(&path, e))?;
+    if record.left_out == 0 {
+        record.left_out = record.message.as_deref().map_or(0, left_out_in);
+    }
     if record.version > RECORD_VERSION {
         return Err(CoreError::UnsupportedVersion {
             found: record.version,
@@ -284,4 +300,16 @@ pub fn out_dir(
     }
     let zip = parent.join(format!("{name}.zip"));
     Ok((dir, zip))
+}
+
+#[cfg(test)]
+mod left_out_tests {
+    use super::left_out_in;
+
+    #[test]
+    fn an_old_message_says_how_many_were_left_out() {
+        assert_eq!(left_out_in("1 model left out of the pack."), 1);
+        assert_eq!(left_out_in("12 models left out of the pack."), 12);
+        assert_eq!(left_out_in("Stopped at 3 models of 9."), 0);
+    }
 }

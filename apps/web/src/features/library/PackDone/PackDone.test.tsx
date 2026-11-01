@@ -67,7 +67,9 @@ describe('a finished pack', () => {
     const items = done.items.map((item, n) =>
       n === 0 ? { ...item, state: 'fail' as const, files: [] } : item
     );
-    render(<PackDone record={{ ...done, items, message: '1 model left out of the pack.' }} />);
+    render(
+      <PackDone record={{ ...done, items, message: '1 model left out of the pack.', leftOut: 1 }} />
+    );
     expect(
       screen.getByText('2 of 3 models are in the pack. 1 model left out of the pack.')
     ).toBeVisible();

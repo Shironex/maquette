@@ -149,6 +149,7 @@ impl Packs {
             finished_at: None,
             bytes: None,
             message: None,
+            left_out: 0,
             preset: request.preset.clone(),
         };
         if let Some(preset) = &request.preset {
@@ -168,6 +169,7 @@ impl Packs {
     fn launch(&self, drive: &Drive, mut record: PackRecord, only: Option<String>) {
         record.state = PackState::Running;
         record.message = None;
+        record.left_out = 0;
         self.inner.tell(&drive.root, &record);
         self.inner.active().insert(
             record.id.clone(),

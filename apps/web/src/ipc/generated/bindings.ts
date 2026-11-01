@@ -4646,6 +4646,8 @@ export type PackRecord = {
 	bytes: number | null,
 	/**  Why it stopped or failed, or what finishing left out. */
 	message: string | null,
+	/**  How many models finishing left out of the pack. */
+	leftOut?: number,
 	preset: string | null,
 };
 

@@ -509,6 +509,7 @@ pub(super) fn done_record(dir: &Path) -> PackRecord {
         finished_at: None,
         bytes: None,
         message: None,
+        left_out: 0,
         preset: None,
     }
 }
