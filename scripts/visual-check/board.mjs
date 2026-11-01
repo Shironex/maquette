@@ -91,10 +91,12 @@ export async function boardShots({ open, shot }) {
   await shot(board, 'board-card-menu-move');
   await board.keyboard.press('Escape');
 
-  // From the keyboard: End to Move to, ArrowRight into the submenu.
+  // From the keyboard: End to Remove, two up to Move to, ArrowRight into the submenu.
   await lanterns.click();
   await menu.waitFor();
   await board.keyboard.press('End');
+  await board.keyboard.press('ArrowUp');
+  await board.keyboard.press('ArrowUp');
   await board.keyboard.press('ArrowRight');
   await board.getByRole('menu', { name: 'Move to' }).getByRole('menuitem').first().waitFor();
   await shot(board, 'board-card-menu-move-keys');

@@ -39,24 +39,61 @@ describe('CardMenu', () => {
     expect(labels).toEqual([
       'Send to 3D',
       'Refs and views...',
-      'Rename...',
-      'Real size and fix-ups...',
-      'Copy to project...',
       'Add a model file as the next version...',
-      'Add to library...',
-      'Inspect 3D model',
       'Fix in rig doctor',
+      'Inspect 3D model',
       'Open in Blender',
-      'Remove from project...',
+      'Real size and fix-ups...',
+      'Rename...',
+      'Add to library...',
       'Move to',
+      'Copy to project...',
+      'Remove from project...',
     ]);
-    expect(within(menu).getAllByRole('separator')).toHaveLength(2);
+    expect(within(menu).getAllByRole('separator')).toHaveLength(3);
+    for (const section of ['Make', 'Asset', 'Move'])
+      expect(within(menu).getByRole('group', { name: section })).toBeInTheDocument();
     expect(within(menu).queryByRole('menuitem', { name: 'Settings card' })).toBeNull();
     await userEvent.hover(within(menu).getByRole('menuitem', { name: 'Move to' }));
     const move = screen.getByRole('menu', { name: 'Move to' });
     expect(within(move).queryByRole('menuitem', { name: 'Blender' })).toBeNull();
     await userEvent.click(within(move).getByRole('menuitem', { name: 'Web' }));
     expect(board.actions.move).toHaveBeenCalledWith(asset, 'web');
+  });
+
+  it('offers the rig doctor only for a rigged model, and on the newest version', () => {
+    const elsheria = mockAsset('Elsheria');
+    const plain = mockAsset('Veil gate');
+    const { rerender } = render(
+      <CardMenu asset={plain} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Fix in rig doctor' })).toBeNull();
+    rerender(
+      <CardMenu asset={elsheria} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />
+    );
+    expect(screen.getByRole('menuitem', { name: 'Fix in rig doctor' })).toBeInTheDocument();
+  });
+
+  it('says on a second line why Rebuild waits', () => {
+    const built: BuiltAsset = {
+      asset: 'elsheria',
+      name: 'Elsheria',
+      source: { script: 'built/elsheria.py', helpers: [], root: null, last: null },
+      state: 'building',
+      missing: [],
+    };
+    render(
+      <CardMenu
+        asset={mockAsset('Elsheria')}
+        waiting={undefined}
+        refPicture={null}
+        built={built}
+        board={fakeBoardEnv()}
+      />
+    );
+    expect(screen.getByRole('menuitem', { name: 'Rebuild' })).toHaveAccessibleDescription(
+      'Building now'
+    );
   });
 
   it('opens the refs sheet of the asset', async () => {
@@ -116,6 +153,11 @@ describe('CardMenu', () => {
       'Settings card',
       'Add model...',
     ]);
+    expect(screen.getByRole('group', { name: 'By hand' })).toBeInTheDocument();
+    expect(labels.at(-1)).toBe('Remove from project...');
+    expect(labels).toContain('Refs and views...');
+    for (const making of ['Send to 3D', 'Add a model file as the next version...'])
+      expect(screen.queryByRole('menuitem', { name: making })).toBeNull();
     await user.click(screen.getByRole('menuitem', { name: 'Reveal image in Finder' }));
     expect(revealImage).toHaveBeenCalledWith('guardian-statues-1', 'front.png');
     await user.click(screen.getByRole('menuitem', { name: 'Open handoff folder' }));
@@ -158,7 +200,7 @@ describe('CardMenu', () => {
     expect(openPanel).toHaveBeenCalledWith('frostveil', 'elsheria');
   });
 
-  it('asks before removing the card, in the danger colour, last of its section', async () => {
+  it('asks before removing the card, in the danger colour, last of the menu', async () => {
     const board = fakeBoardEnv();
     const asset = mockAsset('Elsheria');
     render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={board} />);

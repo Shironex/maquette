@@ -87,13 +87,18 @@ function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
   ];
 }
 
-/** Making the model: Send to 3D (or Rebuild for a built asset) and Make object refs. */
+/**
+ * Making the model: Send to 3D (or Rebuild for a built asset), its refs, a
+ * model file someone fixed, and the rig doctor for a rigged model.
+ */
 function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuItem[] {
   const openPanel = useProvidersStore(s => s.openPanel);
   const rebuild = useBuiltStore(s => s.rebuild);
   const openObjects = useLabStore(s => s.openObjects);
   const openRefs = useRefsStore(s => s.open);
+  const addModelFile = useProvidersStore(s => s.addModelFile);
   const { workspace, project, actions } = board;
+  const rigged = (asset.versions.at(-1)?.stats?.joints ?? 0) > 0;
   const section = 'make';
   const make: MenuItem = built
     ? {
@@ -149,50 +154,6 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
           },
         ]
       : []),
-  ];
-}
-
-/**
- * The asset itself: rename, size, copy, the library, the 3D quick view,
- * Blender and, last, remove. The library, quick view and Blender items wait
- * for a model and stay hidden until then.
- */
-function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
-  const { view: library, openAdd, openUpdate } = useLibraryStore();
-  const addModelFile = useProvidersStore(s => s.addModelFile);
-  const waitingUpdate = updateFor(library, asset);
-  const openQuickView = useQuickViewStore(s => s.open);
-  const { project, actions } = board;
-  const hasModel = asset.versions.length > 0;
-  const quickView = assetQuickView(asset, board.workspace);
-  const section = 'asset';
-  return [
-    {
-      id: 'rename',
-      label: 'Rename...',
-      icon: 'file-text',
-      section,
-      onSelect: () => actions.setRenaming(asset),
-    },
-    {
-      id: 'size',
-      label: 'Real size and fix-ups...',
-      icon: 'ruler',
-      section,
-      hint: isGame(project)
-        ? 'How big it really is, and repairs made on a copy before the model is exported'
-        : 'How big it really is, and repairs made on a copy before the scene is built',
-      onSelect: () => actions.setSizing(asset),
-    },
-    {
-      id: 'copy',
-      label: 'Copy to project...',
-      icon: 'copy',
-      section,
-      hint: 'Copies the card with its refs and versions; it stays here too',
-      keepOpen: true,
-      onSelect: () => actions.setCopyFor(asset.id),
-    },
     ...(project && !built
       ? [
           {
@@ -205,6 +166,84 @@ function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
           },
         ]
       : []),
+    ...(rigged
+      ? [
+          {
+            id: 'rig-doctor',
+            label: 'Fix in rig doctor',
+            icon: 'wrench' as const,
+            section,
+            hint: 'Reads the rig of the newest version; the pose test and fix wait for your click, on a copy',
+            onSelect: () =>
+              void useRigStore.getState().show(
+                {
+                  inbox: null,
+                  project: board.project?.id ?? null,
+                  asset: asset.id,
+                  version: null,
+                },
+                asset.name
+              ),
+          },
+        ]
+      : []),
+  ];
+}
+
+/**
+ * The asset itself: looking at it, its size and name, and the library. The
+ * library, quick view and Blender items wait for a model and stay hidden
+ * until then.
+ */
+function useAssetItems({ asset, board }: CardMenuProps): MenuItem[] {
+  const { view: library, openAdd, openUpdate } = useLibraryStore();
+  const waitingUpdate = updateFor(library, asset);
+  const openQuickView = useQuickViewStore(s => s.open);
+  const { project, actions } = board;
+  const hasModel = asset.versions.length > 0;
+  const quickView = assetQuickView(asset, board.workspace);
+  const section = 'asset';
+  return [
+    ...(quickView
+      ? [
+          {
+            id: 'quick-view',
+            label: 'Inspect 3D model',
+            icon: 'cube-transparent' as const,
+            section,
+            hint: `Turns v${quickView.version} around in a 3D preview, without leaving the Board`,
+            onSelect: () => openQuickView(quickView),
+          },
+        ]
+      : []),
+    ...(hasModel
+      ? [
+          {
+            id: 'blender',
+            label: 'Open in Blender',
+            icon: 'arrow-square-out' as const,
+            section,
+            onSelect: () => void actions.openInBlender(asset),
+          },
+        ]
+      : []),
+    {
+      id: 'size',
+      label: 'Real size and fix-ups...',
+      icon: 'ruler',
+      section,
+      hint: isGame(project)
+        ? 'How big it really is, and repairs made on a copy before the model is exported'
+        : 'How big it really is, and repairs made on a copy before the scene is built',
+      onSelect: () => actions.setSizing(asset),
+    },
+    {
+      id: 'rename',
+      label: 'Rename...',
+      icon: 'file-text',
+      section,
+      onSelect: () => actions.setRenaming(asset),
+    },
     ...(hasModel
       ? [
           {
@@ -229,57 +268,16 @@ function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
           },
         ]
       : []),
-    ...(quickView
-      ? [
-          {
-            id: 'quick-view',
-            label: 'Inspect 3D model',
-            icon: 'cube-transparent' as const,
-            section,
-            hint: `Turns v${quickView.version} around in a 3D preview, without leaving the Board`,
-            onSelect: () => openQuickView(quickView),
-          },
-        ]
-      : []),
-    ...(hasModel
-      ? [
-          {
-            id: 'rig-doctor',
-            label: 'Fix in rig doctor',
-            icon: 'wrench' as const,
-            section,
-            hint: 'Reads the rig of the newest version; the pose test and fix wait for your click, on a copy',
-            onSelect: () =>
-              void useRigStore.getState().show(
-                {
-                  inbox: null,
-                  project: board.project?.id ?? null,
-                  asset: asset.id,
-                  version: null,
-                },
-                asset.name
-              ),
-          },
-          {
-            id: 'blender',
-            label: 'Open in Blender',
-            icon: 'arrow-square-out' as const,
-            section,
-            onSelect: () => void actions.openInBlender(asset),
-          },
-        ]
-      : []),
-    {
-      id: 'remove',
-      label: 'Remove from project...',
-      icon: 'trash',
-      tone: 'danger',
-      section,
-      hint: 'Takes the card off the Board and moves its files to the workspace trash, where Recently removed can restore it',
-      onSelect: () => actions.setRemoving([asset]),
-    },
   ];
 }
+
+/** The headings of a card's menu; Remove stands alone under its line. */
+export const CARD_MENU_SECTIONS = {
+  handoff: 'By hand',
+  make: 'Make',
+  asset: 'Asset',
+  move: 'Move',
+};
 
 /** The items of a card's menu, and of its Copy to project list. */
 export function useCardMenu(props: CardMenuProps) {
@@ -298,19 +296,46 @@ export function useCardMenu(props: CardMenuProps) {
     hint: actions.copying ? 'Copying' : undefined,
     onSelect: () => void actions.copyTo(asset, p),
   }));
-  const moveTo: MenuItem = {
-    id: 'move',
-    label: 'Move to',
-    icon: 'arrows-out-cardinal',
-    section: 'move',
-    submenu: STAGES.filter(s => s !== asset.stage).map(s => ({
-      id: `move-${s}`,
-      label: STAGE_LABEL[s],
-      icon: STAGE_ICON[s],
-      onSelect: () => void actions.move(asset, s),
-    })),
+  const moveItems: MenuItem[] = [
+    {
+      id: 'move',
+      label: 'Move to',
+      icon: 'arrows-out-cardinal',
+      section: 'move',
+      submenu: STAGES.filter(s => s !== asset.stage).map(s => ({
+        id: `move-${s}`,
+        label: STAGE_LABEL[s],
+        icon: STAGE_ICON[s],
+        onSelect: () => void actions.move(asset, s),
+      })),
+    },
+    {
+      id: 'copy',
+      label: 'Copy to project...',
+      icon: 'copy',
+      section: 'move',
+      hint: 'Copies the card with its refs and versions; it stays here too',
+      keepOpen: true,
+      onSelect: () => actions.setCopyFor(asset.id),
+    },
+  ];
+  const remove: MenuItem = {
+    id: 'remove',
+    label: 'Remove from project...',
+    icon: 'trash',
+    tone: 'danger',
+    section: 'remove',
+    hint: 'Takes the card off the Board and moves its files to the workspace trash, where Recently removed can restore it',
+    onSelect: () => actions.setRemoving([asset]),
   };
-  const items = [...handoff, ...make, ...assetItems, moveTo];
+  // A card waiting for its model has one job: bringing that model in, so of
+  // Make only its refs stay, which help make it. Send to 3D and the rest come
+  // back once the send is stopped in Sends.
+  const refsOnly = make
+    .filter(item => item.id === 'refs' || item.id === 'objects')
+    .map(item => ({ ...item, section: 'handoff' }));
+  const first = waiting ? [...handoff, ...refsOnly] : make;
+  const items = [...first, ...assetItems, ...moveItems, remove];
   const closeAll = () => {
     actions.setMenuFor(null);
     actions.setCopyFor(null);
