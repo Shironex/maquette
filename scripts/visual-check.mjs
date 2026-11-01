@@ -403,11 +403,9 @@ async function uxShots() {
   const inbox = await open('&scenario=configured', '#/inbox');
   await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
   await inbox.getByRole('button', { name: 'More for Elsheria' }).click();
-  await hoverTip(
-    inbox,
-    inbox.getByRole('menuitem', { name: 'Redo...' }),
-    'ux-menu-disabled-reason'
-  );
+  // The reason is the row's second line, so it needs no hover.
+  await inbox.getByRole('menuitem', { name: 'Redo...' }).waitFor();
+  await shot(inbox, 'ux-menu-disabled-reason');
 
   const rail = await open('&scenario=configured', '#/board');
   await rail.getByRole('button', { name: 'Collapse' }).click();
