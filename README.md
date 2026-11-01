@@ -216,6 +216,8 @@ node plugins/maquette/install-codex.mjs
 
 The plugin and the Codex setup keep the token in an environment variable (`MAQUETTE_MCP_TOKEN`) instead of a config file, unlike the two literal lines above. The [agent skills page](https://shironex.github.io/maquette/docs/agents/skills/) has that token setup, an example prompt per skill and what each one asks you to approve.
 
+An agent can only name a git repo or worktree, as an absolute path or with `~`: the workspace, anything inside or around it and the home folder are refused, and a repo does not change during a run. The first dev server start of a repo an agent set waits for your approval, on a card naming the folder and the command; a changed path or command asks again, and a refusal answers `preview-refused`.
+
 <details>
 <summary><strong>Every tool, in one list</strong></summary>
 
@@ -270,6 +272,7 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 - `?lab=running`: two concept images of the frozen lake arena direction mid job; `?conceptMs=4000` sets how long a fake image takes
 - `?agents=active`: the MCP server on, with an agent's activity, a run waiting at Ship and a Send to 3D waiting for approval
 - `?agents=batch`: like `active`, with three sends to Tripo waiting under one approval
+- `?agents=preview`: only a dev server waits, for a repo an agent set, so the Page view waits on its card
 - `?handoff=batch`: adds the veil gate props concept, the six object refs made from it (an objects direction) and a By hand batch of them in mixed states; Check Downloads finds two matches and a stranger
 - `?style=board`: Frostveil has a style board at revision 3 (three images, a style line and four colours); Frozen lake arena carried it, Veil gate kit carried revision 2 and Elsheria sheets was made without it
 - `?lab=refs`: the guardian statues' refs are tagged (a front that crops its object, a busy crop and a small detail as other), for the refs sheet, Make the other views, Clean background and the ref warnings
@@ -720,6 +723,8 @@ Ship copies the layout into the site whole, and `apps/site` plays it: `scene/tim
 <summary><strong>Page view</strong></summary>
 
 The Page view (Page in the rail) shows the project's website with its models live in it, the way a visitor sees it. It runs the site's dev server itself: it picks a free port, runs the site's dev command in the site repo, shows the server starting with its log, and stops it when you leave the view or quit. The command comes from Settings > Project (Site dev command, where `{port}` stands for the port Maquette picks), else from `maquette.site.json`, else from the site's `package.json` scripts and lockfile; it runs as a program with its args, never through a shell. A server Preview on site or an agent started is reused and left running; one already answering at the site's address is never stopped. Without a site repo, with no dev script, or when the server fails, the frame says why and offers Settings, Try again or a page concept.
+
+An agent-set site repo asks first: the first start of its dev server, from an agent, this view or Preview on site, waits on a card that names the folder and the command, remembered per folder and command. A repo you set in the app never asks.
 
 Most sites forbid being framed: Next.js headers, Helmet and many hosts send `X-Frame-Options: DENY` or `Content-Security-Policy: frame-ancestors 'none'`, and the browser then leaves the frame blank. So the frame does not load the dev server directly but a small frame proxy Maquette runs on `127.0.0.1` in front of it, on a free port, for as long as the server runs. The proxy forwards every request to that one dev server (it refuses anything not on this machine), drops `X-Frame-Options` and only the `frame-ancestors` directive of the CSP (and of `Content-Security-Policy-Report-Only`), and leaves every other header, directive and body as the site sent it. It streams responses, passes WebSockets through so hot reload keeps working, sends the dev server's own `Host`, and points redirects on the dev server back at itself. Nothing in the site changes. The address bar, the status bar and Open in browser show the dev server's real address, not the proxy's.
 

@@ -9,7 +9,7 @@ The server offers 120 tools. Set it up first on [Connect an agent](/docs/agents/
 
 Every tool's description starts with its group in brackets: `[start]`, `[project]`, `[lab]`, `[refs]`, `[send]`, `[inbox]`, `[prepare]`, `[built]`, `[pipeline]`, `[game]`, `[library]`, `[animation]`, `[export]` and `[avatar-rig]`. Settings > Agents has a switch for the avatar and rig group: on by default, and off leaves its 7 tools out for the next agent that connects.
 
-A tool that fails answers JSON: `error` (the message), `code` (a stable word such as `not-found`, `invalid`, `taken` or `refused`), and where they help `fix`, `tryTool` and `personOnly` (true when only a person can fix it, such as a missing key, the Codex sign in or Blender). Empty answers carry a `next` list, and an answer with status `waiting for approval` carries `pollEverySeconds` and `whereToApprove`.
+A tool that fails answers JSON: `error` (the message), `code` (a stable word such as `not-found`, `invalid`, `taken`, `refused` or `preview-refused`), and where they help `fix`, `tryTool` and `personOnly` (true when only a person can fix it, such as a missing key, the Codex sign in or Blender). Empty answers carry a `next` list, and an answer with status `waiting for approval` carries `pollEverySeconds` and `whereToApprove`.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -111,7 +111,7 @@ These look at the workspace and change nothing.
 | `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                                                                                                                                                                             | Nothing | No       |
 | `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                                                                                                                                                                                | Nothing | No       |
 | `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                                                                                                                                                                                 | Nothing | No       |
-| `start_page_preview`                                  | Runs the site repo's dev command: starts the server the Page view shows, or reuses the running one                                                                                                                                                                     | Nothing | No       |
+| `start_page_preview`                                  | Runs the site repo's dev command: starts the server the Page view shows, or reuses the running one. The first start of a repo an agent set waits for your approval                                                                                                     | Nothing | No       |
 | `stop_page_preview`                                   | Stops that server, whoever started it                                                                                                                                                                                                                                  | Nothing | No       |
 | `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                                                                                                                                                                           | Nothing | No       |
 | [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                                                                                                                                                                        | Nothing | No       |
@@ -196,7 +196,7 @@ Reads a project's steps and their dependencies, validation issues, the compressi
 
 Runs a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no `from`) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails. It waits up to `waitSeconds`, then answers with the run's status. The run carries on either way.
 
-With Ask before shipping on, and always in a [game project](/docs/start/game-projects/), the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again. A project with no site repo never waits: the run leaves Ship out and answers `done` with `shipped: false`.
+With Ask before shipping on, and always in a [game project](/docs/start/game-projects/), the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again. A project with no site repo never waits: the run leaves Ship out and answers `done` with `shipped: false`, and `next` says to set the repo.
 
 | Parameter     | Type    | Required | Notes                                                                                                                                |
 | ------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -410,7 +410,7 @@ Reads how a website project ships: the style, texture format and quality, each a
 
 ### set_ship_settings
 
-`siteRepo` sets a website's site repo, and only null clears it. It must be a git repo or worktree, absolute or starting with `~`, and not the workspace, inside it, around it or the home folder. It is refused while the project has a run going. Everything in the call is checked against the new repo before anything is written. A game project is refused: its repo goes through `set_game_settings`, which takes the same checks.
+`siteRepo` sets a website's site repo, and only null clears it. It must be a git repo or worktree, absolute or starting with `~`, and not the workspace, inside it, around it or the home folder. It is refused while the project has a run going. Everything in the call is checked against the new repo before anything is written. A repo set here counts as an agent's: its dev command asks you before it first runs (see `start_page_preview`). A game project is refused: its repo goes through `set_game_settings`, which takes the same checks.
 
 `changes the project`
 

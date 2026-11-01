@@ -61,6 +61,8 @@ The agent rules hold by construction.
 - A round of Lab images on OpenAI Images that an agent asks for waits for you to Approve in the app, with what it should cost, before anything is sent. Deny cancels its jobs. Codex rounds and rounds you start in the Lab do not ask.
 - An agent cannot change the monthly OpenAI image cap. `set_image_backend` changes the backends and quality only; the cap is yours, in Settings.
 - With Ask before shipping on (the default), a run started over MCP stops before its Ship step and the app shows Approve or Deny.
+- A repo an agent names (`create_project`, `set_ship_settings`, `set_game_settings`, the `repo` of a run) must be a git repo or worktree given as an absolute path or with `~`. The workspace, anything inside or around it and the home folder are refused, and a repo does not change while its project has a run going.
+- The first start of the dev server of a repo an agent set waits for you. The card names the folder and the command that will run; Approve runs it and is remembered for that folder and command, so a changed path, dev command or package script asks again. Deny leaves the server stopped and `start_page_preview` answers an error with code `preview-refused`. This holds for the Page view and Preview on site too. A repo you set yourself in the app never asks.
 - Settings overrides are checked by name. An unknown one is refused with the list of valid names.
 
 Every call shows in the activity list under Settings > Agents.
