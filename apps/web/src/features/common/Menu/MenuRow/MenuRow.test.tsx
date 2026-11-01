@@ -39,6 +39,36 @@ describe('a menu row', () => {
     expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
   });
 
+  it('shows a disabled reason as a second line that describes it, with no tooltip', async () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <MenuRow
+        item={{ id: 'pack', label: 'Pack', disabled: true, hint: 'No model yet', onSelect }}
+        onClose={onClose}
+      />
+    );
+    const row = screen.getByRole('menuitem', { name: 'Pack' });
+    expect(row).toHaveAccessibleDescription('No model yet');
+    expect(screen.getByText('No model yet')).toBeInTheDocument();
+    await userEvent.hover(row);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    await userEvent.click(row);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps the second line and the count apart from the name', () => {
+    render(
+      <MenuRow
+        item={{ id: 'sends', label: 'All sends', detail: '1 failed', count: 4 }}
+        onClose={vi.fn()}
+      />
+    );
+    const row = screen.getByRole('menuitem', { name: /^All sends\s*4$/ });
+    expect(row).toHaveAccessibleDescription('1 failed');
+  });
+
   it('opens its submenu on hover and closes it on leaving', async () => {
     render(inMenu(<MenuRow item={moveTo()} onClose={vi.fn()} />));
     const parent = screen.getByRole('menuitem', { name: 'Move to' });

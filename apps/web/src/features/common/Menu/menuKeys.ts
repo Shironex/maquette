@@ -39,6 +39,16 @@ export function moveFocus(menu: HTMLElement, key: string): boolean {
   return true;
 }
 
+/** The items cut into runs of one section, in order. */
+export function sectionRuns<T extends { section?: string }>(items: readonly T[]): T[][] {
+  const runs: T[][] = [];
+  items.forEach((item, i) => {
+    if (i === 0 || startsSection(items, i)) runs.push([item]);
+    else runs[runs.length - 1]?.push(item);
+  });
+  return runs;
+}
+
 /** True when item `i` starts a new section, so a line goes above it. */
 export function startsSection(items: readonly { section?: string }[], i: number): boolean {
   return i > 0 && items[i]?.section !== items[i - 1]?.section;

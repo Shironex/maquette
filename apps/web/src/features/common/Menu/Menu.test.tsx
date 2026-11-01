@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Menu } from '.';
@@ -109,5 +109,30 @@ describe('the menu', () => {
     expect(screen.getByRole('menuitem', { name: 'Move to' })).toHaveFocus();
     await userEvent.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('names a section with a labelled group, and keeps the keys moving through it', async () => {
+    render(
+      <Menu
+        label="Actions"
+        onClose={vi.fn()}
+        sections={{ make: 'Make' }}
+        items={[
+          { id: 'a', label: 'Send', section: 'make' },
+          { id: 'b', label: 'Refs', section: 'make' },
+          { id: 'c', label: 'Remove', section: 'last' },
+        ]}
+      />
+    );
+    const group = await screen.findByRole('group', { name: 'Make' });
+    expect(
+      within(group)
+        .getAllByRole('menuitem')
+        .map(i => i.textContent)
+    ).toEqual(['Send', 'Refs']);
+    expect(screen.getByRole('menuitem', { name: 'Remove' }).closest('[role="group"]')).toBeNull();
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Send' })).toHaveFocus());
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('menuitem', { name: 'Remove' })).toHaveFocus();
   });
 });

@@ -1,8 +1,15 @@
+import { useId } from 'react';
 import { Icon, Tooltip, cn } from '@maquette/ui';
 import type { MenuItem } from '../Menu.types';
 import { startsSection } from '../menuKeys';
 import { EDGE } from '../menuPlacement';
-import { MENU_PANEL, MENU_ROW, MENU_ROW_DANGER, MENU_SEPARATOR } from '../menuStyles';
+import {
+  MENU_PANEL,
+  MENU_ROW,
+  MENU_ROW_DANGER,
+  MENU_ROW_DETAIL,
+  MENU_SEPARATOR,
+} from '../menuStyles';
 import { SUBMENU_WIDTH, useSubmenu } from './MenuRow.hooks';
 
 export interface MenuRowProps {
@@ -11,19 +18,25 @@ export interface MenuRowProps {
   onClose: () => void;
 }
 
-/** One item of a menu: a button, with its submenu beside it when it has one. */
+/**
+ * One item of a menu: a button, with its submenu beside it when it has one.
+ * Its second line describes it without joining its name.
+ */
 export default function MenuRow({ item, onClose }: MenuRowProps) {
   const explained = Boolean(item.disabled && item.hint);
   const blocked = Boolean(item.disabled);
   const sub = useSubmenu(Boolean(item.submenu) && !blocked, item.submenu?.length ?? 0);
+  const detailId = useId();
+  const line = explained ? item.hint : item.detail;
   const button = (
-    <Tooltip label={item.hint} side="right" disabled={!item.hint || sub.open}>
+    <Tooltip label={item.hint} side="right" disabled={!item.hint || explained || sub.open}>
       <button
         ref={sub.button}
         type="button"
         role="menuitem"
         disabled={item.disabled && !explained}
         aria-disabled={explained || undefined}
+        aria-describedby={line ? detailId : undefined}
         aria-haspopup={item.submenu ? 'menu' : undefined}
         aria-expanded={item.submenu ? sub.open : undefined}
         onKeyDown={item.submenu ? sub.onButtonKey : undefined}
@@ -42,7 +55,14 @@ export default function MenuRow({ item, onClose }: MenuRowProps) {
             className={item.tone === 'danger' ? 'text-danger' : 'text-fg-dim'}
           />
         ) : null}
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{item.label}</span>
+          {line ? (
+            <span id={detailId} aria-hidden className={MENU_ROW_DETAIL}>
+              {line}
+            </span>
+          ) : null}
+        </span>
         {item.count !== undefined ? (
           <span className="rounded-pill bg-raised px-1.5 font-mono text-[11px] leading-[18px] text-fg-dim">
             {item.count}

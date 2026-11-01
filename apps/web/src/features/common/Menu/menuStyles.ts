@@ -8,5 +8,12 @@ export const MENU_ROW_DANGER = 'text-danger hover:bg-danger-soft focus-visible:b
 /** The line between two sections. */
 export const MENU_SEPARATOR = 'mx-1 my-1 h-px bg-line';
 
+/** The heading over a section. */
+export const MENU_SECTION_LABEL =
+  'px-2 pt-1 pb-0.5 text-caption tracking-[0.06em] text-fg-mute uppercase';
+
+/** The second line of an item: why it is disabled, or what it does. */
+export const MENU_ROW_DETAIL = 'block text-meta whitespace-normal text-fg-mute';
+
 /** The panel a menu or submenu sits on. */
 export const MENU_PANEL = 'rounded-card border border-line-strong bg-panel p-1 shadow-window';
