@@ -32,7 +32,7 @@ export default function MoreMenu() {
       section: 'make',
       disabled: !project || noModel,
       hint: !project ? 'Open a project first' : noModel ? 'No model accepted yet' : undefined,
-      detail: 'Every accepted model, checked in Blender',
+      detail: 'Accepted models, checked in Blender',
       onSelect: exportPack,
     },
     ...(missing > 0
