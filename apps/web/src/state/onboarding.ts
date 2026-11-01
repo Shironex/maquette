@@ -42,6 +42,9 @@ export const STEP = {
 
 export const NAME_MAX = 80;
 
+/** What the first project is called until someone names it. */
+export const DEFAULT_PROJECT_NAME = 'My first project';
+
 export type ProjectMode = 'template' | 'import';
 
 export interface Draft {
@@ -153,7 +156,7 @@ export function initialDraft(root: string, config: WorkspaceConfig): Draft {
     config,
     mode: 'template',
     template: 'floating-diorama',
-    name: 'Frostveil',
+    name: DEFAULT_PROJECT_NAME,
     siteRepo: '',
     sourceFolder: '',
     repo: null,

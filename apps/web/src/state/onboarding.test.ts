@@ -68,7 +68,7 @@ describe('onboarding steps', () => {
       true
     );
     expect(continueLabel(STEP.project, flow())).toBe('Create project');
-    expect(continueLabel(STEP.ready, flow())).toBe('Open Frostveil');
+    expect(continueLabel(STEP.ready, flow())).toBe('Open My first project');
   });
 
   it('returns to Ready after editing a step once things exist', () => {
@@ -101,7 +101,7 @@ describe('onboarding steps', () => {
       'MCP server off. Headless Blender, no screen capture, ask before shipping'
     );
     expect(get('project').text).toBe(
-      'Frostveil, Floating diorama, ships to Projects/frostveil-site'
+      'My first project, Floating diorama, ships to Projects/frostveil-site'
     );
     expect(canContinue(STEP.ready, flow({ busy: true }))).toBe(false);
   });
