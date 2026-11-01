@@ -239,6 +239,9 @@ export function useLiveData(projectId: string | null, root: string | null) {
         useRefsStore.getState().onProject(e.payload.project);
         useLibraryStore.getState().onChanged();
       }),
+      events.projectCreated.listen(e => {
+        useAppStore.getState().addProject(e.payload.project);
+      }),
       events.libraryChanged.listen(() => {
         useLibraryStore.getState().onChanged();
         useAnimationsStore.getState().onChanged();

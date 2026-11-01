@@ -370,7 +370,7 @@ impl McpTools {
                 }
                 let new = new_project(host, &args)?;
                 let manifest = create_in_workspace(host.session(), new)?;
-                host.project_changed(&manifest);
+                host.project_created(&manifest);
                 Ok(json!({
                     "project": {
                         "id": manifest.id,

@@ -28,7 +28,7 @@ use crate::commands::rig::RigJobs;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
     AvatarChanged, BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged,
-    PipelineChanged, PrepareChanged, ProjectChanged,
+    PipelineChanged, PrepareChanged, ProjectChanged, ProjectCreated,
 };
 use crate::session::Session;
 
@@ -73,6 +73,7 @@ pub trait Host: Send + Sync + 'static {
 
     /// Tells the windows that a tool changed a project, so the Board updates.
     fn project_changed(&self, _project: &ProjectManifest) {}
+    fn project_created(&self, _project: &ProjectManifest) {}
     /// Tells the windows that a tool changed a project's pipeline file, so
     /// the Pipeline view reloads it.
     fn pipeline_changed(&self, _project: &str) {}
@@ -165,6 +166,15 @@ impl Host for AppHost {
 
     fn project_changed(&self, project: &ProjectManifest) {
         let event = ProjectChanged {
+            project: project.clone(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a project event");
+        }
+    }
+
+    fn project_created(&self, project: &ProjectManifest) {
+        let event = ProjectCreated {
             project: project.clone(),
         };
         if let Err(err) = event.emit(&self.0) {

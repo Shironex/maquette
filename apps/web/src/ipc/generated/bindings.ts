@@ -792,6 +792,7 @@ export const events = {
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
 	prepareChanged: makeEvent<PrepareChanged>("prepare-changed"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
+	projectCreated: makeEvent<ProjectCreated>("project-created"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
 	renderChanged: makeEvent<RenderChanged>("render-changed"),
@@ -5129,6 +5130,14 @@ export type ProjectAnimations = {
  *  accepting an inbox model, so the Board shows the new state.
  */
 export type ProjectChanged = {
+	project: ProjectManifest,
+};
+
+/**
+ *  An agent made a project in the open workspace through the MCP server, so
+ *  it joins the switcher. A plain change to a project never adds one.
+ */
+export type ProjectCreated = {
 	project: ProjectManifest,
 };
 

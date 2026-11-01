@@ -124,6 +124,7 @@ fn export_writes_the_bindings_into_the_web_app() {
         "thumbnailReady",
         "conceptUpdate",
         "projectChanged",
+        "projectCreated",
         "mcpUpdate",
         "providerUpdate",
         "quitRequested",
