@@ -1,7 +1,8 @@
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { commands, type ProjectManifest } from '@/ipc/client';
+import { commands, type ProjectManifest, type Stage } from '@/ipc/client';
+import { withStage } from '@/state/board';
 import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProjectsStore } from '@/state/use-projects-store';
@@ -61,37 +62,147 @@ describe('moving a card', () => {
     spy.mockRestore();
   });
 
-  it('lets only the newest answer land', async () => {
-    await renderBoard();
-    const project = useAppStore.getState().workspace?.project;
-    const [a, b] = project?.assets ?? [];
-    if (!project || !a || !b) throw new Error('no assets');
-    const answers: ((p: ProjectManifest) => void)[] = [];
-    const spy = vi.spyOn(commands, 'assetMove').mockImplementation(
-      () =>
-        new Promise(resolve => {
-          answers.push(resolve);
-        })
-    );
-    const { result } = renderHook(() => useCardActions(useAppStore.getState().workspace?.project));
-    const moved: Promise<void>[] = [];
-    act(() => {
-      moved.push(result.current.move(a, a.stage === 'ship' ? 'web' : 'ship'));
+  describe('with moves still on their way', () => {
+    const pick = async () => {
+      await renderBoard();
+      const project = useAppStore.getState().workspace?.project;
+      const [a, b] = project?.assets ?? [];
+      if (!project || !a || !b) throw new Error('no assets');
+      return { project, a, b };
+    };
+    const hook = () =>
+      renderHook(() => useCardActions(useAppStore.getState().workspace?.project)).result;
+    /** assetMove answered by hand, in the order the test chooses. */
+    const heldMoves = () => {
+      const held: { resolve: (p: ProjectManifest) => void; reject: (e: unknown) => void }[] = [];
+      const spy = vi.spyOn(commands, 'assetMove').mockImplementation(
+        () =>
+          new Promise((resolve, reject) => {
+            held.push({ resolve, reject });
+          })
+      );
+      return { held, spy };
+    };
+    const settle = async (answer: () => void, moved: Promise<void>) => {
+      await act(async () => {
+        answer();
+        await moved;
+      });
+    };
+    const refused = { code: 'x', message: 'disk full' };
+    afterEach(() => vi.restoreAllMocks());
+
+    it('goes back to the stage on disk when two moves of one card both fail', async () => {
+      const { a } = await pick();
+      const [first, second] = (['web', 'ship', 'blender'] as const).filter(s => s !== a.stage);
+      if (!first || !second) throw new Error('no stages');
+      const { held } = heldMoves();
+      const actions = hook();
+      let one = Promise.resolve();
+      let two = Promise.resolve();
+      act(() => {
+        one = actions.current.move(a, first);
+      });
+      act(() => {
+        two = actions.current.move({ ...a, stage: first }, second);
+      });
+      expect(stageOf(a.id)).toBe(second);
+      await settle(() => held[0]?.reject(refused), one);
+      expect(stageOf(a.id)).toBe(second);
+      await settle(() => held[1]?.reject(refused), two);
+      expect(stageOf(a.id)).toBe(a.stage);
     });
-    act(() => {
-      moved.push(result.current.move(b, b.stage === 'ship' ? 'web' : 'ship'));
+
+    it('goes back to the stage the core confirmed when only the later move fails', async () => {
+      const { project, a } = await pick();
+      const [first, second] = (['web', 'ship', 'blender'] as const).filter(s => s !== a.stage);
+      if (!first || !second) throw new Error('no stages');
+      const { held } = heldMoves();
+      const actions = hook();
+      let one = Promise.resolve();
+      let two = Promise.resolve();
+      act(() => {
+        one = actions.current.move(a, first);
+      });
+      act(() => {
+        two = actions.current.move({ ...a, stage: first }, second);
+      });
+      await settle(() => held[0]?.resolve(withStage(project, a.id, first)), one);
+      await settle(() => held[1]?.reject(refused), two);
+      expect(stageOf(a.id)).toBe(first);
     });
-    const wanted = stageOf(b.id);
-    await act(async () => {
-      answers[0]?.(project);
-      await moved[0];
+
+    it('sends one move at a time, so answers can not come out of order', async () => {
+      const { project, a, b } = await pick();
+      const to = (stage: string) => (stage === 'ship' ? 'web' : 'ship') as Stage;
+      const { held, spy } = heldMoves();
+      const actions = hook();
+      let one = Promise.resolve();
+      let two = Promise.resolve();
+      act(() => {
+        one = actions.current.move(a, to(a.stage));
+      });
+      act(() => {
+        two = actions.current.move(b, to(b.stage));
+      });
+      expect(spy).toHaveBeenCalledTimes(1);
+      // The first answer knows nothing of the second card's move, so it must not land yet.
+      const afterFirst = withStage(project, a.id, to(a.stage));
+      await settle(() => held[0]?.resolve(afterFirst), one);
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(stageOf(b.id)).toBe(to(b.stage));
+      const afterBoth = withStage(afterFirst, b.id, to(b.stage));
+      await settle(() => held[1]?.resolve(afterBoth), two);
+      expect(stageOf(a.id)).toBe(to(a.stage));
+      expect(stageOf(b.id)).toBe(to(b.stage));
     });
-    expect(stageOf(b.id)).toBe(wanted);
-    await act(async () => {
-      answers[1]?.(useAppStore.getState().workspace?.project ?? project);
-      await moved[1];
+
+    it('keeps the queue across a remount of the Board', async () => {
+      const { project, a, b } = await pick();
+      const to = (stage: string) => (stage === 'ship' ? 'web' : 'ship') as Stage;
+      const { held, spy } = heldMoves();
+      const first = renderHook(() => useCardActions(useAppStore.getState().workspace?.project));
+      let one = Promise.resolve();
+      act(() => {
+        one = first.result.current.move(a, to(a.stage));
+      });
+      first.unmount();
+      const actions = hook();
+      let two = Promise.resolve();
+      act(() => {
+        two = actions.current.move(b, to(b.stage));
+      });
+      expect(spy).toHaveBeenCalledTimes(1);
+      await settle(() => held[0]?.resolve(withStage(project, a.id, to(a.stage))), one);
+      const both = withStage(withStage(project, a.id, to(a.stage)), b.id, to(b.stage));
+      await settle(() => held[1]?.resolve(both), two);
+      expect(stageOf(b.id)).toBe(to(b.stage));
     });
-    spy.mockRestore();
+
+    it('still tells of a failure after the person has opened another project', async () => {
+      const { a } = await pick();
+      const to = (a.stage === 'ship' ? 'web' : 'ship') as Stage;
+      const { held } = heldMoves();
+      const actions = hook();
+      let one = Promise.resolve();
+      act(() => {
+        one = actions.current.move(a, to);
+      });
+      const workspace = useAppStore.getState().workspace;
+      if (!workspace?.project) throw new Error('no project');
+      const other = { ...workspace.project, id: 'other', assets: [] };
+      useAppStore.setState({
+        workspace: { ...workspace, project: other, projects: [...workspace.projects, other] },
+      });
+      await settle(() => held[0]?.reject(refused), one);
+      expect(useAppStore.getState().workspace?.project?.id).toBe('other');
+      expect(useAppStore.getState().workspace?.project?.assets).toEqual([]);
+      expect(useAppStore.getState().notice?.title).toBe(`Could not move ${a.name}`);
+      const left = useAppStore
+        .getState()
+        .workspace?.projects.find(p => p.id === workspace.project?.id);
+      expect(left?.assets?.find(x => x.id === a.id)?.stage).toBe(a.stage);
+    });
   });
 });
 

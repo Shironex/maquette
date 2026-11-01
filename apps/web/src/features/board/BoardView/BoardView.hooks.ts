@@ -8,7 +8,8 @@ import {
   type Stage,
 } from '@/ipc/client';
 import { useNativeDrop } from '@/lib/useNativeDrop';
-import { columns, withStage } from '@/state/board';
+import { columns } from '@/state/board';
+import { moveCard } from '@/state/move-card';
 import { openInBlender as openBlender } from '@/state/open-in-blender';
 import { filterRows, listRow, sortRows } from '@/state/board-list';
 import { MAX_BATCH, nextSelection } from '@/state/batch';
@@ -117,7 +118,6 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
   const setProject = useAppStore(s => s.setProject);
   const notify = useAppStore(s => s.notify);
   const loadProjects = useProjectsStore(s => s.load);
-  const moves = useRef(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   /** The card whose menu shows the projects to copy it to. */
   const [copyFor, setCopyFor] = useState<string | null>(null);
@@ -145,25 +145,7 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
     });
 
   const move = async (asset: Asset, stage: Stage) => {
-    if (!project || asset.stage === stage) return;
-    // The card moves at once. Only the newest move's answer lands, as an older one would undo it.
-    const ticket = ++moves.current;
-    setProject(withStage(project, asset.id, stage));
-    try {
-      const next = await commands.assetMove(project.id, asset.id, stage);
-      if (ticket === moves.current) setProject(next);
-    } catch (error) {
-      const now = useAppStore.getState().workspace?.project;
-      const shown = now?.assets?.find(a => a.id === asset.id);
-      if (now?.id === project.id && shown?.stage === stage) {
-        setProject(withStage(now, asset.id, asset.stage));
-      }
-      notify({
-        status: 'failed',
-        title: `Could not move ${asset.name}`,
-        detail: errorMessage(error),
-      });
-    }
+    if (project) await moveCard(project.id, asset, stage);
   };
   /** A card dragged onto a column. */
   const dropOn = (stage: Stage, id: string) => {

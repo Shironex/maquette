@@ -10,7 +10,7 @@ export const KIND_LABEL: Record<AssetKind, string> = {
   scene: 'Scene',
 };
 
-/** The project with one card in another column; the answer from disk replaces it. */
+/** The project with one card in another column; the core's answer replaces it. */
 export function withStage(project: ProjectManifest, id: string, stage: Stage): ProjectManifest {
   return {
     ...project,
