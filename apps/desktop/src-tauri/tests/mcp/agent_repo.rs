@@ -4,7 +4,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use maquette_core::{pipeline, project};
+#[cfg(unix)]
+use maquette_core::pipeline;
+use maquette_core::project;
 use serde_json::{Value, json};
 
 use super::start::{serve, session_in};
