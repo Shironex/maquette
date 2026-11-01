@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Button, Icon, cn } from '@maquette/ui';
 import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
@@ -37,6 +38,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
     </li>
   ));
   const noteItems = notes.map(note => <li key={note}>{note}</li>);
+  const hooks = preview?.hooks.map(hook => (
+    <Fragment key={hook}>
+      <dt className="text-fg-mute">Also runs</dt>
+      <dd className="m-0 font-mono break-all text-fg">{hook}</dd>
+    </Fragment>
+  ));
+
   return (
     <section
       role="alertdialog"
@@ -70,7 +78,8 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           {preview ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent set this site repo over MCP. Its dev command runs on this computer as you, so
-              read it first. Nothing runs until you approve; a changed folder or command asks again.
+              read it first. Nothing runs until you approve; a change to what is listed asks again.
+              A yes trusts this repo: files the script loads are not checked.
             </p>
           ) : doctor ? (
             <p className="mt-0.5 text-meta text-fg-mute">
@@ -133,6 +142,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             <>
               <dt className="text-fg-mute">Script runs</dt>
               <dd className="m-0 font-mono break-all text-fg">{preview.scriptRuns}</dd>
+            </>
+          ) : null}
+          {hooks}
+          {preview.scriptShell ? (
+            <>
+              <dt className="text-fg-mute">Script shell</dt>
+              <dd className="m-0 font-mono break-all text-amber">{preview.scriptShell}</dd>
             </>
           ) : null}
           <dt className="text-fg-mute">From</dt>

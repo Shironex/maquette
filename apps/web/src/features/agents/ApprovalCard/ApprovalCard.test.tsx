@@ -53,6 +53,8 @@ describe('an approval card', () => {
     expect(card).toHaveTextContent('/Users/you/code/frostveil-site');
     expect(card).toHaveTextContent('pnpm run dev --port {port}');
     expect(card).toHaveTextContent('astro dev');
+    expect(card).toHaveTextContent('predev: node scripts/sync-models.js');
+    expect(card).toHaveTextContent('files the script loads are not checked');
     expect(card).toHaveTextContent("the site's package.json");
     await userEvent.click(within(card).getByRole('button', { name: 'Approve and run' }));
     expect(calls).toContain('mcp_decide');
