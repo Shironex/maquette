@@ -91,7 +91,7 @@ export default function ApprovalCard({
           </h2>
           {collapsed ? (
             <p className="mt-0.5 text-meta font-medium text-amber">
-              Waiting for you. Review it to answer.
+              Waiting for you · {formatAgo(approval.requestedAtMs ?? now, now)}
             </p>
           ) : preview ? (
             <p className="mt-0.5 text-meta text-fg-mute">
@@ -142,9 +142,11 @@ export default function ApprovalCard({
             </p>
           )}
         </div>
-        <span className="flex-none text-meta text-fg-mute tabular-nums">
-          {formatAgo(approval.requestedAtMs ?? now, now)}
-        </span>
+        {collapsed ? null : (
+          <span className="flex-none text-meta text-fg-mute tabular-nums">
+            {formatAgo(approval.requestedAtMs ?? now, now)}
+          </span>
+        )}
         {onToggle ? (
           <Button
             size="sm"
