@@ -60,7 +60,8 @@ pnpm gate
 lanes side by side and ends with each step's time and what failed. The Node lane: ESLint, the repo's
 own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the release scripts' tests
 (`pnpm test:scripts`), the site build and Prettier. The Rust lane: `cargo fmt --check`, clippy with
-warnings denied, and the tests. Husky runs lint-staged on commit and commitlint on the message.
+warnings denied, and the tests. Vitest, clippy and the Rust tests each take every core, so they
+take turns; the rest overlap. Husky runs lint-staged on commit and commitlint on the message.
 
 The gate differs from CI in three ways:
 

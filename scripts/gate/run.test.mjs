@@ -65,6 +65,37 @@ describe('runLanes', () => {
     );
   });
 
+  test('exclusive steps never overlap, and the rest still do', async () => {
+    const dir = mkdtempSync(join(logDir, 'turns-'));
+    const lock = join(dir, 'lock');
+    // Fails when another exclusive step holds the lock.
+    const script = `const fs = require('node:fs');
+      fs.writeFileSync(${JSON.stringify(lock)}, '', { flag: 'wx' });
+      setTimeout(() => fs.rmSync(${JSON.stringify(lock)}), 100);`;
+    const turn = name => ({
+      name,
+      cmd: process.execPath,
+      args: ['-e', script],
+      exclusive: true,
+    });
+    const results = await run({ a: [turn('one'), turn('two')], b: [turn('three')] });
+    assert.deepEqual(
+      results.map(r => r.status),
+      ['ok', 'ok', 'ok']
+    );
+  });
+
+  test('a failed exclusive step still hands over its turn', async () => {
+    const results = await run({
+      a: [{ ...node('bad', 1), exclusive: true }],
+      b: [{ ...node('good', 0), exclusive: true }],
+    });
+    assert.deepEqual(
+      results.map(r => r.status),
+      ['FAILED', 'ok']
+    );
+  });
+
   test('a program that cannot start is a failure', async () => {
     const [result] = await run({ a: [{ name: 'nope', cmd: 'no-such-program-here', args: [] }] });
     assert.equal(result.status, 'FAILED');

@@ -87,6 +87,16 @@ function runStep(lane, step, { logDir, print, env }) {
   });
 }
 
+/** Runs `work` once every earlier call has finished, so these never overlap. */
+function oneAtATime() {
+  let last = Promise.resolve();
+  return work => {
+    const result = last.then(work);
+    last = result;
+    return result;
+  };
+}
+
 /**
  * Runs a lane's steps in order. As with `&&`, a failed step ends its lane; the
  * steps after it are marked as not run.
@@ -99,18 +109,20 @@ async function runLane(lane, steps, options) {
       results.push({ lane, name: step.name, status: 'not run', seconds: 0, tail: [] });
       continue;
     }
-    results.push(await runStep(lane, step, options));
+    const run = () => runStep(lane, step, options);
+    results.push(await (step.exclusive ? options.exclusive(run) : run()));
   }
   return results;
 }
 
 /**
  * Runs every lane side by side to its end, so a failure in one still reports
- * on the others. Returns one result per step.
+ * on the others, with exclusive steps taking turns across lanes. Returns one
+ * result per step; a step's time leaves out its wait for a turn.
  */
 export async function runLanes(lanes, { logDir, print = console.log, env = process.env }) {
   mkdirSync(logDir, { recursive: true });
-  const options = { logDir, print, env };
+  const options = { logDir, print, env, exclusive: oneAtATime() };
   const runs = Object.entries(lanes)
     .filter(([, steps]) => steps.length > 0)
     .map(([lane, steps]) => runLane(lane, steps, options));

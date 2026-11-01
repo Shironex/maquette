@@ -21,6 +21,12 @@ const NOT_LINTED = /(^|\/)generated\//;
 
 const step = (name, cmd, ...args) => ({ name, cmd, args });
 const pnpm = (name, ...args) => step(name, 'pnpm', ...args);
+/**
+ * A step that takes every core: only one of these runs at a time. Vitest beside
+ * the Blender tests pushed the load past 45 on 8 cores, slowed both more than it
+ * saved and timed out healthy tests.
+ */
+const heavy = s => ({ ...s, exclusive: true });
 
 /**
  * The cache flags for ESLint or Prettier, under node_modules/.cache. Hashes,
@@ -33,16 +39,16 @@ function cacheFlags(tool, cacheDir) {
 
 /** The Rust test step: nextest and the doc tests it does not run, or `cargo test` for both. */
 function rustTests(nextest) {
-  if (!nextest) return [pnpm('rust:test', 'rust:test')];
+  if (!nextest) return [heavy(pnpm('rust:test', 'rust:test'))];
   return [
-    step('nextest', 'cargo', 'nextest', 'run', '--workspace'),
+    heavy(step('nextest', 'cargo', 'nextest', 'run', '--workspace')),
     step('doc tests', 'cargo', 'test', '--workspace', '--doc'),
   ];
 }
 
 const rustLane = nextest => [
   pnpm('rust:fmt', 'rust:fmt'),
-  pnpm('rust:lint', 'rust:lint'),
+  heavy(pnpm('rust:lint', 'rust:lint')),
   ...rustTests(nextest),
 ];
 
@@ -53,7 +59,7 @@ export function fullPlan({ nextest, cacheDir }) {
       pnpm('lint', 'lint', ...cacheFlags('eslint', cacheDir)),
       pnpm('lint:meta', 'lint:meta'),
       pnpm('typecheck', 'typecheck'),
-      pnpm('test', 'test'),
+      heavy(pnpm('test', 'test')),
       pnpm('test:scripts', 'test:scripts'),
       pnpm('build:site', 'build:site'),
       pnpm('format:check', 'format:check', ...cacheFlags('prettier', cacheDir)),
@@ -117,7 +123,7 @@ export function fastPlan(files, { nextest, cacheDir, base, exists }) {
   node.push(pnpm('lint:meta', 'lint:meta'));
   if (frontend) node.push(pnpm('typecheck', 'typecheck'));
   if (touched.web || touched.site) {
-    node.push(pnpm('test', 'exec', 'vitest', 'run', '--changed', base, '--passWithNoTests'));
+    node.push(heavy(pnpm('test', 'exec', 'vitest', 'run', '--changed', base, '--passWithNoTests')));
   }
   if (touched.scripts) node.push(pnpm('test:scripts', 'test:scripts'));
   if (touched.site || files.some(f => f.startsWith('packages/'))) {

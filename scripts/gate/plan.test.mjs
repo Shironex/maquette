@@ -27,6 +27,12 @@ describe('fullPlan', () => {
     });
   });
 
+  test('the steps that take every core take turns', () => {
+    const { node, rust } = fullPlan(options);
+    const heavy = [...node, ...rust].filter(s => s.exclusive);
+    assert.deepEqual(names(heavy), ['test', 'rust:lint', 'nextest']);
+  });
+
   test('every pnpm step names a script package.json has', () => {
     const { scripts } = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
     const { node, rust } = fullPlan(options);
