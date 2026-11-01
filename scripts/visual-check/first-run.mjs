@@ -2,8 +2,8 @@
  * The first run's shots for scripts/visual-check.mjs (ONLY=firstrun), each at
  * the normal size and at the 1120 by 720 minimum: the Board's Next step strip
  * (models in the Inbox, refs to send, a failed run, the repo with the longest
- * sentence, Blender missing), the Blender missing
- * screen in onboarding and in Settings, reached from the strip's button, and
+ * sentence, a cancelled run, Blender missing, failing or at a gone saved path), the Blender missing
+ * screen in onboarding and those three in Settings, reached from the strip's button, and
  * the first run card on an empty website and game project. A website project
  * opens empty by switching to one of `?projects=many`; the Inbox's models then
  * keep the strip over the card, the least room the card ever gets, and
@@ -22,6 +22,7 @@ async function stripShots({ open, shot }, { viewport, suffix }) {
     ['&scenario=configured&inbox=clear', 'Send to 3D', 'send'],
     ['&scenario=configured&inbox=clear&pipeline=models', 'Open Pipeline', 'failed-run'],
     ['&scenario=idle&inbox=clear&pipeline=no-repo', 'Open Settings', 'repo'],
+    ['&scenario=idle&inbox=clear&pipeline=cancelled', 'Open Pipeline', 'cancelled'],
   ]) {
     const board = await open(query, '#/board', viewport);
     const strip = board.getByRole('region', { name: 'Next step' });
@@ -32,22 +33,32 @@ async function stripShots({ open, shot }, { viewport, suffix }) {
   }
 }
 
-/** Blender gone from a configured workspace: the strip, then where its button leads. */
+/** Each Blender trouble in a configured workspace: the strip, then where its button leads. */
 async function settingsShots({ open, shot }, { viewport, suffix }) {
-  const board = await open('&scenario=configured&render=no-blender', '#/board', viewport);
-  const go = board
-    .getByRole('region', { name: 'Next step' })
-    .getByRole('button', { name: 'Open Toolchain' });
-  await go.waitFor();
-  await board.mouse.move(0, 0);
-  await shot(board, `first-run-strip-blender${suffix}`);
-  await go.click();
-  const missing = board.getByRole('region', { name: 'Blender is missing' });
-  await missing.waitFor();
-  await missing.scrollIntoViewIfNeeded();
-  await board.mouse.move(0, 0);
-  await shot(board, `first-run-settings-blender${suffix}`);
-  await board.context().close();
+  for (const [query, title, name] of [
+    ['&scenario=configured&render=no-blender', 'Blender is missing', 'blender'],
+    ['&scenario=configured&render=no-blender-run', 'Blender did not run', 'blender-run'],
+    [
+      '&scenario=idle&inbox=clear&pipeline=models&render=no-blender-path',
+      'Your saved Blender path is gone',
+      'blender-path',
+    ],
+  ]) {
+    const board = await open(query, '#/board', viewport);
+    const go = board
+      .getByRole('region', { name: 'Next step' })
+      .getByRole('button', { name: 'Open Toolchain' });
+    await go.waitFor();
+    await board.mouse.move(0, 0);
+    await shot(board, `first-run-strip-${name}${suffix}`);
+    await go.click();
+    const screen = board.getByRole('region', { name: title });
+    await screen.waitFor();
+    await screen.scrollIntoViewIfNeeded();
+    await board.mouse.move(0, 0);
+    await shot(board, `first-run-settings-${name}${suffix}`);
+    await board.context().close();
+  }
 }
 
 async function onboardingShots({ open, shot }, { viewport, suffix }) {
