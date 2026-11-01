@@ -4,7 +4,7 @@ import { Sheet } from '@/features/common/Sheet';
 
 interface PackSheetBoundaryProps {
   onClose: () => void;
-  /** A pack was on show, so it may be running or done whatever this sheet did. */
+  /** A pack was on show, and may be running or done whatever this sheet did. */
   hasPack: boolean;
   children: ReactNode;
 }
@@ -39,11 +39,11 @@ export default class PackSheetBoundary extends Component<
         onClose={this.props.onClose}
       >
         <div className="flex flex-col items-start gap-3 p-5">
-          <p className="text-fg-dim">{error.message}</p>
+          <p className="text-fg-dim">The sheet could not open: {error.message}</p>
           <p className="text-fg-mute">
             {this.props.hasPack
-              ? 'The pack may still be running, or may have finished. After a reload, Export pack lists it under Earlier packs.'
-              : 'Nothing was exported. Loading the app again usually helps.'}
+              ? 'The pack may still be running, or may have finished. Loading the app again usually helps; Export pack lists recent packs under Earlier packs.'
+              : 'Loading the app again usually helps. Export pack lists recent packs under Earlier packs.'}
           </p>
           <Button
             icon="arrow-clockwise"

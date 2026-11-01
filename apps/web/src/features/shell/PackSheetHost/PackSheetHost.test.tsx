@@ -32,7 +32,8 @@ describe('the pack sheet host', () => {
     );
     act(() => usePackStore.setState({ open: true }));
     const sheet = await screen.findByRole('dialog', { name: 'Export pack could not open' });
-    expect(sheet).toHaveTextContent('Nothing was exported');
+    expect(sheet).toHaveTextContent('Loading the app again usually helps');
+    expect(sheet).not.toHaveTextContent('Nothing was exported');
     expect(screen.getByText('Approve and send')).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(usePackStore.getState().open).toBe(false));
@@ -45,7 +46,8 @@ describe('the pack sheet host', () => {
     act(() => usePackStore.setState({ open: true, record: { id: 'p' } as PackRecord }));
     const sheet = await screen.findByRole('dialog', { name: 'Export pack could not open' });
     expect(sheet).toHaveTextContent('Earlier packs');
-    expect(sheet).not.toHaveTextContent('Nothing was exported');
+    expect(sheet).toHaveTextContent('may still be running');
+    expect(sheet).toHaveTextContent('recent packs');
   });
 
   it('closes the failure sheet when another project opens', async () => {
