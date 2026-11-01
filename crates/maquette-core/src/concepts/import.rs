@@ -10,12 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use super::picks::capitalised;
 use super::{
-    CONCEPTS_DIR, Direction, RESERVED, add_image, direction_dir, load_direction, next_free_index,
-    now_rfc3339, save_direction, write_lock,
+    CONCEPTS_DIR, Direction, RESERVED, add_image, direction_dir, direction_id, load_direction,
+    next_free_index, now_rfc3339, save_direction, write_lock,
 };
 use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
 use crate::error::{CoreError, CoreResult};
-use crate::project::{self, ProjectManifest, slugify};
+use crate::project::{self, ProjectManifest};
 use crate::workspace::FolderLayout;
 
 /// What importing images did.
@@ -42,38 +42,54 @@ fn image_extension(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
-/// `stone_lantern-02.png` reads `Stone lantern 02`.
+/// `stone_lantern-02.png` reads `Stone lantern 02`, cut to fit a card's name.
 fn name_from(path: &Path) -> String {
     let stem = path
         .file_stem()
         .map(|s| s.to_string_lossy().replace(['_', '-'], " "))
         .unwrap_or_default();
-    let name = capitalised(&stem);
-    if slugify(&name).is_empty() || assets::clean_name(&name).is_err() {
-        FALLBACK_NAME.to_string()
+    let name: String = capitalised(&stem)
+        .chars()
+        .take(assets::ASSET_NAME_MAX_CHARS)
+        .collect();
+    if name.chars().any(char::is_alphanumeric) {
+        name.trim().to_string()
     } else {
-        name
+        FALLBACK_NAME.to_string()
     }
 }
 
-/// `name`, or `name 2` and on while a direction of object refs or refs work
-/// holds that folder: those stay as they are.
+/// How many other names to try before saying so.
+const MAX_NAME_TRIES: u32 = 100;
+/// Short enough for ` 100` to change the slug and fit a card's name.
+const SUFFIXED_NAME_CHARS: usize = 50;
+
+/// `name`, or `name 2` and on while its folder holds object refs, refs work
+/// or a direction of another name: those stay as they are.
 fn free_name(project_dir: &Path, name: &str) -> CoreResult<String> {
+    let same = |a: &str, b: &str| a.trim().eq_ignore_ascii_case(b.trim());
+    let short: String = name.chars().take(SUFFIXED_NAME_CHARS).collect();
     let mut candidate = name.to_string();
-    let mut n = 1;
-    while let Some(found) = load_direction(project_dir, &slugify(&candidate))? {
-        if !found.is_objects() && found.refs_job.is_none() {
-            break;
+    for n in 2..=MAX_NAME_TRIES {
+        match load_direction(project_dir, &direction_id(&candidate))? {
+            Some(found)
+                if found.is_objects()
+                    || found.refs_job.is_some()
+                    || !same(&found.name, &candidate) =>
+            {
+                candidate = format!("{} {n}", short.trim());
+            }
+            _ => return Ok(candidate),
         }
-        n += 1;
-        candidate = format!("{name} {n}");
     }
-    Ok(candidate)
+    Err(CoreError::Invalid(format!(
+        "Every direction name like {name} is taken. Rename the file and drop it again."
+    )))
 }
 
 /// The direction called `name` as it is, or a new one with no brief.
 fn open_direction(project_dir: &Path, name: &str) -> CoreResult<Direction> {
-    let id = slugify(name);
+    let id = direction_id(name);
     direction_dir(project_dir, &id)?;
     let _guard = write_lock();
     if let Some(found) = load_direction(project_dir, &id)? {

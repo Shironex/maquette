@@ -207,6 +207,18 @@ fn check_direction_id(id: &str) -> CoreResult<()> {
     }
 }
 
+/// The folder name for a direction called `name`. A name with nothing a
+/// slug keeps gets its own stable id from its text, since every such name
+/// would otherwise share `project`.
+pub fn direction_id(name: &str) -> String {
+    crate::project::latin_slug(name).unwrap_or_else(|| {
+        let hash = name.trim().bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+        });
+        format!("direction-{hash:016x}")
+    })
+}
+
 pub fn direction_dir(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
     check_direction_id(id)?;
     Ok(concepts_dir(project_dir).join(id))
@@ -345,7 +357,7 @@ pub(crate) fn prepare_with(
     new: &NewConcepts,
     style_revision: Option<u32>,
 ) -> CoreResult<(Direction, Vec<(u32, String)>)> {
-    let id = slugify(&new.direction);
+    let id = direction_id(&new.direction);
     let folder = direction_dir(project_dir, &id)?;
     let _guard = write_lock();
     let now = now_rfc3339();

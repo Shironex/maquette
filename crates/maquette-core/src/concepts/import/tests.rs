@@ -254,3 +254,74 @@ fn a_card_made_by_hand_keeps_its_kind_when_a_pick_is_sent() {
     let sent = send_picks(f.root.path(), &f.layout, &f.id, "porch", AssetKind::Prop).expect("send");
     assert_eq!(sent.asset.kind, AssetKind::Character);
 }
+
+#[test]
+fn names_in_other_scripts_keep_their_name_and_get_their_own_direction() {
+    let f = fixture();
+    let snow = f.import(&[f.image("\u{96ea}.png")]).expect("snow");
+    let moon = f.import(&[f.image("\u{6708}.png")]).expect("moon");
+    assert_eq!(snow.direction.name, "\u{96ea}");
+    assert_eq!(moon.direction.name, "\u{6708}");
+    assert_ne!(snow.direction.id, moon.direction.id);
+    assert_ne!(snow.direction.id, "project");
+    assert_ne!(snow.asset.id, moon.asset.id);
+    let again = f.import(&[f.image("\u{96ea}.png")]).expect("again");
+    assert_eq!(again.direction.id, snow.direction.id);
+    assert_eq!(again.direction.images.len(), 2);
+}
+
+#[test]
+fn the_lab_finds_the_same_direction_for_a_name_in_another_script() {
+    let f = fixture();
+    let done = f.import(&[f.image("\u{96ea}.png")]).expect("import");
+    let new = crate::concepts::NewConcepts {
+        project: f.id.clone(),
+        direction: "\u{96ea}".into(),
+        prompt: "Snow.".into(),
+        refs: vec![],
+        aspect: crate::concepts::Aspect::Square,
+        count: 1,
+        use_style: false,
+    };
+    let (direction, _) = crate::concepts::prepare(&f.dir, &new).expect("prepare");
+    assert_eq!(direction.id, done.direction.id);
+}
+
+#[test]
+fn a_stem_of_only_marks_lands_under_the_fallback_name() {
+    let f = fixture();
+    let done = f.import(&[f.image("!!!.png")]).expect("import");
+    assert_eq!(done.direction.name, FALLBACK_NAME);
+}
+
+#[test]
+fn a_name_sharing_a_slug_with_another_stays_apart() {
+    let f = fixture();
+    let first = f.import(&[f.image("stone-lantern.png")]).expect("first");
+    let other = f.import(&[f.image("Stone lantern!.png")]).expect("other");
+    assert_ne!(first.direction.id, other.direction.id);
+    assert_eq!(other.direction.name, "Stone lantern! 2");
+}
+
+#[test]
+fn a_long_name_fits_the_asset_limit_and_a_taken_one_still_gets_a_free_slug() {
+    let f = fixture();
+    let stem = "a".repeat(120);
+    let done = f.import(&[f.image(&format!("{stem}.png"))]).expect("long");
+    assert!(done.direction.name.chars().count() <= assets::ASSET_NAME_MAX_CHARS);
+    let mut held = done.direction.clone();
+    held.source = Some("concepts/x/x_01.png".into());
+    save_direction(&f.dir, &held).expect("save");
+    let next = f.import(&[f.image(&format!("{stem}.png"))]).expect("next");
+    assert_ne!(next.direction.id, done.direction.id);
+    assert!(next.direction.name.chars().count() <= assets::ASSET_NAME_MAX_CHARS);
+}
+
+#[test]
+fn a_reserved_windows_name_does_not_become_a_folder() {
+    let f = fixture();
+    let done = f.import(&[f.image("con.png")]).expect("import");
+    assert_eq!(done.direction.name, "Con");
+    assert_eq!(done.direction.id, "con-1");
+    assert_eq!(done.asset.id, "con-1");
+}

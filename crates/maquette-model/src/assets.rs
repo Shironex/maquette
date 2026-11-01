@@ -393,12 +393,17 @@ pub fn resting_status(asset: &Asset) -> AssetStatus {
 /// Accept of "Sakura tree" becomes v2 of the same asset, also after the
 /// asset was renamed (its id keeps the first name).
 pub fn find_by_name<'a>(manifest: &'a ProjectManifest, name: &str) -> Option<&'a Asset> {
-    let slug = slugify(name.trim());
-    manifest
-        .assets
-        .iter()
-        .find(|a| a.id == slug)
-        .or_else(|| manifest.assets.iter().find(|a| slugify(&a.name) == slug))
+    let name = name.trim();
+    // Names with nothing a slug keeps would all look alike, so the text decides.
+    let Some(slug) = crate::project::latin_slug(name) else {
+        return manifest.assets.iter().find(|a| a.name.trim() == name);
+    };
+    manifest.assets.iter().find(|a| a.id == slug).or_else(|| {
+        manifest
+            .assets
+            .iter()
+            .find(|a| crate::project::latin_slug(&a.name).as_deref() == Some(slug.as_str()))
+    })
 }
 
 /// Points the asset at `thumbnail` (relative to the project folder) when
