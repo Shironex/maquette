@@ -1,7 +1,7 @@
 import { Button, Icon, cn } from '@maquette/ui';
 import type { RigRecord } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { cellAspect, rowFlagged, rowNumbers } from '@/state/rig';
+import { cellAspect, rowFlagged, rowNumbers, WAIT_FOR_ANSWER } from '@/state/rig';
 import { RowChange } from './RigCompare';
 import { Enlarges } from './RigEnlarge';
 import { useRigActions } from './RigDoctor.hooks';
@@ -183,6 +183,7 @@ export function WalkProof({ record }: { record: RigRecord }) {
           variant="secondary"
           icon="person-simple-walk"
           disabled={busy}
+          disabledReason={WAIT_FOR_ANSWER}
           onClick={() => void run('walk-proof')}
         >
           {strip ? 'Run it again' : 'Run the proof'}

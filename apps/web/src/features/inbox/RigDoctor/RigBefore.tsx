@@ -1,7 +1,7 @@
-import { SegmentedControl, cn, type SegmentedOption } from '@maquette/ui';
+import { EmptyState, SegmentedControl, cn, type SegmentedOption } from '@maquette/ui';
 import type { RigRecord, RigRow } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { cellAspect, rowFlagged, rowNumbers } from '@/state/rig';
+import { cellAspect, isRunning, rowFlagged, rowNumbers } from '@/state/rig';
 import { Enlarges } from './RigEnlarge';
 import { useChoice } from './RigDoctor.hooks';
 import { DefectCard, Pin, RunProgress, Stats, Tile } from './parts';
@@ -80,7 +80,13 @@ export function BeforeCentre({ record }: { record: RigRecord }) {
               v{record.source.version ?? 1}
             </span>
           </h2>
-          <p className="m-0 mt-0.5 text-fg-mute">{rows.length} poses, rendered on a copy</p>
+          <p className="m-0 mt-0.5 text-fg-mute">
+            {rows.length > 0
+              ? `${rows.length} poses, rendered on a copy`
+              : isRunning(record)
+                ? 'Rendering on a copy'
+                : 'Not tested yet'}
+          </p>
         </div>
         <SegmentedControl
           label="Sheet view"
@@ -91,6 +97,15 @@ export function BeforeCentre({ record }: { record: RigRecord }) {
         />
       </div>
       <RunProgress record={record} />
+      {rows.length === 0 && !isRunning(record) ? (
+        <div className="grid flex-1 place-items-center">
+          <EmptyState
+            icon="person-simple-walk"
+            title="Not tested yet"
+            body="The pose test renders each pose front and side on a copy and finds what tears. It runs when you start it."
+          />
+        </div>
+      ) : null}
       <div
         className={cn(
           'grid flex-1 content-start gap-x-3 gap-y-3',
@@ -109,6 +124,7 @@ export function BeforeCentre({ record }: { record: RigRecord }) {
 /** The right column of the first board: what is wrong, by place. */
 export function DefectsAside({ record }: { record: RigRecord }) {
   const rows = record.before?.rows ?? [];
+  const tested = rows.length > 0;
   const fine = rows.filter(r => !rowFlagged(r) && !r.look).map(r => r.label);
   const looks = rows.filter(r => !rowFlagged(r) && r.look);
   const lookItems = looks.map(r => (
@@ -126,9 +142,18 @@ export function DefectsAside({ record }: { record: RigRecord }) {
     >
       <div className="flex items-baseline justify-between">
         <h2 className="m-0 text-panel-title">Defects by place</h2>
-        <span className="text-meta text-fg-mute">{record.defects.length} found</span>
+        <span className="text-meta text-fg-mute">
+          {tested ? `${record.defects.length} found` : isRunning(record) ? 'Testing' : 'Not tested'}
+        </span>
       </div>
       {cards}
+      {tested ? null : (
+        <p className="m-0 text-meta text-fg-mute">
+          {isRunning(record)
+            ? 'What the pose test finds lands here as each pose finishes.'
+            : 'What the pose test finds lands here, by place. Nothing has been checked yet.'}
+        </p>
+      )}
       {looks.length > 0 ? (
         <article className="rounded-[10px] border border-amber/40 p-3">
           <h4 className="m-0 font-medium text-amber">Look here</h4>

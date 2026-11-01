@@ -85,6 +85,7 @@ export function RigRefused({ record }: { record: RigRecord }) {
           <Button
             variant="secondary"
             disabled={!project || busy}
+            disabledReason="Open a project to accept it into"
             loading={busy}
             tooltip="Accepts the model as it came; its checks stay on the row"
             onClick={() => project && void accept(project, null)}
@@ -126,7 +127,12 @@ export function RigStopped({ record }: { record: RigRecord }) {
           ) : null}
           <p className="m-0 text-meta text-fg-mute">The draft is kept, not added.</p>
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" disabled={busy} onClick={() => void discard()}>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              disabledReason="Wait for the answer on its way"
+              onClick={() => void discard()}
+            >
               Discard draft
             </Button>
             <Button variant="secondary" icon="download-simple" onClick={() => void saveSheet()}>

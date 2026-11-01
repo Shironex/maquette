@@ -13,7 +13,17 @@ import {
   type RigRun,
   type RigTarget,
 } from '@/ipc/client';
+import { clock } from '@/lib/clock';
+import { rememberRun } from '@/lib/waiting';
+import { isRunning, runWait } from './rig';
+import { openInBlender } from './open-in-blender';
 import { useAppStore } from './use-app-store';
+
+/** The name a rig doctor open is timed under. */
+export const RIG_OPEN_WAIT = 'rig-open';
+
+/** Where the rig doctor goes back to. */
+export type RigFrom = 'board' | 'inbox';
 
 interface RigStore {
   /** The case on show, or null for the Inbox. */
@@ -21,9 +31,13 @@ interface RigStore {
   /** The cases with something left to do. */
   open: RigRecord[];
   busy: boolean;
+  /** A case being opened: shown at once, while its model's rig is read. */
+  opening: { name: string } | null;
+  /** The view the case on show came from. */
+  from: RigFrom;
 
-  /** Opens the case of a model and shows it in the Inbox view. */
-  show: (target: RigTarget) => Promise<void>;
+  /** Opens the case of a model called `name` and shows it in the Inbox view. */
+  show: (target: RigTarget, name: string) => Promise<void>;
   /** Shows a case by its id. */
   showCase: (id: string) => Promise<void>;
   /** Back to the Inbox. A run goes on. */
@@ -50,6 +64,25 @@ const isOpen = (r: RigRecord) => !OVER.has(r.state);
 const failed = (title: string, error: unknown) =>
   useAppStore.getState().notify({ status: 'failed', title, detail: errorMessage(error) });
 
+/** Which open the store waits for; leaving, or a newer open, makes an answer late. */
+let openTicket = 0;
+
+/** The runs under way by case, timed so the next one can say how long this one took. */
+const runs = new Map<string, { state: RigRecord['state']; at: number }>();
+
+function timeRun(record: RigRecord) {
+  const run = runs.get(record.id);
+  if (isRunning(record)) {
+    if (run?.state !== record.state)
+      runs.set(record.id, { state: record.state, at: clock.nowMs() });
+    return;
+  }
+  if (!run) return;
+  runs.delete(record.id);
+  const ended = record.state !== 'cancelled' && record.state !== 'stopped' && !record.error;
+  if (ended) rememberRun(runWait(run.state), clock.nowMs() - run.at);
+}
+
 export const useRigStore = create<RigStore>((set, get) => {
   /** Runs one answer about the case on show and follows the record it gives. */
   const act = async (title: string, work: (id: string) => Promise<RigRecord>) => {
@@ -68,26 +101,47 @@ export const useRigStore = create<RigStore>((set, get) => {
     record: null,
     open: [],
     busy: false,
+    opening: null,
+    from: 'inbox',
 
-    show: async target => {
+    show: async (target, name) => {
+      const app = useAppStore.getState();
+      const from: RigFrom = app.view === 'board' ? 'board' : 'inbox';
+      const ticket = ++openTicket;
+      const startedAt = clock.nowMs();
+      set({ opening: { name }, from, record: null });
+      app.setView('inbox');
       try {
         const record = await commands.rigOpen(target);
-        set({ record });
+        rememberRun(RIG_OPEN_WAIT, clock.nowMs() - startedAt);
+        // Left meanwhile: the case stays open, the Inbox's top bar leads back to it.
+        const waited = ticket === openTicket && useAppStore.getState().view === 'inbox';
+        if (ticket === openTicket) set({ opening: null });
+        if (waited) set({ record });
         get().onChanged(record);
-        useAppStore.getState().setView('inbox');
       } catch (error) {
+        if (ticket !== openTicket) return;
+        set({ opening: null });
+        if (from === 'board') useAppStore.getState().setView('board');
         failed('Could not open the rig doctor', error);
       }
     },
     showCase: async id => {
       try {
-        set({ record: await commands.rigGet(id) });
+        const record = await commands.rigGet(id);
+        openTicket += 1;
+        set({ record, opening: null, from: 'inbox' });
         useAppStore.getState().setView('inbox');
       } catch (error) {
         failed('Could not open the rig doctor', error);
       }
     },
-    leave: () => set({ record: null }),
+    leave: () => {
+      openTicket += 1;
+      const { from } = get();
+      set({ record: null, opening: null, from: 'inbox' });
+      if (from === 'board') useAppStore.getState().setView('board');
+    },
     load: async () => {
       try {
         set({ open: (await commands.rigList()).filter(isOpen) });
@@ -127,18 +181,16 @@ export const useRigStore = create<RigStore>((set, get) => {
     openBlender: async () => {
       const { record } = get();
       if (!record) return;
-      try {
-        await commands.rigOpenBlender(record.id);
-      } catch (error) {
-        failed('Could not open Blender', error);
-      }
+      await openInBlender(record.name, () => commands.rigOpenBlender(record.id));
     },
-    onChanged: record =>
+    onChanged: record => {
+      timeRun(record);
       set(s => ({
         record: s.record?.id === record.id ? record : s.record,
         open: isOpen(record)
           ? [record, ...s.open.filter(r => r.id !== record.id)]
           : s.open.filter(r => r.id !== record.id),
-      })),
+      }));
+    },
   };
 });

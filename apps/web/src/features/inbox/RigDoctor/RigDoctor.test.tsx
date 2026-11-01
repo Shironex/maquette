@@ -15,7 +15,8 @@ import { fixedCase, readCase, testedCase } from '@/ipc/mock/rig-fixtures';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useRigStore } from '@/state/use-rig-store';
-import { RigDoctor } from '.';
+import { useAppStore } from '@/state/use-app-store';
+import { RigDoctor, RigOpening } from '.';
 
 function show(record: RigRecord) {
   useRigStore.setState({ record, busy: false });
@@ -26,6 +27,49 @@ describe('RigDoctor', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     useRigStore.setState({ record: null, open: [], busy: false });
+  });
+
+  it('reads as not tested yet before the pose test, not as a clean result', () => {
+    show(readCase('a-v1', 'A', null));
+    expect(screen.getAllByText('Not tested yet').length).toBeGreaterThan(0);
+    expect(screen.getByText('Not tested')).toBeInTheDocument();
+    expect(screen.queryByText('0 found')).toBeNull();
+    expect(screen.queryByText(/^0 poses/)).toBeNull();
+  });
+
+  it('answers the click at once while the rig is read, and goes back where it came from', async () => {
+    let answer: (record: RigRecord) => void = () => {};
+    vi.spyOn(commands, 'rigOpen').mockReturnValue(
+      new Promise<RigRecord>(resolve => {
+        answer = resolve;
+      })
+    );
+    useAppStore.setState({ view: 'board' });
+    const opened = useRigStore
+      .getState()
+      .show({ inbox: null, project: 'p', asset: 'a', version: null }, 'Lantern');
+    expect(useAppStore.getState().view).toBe('inbox');
+    expect(useRigStore.getState().opening).toEqual({ name: 'Lantern' });
+    render(<RigOpening name="Lantern" />);
+    expect(screen.getByText('Reading the rig of Lantern...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Board' })).toBeInTheDocument();
+    answer(readCase('a-v1', 'Lantern', null));
+    await opened;
+    expect(useRigStore.getState().opening).toBeNull();
+    expect(useRigStore.getState().record?.id).toBe('a-v1');
+    useRigStore.getState().leave();
+    expect(useAppStore.getState().view).toBe('board');
+  });
+
+  it('goes back to the Board when the rig cannot be opened', async () => {
+    vi.spyOn(commands, 'rigOpen').mockRejectedValue({ code: 'x', message: 'no' });
+    useAppStore.setState({ view: 'board' });
+    await useRigStore
+      .getState()
+      .show({ inbox: null, project: 'p', asset: 'a', version: null }, 'Lantern');
+    expect(useAppStore.getState().view).toBe('board');
+    expect(useRigStore.getState().opening).toBeNull();
+    expect(useAppStore.getState().notice?.title).toBe('Could not open the rig doctor');
   });
 
   it('shows the before sheet with defects by place and asks for the click that fixes', async () => {
@@ -65,7 +109,10 @@ describe('RigDoctor', () => {
     show({ ...fixedCase('a-v1', 'A'), model: oneIslandCase().model });
     expect(screen.getByText('One continuous mesh')).toBeInTheDocument();
     expect(screen.getByText(/narrow reweight moves only/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Round 2' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Round 2' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 
   it('words one continuous mesh for a creature and leaves it its second round', () => {
@@ -104,7 +151,10 @@ describe('RigDoctor', () => {
       '9'
     );
     expect(screen.getByText('Started over MCP')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add as v2' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add as v2' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     expect(screen.getByRole('button', { name: 'Cancel run' })).toBeEnabled();
   });
 

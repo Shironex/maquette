@@ -1,8 +1,9 @@
 /** The small pieces every rig doctor layout shares. */
-import { Icon, cn } from '@maquette/ui';
+import { Icon, WaitLine, cn } from '@maquette/ui';
 import type { ReactNode } from 'react';
 import type { RigDefect, RigRecord, RigStat } from '@/ipc/client';
-import { stepLines } from '@/state/rig';
+import { usePastRun, waitCount } from '@/lib/waiting';
+import { isRunning, runWait, stepLines } from '@/state/rig';
 
 /** A label and a value in the left column. */
 export function Facts({ title, rows }: { title: string; rows: [string, ReactNode][] }) {
@@ -199,15 +200,23 @@ export function Footer({
 /** The bar and the log line of a run. */
 export function RunProgress({ record }: { record: RigRecord }) {
   const p = record.progress;
-  if (!p) return null;
+  const estimate = usePastRun(runWait(record.state));
+  if (!p) {
+    if (!isRunning(record)) return null;
+    const verb = record.state === 'fixing' ? 'Starting the fix...' : 'Starting the pose test...';
+    return (
+      <div className="rounded-[9px] border border-line bg-raised p-3">
+        <WaitLine label={verb} estimate={estimate} />
+      </div>
+    );
+  }
+  const meta = [waitCount(p.done, p.total), estimate].filter(Boolean).join(' · ');
   const share = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
   return (
     <div className="rounded-[9px] border border-line bg-raised p-3">
       <div className="mb-1.5 flex items-baseline justify-between gap-3 text-meta">
         <span className="font-medium text-fg">{p.label}</span>
-        <span className="font-mono text-fg-mute">
-          {p.done} of {p.total}
-        </span>
+        <span className="font-mono text-fg-mute tabular-nums">{meta}</span>
       </div>
       <div
         role="progressbar"

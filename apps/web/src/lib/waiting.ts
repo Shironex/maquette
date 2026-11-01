@@ -55,3 +55,8 @@ export function useWait(key: string | null, active: boolean, failed = false) {
   }, [key, active, failed]);
   return estimate;
 }
+
+/** How long this wait took last time, read once per key; null when it never finished. */
+export function usePastRun(key: string): string | null {
+  return useMemo(() => lastRunLabel(readLastRun(key)), [key]);
+}

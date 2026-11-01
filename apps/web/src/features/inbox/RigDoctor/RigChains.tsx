@@ -94,10 +94,22 @@ export function RigChains({ record }: { record: RigRecord }) {
             {e.editing ? null : <Looked yes={Boolean(record.chainsConfirmed)} />}
             {e.editing ? (
               <>
-                <Button size="sm" variant="ghost" disabled={e.busy} onClick={e.cancel}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={e.busy}
+                  disabledReason="Wait for the answer on its way"
+                  onClick={e.cancel}
+                >
                   Cancel
                 </Button>
-                <Button size="sm" variant="primary" disabled={e.busy} onClick={() => void e.save()}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={e.busy}
+                  disabledReason="Wait for the answer on its way"
+                  onClick={() => void e.save()}
+                >
                   {e.changed ? 'Save and start over' : 'Chains are right'}
                 </Button>
               </>

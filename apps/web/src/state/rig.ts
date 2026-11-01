@@ -18,6 +18,13 @@ export function offersRigDoctor(check: Check): boolean {
 
 export const isRunning = (r: RigRecord) => r.state === 'testing' || r.state === 'fixing';
 
+/** The name a run of this state is timed under, so the next one can say how long it took. */
+export const runWait = (state: RigRecord['state']) => `rig-${state}`;
+
+/** Why a button waits while a run goes on or an answer is on its way. */
+export const WAIT_FOR_RUN = 'Wait for the run to finish';
+export const WAIT_FOR_ANSWER = 'Wait for the answer on its way';
+
 const ORDER: RigStep[] = ['read', 'accept', 'before', 'fix', 'verify', 'land'];
 
 /** The next version the draft would become. */
