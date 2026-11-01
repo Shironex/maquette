@@ -1,10 +1,15 @@
 use std::path::Path;
 
+use maquette_core::avatar::AvatarSpec;
 use maquette_core::avatar::export::AvatarExport;
-use maquette_core::avatar::export::{NoSprings, SpringCarried, SpringsChange, SpringsView};
+use maquette_core::avatar::export::{
+    AvatarView, NoSprings, SpringCarried, SpringsChange, SpringsView,
+};
 use maquette_core::avatar::highlights::{HighlightsReport, ImageHighlights};
-use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
-use maquette_core::avatar::reweight::{ReweightBridge, ReweightReport};
+use maquette_core::avatar::normalize::{
+    NormalizeReport, NormalizeSheets, NormalizeState, Normalized,
+};
+use maquette_core::avatar::reweight::{ReweightBridge, ReweightReport, Reweighted};
 use maquette_core::avatar::springs::{
     ChainBuilt, ChainReport, Chained, FoundSprings, SpringCandidate,
 };
