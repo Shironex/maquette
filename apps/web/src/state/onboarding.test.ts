@@ -92,7 +92,7 @@ describe('onboarding steps', () => {
     expect(get('toolchain')).toMatchObject({
       text: '5 of 6 found.',
       warning: 'toktx missing',
-      effect: 'textures stay PNG until it is installed',
+      effect: 'textures stay PNG, so models download larger and use more GPU memory',
     });
     expect(get('defaults').text).toBe(
       'Tripo H3.1, Meshy 7.1. Characters: 50k faces, multi-view, rig with Mixamo. 3.0\u00a0MB scene, 60k\u00a0tris, 2K, ETC1S, meshopt medium'

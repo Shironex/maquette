@@ -1,6 +1,16 @@
 /** Turns detection reports into what the toolchain rows and summaries show. */
 import type { ToolCheckStatus } from '@maquette/ui';
 import type { ToolId, ToolReport } from '@/ipc/client';
+import type { Platform } from '@/ipc/runtime';
+
+export const BLENDER_DOWNLOAD = 'https://www.blender.org/download/';
+
+/** The install command for this computer; Linux varies too much to name one. */
+export function blenderInstallCommand(platform: Platform): string | null {
+  if (platform === 'mac') return 'brew install --cask blender';
+  if (platform === 'windows') return 'winget install BlenderFoundation.Blender';
+  return null;
+}
 
 /** `/Applications/Blender.app/Contents/MacOS/Blender` reads as the bundle. */
 export function displayToolPath(path: string): string {
@@ -75,7 +85,7 @@ export const MISSING_EFFECT: Record<ToolId, string> = {
   blender: 'nothing builds until it is installed',
   codex: 'the Lab cannot generate concepts until it is installed',
   ffmpeg: 'turntable videos wait until it is installed',
-  toktx: 'textures stay PNG until it is installed',
+  toktx: 'textures stay PNG, so models download larger and use more GPU memory',
   'gltf-transform': 'Compress waits until it is installed',
   node: 'gltf-transform needs it through npx',
 };
