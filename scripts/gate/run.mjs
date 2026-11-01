@@ -41,6 +41,8 @@ function eachLine(stream, onLine) {
 }
 
 const running = new Set();
+/** Set by stopAll: nothing may start after it, or it would outlive the stop. */
+let stopped = false;
 
 /** Signals a step's whole process group, which may already have ended. */
 function signalGroup(pid, signal) {
@@ -53,10 +55,12 @@ function signalGroup(pid, signal) {
 
 /**
  * Stops whatever is still running, for a gate that is itself being stopped, with
- * what each step started: pnpm hands off to cargo, and cargo to rustc. What
- * ignores the request is killed after a short wait, then `done` is called.
+ * what each step started: pnpm hands off to cargo, and cargo to rustc. A step
+ * still to come stays not run, even one that was only waiting for this one's
+ * turn. What ignores the request is killed after a short wait, then `done` is called.
  */
 export function stopAll(done, graceMs = STOP_GRACE_MS) {
+  stopped = true;
   const pids = [...running].map(child => child.pid).filter(pid => pid !== undefined);
   if (process.platform === 'win32') {
     for (const pid of pids) {
@@ -133,12 +137,13 @@ function oneAtATime() {
 async function runLane(lane, steps, options) {
   const results = [];
   for (const step of steps) {
-    const failed = results.some(r => r.status === 'FAILED');
-    if (failed) {
-      results.push({ lane, name: step.name, status: 'not run', seconds: 0, tail: [] });
+    const notRun = { lane, name: step.name, status: 'not run', seconds: 0, tail: [] };
+    if (results.some(r => r.status === 'FAILED')) {
+      results.push(notRun);
       continue;
     }
-    const run = () => runStep(lane, step, options);
+    // Checked at the last moment: a stop may have come while waiting for a turn.
+    const run = () => (stopped ? notRun : runStep(lane, step, options));
     results.push(await (step.exclusive ? options.exclusive(run) : run()));
   }
   return results;
@@ -151,11 +156,18 @@ async function runLane(lane, steps, options) {
  */
 export async function runLanes(lanes, { logDir, print = console.log, env = process.env }) {
   mkdirSync(logDir, { recursive: true });
+  stopped = false;
   const options = { logDir, print, env, exclusive: oneAtATime() };
   const runs = Object.entries(lanes)
     .filter(([, steps]) => steps.length > 0)
     .map(([lane, steps]) => runLane(lane, steps, options));
   return (await Promise.all(runs)).flat();
+}
+
+/** The gate's exit code: a stop always shows, even when every step that ran passed. */
+export function exitCode(results, stopCode) {
+  if (stopCode !== undefined) return stopCode;
+  return results.some(r => r.status === 'FAILED') ? 1 : 0;
 }
 
 const clock = seconds =>
@@ -166,7 +178,7 @@ const clock = seconds =>
         .padStart(2, '0')}s`;
 
 /** The final report: every step with its time, then what failed and how it ended. */
-export function summary(results, seconds, notices = []) {
+export function summary(results, seconds, notices = [], wasStopped = false) {
   const failed = results.filter(r => r.status === 'FAILED');
   const width = Math.max(...results.map(r => r.name.length), 4);
   const lines = [''];
@@ -183,6 +195,7 @@ export function summary(results, seconds, notices = []) {
   }
   lines.push('', ...notices);
   for (const r of failed) lines.push(`FAILED: ${r.lane} ${r.name} after ${clock(r.seconds)}`);
-  lines.push(`gate: ${failed.length > 0 ? 'FAILED' : 'ok'} in ${clock(seconds)}`);
+  const verdict = wasStopped ? 'STOPPED' : failed.length > 0 ? 'FAILED' : 'ok';
+  lines.push(`gate: ${verdict} in ${clock(seconds)}`);
   return lines.join('\n');
 }

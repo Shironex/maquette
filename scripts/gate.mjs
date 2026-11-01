@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fastPlan, fullPlan } from './gate/plan.mjs';
-import { runLanes, stopAll, summary } from './gate/run.mjs';
+import { exitCode, runLanes, stopAll, summary } from './gate/run.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const GENERATED = [
@@ -109,15 +109,15 @@ if (unknown.length > 0) {
   process.exit(2);
 }
 
-let stopping = false;
+let stopCode;
 for (const [signal, code] of [
   ['SIGHUP', 129],
   ['SIGINT', 130],
   ['SIGTERM', 143],
 ]) {
   process.on(signal, () => {
-    if (stopping) return;
-    stopping = true;
+    if (stopCode !== undefined) return;
+    stopCode = code;
     stopAll(() => process.exit(code));
   });
 }
@@ -133,25 +133,25 @@ const env = process.stdout.isTTY
   : process.env;
 const results = await runLanes(plan, { logDir: join(STATE_DIR, 'logs'), env });
 
+const seconds = (performance.now() - started) / 1000;
 if (results.length === 0) {
   console.log('gate: nothing changed since main, so nothing to check.');
-  process.exit(0);
+} else {
+  if (generatedState() !== generatedBefore) {
+    results.push({
+      lane: 'all',
+      name: 'generated files',
+      status: 'FAILED',
+      seconds: 0,
+      logFile: 'the diff',
+      tail: [
+        `The Rust tests rewrote what was stale of: ${GENERATED.join(', ')}.`,
+        'The Node lane may have read either version, so its result does not count.',
+        'Look at the diff, name any new tool in the docs, commit the files and run the gate again.',
+      ],
+    });
+  }
+  console.log(summary(results, seconds, notices, stopCode !== undefined));
 }
-
-if (generatedState() !== generatedBefore) {
-  results.push({
-    lane: 'all',
-    name: 'generated files',
-    status: 'FAILED',
-    seconds: 0,
-    logFile: 'the diff',
-    tail: [
-      `The Rust tests rewrote what was stale of: ${GENERATED.join(', ')}.`,
-      'The Node lane may have read either version, so its result does not count.',
-      'Look at the diff, name any new tool in the docs, commit the files and run the gate again.',
-    ],
-  });
-}
-
-console.log(summary(results, (performance.now() - started) / 1000, notices));
-process.exit(results.some(r => r.status === 'FAILED') ? 1 : 0);
+// exitCode, not exit(): a pipe on Windows may still hold the end of the summary.
+process.exitCode = exitCode(results, stopCode);

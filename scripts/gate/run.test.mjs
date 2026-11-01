@@ -1,11 +1,11 @@
 /** Tests for scripts/gate/run.mjs: `pnpm test:scripts`. */
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 
-import { resolveCommand, runLanes, stopAll, summary } from './run.mjs';
+import { exitCode, resolveCommand, runLanes, stopAll, summary } from './run.mjs';
 
 const logDir = mkdtempSync(join(tmpdir(), 'gate-run-'));
 after(() => rmSync(logDir, { recursive: true, force: true }));
@@ -137,6 +137,76 @@ describe('stopAll', () => {
     const [result] = await runLanes({ a: [stubborn] }, { logDir, print });
     await stopped;
     assert.equal(result.status, 'FAILED');
+  });
+});
+
+describe('a stop with steps still to come', () => {
+  const holder = {
+    name: 'holder',
+    cmd: process.execPath,
+    args: ['-e', "console.log('up'); setInterval(() => {}, 1000)"],
+    exclusive: true,
+  };
+  /** A step that leaves a file behind if it ever runs. */
+  const marks = (name, file, exclusive) => ({
+    name,
+    cmd: process.execPath,
+    args: ['-e', `require('node:fs').writeFileSync(${JSON.stringify(file)}, '')`],
+    exclusive,
+  });
+
+  test('a queued exclusive step and the next in a lane do not start', async () => {
+    const dir = mkdtempSync(join(logDir, 'stop-'));
+    const queued = join(dir, 'queued');
+    const next = join(dir, 'next');
+    let stopped;
+    const print = line => {
+      if (line.endsWith('| up')) stopped = new Promise(resolve => stopAll(resolve, 100));
+    };
+    const results = await runLanes(
+      {
+        a: [holder, marks('next', next, false)],
+        b: [marks('queued', queued, true)],
+      },
+      { logDir, print }
+    );
+    await stopped;
+    assert.equal(existsSync(queued), false, 'the queued step ran after the stop');
+    assert.equal(existsSync(next), false, 'the next step ran after the stop');
+    assert.deepEqual(
+      results.map(r => `${r.name} ${r.status}`),
+      ['holder FAILED', 'next not run', 'queued not run']
+    );
+  });
+});
+
+describe('a stop when every step that ran passed', () => {
+  test('is not reported as a pass', async () => {
+    const polite = {
+      name: 'polite',
+      cmd: process.execPath,
+      args: [
+        '-e',
+        "process.on('SIGTERM', () => process.exit(0)); console.log('up'); setInterval(() => {}, 1000)",
+      ],
+    };
+    let stopped;
+    const print = line => {
+      if (line.endsWith('| up')) stopped = new Promise(resolve => stopAll(resolve, 100));
+    };
+    const results = await runLanes({ a: [polite, node('later', 0)] }, { logDir, print });
+    await stopped;
+    assert.deepEqual(
+      results.map(r => `${r.name} ${r.status}`),
+      ['polite ok', 'later not run']
+    );
+    assert.equal(exitCode(results, 143), 143);
+    assert.match(summary(results, 1, [], true), /gate: STOPPED/);
+  });
+
+  test('without a stop the steps decide', () => {
+    assert.equal(exitCode([{ status: 'ok' }]), 0);
+    assert.equal(exitCode([{ status: 'ok' }, { status: 'FAILED' }]), 1);
   });
 });
 
