@@ -112,7 +112,7 @@ pub async fn app_about(
 }
 
 /// Opens one of the project's own pages (the repo, its releases and issue
-/// forms, the docs site) in the browser. Anything else is refused.
+/// forms, the docs site) or Blender's site in the browser. Anything else is refused.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn app_open_link(url: String) -> CommandResult<()> {
