@@ -141,11 +141,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setProject: project => {
     const workspace = get().workspace;
     if (!workspace) return;
+    // A project an agent just made is new here. It opens only when none is open.
+    const known = workspace.projects.some(p => p.id === project.id);
     set({
       workspace: {
         ...workspace,
-        project: workspace.project?.id === project.id ? project : workspace.project,
-        projects: workspace.projects.map(p => (p.id === project.id ? project : p)),
+        project:
+          workspace.project?.id === project.id || !workspace.project ? project : workspace.project,
+        projects: known
+          ? workspace.projects.map(p => (p.id === project.id ? project : p))
+          : [...workspace.projects, project],
       },
     });
   },
