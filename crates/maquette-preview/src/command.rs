@@ -75,6 +75,47 @@ impl DevCommand {
     }
 }
 
+/// What a person is asked before an agent-set repo's dev command first
+/// runs, resolved the way the server resolves it. Its [`key`](Self::key)
+/// holds both the folder's command and what a package script runs, so a
+/// changed path, command or script asks again.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewAsk {
+    /// The repo's real folder: links resolved, so a moved link asks again.
+    pub repo: String,
+    /// The command as one line, before the port is picked.
+    pub command: String,
+    pub source: CommandSource,
+    /// For a package script, what the script itself runs.
+    pub script_runs: Option<String>,
+}
+
+impl PreviewAsk {
+    /// The question for `command` in `site`.
+    pub fn of(site: &Path, command: &DevCommand) -> Self {
+        let repo = fs::canonicalize(site).unwrap_or_else(|_| site.to_path_buf());
+        let script_runs = command.script.as_ref().and_then(|name| {
+            let found = scripts(site).ok().flatten()?;
+            found.get(name).cloned()
+        });
+        Self {
+            repo: repo.to_string_lossy().into_owned(),
+            command: command.line(),
+            source: command.source,
+            script_runs,
+        }
+    }
+
+    /// What an approval is remembered by, with [`repo`](Self::repo).
+    pub fn key(&self) -> String {
+        match &self.script_runs {
+            Some(runs) => format!("{}\n{runs}", self.command),
+            None => self.command.clone(),
+        }
+    }
+}
+
 /// `argv` as one line, quoting args with spaces.
 pub fn line(argv: &[String]) -> String {
     argv.iter()

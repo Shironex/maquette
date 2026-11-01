@@ -20,7 +20,7 @@ use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub use command::{CommandSource, DevCommand};
+pub use command::{CommandSource, DevCommand, PreviewAsk};
 pub use frame::FrameProxy;
 pub use server::{START_TIMEOUT, ServerOwner, ServerState, ServerStatus, SitePreview};
 
@@ -199,6 +199,7 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<page::PageView>()
         .register::<CommandSource>()
         .register::<DevCommand>()
+        .register::<PreviewAsk>()
         .register::<ServerState>()
         .register::<ServerOwner>()
         .register::<ServerStatus>()
