@@ -130,7 +130,7 @@ export default function Composer({ view }: ComposerProps) {
             ? api.line
             : codexReady
               ? `Runs through Codex CLI, ${view.concurrency} at a time`
-              : `Codex CLI is not ready. ${codex?.hint ?? 'Install it, then run codex login.'}`}
+              : `Codex CLI is not ready. ${codex?.hint ?? 'Install it, then run codex login.'} Or drag your own images onto the Board's Concept column.`}
         </span>
       </div>
     </section>
