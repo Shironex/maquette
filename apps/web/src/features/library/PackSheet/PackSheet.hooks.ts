@@ -28,11 +28,11 @@ export function usePackSheet() {
     };
   }
   const word: Record<string, string> = {
-    running: 'checking',
-    waiting: 'needs you',
-    zipping: 'zipping',
-    stopped: 'stopped',
-    failed: 'failed',
+    running: 'Checking',
+    waiting: 'Needs you',
+    zipping: 'Zipping',
+    stopped: 'Stopped',
+    failed: 'Failed',
   };
   return {
     ...s,
