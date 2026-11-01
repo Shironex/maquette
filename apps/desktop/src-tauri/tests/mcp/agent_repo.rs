@@ -18,7 +18,7 @@ fn git_repo(path: &Path) {
 
 /// Temp folders sit behind a link on macOS, and a repo is saved as its real folder.
 fn real(path: &Path) -> String {
-    path.canonicalize().expect("real").display().to_string()
+    maquette_core::fs::real_folder(path).display().to_string()
 }
 
 fn git(repo: &Path, args: &[&str]) {

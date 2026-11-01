@@ -306,7 +306,7 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
         json!({ "project": "web", "siteRepo": site }),
     )
     .await;
-    let real_site = site.canonicalize().expect("real").display().to_string();
+    let real_site = maquette_core::fs::real_folder(&site).display().to_string();
     assert_eq!(repo("web"), Some(real_site.clone()));
 
     // A bad word changes nothing, the repo included.

@@ -479,7 +479,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         hub.approvals()[0].detail,
         Some(format!(
             "Writes to {}",
-            ship_repo.canonicalize().expect("real").display()
+            maquette_core::fs::real_folder(&ship_repo).display()
         )),
         "the prompt says where Ship writes"
     );
