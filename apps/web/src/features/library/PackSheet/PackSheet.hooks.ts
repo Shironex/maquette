@@ -1,21 +1,24 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { FORMAT_LABEL } from '@/state/packs';
 import { useAppStore } from '@/state/use-app-store';
 import { usePackStore } from '@/state/use-pack-store';
 
 /**
- * Closes a project's pack when another project opens: the switcher's shortcut
- * works under the sheet. A running pack goes on, and Recent packs has it.
+ * Closes the sheet when another project opens under it: the switcher's
+ * shortcut still works there. Packs are workspace wide, so one of another
+ * project, opened or resumed here, keeps it open. A pack left behind goes on,
+ * and one that then needs you is answered from Earlier packs.
  */
 export function useClosesWithProject() {
   const current = useAppStore(s => s.workspace?.project?.id);
-  const source = usePackStore(s => s.source);
   const open = usePackStore(s => s.open);
   const close = usePackStore(s => s.close);
-  const other = open && source?.from === 'project' && source.project !== current;
+  const previous = useRef(current);
   useEffect(() => {
-    if (other) close();
-  }, [other, close]);
+    if (previous.current === current) return;
+    previous.current = current;
+    if (open) close();
+  }, [current, open, close]);
 }
 
 /** Which part of a pack the sheet shows, and its heading. */
