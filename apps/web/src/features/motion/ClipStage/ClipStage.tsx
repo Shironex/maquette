@@ -31,7 +31,7 @@ export default function ClipStage() {
   return (
     <section aria-label="Preview" className="flex min-w-0 flex-1 flex-col gap-3 px-5 py-4">
       <MotionTabs />
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-panel-title whitespace-nowrap">{model.name}</h1>
         {model.clips.length > 0 ? (
           <Select

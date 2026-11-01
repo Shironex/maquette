@@ -1,9 +1,12 @@
 import { Icon, IconButton, ProgressBar, StatusChip, Tooltip, VersionBadge, cn } from '@maquette/ui';
+import { LIST_COLUMNS } from '../columns';
 import { CardMenu } from '../../BoardCard/CardMenu';
 import { useListRow } from './ListRow.hooks';
 import type { ListRowProps } from './ListRow.types';
 
 const CELL = 'h-11 px-2 align-middle';
+/** A cell drops out with its column heading on a narrow window. */
+const narrow = (key: string) => LIST_COLUMNS.find(c => c.key === key)?.narrow;
 
 /** One asset in the Board's list: the card's numbers in a row, its box and its menu. */
 export default function ListRow(props: ListRowProps) {
@@ -68,9 +71,9 @@ export default function ListRow(props: ListRowProps) {
         <span className="block truncate font-semibold">{asset.name}</span>
       </td>
       <td className={cn(CELL, 'text-fg-dim')}>
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5" title={v.kindLabel}>
           <Icon name={v.kindIcon} size={14} className="text-fg-mute" />
-          {v.kindLabel}
+          <span className="max-[1279px]:sr-only">{v.kindLabel}</span>
         </span>
       </td>
       <td className={cn(CELL, 'text-fg-dim')}>
@@ -79,7 +82,7 @@ export default function ListRow(props: ListRowProps) {
           {v.stageLabel}
         </span>
       </td>
-      <td className={CELL}>
+      <td className={cn(CELL, narrow('version'))}>
         {n.version !== undefined ? (
           <VersionBadge version={n.version} latest />
         ) : (
@@ -87,12 +90,23 @@ export default function ListRow(props: ListRowProps) {
         )}
       </td>
       <td
-        className={cn(CELL, 'text-right font-mono text-[12px] text-fg-dim', v.over && 'text-amber')}
+        className={cn(
+          CELL,
+          'text-right font-mono text-[12px] text-fg-dim',
+          narrow('tris'),
+          v.over && 'text-amber'
+        )}
         title={v.over ?? undefined}
       >
         {v.budgetLine ?? n.tris}
       </td>
-      <td className={cn(CELL, 'text-right font-mono text-[12px] whitespace-nowrap text-fg-dim')}>
+      <td
+        className={cn(
+          CELL,
+          'text-right font-mono text-[12px] whitespace-nowrap text-fg-dim',
+          narrow('size')
+        )}
+      >
         {row.size}
         {v.sizeNote ? (
           <span className="ml-1.5 font-sans text-[10.5px] text-fg-mute">{v.sizeNote}</span>
@@ -109,7 +123,9 @@ export default function ListRow(props: ListRowProps) {
           />
         )}
       </td>
-      <td className={cn(CELL, 'text-meta whitespace-nowrap text-fg-mute')}>{v.changed}</td>
+      <td className={cn(CELL, 'text-meta whitespace-nowrap text-fg-mute', narrow('changed'))}>
+        {v.changed}
+      </td>
       <td className={cn(CELL, 'relative w-[44px] pr-2 text-right')}>
         <IconButton
           icon="dots-three"

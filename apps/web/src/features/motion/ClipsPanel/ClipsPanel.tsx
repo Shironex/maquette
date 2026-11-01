@@ -66,7 +66,7 @@ export default function ClipsPanel() {
   return (
     <aside
       aria-label="Clips and rig"
-      className="flex w-[344px] flex-none flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-4"
+      className="flex w-[300px] flex-none max-[1023px]:w-[240px] min-[1280px]:w-[344px] flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-4"
     >
       <div className="relative flex items-center justify-between gap-2">
         <SectionLabel>

@@ -22,7 +22,7 @@ export default function BoardList(props: BoardListProps) {
         key={col.key}
         scope="col"
         aria-sort={on ? order : undefined}
-        className={cn(HEAD, col.width, col.key === 'status' && 'pl-4')}
+        className={cn(HEAD, col.width, col.narrow, col.key === 'status' && 'pl-4')}
       >
         <Tooltip label={col.hint} wrap disabled={!col.hint}>
           <button

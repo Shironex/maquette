@@ -71,8 +71,8 @@ export default function ImageTile({ view, direction, image }: ImageTileProps) {
           {image.picked ? 'Unpick' : 'Pick'}
         </Button>
       </div>
-      <figcaption className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate font-medium">{label}</span>
+      <figcaption className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+        <span className="min-w-[5rem] flex-1 truncate font-medium">{label}</span>
         <span className="flex flex-none items-center gap-1.5">
           {image.refFile ? (
             <span className="text-meta whitespace-nowrap text-fg-mute" title={image.refFile}>

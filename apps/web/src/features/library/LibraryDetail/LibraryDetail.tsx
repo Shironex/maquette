@@ -74,7 +74,7 @@ export default function LibraryDetail({ item }: LibraryDetailProps) {
   return (
     <aside
       aria-label="Selected model"
-      className="flex w-[360px] flex-none flex-col gap-4 overflow-y-auto border-l border-line bg-panel p-[18px]"
+      className="flex w-[320px] flex-none min-[1280px]:w-[360px] flex-col gap-4 overflow-y-auto border-l border-line bg-panel p-[18px]"
     >
       <LibraryPicture
         item={item}

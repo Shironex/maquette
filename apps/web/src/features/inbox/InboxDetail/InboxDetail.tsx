@@ -78,8 +78,8 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
         <section className="flex min-w-0 flex-1 flex-col gap-3.5 px-6 pt-[18px] pb-5">
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="min-w-[10rem] flex-1">
               <h2 className="truncate text-panel-title">{itemTitle(item)}</h2>
               <p className="mt-0.5 text-fg-mute">
                 {maker ? `${maker} · ` : ''}arrived {formatAgo(item.modifiedMs ?? now, now)}
@@ -140,7 +140,7 @@ export default function InboxDetail({ item }: InboxDetailProps) {
         </section>
         <aside
           aria-label="Automatic checks"
-          className="flex w-[360px] flex-none flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-[18px]"
+          className="flex w-[300px] flex-none max-[1023px]:w-[240px] flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-[18px] min-[1280px]:w-[360px]"
         >
           <div className="flex items-baseline justify-between">
             <h2 className="text-[15px] leading-5 font-semibold">Automatic checks</h2>
@@ -175,75 +175,78 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           </div>
         </aside>
       </div>
-      <div className="flex h-16 flex-none items-center gap-2.5 border-t border-line bg-panel pr-5 pl-6">
-        <Icon
-          name={passed ? 'check-circle' : 'warning-circle'}
-          className={cn('flex-none', passed ? 'text-sage' : 'text-clay-text')}
-        />
-        <span className="min-w-0 truncate" title={reviewPrompt(item)}>
-          {reviewPrompt(item)}
-        </span>
-        <span className="ml-auto" />
-        <IconButton
-          icon="arrow-clockwise"
-          variant="secondary"
-          label="Reprocess"
-          hint="Read the file again and rerun the checks"
-          disabled={isBusy}
-          disabledReason="Working on this model"
-          onClick={() => void reprocess(item.id)}
-        />
-        <IconButton
-          icon="trash"
-          variant="secondary"
-          label="Discard"
-          hint="Move this model aside, out of the Inbox"
-          disabled={isBusy}
-          disabledReason="Working on this model"
-          onClick={askDiscard}
-        />
-        <Button
-          icon="arrow-bend-up-right"
-          disabled={Boolean(redoBlocked)}
-          disabledReason={redoBlocked ?? undefined}
-          tooltip="Send it again with the same settings, changed where you like. This model stays here to compare."
-          onClick={redo}
-        >
-          Redo...
-        </Button>
-        {hasClips ? (
+      <div className="flex min-h-16 flex-none flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-line bg-panel py-2 pr-5 pl-6">
+        <div className="flex min-w-[10rem] flex-1 items-center gap-2.5">
+          <Icon
+            name={passed ? 'check-circle' : 'warning-circle'}
+            className={cn('flex-none', passed ? 'text-sage' : 'text-clay-text')}
+          />
+          <span className="min-w-0 truncate" title={reviewPrompt(item)}>
+            {reviewPrompt(item)}
+          </span>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2.5">
+          <IconButton
+            icon="arrow-clockwise"
+            variant="secondary"
+            label="Reprocess"
+            hint="Read the file again and rerun the checks"
+            disabled={isBusy}
+            disabledReason="Working on this model"
+            onClick={() => void reprocess(item.id)}
+          />
+          <IconButton
+            icon="trash"
+            variant="secondary"
+            label="Discard"
+            hint="Move this model aside, out of the Inbox"
+            disabled={isBusy}
+            disabledReason="Working on this model"
+            onClick={askDiscard}
+          />
+          <Button
+            icon="arrow-bend-up-right"
+            disabled={Boolean(redoBlocked)}
+            disabledReason={redoBlocked ?? undefined}
+            tooltip="Send it again with the same settings, changed where you like. This model stays here to compare."
+            onClick={redo}
+          >
+            Redo...
+          </Button>
+          {hasClips ? (
+            <Button
+              variant="ghost"
+              icon="download-simple"
+              tooltip="Keeps this model's clips in the animation library, skeleton only"
+              onClick={() =>
+                void useAnimationsStore
+                  .getState()
+                  .openSave({ project: null, asset: null, inbox: item.id })
+              }
+            >
+              Save clips to library
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
-            icon="download-simple"
-            tooltip="Keeps this model's clips in the animation library, skeleton only"
-            onClick={() =>
-              void useAnimationsStore
-                .getState()
-                .openSave({ project: null, asset: null, inbox: item.id })
-            }
+            icon="arrow-square-out"
+            tooltip="Opens this model in Blender to look at or fix it"
+            onClick={() => void openInBlender(item.id)}
           >
-            Save clips to library
+            Open in Blender
           </Button>
-        ) : null}
-        <Button
-          variant="ghost"
-          icon="arrow-square-out"
-          tooltip="Opens this model in Blender to look at or fix it"
-          onClick={() => void openInBlender(item.id)}
-        >
-          Open in Blender
-        </Button>
-        <Button
-          variant="primary"
-          icon="check"
-          disabled={isBusy || !project || item.state === 'failed'}
-          loading={isBusy}
-          disabledReason={item.state === 'failed' ? 'This file could not be read' : acceptTitle}
-          tooltip={acceptTitle}
-          onClick={() => project && void accept(item.id, project.id)}
-        >
-          Accept into project
-        </Button>
+          <Button
+            variant="primary"
+            icon="check"
+            disabled={isBusy || !project || item.state === 'failed'}
+            loading={isBusy}
+            disabledReason={item.state === 'failed' ? 'This file could not be read' : acceptTitle}
+            tooltip={acceptTitle}
+            onClick={() => project && void accept(item.id, project.id)}
+          >
+            Accept into project
+          </Button>
+        </div>
       </div>
       {discarding ? <DiscardDialog item={item} onClose={closeDiscard} /> : null}
     </div>

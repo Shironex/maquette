@@ -111,7 +111,7 @@ export default function PageView() {
         </section>
         <aside
           aria-label={v.compareSide ? 'Device verdict' : 'Readouts and source'}
-          className="flex w-[344px] flex-none flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-4"
+          className="flex w-[300px] flex-none min-[1280px]:w-[344px] flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-4"
         >
           {v.compareSide ? (
             <DeviceVerdict />

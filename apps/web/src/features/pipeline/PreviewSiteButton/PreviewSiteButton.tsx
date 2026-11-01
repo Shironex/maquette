@@ -34,7 +34,7 @@ export default function PreviewSiteButton() {
           className={split ? 'rounded-r-none' : undefined}
           onClick={() => void preview()}
         >
-          Preview on site
+          <span className="@max-[900px]:sr-only">Preview on site</span>
         </Button>
       )}
       {split ? <StopServerButton project={id} compact className="-ml-px rounded-l-none" /> : null}

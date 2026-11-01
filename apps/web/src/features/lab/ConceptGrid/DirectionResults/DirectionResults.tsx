@@ -77,7 +77,7 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
             ) : null}
           </p>
         </div>
-        <div className="ml-auto flex flex-none items-start gap-2">
+        <div className="ml-auto flex min-w-0 flex-wrap items-start justify-end gap-2">
           <IconButton
             icon="squares-four"
             variant="secondary"
@@ -86,7 +86,7 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
             disabledReason={busy === 'sheet' ? 'Making the sheet' : 'No images yet'}
             onClick={() => void contactSheet()}
           />
-          <div className="relative flex gap-2">
+          <div className="relative flex flex-wrap justify-end gap-2">
             <Button
               icon="cube"
               disabled={picked === 0 || busy === 'send'}

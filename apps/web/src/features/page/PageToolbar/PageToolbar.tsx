@@ -42,7 +42,7 @@ function ToggleChip({ icon, label, pressed, onClick, hint }: ToggleChipProps) {
 export default function PageToolbar() {
   const t = usePageToolbar();
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-2">
       <h1 className="m-0 text-panel-title whitespace-nowrap">{t.title}</h1>
       {t.concept ? null : t.editing ? (
         <form

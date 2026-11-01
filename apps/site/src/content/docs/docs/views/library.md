@@ -23,7 +23,7 @@ The top bar reads Models with how many the library holds. Grid, List or Look-ali
 - **Tags:** each tag with its count, and **untagged** for the models with none.
 - **Made with** (Tripo, Meshy, By hand, Built or Imported), **Format** (.glb or .obj, shown when both exist) and **Used in** (each project, or Not used).
 
-The stat strip shows Models with how many are shared, Credits saved by reuse and Updates waiting. Under it a line names what is shown (All models, Models found or the collection) with the count, then a button for the open look-alike groups, one for the untagged models, a **Group** menu (No groups, Made with or Kind) that puts the models under a header each, such as Tripo with its count, and the sort: Newest first, Most used, By name, Most triangles or Fewest triangles. A group keeps the sort inside it.
+The stat strip shows Models with how many are shared, Reuse saved (credits) and Updates. Under it a line names what is shown (All models, Models found or the collection) with the count, then a button for the open look-alike groups, one for the untagged models, a **Group** menu (No groups, Made with or Kind) that puts the models under a header each, such as Tripo with its count, and the sort: Newest first, Most used, By name, Most triangles or Fewest triangles. A group keeps the sort inside it.
 
 ### Search
 

@@ -106,7 +106,7 @@ export default function MotionList() {
   return (
     <section
       aria-label="Models that move"
-      className="flex w-[272px] flex-none flex-col border-r border-line bg-panel"
+      className="flex w-[232px] flex-none max-[1023px]:w-[204px] min-[1280px]:w-[272px] flex-col border-r border-line bg-panel"
     >
       <div className="flex flex-col gap-2.5 px-4 pt-[18px] pb-3">
         <div>
