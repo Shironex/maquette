@@ -50,6 +50,7 @@ function moved(from: readonly DOMRect[], to: readonly DOMRect[]) {
     return (
       Math.abs(now.top - was.top) >= MOVE_PX ||
       Math.abs(now.left - was.left) >= MOVE_PX ||
+      Math.abs(now.width - was.width) >= MOVE_PX ||
       Math.abs(now.height - was.height) >= MOVE_PX
     );
   });

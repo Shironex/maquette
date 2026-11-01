@@ -118,7 +118,7 @@ describe('arming Approve', () => {
 
   describe('when the cards really move', () => {
     let frames: FrameRequestCallback[] = [];
-    let rect = { top: 100, left: 50, height: 200 };
+    let rect = { top: 100, left: 50, width: 400, height: 200 };
 
     /** Runs one animation frame of the page. */
     const frame = () =>
@@ -129,7 +129,7 @@ describe('arming Approve', () => {
       });
 
     beforeEach(() => {
-      rect = { top: 100, left: 50, height: 200 };
+      rect = { top: 100, left: 50, width: 400, height: 200 };
       vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
         () => rect as DOMRect
       );
@@ -190,6 +190,13 @@ describe('arming Approve', () => {
     it('holds when the column slides sideways, as on a resized window', async () => {
       const card = await armedCard();
       rect = { ...rect, left: rect.left - 80 };
+      frame();
+      expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('holds when only the width changes, as Approve sits at the right edge', async () => {
+      const card = await armedCard();
+      rect = { ...rect, width: rect.width - 60 };
       frame();
       expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
     });
