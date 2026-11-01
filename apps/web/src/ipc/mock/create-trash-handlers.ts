@@ -15,7 +15,7 @@ interface TrashContext {
   project: (id: string) => ProjectManifest;
   saveProject: (next: ProjectManifest) => ProjectManifest;
   jobs: () => readonly ProviderJob[];
-  /** Stops a send the way the 3D queue's Cancel and Stop waiting do. */
+  /** Stops a send the way Cancel and Stop waiting in Sends do. */
   stopJob: (id: string) => void;
   /** The run going in the project, if any. */
   activeRun: (project: string) => string | null | undefined;
@@ -66,7 +66,7 @@ export function createTrashHandlers(ctx: TrashContext): Record<string, (args: Ar
     if (running) {
       return outcome(id, asset.name, {
         state: 'refused',
-        reason: `${PROVIDER_LABEL[running.provider]} is making the model of ${asset.name} now (send ${running.id}). Wait for it to reach the Inbox, or cancel it in the 3D queue, then remove the asset.`,
+        reason: `${PROVIDER_LABEL[running.provider]} is making the model of ${asset.name} now (send ${running.id}). Wait for it to reach the Inbox, or cancel it in Sends, then remove the asset.`,
       });
     }
     const stopped = mine.filter(j => WAITING_STATES.includes(j.state)).map(j => j.id);

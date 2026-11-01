@@ -1,5 +1,5 @@
 //! Removing an asset with real provider jobs: a send waiting for a model
-//! is stopped the way the 3D queue stops it, and a paid send being made
+//! is stopped the way Sends stops it, and a paid send being made
 //! refuses the remove until it is over.
 
 use super::*;

@@ -11,7 +11,7 @@
 //! [`restore`] can put it all back.
 //!
 //! Sends waiting for a model (By hand, or a paid send still waiting for
-//! approval or its turn) are stopped first, the way the 3D queue's Cancel
+//! approval or its turn) are stopped first, the way Cancel in Sends
 //! and Stop waiting do. A paid send that is running refuses the remove, so
 //! no credits are lost to a model with nowhere to land, and so does a
 //! pipeline run going in the project.
@@ -56,7 +56,7 @@ pub struct Sent {
     pub asset: String,
     /// The refs it sent, relative to the project.
     pub images: Vec<String>,
-    /// Who makes the model, as the 3D queue names it.
+    /// Who makes the model, as Sends names it.
     pub provider: &'static str,
     pub state: SentState,
 }
@@ -76,7 +76,7 @@ pub enum SentState {
 /// The sends a remove looks at and stops: the app's provider jobs (the
 /// providers implement it), or a stand in for tests.
 pub trait Sends {
-    /// Every send of `project`, as the 3D queue lists them.
+    /// Every send of `project`, as Sends lists them.
     fn jobs(&self, project: &str) -> Vec<Sent>;
     /// Cancels a send or stops waiting for its model.
     fn stop(&self, id: &str) -> CoreResult<()>;
@@ -224,7 +224,7 @@ pub fn remove_assets(
 /// Why a send refuses the remove: it is being made and paid for now.
 fn running_reason(asset: &Asset, job: &Sent) -> String {
     format!(
-        "{} is making the model of {} now (send {}). Wait for it to reach the Inbox, or cancel it in the 3D queue, then remove the asset.",
+        "{} is making the model of {} now (send {}). Wait for it to reach the Inbox, or cancel it in Sends, then remove the asset.",
         job.provider, asset.name, job.id
     )
 }
