@@ -94,7 +94,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
+        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer, so set a repo you trust. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
         annotations(idempotent_hint = true)
     )]
     async fn start_page_preview(&self, Parameters(args): Parameters<StartPageArgs>) -> Out {

@@ -37,7 +37,7 @@ A waiting answer gives status \"waiting for approval\", pollEverySeconds and whe
 Nothing is lost without them: send_to_3d with provider by-hand and add_built_asset spend nothing.
 
 ALWAYS
-Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
+start_page_preview runs the site repo's dev command on this computer. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
 
 SKILLS (in the Maquette plugin, when your client has it)
 maquette-lab-round: concepts to clean refs.
