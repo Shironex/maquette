@@ -515,3 +515,61 @@ fn a_hand_made_card_keeps_its_kind_when_images_are_dropped_for_it() {
         send_picks(f.root.path(), &f.layout, &f.id, "lantern", AssetKind::Prop).expect("send");
     assert_eq!(sent.asset.kind, AssetKind::Character);
 }
+
+fn second_project(f: &Fixture) -> String {
+    project::create(
+        f.root.path(),
+        &f.layout,
+        NewProject {
+            name: "Sun".into(),
+            template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project")
+    .id
+}
+
+#[test]
+fn a_moved_direction_takes_its_card_picture_along() {
+    let f = fixture();
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    let to = second_project(&f);
+    let to_dir = project::dir(f.root.path(), &f.layout, &to).expect("dir");
+    // The other project has this id already, so the folder gets another.
+    fs::create_dir_all(to_dir.join("concepts/lantern")).expect("dir");
+    let moved = crate::concepts::move_direction(
+        f.root.path(),
+        &f.layout,
+        &f.id,
+        &done.direction.id,
+        &to,
+        false,
+    )
+    .expect("move");
+    assert_ne!(moved.direction.id, "lantern");
+    let picture = moved.asset.expect("card").thumbnail.expect("picture");
+    assert!(picture.contains(&moved.direction.id), "{picture}");
+    assert!(to_dir.join(&picture).is_file(), "{picture}");
+}
+
+#[test]
+fn a_card_left_behind_does_not_point_into_the_folder_that_moved() {
+    let f = fixture();
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    let to = second_project(&f);
+    let moved = crate::concepts::move_direction(
+        f.root.path(),
+        &f.layout,
+        &f.id,
+        &done.direction.id,
+        &to,
+        true,
+    )
+    .expect("move");
+    let card = assets::find(&moved.from, &done.asset.id).expect("still here");
+    assert_eq!(card.thumbnail, None);
+}

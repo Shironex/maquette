@@ -82,7 +82,9 @@ pub fn move_direction(
     let asset = assets::find_by_name(&from_manifest, &direction.name).cloned();
     let asset_moves = !keep_asset && asset.as_ref().is_some_and(|a| a.versions.is_empty());
 
+    let old_folder = format!("{CONCEPTS_DIR}/{}/", direction.id);
     let new_id = free_direction_id(&to_dir, &direction.id);
+    let new_folder = format!("{CONCEPTS_DIR}/{new_id}/");
     let source = direction_dir(&from_dir, &direction.id)?;
     let target = direction_dir(&to_dir, &new_id)?;
     let parent = to_dir.join(CONCEPTS_DIR);
@@ -108,7 +110,10 @@ pub fn move_direction(
         let thumbnail = asset
             .thumbnail
             .as_ref()
-            .map(|t| renamed_ref(&renamed, t).unwrap_or_else(|| t.clone()));
+            .map(|t| match t.strip_prefix(&old_folder) {
+                Some(rest) => format!("{new_folder}{rest}"),
+                None => renamed_ref(&renamed, t).unwrap_or_else(|| t.clone()),
+            });
         let to = project::modify(workspace_root, layout, to_id, |m| {
             let placed = assets::adopt(
                 m,
@@ -133,10 +138,20 @@ pub fn move_direction(
         }
         (from, to)
     } else {
-        (
-            project::load(workspace_root, layout, from_id)?,
-            project::load(workspace_root, layout, to_id)?,
-        )
+        // A card that stays must not point into the folder that just left.
+        let from = project::modify(workspace_root, layout, from_id, |m| {
+            for card in &mut m.assets {
+                if card
+                    .thumbnail
+                    .as_deref()
+                    .is_some_and(|t| t.starts_with(&old_folder))
+                {
+                    card.thumbnail = None;
+                }
+            }
+            Ok(())
+        })?;
+        (from, project::load(workspace_root, layout, to_id)?)
     };
     Ok(MovedDirection {
         direction,
