@@ -43,7 +43,20 @@ afterEach(() => {
 });
 
 describe('the more menu', () => {
-  it('opens the pack sheet on the project from Export pack', async () => {
+  it('names its sections and says why Export pack waits, on a second line', async () => {
+    const project = useAppStore.getState().workspace!.project!;
+    useAppStore.getState().setProject({ ...project, assets: [] });
+    render(<MoreMenu />);
+    await openMore();
+    const make = screen.getByRole('group', { name: 'Make' });
+    const pack = within(make).getByRole('menuitem', { name: 'Export pack' });
+    expect(pack).toHaveAttribute('aria-disabled', 'true');
+    expect(pack).toHaveAccessibleDescription('No model accepted yet');
+    expect(screen.getByRole('group', { name: 'Project' })).toBeInTheDocument();
+  });
+
+  it('opens the pack sheet on the project from Export pack, staying on the Board', async () => {
+    useAppStore.setState({ view: 'board' });
     const before = usePackStore.getState().show;
     const show = vi.fn(async () => {});
     usePackStore.setState({ show } as never);
@@ -55,7 +68,7 @@ describe('the more menu', () => {
       { from: 'project', project: 'frostveil' },
       { project: 'Frostveil' }
     );
-    expect(useAppStore.getState().view).toBe('library');
+    expect(useAppStore.getState().view).toBe('board');
     usePackStore.setState({ show: before });
   });
 
@@ -63,7 +76,9 @@ describe('the more menu', () => {
     useProvidersStore.setState({ jobs: [job('a', 'tripo', 'failed')] });
     render(<MoreMenu />);
     await openMore();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'All sends, 1 failed' }));
+    const sends = screen.getByRole('menuitem', { name: /^All sends\s*1$/ });
+    expect(sends).toHaveAccessibleDescription('1 failed');
+    await userEvent.click(sends);
     expect(useProvidersStore.getState().queueOpen).toBe(true);
   });
 
@@ -126,7 +141,7 @@ describe('Render previews', () => {
     expect(without().length).toBeGreaterThan(0);
     render(<MoreMenu />);
     await openMore();
-    await userEvent.click(screen.getByRole('menuitem', { name: /^Render \d+ previews?$/ }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Render previews\s*\d+$/ }));
     await vi.waitFor(() => expect(without()).toEqual([]));
     await openMore();
     expect(screen.queryByRole('menuitem', { name: /^Render/ })).toBeNull();
@@ -158,12 +173,12 @@ describe('Render previews', () => {
     });
     render(<MoreMenu />);
     await openMore();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Render 2 previews' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Render previews\s*2$/ }));
     expect(asked).toHaveBeenCalledWith('frostveil');
     // The renders are still queued in Blender, so the item waits for them.
     await openMore();
     await waitFor(() =>
-      expect(screen.getByRole('menuitem', { name: 'Render 2 previews' })).toHaveAttribute(
+      expect(screen.getByRole('menuitem', { name: /^Render previews\s*2$/ })).toHaveAttribute(
         'aria-disabled',
         'true'
       )
@@ -182,7 +197,7 @@ describe('Render previews', () => {
     });
     render(<MoreMenu />);
     await openMore();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Render 1 preview' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Render previews\s*1$/ }));
     await vi.waitFor(() =>
       expect(useAppStore.getState().notice).toMatchObject({
         status: 'failed',

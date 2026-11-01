@@ -3,6 +3,8 @@ import { Menu, type MenuItem } from '@/features/common/Menu';
 import { RecentlyRemoved } from '../../RecentlyRemoved';
 import { useMoreMenu } from './MoreMenu.hooks';
 
+const SECTIONS = { make: 'Make', project: 'Project' };
+
 /** The ⋯ menu; a small dot says the project's trash holds something. */
 export default function MoreMenu() {
   const {
@@ -11,6 +13,7 @@ export default function MoreMenu() {
     open,
     setOpen,
     removed,
+    sends,
     failed,
     missing,
     rendering,
@@ -20,44 +23,44 @@ export default function MoreMenu() {
     renderMissing,
   } = useMoreMenu();
   const trash = removed.entries.length;
+  const noModel = (project?.assets ?? []).every(a => a.versions.length === 0);
   const items: MenuItem[] = [
     {
       id: 'pack',
       label: 'Export pack',
       icon: 'package',
       section: 'make',
-      disabled: !project || (project.assets ?? []).every(a => a.versions.length === 0),
-      hint: !project
-        ? 'Open a project first'
-        : (project.assets ?? []).every(a => a.versions.length === 0)
-          ? 'No model accepted yet'
-          : 'Every accepted model of this project as one pack for another engine, checked in Blender',
+      disabled: !project || noModel,
+      hint: !project ? 'Open a project first' : noModel ? 'No model accepted yet' : undefined,
+      detail: 'Every accepted model, checked in Blender',
       onSelect: exportPack,
     },
     ...(missing > 0
       ? [
           {
             id: 'previews',
-            label: missing === 1 ? 'Render 1 preview' : `Render ${missing} previews`,
+            label: 'Render previews',
             icon: 'image',
             section: 'make',
+            count: missing,
             disabled: rendering,
             hint: rendering
               ? `Rendering the previews now${waiting > 0 ? `, ${waiting} left` : ''}`
-              : 'Renders each model without a preview, headless in Blender, one at a time. Run it again to retry the ones that failed',
+              : 'Renders each model without a preview, one at a time. Run it again to retry the ones that failed',
+            detail: 'Headless in Blender',
             onSelect: renderMissing,
           } satisfies MenuItem,
         ]
       : []),
     {
       id: 'sends',
-      label: failed > 0 ? `All sends, ${failed} failed` : 'All sends',
+      label: 'All sends',
       icon: 'cube',
-      section: 'sends',
+      section: 'project',
+      count: sends > 0 ? sends : undefined,
       disabled: !project,
-      hint: project
-        ? 'Every send to Tripo or Meshy and by hand, finished ones too, with Credits'
-        : 'Open a project first',
+      hint: project ? undefined : 'Open a project first',
+      detail: failed > 0 ? `${failed} failed` : 'Finished ones too, with Credits',
       onSelect: allSends,
     },
     ...(trash > 0
@@ -66,9 +69,9 @@ export default function MoreMenu() {
             id: 'removed',
             label: 'Removed',
             icon: 'trash',
-            section: 'sends',
+            section: 'project',
             count: trash,
-            hint: 'Recently removed: assets in the workspace trash, ready to restore',
+            detail: 'In the workspace trash, ready to restore',
             onSelect: () => removed.setOpen(true),
           } satisfies MenuItem,
         ]
@@ -104,7 +107,8 @@ export default function MoreMenu() {
         <Menu
           label="More board actions"
           onClose={() => setOpen(false)}
-          className="absolute top-full right-0 mt-1 w-[230px]"
+          className="absolute top-full right-0 mt-1 w-[272px]"
+          sections={SECTIONS}
           items={items}
         />
       ) : null}
