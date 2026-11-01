@@ -44,6 +44,7 @@ pub(super) fn session_in(
 }
 
 pub(super) async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) {
+    maquette_core::providers::http::ensure_crypto();
     let secrets = Arc::new(MemoryStore::default());
     secrets.set(ProviderId::Tripo, SECRET).expect("key");
     let host = Arc::new(TestHost {
