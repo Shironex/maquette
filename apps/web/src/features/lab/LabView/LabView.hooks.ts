@@ -11,7 +11,8 @@ export function useLabView() {
   const poll = useCodexUsageStore(s => s.poll);
   useEffect(() => poll(), [poll]);
   const failed = useLabStore(s => s.loadFailed);
+  const load = useLabStore(s => s.load);
   const reading = Boolean(project) && view?.project !== project?.id && !failed;
   const estimate = useWait(project ? `lab:${project.id}` : null, reading, failed);
-  return { project, view, failed, estimate };
+  return { project, view, failed, estimate, retry: () => project && void load(project.id) };
 }
