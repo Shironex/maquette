@@ -58,23 +58,29 @@ async function onboardingShots({ open, shot }, { viewport, suffix }) {
   await page.getByRole('region', { name: 'Blender is missing' }).waitFor();
   await page.mouse.move(0, 0);
   await shot(page, `first-run-onboarding-blender${suffix}`);
-  // The screen pushes the tool list down, so see that Continue is still there.
-  await page.getByRole('button', { name: 'Continue' }).scrollIntoViewIfNeeded();
+  // The screen pushes the tool list down, past the fold at the small size.
+  await page.getByText('Node', { exact: true }).scrollIntoViewIfNeeded();
   await shot(page, `first-run-onboarding-blender-end${suffix}`);
   await page.context().close();
 }
 
-/** The card sits over the Board's columns, so nothing scrolls it back if it runs past them. */
+/** The card sits over the Board's columns: it must stay inside them, its steps in view. */
 async function firstRunCard(page, shot, name) {
   const card = page.getByRole('region', { name: 'Your first build in three steps' });
   await card.waitFor();
   await page.mouse.move(0, 0);
-  const over = await card.evaluate(el => {
+  const { over, hidden } = await card.evaluate(el => {
     const box = el.getBoundingClientRect();
-    const view = el.closest('main').getBoundingClientRect();
-    return Math.max(view.top - box.top, box.bottom - view.bottom);
+    const room = el.parentElement.getBoundingClientRect();
+    const list = el.querySelector('ol');
+    return {
+      over: Math.max(room.top - box.top, box.bottom - room.bottom),
+      hidden: list.scrollHeight - list.clientHeight,
+    };
   });
-  if (over > 0) console.error(`${name}: the first run card runs ${Math.ceil(over)} px past main`);
+  if (over > 0)
+    console.error(`${name}: the first run card runs ${Math.ceil(over)} px past the Board`);
+  if (hidden > 0) console.error(`${name}: the first run card scrolls ${hidden} px of its steps`);
   await shot(page, name);
   await page.context().close();
 }
