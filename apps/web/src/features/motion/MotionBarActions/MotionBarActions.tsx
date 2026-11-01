@@ -11,8 +11,7 @@ import { useMotionBarActions } from './MotionBarActions.hooks';
  * budgets, as the other views do.
  */
 export default function MotionBarActions() {
-  const { view, loadFailed, line, tip, saving, save, revert, dirty, models } =
-    useMotionBarActions();
+  const { view, pending, line, tip, saving, save, revert, dirty, models } = useMotionBarActions();
   const nothing = view ? 'No unsaved changes' : 'The motion has not been read yet';
   if (models) return <ModelBudgetMeter summary={models} />;
   return (
@@ -24,7 +23,7 @@ export default function MotionBarActions() {
             value={line?.sceneMb ?? null}
             target={line?.targetMb ?? 3}
             unit="MB"
-            pending={loadFailed ? 'Could not read' : undefined}
+            pending={pending}
             format={mb => mb.toFixed(2)}
           />
         </span>

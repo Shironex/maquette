@@ -235,3 +235,9 @@ export function ticks(frames: number): number[] {
   if (out[out.length - 1] !== frames) out.push(frames);
   return out;
 }
+
+/** What a scene budget meter says with no number: undefined while one is being read. */
+export function budgetPending(hasProject: boolean, failed: boolean): string | undefined {
+  if (!hasProject) return 'No project';
+  return failed ? 'Could not read' : undefined;
+}
