@@ -30,7 +30,7 @@ export default function Composer({ view }: ComposerProps) {
   return (
     <section
       aria-label="New direction"
-      className="flex w-[320px] flex-none flex-col gap-3.5 overflow-y-auto border-r border-line bg-panel px-[18px] pt-[18px] pb-4"
+      className="flex w-[280px] flex-none max-[1023px]:w-[240px] min-[1280px]:w-[320px] flex-col gap-3.5 overflow-y-auto border-r border-line bg-panel px-[18px] pt-[18px] pb-4"
     >
       <div className="flex items-center justify-between gap-2">
         <h1 className="flex items-center gap-2 text-panel-title">

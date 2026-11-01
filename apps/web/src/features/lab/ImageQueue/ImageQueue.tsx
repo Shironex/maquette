@@ -26,7 +26,7 @@ export default function ImageQueue({ view }: ImageQueueProps) {
   return (
     <aside
       aria-label="Image queue"
-      className="flex w-[296px] flex-none flex-col border-l border-line bg-panel px-4 pt-[18px] pb-3.5"
+      className="flex w-[248px] flex-none max-[1023px]:w-[200px] min-[1280px]:w-[296px] flex-col border-l border-line bg-panel px-4 pt-[18px] pb-3.5"
     >
       <div className="mb-1 flex items-baseline justify-between">
         <h2 className="text-panel-title">Image queue</h2>
