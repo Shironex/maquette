@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use crate::assets::AssetKind;
 use crate::error::{CoreError, CoreResult};
 use crate::json::{from_json_with_defaults, write_json};
-use crate::project::{now_rfc3339, slugify};
+use crate::project::now_rfc3339;
 
 pub use crate::refs::REFS_DIR;
 pub use codex::{assemble, attached, codex_args, prompt};

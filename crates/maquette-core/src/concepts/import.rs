@@ -4,6 +4,7 @@
 //! a card of the same name at Concept, which a send then moves up.
 
 use std::fs;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -32,14 +33,121 @@ pub struct ImportedConcepts {
 
 const FALLBACK_NAME: &str = "Dropped images";
 
-/// The file extension an image's header says, whatever its name claims.
-fn image_extension(bytes: &[u8]) -> Option<&'static str> {
-    match maquette_glb::images::sniff(bytes)? {
-        "image/png" => Some("png"),
-        "image/jpeg" => Some("jpg"),
-        "image/webp" => Some("webp"),
-        _ => None,
+/// One image, as for a built asset's files.
+pub const MAX_IMAGE_BYTES: u64 = crate::built::MAX_FILE_BYTES;
+pub const MAX_IMAGES_PER_DROP: usize = 50;
+/// One drop, as for a model handed back by hand.
+pub const MAX_DROP_BYTES: u64 = 512 * 1024 * 1024;
+/// As far from either end as validating reads, however large the file.
+const CHECK_BYTES: u64 = 4096;
+
+const MB: u64 = 1024 * 1024;
+
+fn file_name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    )
+}
+
+/// The extension an image's first bytes say, whatever its name claims.
+fn image_extension(head: &[u8]) -> Option<&'static str> {
+    if head.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("png")
+    } else if head.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("jpg")
+    } else if head.starts_with(b"RIFF") && head.get(8..12) == Some(b"WEBP") {
+        Some("webp")
+    } else {
+        None
     }
+}
+
+/// True when the file ends where its format says. There is no image decoder
+/// in this workspace, so damage in the middle only shows when it is opened.
+fn is_whole(extension: &str, head: &[u8], tail: &[u8], size: u64) -> bool {
+    match extension {
+        "png" => tail.len() >= 8 && &tail[tail.len() - 8..tail.len() - 4] == b"IEND",
+        // Some cameras pad after the end marker, so anywhere near the end will do.
+        "jpg" => tail.windows(2).any(|w| w == [0xFF, 0xD9]),
+        _ => head
+            .get(4..8)
+            .and_then(|b| b.try_into().ok())
+            .is_some_and(|b| u64::from(u32::from_le_bytes(b)) + 8 <= size),
+    }
+}
+
+/// The extension and size of a file an import may take. Reads both ends of
+/// a regular file within the limit, and nothing of anything else.
+fn check_image(path: &Path) -> CoreResult<(&'static str, u64)> {
+    let name = file_name(path);
+    let meta = fs::metadata(path).map_err(|e| CoreError::io(path, e))?;
+    if !meta.is_file() {
+        return Err(CoreError::Invalid(format!("{name} is not a file.")));
+    }
+    let size = meta.len();
+    if size > MAX_IMAGE_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "{name} is {} MB. An image can be {} MB at most.",
+            size.div_ceil(MB),
+            MAX_IMAGE_BYTES / MB
+        )));
+    }
+    let mut file = fs::File::open(path).map_err(|e| CoreError::io(path, e))?;
+    let mut read = |from: u64, len: u64| -> CoreResult<Vec<u8>> {
+        file.seek(SeekFrom::Start(from))
+            .map_err(|e| CoreError::io(path, e))?;
+        let mut bytes = Vec::new();
+        (&mut file)
+            .take(len)
+            .read_to_end(&mut bytes)
+            .map_err(|e| CoreError::io(path, e))?;
+        Ok(bytes)
+    };
+    let head = read(0, CHECK_BYTES)?;
+    let tail = read(size.saturating_sub(CHECK_BYTES), CHECK_BYTES)?;
+    let Some(extension) = image_extension(&head) else {
+        return Err(CoreError::Invalid(format!(
+            "{name} is not a PNG, JPEG or WebP image."
+        )));
+    };
+    if !is_whole(extension, &head, &tail, size) {
+        return Err(CoreError::Invalid(format!(
+            "{name} looks cut off. Save or download it again."
+        )));
+    }
+    Ok((extension, size))
+}
+
+/// Every file checked before anything is written, and the limits of one drop.
+fn check_drop(paths: &[PathBuf]) -> CoreResult<Vec<&'static str>> {
+    if paths.is_empty() {
+        return Err(CoreError::Invalid("Choose at least one image.".to_string()));
+    }
+    if paths.len() > MAX_IMAGES_PER_DROP {
+        return Err(CoreError::Invalid(format!(
+            "That is {} files. A drop can be {MAX_IMAGES_PER_DROP} images at most.",
+            paths.len()
+        )));
+    }
+    let mut total = 0;
+    let mut extensions = Vec::with_capacity(paths.len());
+    for path in paths {
+        let meta_size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        if meta_size <= MAX_IMAGE_BYTES {
+            total += meta_size;
+        }
+        if total > MAX_DROP_BYTES {
+            return Err(CoreError::Invalid(format!(
+                "These images come to more than {} MB, the most for one drop.",
+                MAX_DROP_BYTES / MB
+            )));
+        }
+    }
+    for path in paths {
+        extensions.push(check_image(path)?.0);
+    }
+    Ok(extensions)
 }
 
 /// `stone_lantern-02.png` reads `Stone lantern 02`, cut to fit a card's name.
@@ -152,32 +260,18 @@ pub fn import_images(
     paths: &[PathBuf],
 ) -> CoreResult<ImportedConcepts> {
     let project_dir = project::dir(workspace_root, layout, project_id)?;
-    let Some(first) = paths.first() else {
-        return Err(CoreError::Invalid("Choose at least one image.".to_string()));
-    };
-    let mut images = Vec::with_capacity(paths.len());
-    for path in paths {
-        let bytes = fs::read(path).map_err(|e| CoreError::io(path, e))?;
-        let Some(extension) = image_extension(&bytes) else {
-            return Err(CoreError::Invalid(format!(
-                "{} is not a PNG, JPEG or WebP image.",
-                path.display()
-            )));
-        };
-        images.push((bytes, extension));
-    }
-    let name = free_name(&project_dir, &name_from(first))?;
+    let extensions = check_drop(paths)?;
+    let name = free_name(&project_dir, &name_from(&paths[0]))?;
     let direction = open_direction(&project_dir, &name)?;
     let id = direction.id.clone();
-    let start = reserve_indexes(&project_dir, &direction, images.len() as u32);
+    let start = reserve_indexes(&project_dir, &direction, paths.len() as u32);
     let folder = direction_dir(&project_dir, &id)?;
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
-    let mut added = Vec::with_capacity(images.len());
+    let mut added = Vec::with_capacity(paths.len());
     let mut direction = direction;
-    for (index, (bytes, extension)) in (start..).zip(images) {
+    for (index, (from, extension)) in (start..).zip(paths.iter().zip(extensions)) {
         let file = format!("{CONCEPTS_DIR}/{id}/{id}_{index:02}.{extension}");
-        let to = project_dir.join(&file);
-        fs::write(&to, bytes).map_err(|e| CoreError::io(&to, e))?;
+        fs::copy(from, project_dir.join(&file)).map_err(|e| CoreError::io(from, e))?;
         direction = add_image(&project_dir, &id, index, &file, None)?;
         added.push(file);
     }

@@ -325,3 +325,108 @@ fn a_reserved_windows_name_does_not_become_a_folder() {
     assert_eq!(done.direction.id, "con-1");
     assert_eq!(done.asset.id, "con-1");
 }
+
+#[test]
+fn a_real_image_with_no_extension_lands() {
+    let f = fixture();
+    let done = f.import(&[f.image("lantern")]).expect("import");
+    assert!(done.added[0].ends_with(".png"));
+}
+
+#[test]
+fn what_is_not_a_regular_file_is_refused_by_name_without_being_opened() {
+    let f = fixture();
+    let error = f
+        .import(&[f.drops.path().to_path_buf()])
+        .expect_err("a folder");
+    assert!(error.to_string().contains("is not a file"), "{error}");
+    #[cfg(unix)]
+    {
+        let fifo = f.drops.path().join("pipe.png");
+        let made = std::process::Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .expect("mkfifo");
+        assert!(made.success());
+        let error = f.import(&[fifo]).expect_err("a pipe");
+        assert!(error.to_string().contains("pipe.png"), "{error}");
+    }
+}
+
+#[test]
+fn a_file_over_the_limit_is_refused_and_the_error_names_it_and_the_limit() {
+    let f = fixture();
+    let big = f.image("big.png");
+    let file = fs::OpenOptions::new()
+        .append(true)
+        .open(&big)
+        .expect("open");
+    file.set_len(MAX_IMAGE_BYTES + 1).expect("grow");
+    let error = f.import(&[big]).expect_err("too big");
+    let text = error.to_string();
+    assert!(text.contains("big.png") && text.contains("50 MB"), "{text}");
+    assert!(load_direction(&f.dir, "big").expect("read").is_none());
+}
+
+#[test]
+fn a_drop_over_the_count_limit_is_refused_and_says_the_limit() {
+    let f = fixture();
+    let one = f.image("one.png");
+    let many = vec![one; MAX_IMAGES_PER_DROP + 1];
+    let text = f.import(&many).expect_err("too many").to_string();
+    assert!(text.contains(&MAX_IMAGES_PER_DROP.to_string()), "{text}");
+}
+
+#[test]
+fn a_drop_over_the_total_limit_is_refused_and_says_the_limit() {
+    let f = fixture();
+    let big = f.image("big.png");
+    let file = fs::OpenOptions::new()
+        .append(true)
+        .open(&big)
+        .expect("open");
+    file.set_len(MAX_IMAGE_BYTES).expect("grow");
+    // The file now ends in zeros, so the size check must come before the ending.
+    let n = (MAX_DROP_BYTES / MAX_IMAGE_BYTES) as usize + 1;
+    let text = f.import(&vec![big; n]).expect_err("too much").to_string();
+    assert!(text.contains("512 MB"), "{text}");
+}
+
+#[test]
+fn a_cut_off_image_with_a_good_header_is_refused() {
+    let f = fixture();
+    let cut = f.drops.path().join("cut.png");
+    let bytes = crate::inbox::images::write_png(2, 3, &[90; 18]);
+    fs::write(&cut, &bytes[..bytes.len() - 6]).expect("write");
+    let text = f.import(&[cut]).expect_err("cut").to_string();
+    assert!(
+        text.contains("cut.png") && text.contains("cut off"),
+        "{text}"
+    );
+
+    let jpeg = f.drops.path().join("cut.jpg");
+    fs::write(&jpeg, [0xFF, 0xD8, 0xFF, 0xE0, 0, 4, 0, 0]).expect("write");
+    assert!(f.import(&[jpeg]).is_err());
+
+    let webp = f.drops.path().join("cut.webp");
+    let mut bytes = b"RIFF".to_vec();
+    bytes.extend(100u32.to_le_bytes());
+    bytes.extend(b"WEBPVP8 ");
+    fs::write(&webp, bytes).expect("write");
+    assert!(f.import(&[webp]).is_err());
+}
+
+#[test]
+fn a_whole_jpeg_and_webp_pass_the_ending_check() {
+    let f = fixture();
+    let jpeg = f.drops.path().join("whole.jpg");
+    fs::write(&jpeg, [0xFF, 0xD8, 0xFF, 0xE0, 0, 4, 0, 0, 0xFF, 0xD9]).expect("write");
+    assert!(f.import(&[jpeg]).expect("jpeg").added[0].ends_with(".jpg"));
+    let webp = f.drops.path().join("whole.webp");
+    let mut bytes = b"RIFF".to_vec();
+    bytes.extend(12u32.to_le_bytes());
+    bytes.extend(b"WEBPVP8 ");
+    bytes.extend(0u32.to_le_bytes());
+    fs::write(&webp, bytes).expect("write");
+    assert!(f.import(&[webp]).expect("webp").added[0].ends_with(".webp"));
+}
