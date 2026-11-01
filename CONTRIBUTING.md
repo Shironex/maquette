@@ -56,12 +56,29 @@ Rust tests that call a real Blender skip themselves when it is not installed; se
 pnpm gate
 ```
 
-`pnpm gate` is the whole local gate and has to exit 0 before you open a pull request. In order:
-ESLint, the repo's own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the release scripts'
-tests (`pnpm test:scripts`), the site build, Prettier, `cargo fmt --check`, clippy with warnings
-denied, and `cargo test`. Husky runs lint-staged on commit and commitlint on the message. CI runs
-the same checks on every pull request, with the Rust ones on both macOS and Windows. Architecture rules (folder per component, one way
-dependencies, file size limits) are in [docs/architecture.md](docs/architecture.md).
+`pnpm gate` is the whole local gate and has to exit 0 before you open a pull request. It runs two
+lanes side by side and ends with each step's time and what failed. The Node lane: ESLint, the repo's
+own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the release scripts' tests
+(`pnpm test:scripts`), the site build and Prettier. The Rust lane: `cargo fmt --check`, clippy with
+warnings denied, and the tests. Husky runs lint-staged on commit and commitlint on the message.
+
+The gate differs from CI in three ways:
+
+- **Rust tests:** it uses [cargo-nextest](https://nexte.st) (`cargo install cargo-nextest --locked`)
+  plus `cargo test --doc`. Without nextest it runs `cargo test` and says so; the tests are the same.
+  CI runs `cargo test`, on both macOS and Windows.
+- **Cache:** ESLint and Prettier keep a cache in `node_modules/.cache`, so a rule that looks at other
+  files (a component's required test, say) may not re-check an unchanged file. CI has no cache.
+  `pnpm gate --no-cache` runs without it.
+- **Generated files:** the gate fails if the Rust tests rewrote the IPC bindings or `tool-names.txt`,
+  because the Node lane may have read either version. Commit the new files and run it again.
+
+`pnpm gate:fast` checks only what changed since `main`, for quick rounds while you work. It lints and
+formats those files, runs the Vitest tests they affect, and skips the lane or steps they cannot reach;
+a change it cannot place runs the whole gate. It proves less and does not replace `pnpm gate`.
+
+Architecture rules (folder per component, one way dependencies, file size limits) are in
+[docs/architecture.md](docs/architecture.md).
 
 For any change you can see, also run:
 
