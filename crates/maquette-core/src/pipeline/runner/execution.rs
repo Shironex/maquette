@@ -7,13 +7,13 @@ use std::time::{Duration, Instant};
 
 use super::queue::ChildSlot;
 use super::{GateDecision, PipelineEvent, RunOptions, RunSetup, RunSink};
-use crate::pipeline::StepDef;
 use crate::pipeline::cache::FileHasher;
 use crate::pipeline::graph::{self, Planned};
 use crate::pipeline::history::{
     self, LogEntry, LogLevel, LogStream, RunRecord, RunState, StepState, now_ms,
 };
 use crate::pipeline::progress::Tracker;
+use crate::pipeline::{StepDef, is_ship_step};
 
 /// Progress events are sent at most this often, unless a step finishes.
 const PROGRESS_EVERY: Duration = Duration::from_millis(250);
@@ -160,6 +160,15 @@ impl Execution {
                 });
                 continue;
             }
+            if let Some(reason) = self.nowhere_to_ship(&step) {
+                let rec = &mut self.record.steps[slot];
+                rec.state = StepState::Skipped;
+                rec.message = Some(reason.clone());
+                self.record.not_shipped = Some(reason.clone());
+                self.system(Some(&step.id), LogLevel::Warn, reason);
+                self.emit_run();
+                continue;
+            }
             if self.gated(&step) && self.unchanged_since_last(&step, &mut hasher) {
                 let rec = &mut self.record.steps[slot];
                 rec.state = StepState::Cached;
@@ -246,6 +255,26 @@ impl Execution {
         }
     }
 
+    /// Why `step` has nowhere to write: a Ship step that takes the project's
+    /// repo, in a project with none. The runner decides this, not the script,
+    /// so a project on an older `ship.mjs` reads the same, and nobody is
+    /// asked to approve a Ship that would copy nothing.
+    fn nowhere_to_ship(&self, step: &StepDef) -> Option<String> {
+        let takes_repo = step.args.iter().any(|a| a.contains("{siteRepo}"));
+        let repo = self.setup.vars.get("siteRepo").map_or("", |r| r.trim());
+        if !is_ship_step(step) || !takes_repo || !repo.is_empty() {
+            return None;
+        }
+        let word = if step.args.iter().any(|a| a == "--game") {
+            "game"
+        } else {
+            "site"
+        };
+        Some(format!(
+            "No {word} repo is set for this project, so nothing was shipped. Pick one in Settings."
+        ))
+    }
+
     fn gated(&self, step: &StepDef) -> bool {
         self.options.gate.as_ref().is_some_and(|g| g.applies(step))
     }
@@ -300,9 +329,14 @@ impl Execution {
             .count();
         let summary = match state {
             RunState::Done => format!(
-                "Run {} done in {:.1}s, {cached} cached",
+                "Run {} done in {:.1}s, {cached} cached{}",
                 self.record.number,
-                total / 1000.0
+                total / 1000.0,
+                if self.record.not_shipped.is_some() {
+                    ", nothing shipped"
+                } else {
+                    ""
+                }
             ),
             RunState::Cancelled => format!("Run {} cancelled", self.record.number),
             _ => format!(
@@ -311,7 +345,9 @@ impl Execution {
                 self.record.message.clone().unwrap_or_default()
             ),
         };
-        let level = if state == RunState::Done {
+        let level = if self.record.not_shipped.is_some() && state == RunState::Done {
+            LogLevel::Warn
+        } else if state == RunState::Done {
             LogLevel::Ok
         } else {
             LogLevel::Error

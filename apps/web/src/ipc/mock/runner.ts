@@ -15,6 +15,8 @@ export interface FakeRunnerOptions {
   holdAt?: string;
   /** Capture posters fails the first time it runs. */
   postersFail: boolean;
+  /** The project's site or game repo, which Ship needs. */
+  repoOf: (project: string) => string | null;
 }
 
 export interface RunStore {
@@ -69,6 +71,17 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
       if (failure) {
         rec.state = 'skipped';
         rec.message = 'Not run, an earlier step failed.';
+        continue;
+      }
+      if (rec.id === 'ship' && !options.repoOf(run.project)) {
+        const word = def.steps.some(s => s.id === 'ship' && s.args.includes('--game'))
+          ? 'game'
+          : 'site';
+        rec.state = 'skipped';
+        rec.message = `No ${word} repo is set for this project, so nothing was shipped. Pick one in Settings.`;
+        run.notShipped = rec.message;
+        log(run, rec.id, rec.message, 'warn', 'system');
+        publish(run);
         continue;
       }
       const started = clock.nowMs();
@@ -132,7 +145,6 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
       }
       publish(run);
     }
-    void def;
     run.finishedAtMs = clock.nowMs();
     if (active?.cancelled) {
       run.state = 'cancelled';
@@ -148,8 +160,8 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
       log(
         run,
         null,
-        `Run ${run.number} done in ${((run.finishedAtMs - (run.startedAtMs ?? 0)) / 1000).toFixed(1)}s, ${cached} cached`,
-        'ok',
+        `Run ${run.number} done in ${((run.finishedAtMs - (run.startedAtMs ?? 0)) / 1000).toFixed(1)}s, ${cached} cached${run.notShipped ? ', nothing shipped' : ''}`,
+        run.notShipped ? 'warn' : 'ok',
         'system'
       );
     }
@@ -204,6 +216,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
         finishedAtMs: null,
         steps,
         message: null,
+        notShipped: null,
       };
       active = { id: run.id, cancelled: false };
       store.logs.set(number, []);

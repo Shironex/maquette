@@ -8,6 +8,19 @@
  */
 
 export async function shipShots({ open, shot, hoverTip }) {
+  // No site repo: Run pipeline asks first, and the run reads as not shipped.
+  const noRepo = await open('&scenario=idle&page=no-site&pace=1', '#/pipeline');
+  await noRepo.getByRole('button', { name: 'Run pipeline' }).click();
+  await noRepo.getByText(/builds everything and ships nothing/).waitFor();
+  await shot(noRepo, 'ship-no-repo-confirm');
+  await noRepo.getByRole('button', { name: 'Run, ship nothing' }).click();
+  await noRepo.getByText(/finished, but nothing shipped/).waitFor({ timeout: 60_000 });
+  await shot(noRepo, 'ship-no-repo-pipeline');
+  await noRepo.goto(noRepo.url().replace('#/pipeline', '#/board'));
+  await noRepo.getByText('Not shipped', { exact: true }).waitFor();
+  await shot(noRepo, 'ship-no-repo-board');
+  await noRepo.context().close();
+
   const runner = await open('&scenario=idle', '#/pipeline');
   const buildOnly = runner.getByRole('checkbox', { name: 'Build only' });
   await buildOnly.waitFor();

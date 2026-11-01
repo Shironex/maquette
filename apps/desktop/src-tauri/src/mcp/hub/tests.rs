@@ -18,6 +18,7 @@ fn run(id: &str) -> RunRecord {
         finished_at_ms: None,
         steps: Vec::new(),
         message: None,
+        not_shipped: None,
     }
 }
 

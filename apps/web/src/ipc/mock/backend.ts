@@ -108,7 +108,6 @@ export function createBackend({
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
-
   const now = clock.nowMs();
   const history = configured ? runHistory(now) : [];
   const store: RunStore = {
@@ -121,6 +120,7 @@ export function createBackend({
     pace,
     holdAt: scenario === 'running' ? 'export' : undefined,
     postersFail: scenario !== 'idle',
+    repoOf: id => project(id).siteRepo,
   });
   const game = createGameHandlers({
     project: id => project(id),

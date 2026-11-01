@@ -7,6 +7,7 @@ import type { NodeState, StageState } from '@maquette/ui';
 import type {
   Asset,
   LogEntry,
+  PipelineDef,
   PipelineEvent,
   PipelineView,
   ProjectTarget,
@@ -113,6 +114,10 @@ export function nodeViews(view: PipelineView): Record<string, NodeView> {
         break;
       }
       case 'skipped': {
+        if (latest?.notShipped && record.message === latest.notShipped) {
+          out[step.id] = { state: 'waiting', label: 'Not shipped' };
+          break;
+        }
         const before = older
           .map(r => ({ run: r, rec: r.steps.find(s => s.id === step.id) }))
           .find(x => x.rec && x.rec.state !== 'skipped');
@@ -172,7 +177,20 @@ export function runStatusLine(run: RunRecord | undefined): string {
     return failed ? `Run ${run.number} failed at ${failed.name}` : `Run ${run.number} failed`;
   }
   if (run.state === 'cancelled') return `Run ${run.number} cancelled`;
-  return `Run ${run.number} done`;
+  return run.notShipped ? `Run ${run.number} done, nothing shipped` : `Run ${run.number} done`;
+}
+
+/**
+ * True when a full run of `def` would have nowhere to ship: the project has
+ * no repo and its Ship step takes one. The runner decides the same.
+ */
+export function shipsNowhere(def: PipelineDef, repo: string | null | undefined): boolean {
+  if (repo?.trim()) return false;
+  return def.steps.some(
+    s =>
+      [s.id.trim().toLowerCase(), s.name.trim().toLowerCase()].includes('ship') &&
+      s.args.some(a => a.includes('{siteRepo}'))
+  );
 }
 
 /** The step a failed run stopped at, for Re-run from here. */

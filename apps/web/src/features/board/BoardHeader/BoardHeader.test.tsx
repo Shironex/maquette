@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { forgetStoredPrefs, useBoardPrefsStore } from '@/state/use-board-prefs-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useTrashStore } from '@/state/use-trash-store';
 import { clearMocks, openMockGame, openMockWorkspace } from '@/test/mock-ipc';
@@ -30,6 +31,18 @@ afterEach(() => {
 });
 
 describe('BoardHeader', () => {
+  it('says the last run shipped nothing, and nothing when it did', async () => {
+    await usePipelineStore.getState().load('frostveil');
+    const { rerender } = render(<BoardHeader />);
+    expect(screen.queryByText('Not shipped')).toBeNull();
+    const view = usePipelineStore.getState().view!;
+    const last = { ...view.runs[0]!, state: 'done' as const, notShipped: 'No site repo.' };
+    usePipelineStore.setState({ view: { ...view, active: null, runs: [last] } });
+    rerender(<BoardHeader />);
+    expect(await screen.findByText('Not shipped')).toBeVisible();
+    usePipelineStore.setState({ view: null });
+  });
+
   it('gives every button of the header a tooltip', async () => {
     await openMockGame('crypt');
     render(<BoardHeader />);

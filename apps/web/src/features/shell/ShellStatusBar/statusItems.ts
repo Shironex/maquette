@@ -142,7 +142,7 @@ function runItems(latest: RunRecord | undefined, now: number): StatusBarItem[] {
     ];
   }
   return [
-    ...(latest.state === 'failed'
+    ...(latest.state === 'failed' || latest.notShipped
       ? [{ label: runStatusLine(latest), dot: 'offline' as const }]
       : []),
     {

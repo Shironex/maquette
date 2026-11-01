@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import {
@@ -18,6 +19,39 @@ afterEach(() => {
 });
 
 describe('the Pipeline view', () => {
+  it('asks before a run with no site repo, and Build only does not', async () => {
+    await openMockWorkspace();
+    await usePipelineStore.getState().load('frostveil');
+    const workspace = useAppStore.getState().workspace!;
+    act(() =>
+      useAppStore.setState({
+        workspace: { ...workspace, project: { ...workspace.project!, siteRepo: null } },
+      })
+    );
+    const view = usePipelineStore.getState().view!;
+    const steps = view.def.steps.map(s =>
+      s.id === 'ship' ? { ...s, args: ['--site', '{siteRepo}'] } : s
+    );
+    act(() => usePipelineStore.setState({ view: { ...view, def: { ...view.def, steps } } }));
+    render(<PipelineView />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run pipeline' }));
+    expect(screen.getByText(/builds everything and ships nothing/)).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByText(/builds everything and ships nothing/)).toBeNull();
+  });
+
+  it('says a finished run shipped nothing, with the reason', async () => {
+    await openMockWorkspace();
+    await usePipelineStore.getState().load('frostveil');
+    const view = usePipelineStore.getState().view!;
+    const reason = 'No site repo is set for this project, so nothing was shipped.';
+    const last = { ...view.runs[0]!, state: 'done' as const, notShipped: reason };
+    act(() => usePipelineStore.setState({ view: { ...view, active: null, runs: [last] } }));
+    render(<PipelineView />);
+    expect(screen.getByText(`Run ${last.number} finished, but nothing shipped`)).toBeVisible();
+    expect(screen.getByText(reason)).toBeVisible();
+  });
+
   it('drops the log filter, Build only and Ignore the cache on a project switch', async () => {
     await openMockWorkspace();
     await usePipelineStore.getState().load('frostveil');

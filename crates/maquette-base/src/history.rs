@@ -91,11 +91,46 @@ pub struct RunRecord {
     pub steps: Vec<StepRecord>,
     /// The failure or cancel reason, for the banner.
     pub message: Option<String>,
+    /// Why this finished run shipped nothing though it reached its Ship
+    /// step: no repo to ship to.
+    #[serde(default)]
+    pub not_shipped: Option<String>,
 }
 
 impl RunRecord {
     pub fn failed_step(&self) -> Option<&StepRecord> {
         self.steps.iter().find(|s| s.state == StepState::Failed)
+    }
+
+    /// Whether this run reached the site, and why not, for an agent. `None`
+    /// while it runs or when the pipeline has no Ship step.
+    pub fn ship_outcome(&self) -> Option<(bool, Option<String>)> {
+        if !self.state.is_finished() {
+            return None;
+        }
+        if let Some(reason) = &self.not_shipped {
+            return Some((false, Some(reason.clone())));
+        }
+        if self.build_only {
+            return Some((false, Some("Build only: it stopped before Ship.".into())));
+        }
+        let step = self.steps.iter().find(|s| {
+            s.id.trim().eq_ignore_ascii_case("ship") || s.name.trim().eq_ignore_ascii_case("ship")
+        })?;
+        Some(match step.state {
+            StepState::Done | StepState::Cached => (true, step.message.clone()),
+            StepState::Skipped if step.message.is_none() => {
+                (false, Some("Ship was not part of this run.".into()))
+            }
+            _ => (
+                false,
+                Some(
+                    step.message
+                        .clone()
+                        .unwrap_or_else(|| "Ship did not run.".into()),
+                ),
+            ),
+        })
     }
 }
 
@@ -231,6 +266,7 @@ mod tests {
             finished_at_ms: Some(3.0),
             steps: Vec::new(),
             message: None,
+            not_shipped: None,
         }
     }
 
@@ -243,6 +279,53 @@ mod tests {
             text: text.into(),
             at_ms: 0.0,
         }
+    }
+
+    fn ship_step(state: StepState) -> StepRecord {
+        StepRecord {
+            id: "ship".into(),
+            name: "Ship".into(),
+            state,
+            started_at_ms: None,
+            duration_ms: None,
+            exit_code: None,
+            message: None,
+            progress: None,
+        }
+    }
+
+    #[test]
+    fn a_run_says_whether_it_shipped_and_why_not() {
+        let mut no_repo = run(1);
+        no_repo.steps = vec![ship_step(StepState::Skipped)];
+        no_repo.not_shipped = Some("No site repo".into());
+        assert_eq!(
+            no_repo.ship_outcome(),
+            Some((false, Some("No site repo".into())))
+        );
+
+        let mut shipped = run(2);
+        shipped.steps = vec![ship_step(StepState::Done)];
+        assert_eq!(shipped.ship_outcome(), Some((true, None)));
+
+        let mut build = run(3);
+        build.build_only = true;
+        build.steps = vec![ship_step(StepState::Skipped)];
+        assert_eq!(build.ship_outcome().map(|o| o.0), Some(false));
+
+        let mut going = run(4);
+        going.state = RunState::Running;
+        assert_eq!(going.ship_outcome(), None);
+        assert_eq!(run(5).ship_outcome(), None, "no Ship step");
+    }
+
+    #[test]
+    fn a_run_saved_before_the_field_reads_without_it() {
+        let text = serde_json::to_string(&run(1)).expect("json");
+        let old = text.replace(",\"notShipped\":null", "");
+        assert_ne!(old, text);
+        let back: RunRecord = serde_json::from_str(&old).expect("read");
+        assert_eq!(back.not_shipped, None);
     }
 
     #[test]

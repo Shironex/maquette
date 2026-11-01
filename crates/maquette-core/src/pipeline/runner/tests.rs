@@ -595,6 +595,66 @@ fn a_gate_holds_the_step_until_it_is_approved_or_denied() {
 }
 
 #[test]
+fn a_ship_step_with_no_repo_is_left_out_without_asking_and_the_run_says_so() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut ship = shell_step("ship", "tools/ship.sh", &[], &[]);
+    ship.args.extend(["--site".into(), "{siteRepo}".into()]);
+    let mut s = setup(dir.path(), vec![ship]);
+    s.vars.insert("siteRepo".into(), String::new());
+    // An older ship.mjs passes here; the run must not read as shipped either way.
+    script(&s, "ship.sh", "echo ran >> ran.log\n");
+    let (tx, rx) = mpsc::channel();
+    let gate = Arc::new(Approval {
+        answer: Mutex::new(rx),
+        asked: AtomicBool::new(false),
+    });
+    let sink = Arc::new(Recorder::default());
+    let runner = PipelineRunner::new(sink.clone());
+    let options = RunOptions {
+        gate: Some(gate.clone()),
+        ..RunOptions::default()
+    };
+    runner.submit_with(s.clone(), options).expect("submit");
+    assert!(sink.wait_for_line("nothing shipped", Duration::from_secs(10)));
+    while runner.active("moon").0.is_some() {
+        thread::sleep(Duration::from_millis(20));
+    }
+    drop(tx);
+    let run = history::load_runs(&s.cache_dir).remove(0);
+    assert_eq!(run.state, RunState::Done);
+    assert_eq!(states(&run), vec![StepState::Skipped]);
+    let reason = run.not_shipped.clone().expect("the reason");
+    assert!(reason.contains("No site repo"), "{reason}");
+    assert_eq!(run.ship_outcome(), Some((false, Some(reason))));
+    assert!(!gate.asked.load(Ordering::SeqCst), "nothing to approve");
+    assert!(
+        !s.project_dir.join("ran.log").exists(),
+        "the script did not run"
+    );
+}
+
+#[test]
+fn a_ship_step_with_a_repo_ships() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut ship = shell_step("ship", "tools/ship.sh", &[], &[]);
+    ship.args.extend(["--site".into(), "{siteRepo}".into()]);
+    let mut s = setup(dir.path(), vec![ship]);
+    s.vars.insert("siteRepo".into(), "/some/site".into());
+    script(&s, "ship.sh", "echo ran\n");
+    let sink = Arc::new(Recorder::default());
+    let runner = PipelineRunner::new(sink.clone());
+    runner
+        .submit_with(s.clone(), RunOptions::default())
+        .expect("submit");
+    while runner.active("moon").0.is_some() {
+        thread::sleep(Duration::from_millis(20));
+    }
+    let run = history::load_runs(&s.cache_dir).remove(0);
+    assert_eq!(run.not_shipped, None);
+    assert_eq!(run.ship_outcome(), Some((true, None)));
+}
+
+#[test]
 fn a_gated_step_with_nothing_new_is_skipped_without_asking() {
     let dir = tempfile::tempdir().expect("tempdir");
     let s = setup(

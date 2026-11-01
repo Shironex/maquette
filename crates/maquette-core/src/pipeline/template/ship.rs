@@ -1,7 +1,8 @@
 //! The Ship step: copies the shipped models and posters into the site and
 //! writes the site's scene data (see [`crate::site`]). Without a site repo
-//! in the project settings the script passes and says so. It writes outside
-//! the pipeline root, so it has no outputs and runs every time.
+//! in the project settings the runner leaves the step out and the run says
+//! nothing shipped. It writes outside the pipeline root, so it has no outputs
+//! and runs every time.
 
 use std::path::Path;
 

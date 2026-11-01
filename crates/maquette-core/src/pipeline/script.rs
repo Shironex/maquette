@@ -242,6 +242,7 @@ mod tests {
                 progress: None,
             }],
             message: None,
+            not_shipped: None,
         }
     }
 

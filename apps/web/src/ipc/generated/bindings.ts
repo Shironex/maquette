@@ -6326,6 +6326,11 @@ export type RunRecord = {
 	steps: StepRecord[],
 	/**  The failure or cancel reason, for the banner. */
 	message: string | null,
+	/**
+	 *  Why this finished run shipped nothing though it reached its Ship
+	 *  step: no repo to ship to.
+	 */
+	notShipped?: string | null,
 };
 
 export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";

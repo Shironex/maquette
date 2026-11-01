@@ -9,7 +9,7 @@ Step 6 of 6 in a new project. Kind: `shell`. Command: `node`. Script: `tools/shi
 
 ## What it does
 
-It copies `web/dist/*.glb` and the posters into the project's site repo and writes the site's scene data when the site asks for it. Without a site repo it says so and passes. Where things go is set in [`maquette.site.json`](/docs/start/website-projects/#maquettesitejson).
+It copies `web/dist/*.glb` and the posters into the project's site repo and writes the site's scene data when the site asks for it. Without a site repo the run leaves Ship out and reads as not shipped, not as complete: the Pipeline and Board say so, Run pipeline asks first, and [`get_run`](/docs/agents/mcp-tools/#get_run) answers `shipped: false` with a `shipReason`. Where things go is set in [`maquette.site.json`](/docs/start/website-projects/#maquettesitejson).
 
 Ship has no outputs inside the project, so it runs every time. To build everything and stop before Ship, tick **Build only** next to Run pipeline, or pass `buildOnly` to [`run_pipeline`](/docs/agents/mcp-tools/#run_pipeline). The run then lists Ship as left out.
 
