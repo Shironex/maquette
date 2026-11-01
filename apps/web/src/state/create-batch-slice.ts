@@ -157,8 +157,8 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
           `${n} ${n === 1 ? 'asset is' : 'assets are'} on the way to ${PROVIDER_LABEL[draft.provider]}`,
           failed ||
             (batch.redo
-              ? 'Follow them in the 3D queue. The earlier models stay in the Inbox to compare.'
-              : 'Follow them in the 3D queue. Each model lands in the Inbox.')
+              ? 'Follow them in Sends. The earlier models stay in the Inbox to compare.'
+              : 'Follow them in Sends. Each model lands in the Inbox.')
         );
       }
     } catch (error) {

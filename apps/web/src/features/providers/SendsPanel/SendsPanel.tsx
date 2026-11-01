@@ -1,5 +1,5 @@
 /**
- * The sends of the open project in one sheet: the 3D queue and the By hand
+ * The sends of the open project in one sheet: the queue of provider sends and the By hand
  * checklist, as tabs while both have something to say. Opens from the
  * Board's Sends button and menu, and after a By hand batch.
  */
@@ -17,7 +17,7 @@ export default function SendsPanel() {
     <Sheet
       id="sends"
       icon={tab === 'hand' ? 'hand-pointing' : 'cube'}
-      title={tab === 'hand' ? 'By hand checklist' : '3D queue'}
+      title={tab === 'hand' ? 'By hand checklist' : 'Sends'}
       meta={meta}
       onClose={close}
       width={600}
@@ -25,7 +25,7 @@ export default function SendsPanel() {
       {showTabs ? (
         <Tabs
           tabs={[
-            { id: 'queue', label: '3D queue', count: inFlight },
+            { id: 'queue', label: 'Sends', count: inFlight },
             { id: 'hand', label: 'By hand', count: waiting },
           ]}
           value={tab}

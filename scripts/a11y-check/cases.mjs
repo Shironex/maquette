@@ -23,7 +23,7 @@ async function openQueue(page) {
   await page.getByRole('button', { name: 'More board actions' }).click();
   await page.getByRole('menuitem', { name: /^All sends/ }).click();
   await page
-    .getByRole('region', { name: '3D queue' })
+    .getByRole('region', { name: 'Sends' })
     .getByRole('button', { name: 'Credits' })
     .click();
   await page.getByRole('dialog', { name: 'Credits' }).getByText('1,240').waitFor();

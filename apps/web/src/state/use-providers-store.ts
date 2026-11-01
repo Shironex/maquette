@@ -45,7 +45,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
       const jobs = await commands.providerJobs(project);
       if (get().project === project) set({ jobs });
     } catch (error) {
-      notify('failed', 'Could not read the 3D queue', errorMessage(error));
+      notify('failed', 'Could not read Sends', errorMessage(error));
     }
   },
 
@@ -143,8 +143,8 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
           'done',
           `${job.assetName} is on its way to ${PROVIDER_LABEL[job.provider]}`,
           job.redoOf
-            ? 'Follow it in the 3D queue. The earlier model stays in the Inbox, so you can compare both and accept one.'
-            : 'Follow it in the 3D queue. The model lands in the Inbox when it is done.'
+            ? 'Follow it in Sends. The earlier model stays in the Inbox, so you can compare both and accept one.'
+            : 'Follow it in Sends. The model lands in the Inbox when it is done.'
         );
       }
     } catch (error) {

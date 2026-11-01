@@ -11,11 +11,11 @@ afterEach(() => {
   useProvidersStore.setState({ project: null, jobs: [] });
 });
 
-describe('the 3D queue', () => {
+describe('Sends', () => {
   it('lists the sends and clears the finished ones through the backend', async () => {
     const { sent } = await openProviders();
     render(<ProviderQueue onClose={() => {}} />);
-    const queue = screen.getByRole('region', { name: '3D queue' });
+    const queue = screen.getByRole('region', { name: 'Sends' });
     expect(within(queue).getByText('Veil gate')).toBeInTheDocument();
     await userEvent.click(within(queue).getByRole('button', { name: 'Clear finished' }));
     expect(sent('provider_clear_finished')).toHaveLength(1);
