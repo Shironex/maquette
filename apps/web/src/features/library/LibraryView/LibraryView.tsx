@@ -106,7 +106,7 @@ export default function LibraryView() {
               type="search"
               icon="magnifying-glass"
               aria-label="Find a model"
-              placeholder="Name, tag, project, by:tripo, <5k"
+              placeholder="Name, tag, by:tripo, <5k"
               value={filters.query}
               maxLength={120}
               onChange={e => setFilters({ query: e.target.value })}

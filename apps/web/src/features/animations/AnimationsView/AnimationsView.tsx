@@ -128,8 +128,10 @@ export default function AnimationsView() {
                 />
               </div>
             ) : null}
-            <div className="flex items-center gap-3">
-              <h2 className="text-panel-title">{filtered ? 'Clips found' : 'All clips'}</h2>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h2 className="text-panel-title whitespace-nowrap">
+                {filtered ? 'Clips found' : 'All clips'}
+              </h2>
               <span className="text-meta text-fg-mute">
                 {filtered ? `${v.shown.length} of ${count(v.items.length)}` : count(v.items.length)}{' '}
                 · newest first
