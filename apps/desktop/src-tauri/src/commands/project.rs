@@ -113,6 +113,9 @@ pub(crate) fn create_in_workspace(
         .is_some_and(|r| !r.trim().is_empty());
     let by = if has_repo { by } else { RepoSetBy::Person };
     // The mark goes down before the repo does, so a failure in between asks.
+    // The id is claimed but has no manifest until after this, so no save can
+    // reach it; the turn keeps the book's write with the others.
+    let _turn = session.repo_turn();
     let manifest = project::create_with(&root, &config.layout, new, |id| {
         mark_repo(session, &root, id, by).map_err(|e| CoreError::Invalid(e.message))
     })?;
@@ -159,19 +162,26 @@ pub fn project_update(
 /// answers the real folder, so a link moved later cannot change where Ship
 /// writes and the Ship card names the folder itself.
 pub(crate) fn checked_repo(session: &Session, path: &str) -> CommandResult<PathBuf> {
-    let (root, config) = session.workspace()?;
     let expanded = session.expand(path);
     let at = maquette_core::game::check_repo(&expanded.display().to_string())?;
     let found = real_folder(&at);
+    refuse_ship_folder(session, &found)?;
+    Ok(found)
+}
+
+/// Refuses a resolved folder Ship must not write to. A saved repo comes back
+/// through here at run time, since a link it went through can have moved.
+pub(crate) fn refuse_ship_folder(session: &Session, found: &Path) -> CommandResult<()> {
+    let (root, config) = session.workspace()?;
     let workspace = real_folder(&root);
     let projects = real_folder(&root.join(&config.layout.projects));
     let home = real_folder(&session.expand("~"));
-    match repo_refusal(&found, &workspace, &projects, &home) {
+    match repo_refusal(found, &workspace, &projects, &home) {
         Some(why) => Err(invalid(&format!(
             "{} {why} Pick the site's own repo.",
-            at.display()
+            found.display()
         ))),
-        None => Ok(found),
+        None => Ok(()),
     }
 }
 
@@ -226,12 +236,14 @@ pub(crate) fn set_repo(
 ) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let site_repo = site_repo.map(|p| session.expand(&p).display().to_string());
+    let _turn = session.repo_turn();
     let before = project::load(&root, &config.layout, id)?;
     let moved = before.site_repo != site_repo;
     if moved {
         refuse_during_run(runner, id)?;
     }
-    // Before the repo, so a failure or a race in between asks. An agent
+    // Before the repo, so a failure in between asks; the turn rules out a
+    // person's clear landing on an agent's repo. An agent
     // clearing a repo keeps its mark: only a person's move drops it.
     if by == RepoSetBy::Agent && site_repo.is_some() {
         mark_repo(session, &root, id, RepoSetBy::Agent)?;

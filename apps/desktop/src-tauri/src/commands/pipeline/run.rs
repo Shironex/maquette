@@ -61,12 +61,15 @@ pub(crate) fn setup(
                 .to_string(),
         ),
         // The folder itself, so the card names what Ship writes to and a link
-        // moved during the wait changes nothing.
-        None => ctx
-            .manifest
-            .site_repo
-            .as_deref()
-            .map(|r| real_folder(Path::new(r)).display().to_string()),
+        // moved during the wait changes nothing, checked again for that link.
+        None => match ctx.manifest.site_repo.as_deref() {
+            Some(saved) => {
+                let found = real_folder(Path::new(saved));
+                crate::commands::project::refuse_ship_folder(session, &found)?;
+                Some(found.display().to_string())
+            }
+            None => None,
+        },
     };
     let ship = maquette_core::ship::load(&ctx.project_dir)?;
     let mut vars = BTreeMap::new();
