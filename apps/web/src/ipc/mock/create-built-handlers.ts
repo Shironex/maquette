@@ -204,7 +204,8 @@ export function createBuiltHandlers({ project, saveProject, emit, seed, buildMs 
 
   const handlers: Record<string, (args: Args) => unknown> = {
     dialog_pick_script: () => `${PIECES}/desk.py`,
-    dialog_pick_files: () => [`${PIECES}/common.py`],
+    dialog_pick_files: ({ title }) =>
+      /concept/i.test(String(title)) ? ['/art/moon_gate.png'] : [`${PIECES}/common.py`],
     built_list: ({ project: id }) => list(String(id)),
     built_add: ({ project: id, request }) => {
       const p = project(String(id));

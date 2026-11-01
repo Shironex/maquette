@@ -1,7 +1,9 @@
 import type {
+  Asset,
   AssetKind,
   ConceptJob,
   Direction,
+  ImportedConcepts,
   MovedDirection,
   RefImage,
   SentObjects,
@@ -82,6 +84,75 @@ export function createLabSends({
     return { direction: next, assets: sent, copied, project: saved };
   }
 
+  /** Mirrors `concepts::import::import_images`. */
+  function importConcepts(project: string, paths: string[]): ImportedConcepts {
+    if (paths.length === 0) fail('invalid', 'Choose at least one image.');
+    const stem = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.[^.]*$/, '');
+    const words = stem(paths[0]!).replace(/[_-]/g, ' ').trim();
+    const name = words ? words[0]!.toUpperCase() + words.slice(1) : 'Dropped images';
+    const id = slug(name);
+    const at = clock.now().toISOString();
+    const dir = options.projectDir(project);
+    const found = list(project).find(d => d.id === id);
+    const start = Math.max(0, ...(found?.images ?? []).map(i => i.index)) + 1;
+    const added = paths.map((_, n) => {
+      const index = start + n;
+      return `concepts/${id}/${id}_${String(index).padStart(2, '0')}.png`;
+    });
+    paths.forEach((path, n) => options.files?.alias(`${dir}/${added[n]}`, path));
+    const direction = saveDirection(project, {
+      id,
+      name,
+      prompt: '',
+      refs: [],
+      aspect: '1:1',
+      createdAt: at,
+      source: null,
+      kind: null,
+      styleOff: true,
+      styleRevision: null,
+      refsJob: null,
+      ...found,
+      updatedAt: at,
+      images: [
+        ...(found?.images ?? []),
+        ...added.map((file, n) => ({
+          file,
+          index: start + n,
+          width: 1024,
+          height: 1024,
+          starred: false,
+          picked: false,
+          refFile: null,
+          createdAt: at,
+          title: null,
+        })),
+      ],
+    });
+    const manifest = options.project(project);
+    const known = manifest.assets?.find(a => a.id === id);
+    const asset: Asset = known
+      ? { ...known, thumbnail: known.thumbnail ?? added[0]!, updatedAt: at }
+      : {
+          id,
+          name,
+          kind: 'prop',
+          stage: 'concept',
+          status: 'queued',
+          versions: [],
+          thumbnail: added[0]!,
+          createdAt: at,
+          updatedAt: at,
+        };
+    const saved = options.saveProject({
+      ...manifest,
+      assets: known
+        ? (manifest.assets ?? []).map(a => (a.id === id ? asset : a))
+        : [...(manifest.assets ?? []), asset],
+    });
+    return { direction, asset, added, project: saved };
+  }
+
   function sendPicks(project: string, id: string, kind: AssetKind): SentPicks {
     const direction = findDirection(project, id);
     const picks = direction.images.filter(i => i.picked);
@@ -109,6 +180,9 @@ export function createLabSends({
     const assetId = slug(direction.name);
     const order = ['concept', 'refs', 'tripo', 'blender', 'web', 'ship'];
     let asset = assets.find(a => a.id === assetId);
+    // A card images were dropped for only guessed its kind.
+    if (asset?.stage === 'concept' && asset.thumbnail?.startsWith('concepts/'))
+      asset = { ...asset, kind };
     if (asset && order.indexOf(asset.stage) < 1) asset = { ...asset, stage: 'refs', updatedAt: at };
     if (!asset) {
       asset = {
@@ -210,5 +284,5 @@ export function createLabSends({
     };
   }
 
-  return { sendPicks, sendObjectPicks, moveDirection };
+  return { sendPicks, sendObjectPicks, moveDirection, importConcepts };
 }

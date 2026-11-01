@@ -137,13 +137,6 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
     setCopyFor(null);
   }, [project?.id]);
 
-  const later = (what: string) =>
-    notify({
-      status: 'info',
-      title: `${what} arrives in a later version`,
-      detail: 'This build runs the pipeline and checks models in the inbox.',
-    });
-
   const move = async (asset: Asset, stage: Stage) => {
     if (project) await moveCard(project.id, asset, stage);
   };
@@ -204,7 +197,6 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
     setSizing,
     removing,
     setRemoving,
-    later,
     move,
     dropOn,
     copyTo,

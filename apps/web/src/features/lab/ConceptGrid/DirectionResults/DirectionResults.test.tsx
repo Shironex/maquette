@@ -1,9 +1,11 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LabView } from '@/ipc/client';
 import { labDirections } from '@/ipc/mock/lab-fixtures';
+import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
+import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DirectionResults } from '.';
 import { tooltipText } from '@/test/tooltipText';
 import { EMPTY_STYLE } from '@/state/lab-style';
@@ -25,6 +27,7 @@ const lab = useLabStore.getState();
 
 afterEach(() => {
   cleanup();
+  clearMocks();
   useLabStore.setState(lab, true);
 });
 
@@ -43,6 +46,24 @@ describe('the results of a direction', () => {
     expect(screen.getByText('Adds Frozen lake arena to the Board at Refs')).toBeVisible();
     await userEvent.click(screen.getByRole('menuitem', { name: 'As a prop' }));
     expect(sendPicks).toHaveBeenCalledWith('prop');
+  });
+
+  it('still asks the kind when the card only exists because images were dropped', async () => {
+    await openMockWorkspace();
+    const project = useAppStore.getState().workspace!.project!;
+    const thumbnail = 'concepts/frozen-lake-arena/frozen-lake-arena_01.png';
+    act(() =>
+      useAppStore.getState().setProject({
+        ...project,
+        assets: [{ ...project.assets![0]!, name: arena.name, stage: 'concept', thumbnail }],
+      })
+    );
+    const sendPicks = vi.fn(async () => 'frozen-lake-arena');
+    useLabStore.setState({ sendPicks });
+    render(<DirectionResults view={view} direction={arena} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Send picks to Refs' }));
+    expect(screen.getByRole('menuitem', { name: 'As a prop' })).toBeVisible();
+    expect(sendPicks).not.toHaveBeenCalled();
   });
 
   it('offers cutting a scene into objects before sending it whole', async () => {

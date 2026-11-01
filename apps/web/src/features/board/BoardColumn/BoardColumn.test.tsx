@@ -1,12 +1,23 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NativeDropHandlers } from '@/lib/useNativeDrop';
+import { useAppStore } from '@/state/use-app-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DRAG_TYPE } from '../constants';
 import { fakeBoardEnv, mockAsset } from '../fakeBoardEnv';
 import BoardColumn from './BoardColumn';
 
+const native = vi.hoisted(() => ({ handlers: [] as NativeDropHandlers[] }));
+vi.mock('@/lib/useNativeDrop', () => ({
+  useNativeDrop: (handlers: NativeDropHandlers) => native.handlers.push(handlers),
+}));
+
+const cards = () => useAppStore.getState().workspace?.project?.assets ?? [];
+const notice = () => useAppStore.getState().notice;
+
 beforeEach(async () => {
+  native.handlers = [];
   await openMockWorkspace('configured', undefined, 'batch');
 });
 
@@ -58,11 +69,93 @@ describe('BoardColumn', () => {
     const { rerender } = render(
       <BoardColumn stage="concept" assets={[]} boardEmpty board={board} />
     );
-    await userEvent.click(screen.getByRole('button', { name: /Drop concept art/ }));
-    expect(board.actions.later).toHaveBeenCalledWith('Concept import');
+    expect(screen.getByRole('button', { name: /Drop concept art/ })).toBeVisible();
     expect(screen.queryByText('Drag an asset here')).toBeNull();
     rerender(<BoardColumn stage="refs" assets={[]} boardEmpty board={board} />);
     expect(screen.getByText('Drag an asset here')).toBeInTheDocument();
+  });
+
+  it('imports the images chosen from the empty drop zone', async () => {
+    render(<BoardColumn stage="concept" assets={[]} boardEmpty board={fakeBoardEnv()} />);
+    await userEvent.click(screen.getByRole('button', { name: /Drop concept art/ }));
+    await waitFor(() => expect(cards().some(a => a.stage === 'concept' && a.thumbnail)).toBe(true));
+    expect(notice()).toMatchObject({ status: 'done', action: { label: 'Open Lab' } });
+  });
+
+  it('takes images dropped on a column that already has cards', async () => {
+    render(
+      <BoardColumn
+        stage="concept"
+        assets={[mockAsset('Elsheria')]}
+        boardEmpty={false}
+        board={fakeBoardEnv()}
+      />
+    );
+    const file = new File(['x'], 'stone_lantern.png', { type: 'image/png' });
+    fireEvent.drop(screen.getByRole('region', { name: /^Concept/ }), {
+      dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
+    });
+    await waitFor(() => expect(cards().map(a => a.name)).toContain('Stone lantern'));
+  });
+
+  it('takes a native drop over the Concept column and leaves other columns alone', async () => {
+    render(
+      <>
+        <BoardColumn
+          stage="concept"
+          assets={[mockAsset('Elsheria')]}
+          boardEmpty={false}
+          board={fakeBoardEnv()}
+        />
+        <BoardColumn stage="refs" assets={[]} boardEmpty={false} board={fakeBoardEnv()} />
+      </>
+    );
+    const concept = screen.getByRole('region', { name: /^Concept/ });
+    const refs = screen.getByRole('region', { name: /^Refs/ });
+    const spot = vi.fn<() => Element | null>(() => refs);
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: spot });
+    const drop = (paths: string[]) =>
+      act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, paths)));
+    drop(['/art/over_refs.png']);
+    expect(cards().map(a => a.name)).not.toContain('Over refs');
+    spot.mockReturnValue(concept);
+    drop(['/art/moon_gate.png', '/art/notes.txt']);
+    await waitFor(() => expect(cards().map(a => a.name)).toContain('Moon gate'));
+  });
+
+  it('says what it takes when nothing dropped is an image', async () => {
+    render(
+      <BoardColumn
+        stage="concept"
+        assets={[mockAsset('Elsheria')]}
+        boardEmpty={false}
+        board={fakeBoardEnv()}
+      />
+    );
+    const concept = screen.getByRole('region', { name: /^Concept/ });
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => concept,
+    });
+    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, ['/art/notes.txt'])));
+    expect(notice()).toMatchObject({ title: 'Drop a PNG, JPEG or WebP image' });
+  });
+
+  it('leaves a native drop on a By hand card to that card', () => {
+    render(
+      <BoardColumn
+        stage="concept"
+        assets={[mockAsset('Elsheria')]}
+        boardEmpty={false}
+        board={fakeBoardEnv()}
+      />
+    );
+    const card = document.createElement('div');
+    card.dataset.dropJob = 'job-1';
+    screen.getByRole('region', { name: /^Concept/ }).append(card);
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => card });
+    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, ['/art/moon_gate.png'])));
+    expect(cards().map(a => a.name)).not.toContain('Moon gate');
   });
 
   it('lights up under a dragged card and moves it on drop', () => {

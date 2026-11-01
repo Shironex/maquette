@@ -7,6 +7,10 @@ sidebar:
 
 The Board follows each asset through the stages: Concept, Refs, 3D model, Blender, Web and Ship. A card shows where the asset stands: queued, generating, waiting for your model, or done.
 
+## Bringing your own concept art
+
+Drop PNG, JPEG or WebP images on the Concept column, with or without cards in it, or click the drop zone on an empty Board. They become a Lab direction named after the first file, and a card of that name at Concept, so you star, pick and cut them in the Lab like generated images. Send picks to Refs asks what the asset is and moves that card up. Another drop with the same name adds to that direction and overwrites nothing. A file that is not one of these images stops the import before anything is copied.
+
 ## 3D quick view
 
 To look at one model without leaving the Board, open **Inspect 3D model** in a card's menu. A modal shows the newest version on the same studio preview the Inbox uses, with Shaded, Wireframe, UV and, for a rigged model, Bones, plus a turntable, orbit and zoom, and the version, triangles and size. **Open in Inspector** closes it and jumps to that version in the Compare tab. A model the project has not added yet says so instead of opening. Escape closes it. The Library opens the same view from a card's picture, and the Inbox from its preview.

@@ -26,9 +26,12 @@ export function useDirectionResults(view: LabView, direction: Direction) {
   const [kindMenu, setKindMenu] = useState<'refs' | '3d' | null>(null);
   const cells = tiles(direction, view.jobs);
   const picked = direction.images.filter(i => i.picked).length;
-  const known = assets.find(
+  const named = assets.find(
     a => a.name.trim().toLowerCase() === direction.name.trim().toLowerCase()
   );
+  // A card made by dropping images only guessed its kind, so the send still asks.
+  const known =
+    named?.stage === 'concept' && named.thumbnail?.startsWith('concepts/') ? undefined : named;
 
   const send = () => {
     if (objects) void sendObjectPicks();
