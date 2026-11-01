@@ -93,6 +93,7 @@ function labItems(jobs: readonly ConceptJob[]): StatusBarItem[] {
 
 function blenderItem(checking: boolean, blender: ToolReport | undefined): StatusBarItem {
   if (checking) return { label: 'Checking tools', dot: 'running' };
+  if (blender?.status === 'broken') return { label: 'Blender did not run', dot: 'offline' };
   return blender?.status === 'found'
     ? { label: `Blender ${blender.version ?? ''}, headless`.replace('  ', ' '), icon: 'cube' }
     : { label: 'Blender not found', dot: 'offline' };
