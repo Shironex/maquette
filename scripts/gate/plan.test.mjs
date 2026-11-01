@@ -215,6 +215,13 @@ describe('fastPlan', () => {
     assert.deepEqual(names(plan.node), ['lint:meta', 'typecheck', 'test']);
   });
 
+  test('a path that looks like a flag stays a path', () => {
+    const { node } = fastPlan(['apps/web/src/-odd.ts'], options);
+    for (const step of [node[0], node.at(-1)]) {
+      assert.deepEqual(step.args.slice(-2), ['--', 'apps/web/src/-odd.ts'], step.name);
+    }
+  });
+
   test('a list past the character cap goes to the tools as the whole repo', () => {
     // Few paths, but long ones: the count alone would let these through.
     const long = Array.from({ length: 40 }, (_, i) => `apps/web/src/${'a'.repeat(150)}${i}.ts`);

@@ -154,7 +154,7 @@ export function fastPlan(files, { nextest, cacheDir, base, exists }) {
     node.push(pnpm('lint', 'lint', ...cacheFlags('eslint', cacheDir)));
   } else if (lintable.length > 0) {
     const flags = cacheFlags('eslint', cacheDir);
-    node.push(pnpm('lint', 'exec', 'eslint', '--no-warn-ignored', ...flags, ...lintable));
+    node.push(pnpm('lint', 'exec', 'eslint', '--no-warn-ignored', ...flags, '--', ...lintable));
   }
   // Whole-repo checks over the sources, the skills and the README: quick, and
   // no list of files can stand in for them.
@@ -181,7 +181,16 @@ export function fastPlan(files, { nextest, cacheDir, base, exists }) {
   } else if (present.length > 0) {
     const flags = cacheFlags('prettier', cacheDir);
     node.push(
-      pnpm('format:check', 'exec', 'prettier', '--check', '--ignore-unknown', ...flags, ...present)
+      pnpm(
+        'format:check',
+        'exec',
+        'prettier',
+        '--check',
+        '--ignore-unknown',
+        ...flags,
+        '--',
+        ...present
+      )
     );
   }
   return { node, rust: touched.rust ? rustLane(nextest) : [] };
