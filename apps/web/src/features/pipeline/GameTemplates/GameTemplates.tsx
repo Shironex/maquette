@@ -1,6 +1,7 @@
-import { Button, Icon, InlineBanner, cn } from '@maquette/ui';
-import type { FolderBudget, GameTemplatePreview } from '@/ipc/client';
+import { Button, Icon, InlineBanner } from '@maquette/ui';
+import type { FolderBudget, GameExport, GameTemplatePreview } from '@/ipc/client';
 import { Sheet } from '@/features/common/Sheet';
+import { TemplateCards } from '@/features/common/TemplateCards';
 import { formatK } from '@/lib/format';
 import { useGameTemplates, useTemplatesOpen } from './GameTemplates.hooks';
 
@@ -11,6 +12,28 @@ export interface GameTemplatesProps {
 
 const folderName = (folder: string) => (folder ? `${folder}/` : 'top level');
 const numbers = (b: FolderBudget) => `${formatK(b.triangles)} triangles, ${b.texture} px`;
+
+const textureWord = (e: GameExport) => (e.textures === 'keep' ? 'Keep' : e.textures.toUpperCase());
+
+/** The export settings that differ, as rows of the change list. */
+function exportRows(before: GameExport, after: GameExport) {
+  const rows: { what: string; from: string; to: string }[] = [];
+  if (before.textures !== after.textures) {
+    rows.push({ what: 'Texture format', from: textureWord(before), to: textureWord(after) });
+  }
+  if (before.textureCap !== after.textureCap) {
+    rows.push({
+      what: 'Texture size cap',
+      from: `${before.textureCap} px`,
+      to: `${after.textureCap} px`,
+    });
+  }
+  if (before.dropMaps !== after.dropMaps) {
+    const word = (e: GameExport) => (e.dropMaps ? 'left out' : 'kept');
+    rows.push({ what: 'Normal and metal maps', from: word(before), to: word(after) });
+  }
+  return rows;
+}
 
 function Change({ what, from, to }: { what: string; from: string; to: string }) {
   return (
@@ -43,6 +66,9 @@ function FileList({ title, files }: { title: string; files: string[] }) {
 function Preview({ preview }: { preview: GameTemplatePreview }) {
   const { template: t, formatBefore, formatAfter, budgets } = preview;
   const formatChanges = formatBefore !== formatAfter;
+  const exportChanges = exportRows(preview.exportBefore, preview.exportAfter).map(r => (
+    <Change key={r.what} {...r} />
+  ));
   const budgetRows = budgets.map(b => (
     <Change
       key={b.folder}
@@ -63,6 +89,7 @@ function Preview({ preview }: { preview: GameTemplatePreview }) {
             {formatChanges ? (
               <Change what="New models" from={`.${formatBefore}`} to={`.${formatAfter}`} />
             ) : null}
+            {exportChanges}
             {budgetRows}
           </ul>
         </div>
@@ -80,8 +107,9 @@ function Preview({ preview }: { preview: GameTemplatePreview }) {
       <FileList title="In the game already, keep their path and format" files={preview.keptFiles} />
       <FileList title="Nothing in the game yet, export at a new path" files={newPaths} />
       <p className="m-0 text-fg-mute">
-        Other budget rows, textures, the size cap, Bake light and the model folder stay. No file
-        moves or goes away, and no assets are added. You can still edit every setting afterwards.
+        Other budget rows, any export setting not listed above, Bake light and the model folder
+        stay. No file moves or goes away, and no assets are added. You can still edit every setting
+        afterwards.
       </p>
     </section>
   );
@@ -89,47 +117,38 @@ function Preview({ preview }: { preview: GameTemplatePreview }) {
 
 function TemplatesSheet({ project, busy, onClose }: GameTemplatesProps & { onClose: () => void }) {
   const t = useGameTemplates(project, onClose);
-  const cards = t.templates.map(template => {
-    const on = template.id === t.picked;
-    return (
-      <button
-        key={template.id}
-        type="button"
-        aria-pressed={on}
-        onClick={() => t.pick(template.id)}
-        className={cn(
-          'cursor-pointer rounded-card border bg-raised px-3 py-2.5 text-left transition-colors duration-120',
-          on ? 'border-clay shadow-[0_0_0_1px_var(--clay)]' : 'border-line hover:border-line-strong'
-        )}
-      >
-        <span className="block text-[13px] font-semibold">{template.name}</span>
-        <span className="mt-0.5 block text-meta text-fg-mute">{template.detail}</span>
-      </button>
-    );
-  });
   return (
     <Sheet
       id="game-templates"
       icon="squares-four"
       title="Use a template"
       meta="Export settings only"
+      width={820}
       onClose={onClose}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-5 py-4">
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Game templates">
-          {cards}
+      <div className="flex min-h-0 flex-1">
+        <div className="w-[300px] flex-none overflow-auto border-r border-line px-4 py-4">
+          <TemplateCards
+            templates={t.templates}
+            picked={t.picked}
+            onPick={template => t.pick(template.id)}
+            columns="grid-cols-1"
+            compact
+          />
         </div>
-        {t.preview ? (
-          <Preview preview={t.preview} />
-        ) : (
-          <p role="status" className="m-0 text-meta text-fg-mute">
-            {t.reading
-              ? 'Reading this game. If macOS asks to open its folder, answer it and this fills in.'
-              : t.picked
-                ? 'Could not read this game. Pick the template again to retry.'
-                : 'Pick a template to see what it would change.'}
-          </p>
-        )}
+        <div className="min-w-0 flex-1 overflow-auto px-5 py-4">
+          {t.preview ? (
+            <Preview preview={t.preview} />
+          ) : (
+            <p role="status" className="m-0 text-meta text-fg-mute">
+              {t.reading
+                ? 'Reading this game. If macOS asks to open its folder, answer it and this fills in.'
+                : t.picked
+                  ? 'Could not read this game. Pick the template again to retry.'
+                  : 'Pick a template to see what it would change.'}
+            </p>
+          )}
+        </div>
       </div>
       <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
         <Button variant="ghost" onClick={onClose}>

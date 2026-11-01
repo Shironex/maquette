@@ -31,9 +31,21 @@ describe('GameTemplatePicker', () => {
         onChange={vi.fn()}
       />
     );
-    await screen.findByText(/characters\/ at 60k triangles, 2048 px/);
+    await screen.findByText(/characters\/ 60k triangles, 2048 px/);
     expect(screen.getByText(/Adds no models and no game code/)).toBeInTheDocument();
     expect(screen.getByText(/The Model format below wins/)).toBeInTheDocument();
+  });
+
+  it('groups the cards with their numbers, and picking an engine sets glb', async () => {
+    const onChange = vi.fn();
+    render(<GameTemplatePicker value={fields} onChange={onChange} />);
+    await screen.findByRole('group', { name: 'By engine' });
+    expect(screen.getAllByRole('group')).toHaveLength(3);
+    const unreal = screen.getByRole('button', { name: /^Unreal/ });
+    expect(unreal).toHaveTextContent('.glb, PNG up to 4096 px');
+    expect(unreal).toHaveTextContent('environment/ 60k');
+    await userEvent.click(unreal);
+    expect(onChange).toHaveBeenCalledWith({ gameTemplate: 'unreal', gameFormat: 'glb' });
   });
 
   it('goes into the new project request', () => {

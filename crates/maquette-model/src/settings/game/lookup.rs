@@ -8,12 +8,14 @@ use crate::error::{CoreError, CoreResult};
 use crate::project::ProjectManifest;
 
 /// The folder a new asset's model goes to by its kind: `characters` for a
-/// character, `props` for the rest or `kit` in a game with no `props`, when
-/// the game has such a folder.
+/// character, `environment` (or `environments`, or `kit`) for a scene, `props`
+/// for a prop or `kit` in a game with no `props`, when the game has such a
+/// folder. A scene falls back to `props` in a game with none of those.
 fn default_folder(settings: &GameSettings, kind: AssetKind) -> String {
     let wanted: &[&str] = match kind {
         AssetKind::Character => &["characters"],
-        AssetKind::Prop | AssetKind::Scene => &["props", "kit"],
+        AssetKind::Prop => &["props", "kit"],
+        AssetKind::Scene => &["environment", "environments", "kit", "props"],
     };
     wanted
         .iter()

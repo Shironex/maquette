@@ -64,6 +64,17 @@ describe('game projects', () => {
     expect(fileOf(moved, asset('candle-cluster', 1))).toBe('kit/lights/candle_cluster.glb');
   });
 
+  it('puts a scene in an environment or kit folder, else props', () => {
+    const scene = asset('crypt-hall', 1, 1024, 'scene');
+    expect(fileOf(settings, scene)).toBe('props/crypt_hall.glb');
+    const row = (folder: string) => ({ folder, triangles: 30_000, texture: 2048 });
+    const kit = { ...settings, budgets: [...settings.budgets, row('kit')] };
+    expect(fileOf(kit, scene)).toBe('kit/crypt_hall.glb');
+    const env = { ...kit, budgets: [...kit.budgets, row('environment')] };
+    expect(fileOf(env, scene)).toBe('environment/crypt_hall.glb');
+    expect(fileOf(env, asset('crate', 1))).toBe('props/crate.glb');
+  });
+
   it('takes a game folder only inside the model folder', () => {
     expect(folderProblem('kit/')).toBeNull();
     expect(folderProblem('')).toBeNull();

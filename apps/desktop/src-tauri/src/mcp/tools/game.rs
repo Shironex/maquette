@@ -38,6 +38,24 @@ pub struct BudgetEdit {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct GetGameArgs {
+    /// The project id of a game project.
+    pub project: String,
+    /// Which templates to preview against this game: template ids, or "all". Left out, each
+    /// template is listed with its id, name and numbers only.
+    pub previews: Option<Vec<String>>,
+}
+
+/// The ids of the built-in templates as `set_game_settings` takes them.
+fn template_ids() -> Vec<String> {
+    game::game_templates()
+        .iter()
+        .map(|t| to_value(t.id).as_str().unwrap_or_default().to_string())
+        .collect()
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ShipPlanArgs {
     /// The project id.
     pub project: String,
@@ -75,9 +93,11 @@ pub struct SetGameSettingsArgs {
     /// it back where its kind or imported file puts it. The next Ship writes it there and
     /// removes its old file when Maquette wrote or imported that file.
     pub asset_folders: Option<std::collections::BTreeMap<String, Option<String>>>,
-    /// "prop-set", "character", "level-kit" or "level-kit-obj": fills the format and the
-    /// template's folder budgets, keeping other rows and every existing file. get_game lists
-    /// what each would change. Refused together with any other setting except repo.
+    /// A template id from get_game (prop-set, character, level-kit, level-kit-obj, web-game,
+    /// godot, unity, unreal, mobile, vr-standalone or game-jam): fills the format, the texture
+    /// format, size cap and map setting it names, and its folder budgets, keeping other rows
+    /// and every existing file. get_game with previews says what each would change. Refused
+    /// together with any other setting except repo.
     pub template: Option<String>,
 }
 
@@ -104,7 +124,7 @@ impl SetGameSettingsArgs {
             return Err("Apply a template on its own, then change other settings.".to_string());
         }
         word(
-            "game template (prop-set, character, level-kit or level-kit-obj)",
+            &format!("game template ({})", template_ids().join(", ")),
             name,
         )
         .map(Some)
@@ -149,10 +169,10 @@ impl SetGameSettingsArgs {
 #[tool_router(router = game_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a game project's settings: the game repo, the model format, the model folder, the Game export settings (texture format and size cap), whether Bake light runs, the budget per folder, per asset its file in the model folder (with the folder set for it, if any) and its numbers against its folder's budget, and templates: what each built-in game template would change here. A website project answers that it is not a game.",
+        description = "Get a game project's settings: the game repo, the model format, the model folder, the Game export settings (texture format, size cap and whether normal and metal-roughness maps are dropped), whether Bake light runs, the budget per folder, per asset its file in the model folder (with the folder set for it, if any) and its numbers against its folder's budget, and templates: every built-in game template as {template: {id, name, detail, why, group, format, textures, textureCap, dropMaps, budgets}}. Without previews that is all. Pass previews (template ids, or \"all\") to add to those entries what the template would change in this game: formatBefore and formatAfter, exportBefore and exportAfter, the budget rows that differ, kept files, new paths, models over budget before and after, notes and changes. Before the template list grew, every call returned every preview; the entries still hold the same fields, now only for the templates you ask for. A website project answers that it is not a game.",
         annotations(read_only_hint = true)
     )]
-    async fn get_game(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
+    async fn get_game(&self, Parameters(args): Parameters<GetGameArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
@@ -160,9 +180,25 @@ impl McpTools {
                     project::load(&root, &config.layout, &args.project).map_err(reason)?;
                 let settings = game::settings_of(&manifest).map_err(reason)?;
                 let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                let wanted = args.previews.unwrap_or_default();
+                let ids = template_ids();
+                if let Some(bad) = wanted.iter().find(|w| *w != "all" && !ids.contains(w)) {
+                    return Err(format!(
+                        "{bad:?} is not a game template ({}). Use one of those or \"all\".",
+                        ids.join(", ")
+                    ));
+                }
+                let all = wanted.iter().any(|w| w == "all");
                 let templates = game::game_templates()
                     .into_iter()
-                    .map(|t| game::preview_template(&dir, &manifest, t.id).map(|p| to_value(&p)))
+                    .zip(ids)
+                    .map(|(t, id)| {
+                        if all || wanted.contains(&id) {
+                            game::preview_template(&dir, &manifest, t.id).map(|p| to_value(&p))
+                        } else {
+                            Ok(json!({ "template": to_value(&t) }))
+                        }
+                    })
                     .collect::<Result<Vec<Value>, _>>()
                     .map_err(reason)?;
                 let assets: Vec<Value> = manifest
@@ -239,7 +275,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a game project's settings: repo (the game repo on this computer, an absolute path to a git repo or worktree, saved per computer), format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake, assetFolders (per asset id, its own folder inside the model folder such as kit, or null to put it back; the next Ship moves the file and removes the old one it owns) the budgets table (each field left out keeps what is saved) and template (prop-set, character, level-kit or level-kit-obj, alone or with repo: fills the format and that template's folder budgets, keeps other rows, adds no assets, and models already shipped keep their path). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
+        description = "Change a game project's settings: repo (the game repo on this computer, an absolute path to a git repo or worktree, saved per computer), format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake, assetFolders (per asset id, its own folder inside the model folder such as kit, or null to put it back; the next Ship moves the file and removes the old one it owns) the budgets table (each field left out keeps what is saved) and template (an id from get_game: prop-set, character, level-kit, level-kit-obj, web-game, godot, unity, unreal, mobile, vr-standalone or game-jam, alone or with repo: fills the format, the texture format, size cap and map dropping the template names (the four shape templates leave those alone) and its folder budgets, keeps other rows, adds no assets, and models already shipped keep their path). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
     )]
     async fn set_game_settings(&self, Parameters(args): Parameters<SetGameSettingsArgs>) -> Out {
         let project_id = args.project.clone();
@@ -271,8 +307,9 @@ impl McpTools {
         if let Err(message) = changed {
             return respond(Err(message));
         }
-        self.get_game(Parameters(ProjectArgs {
+        self.get_game(Parameters(GetGameArgs {
             project: project_id,
+            previews: None,
         }))
         .await
     }

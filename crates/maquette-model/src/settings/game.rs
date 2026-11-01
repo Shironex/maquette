@@ -15,7 +15,9 @@ mod templates;
 pub use lookup::{asset_budget, budget_for, file_of, folder_of, settings_of};
 pub use new::{default_budgets, new_settings, stays_inside};
 pub use new::{model_files, model_folders};
-pub use templates::{GameTemplate, GameTemplateId, game_template, game_templates, merge_budgets};
+pub use templates::{
+    GameTemplate, GameTemplateGroup, GameTemplateId, game_template, game_templates, merge_budgets,
+};
 
 /// Where a project ships.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

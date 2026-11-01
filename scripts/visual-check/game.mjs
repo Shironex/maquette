@@ -14,8 +14,8 @@
 const GAME = '&scenario=configured&game=';
 
 /** Opens New project from the project switcher. */
-async function newProject(open) {
-  const page = await open('&scenario=configured', '#/board');
+async function newProject(open, viewport) {
+  const page = await open('&scenario=configured', '#/board', viewport);
   await page.locator('[aria-haspopup=menu]').first().click();
   await page.getByRole('menuitem', { name: 'New project' }).click();
   await page.getByRole('dialog', { name: 'New project' }).waitFor();
@@ -33,10 +33,36 @@ export async function gameShots({ open, shot }) {
   await game.getByText('CMake project found.').waitFor();
   await shot(game, 'game-new-project');
   await game.getByRole('button', { name: /^Level kit, \.obj/ }).click();
-  await game.getByText(/kit\/ at 5k triangles/).waitFor();
+  await game.getByText(/kit\/ 5k triangles/).waitFor();
   await game.getByText(/Model format below wins/).waitFor({ state: 'detached' });
   await shot(game, 'game-new-project-template');
   await game.context().close();
+
+  // The picker lists eleven templates: grouped, with numbers on each card, at the
+  // usual window and at the smallest one.
+  for (const [size, viewport] of [
+    ['1440', { width: 1440, height: 900 }],
+    ['1120', { width: 1120, height: 720 }],
+  ]) {
+    const wide = await newProject(open, viewport);
+    await wide.getByLabel('Project name').fill('Crypt game');
+    await wide.getByRole('button', { name: /^Game/ }).click();
+    await wide.getByRole('button', { name: /^Godot/ }).click();
+    await wide.getByText(/Export settings only: \.glb, PNG up to 2048 px/).waitFor();
+    await shot(wide, `game-new-project-picker-${size}`);
+    await wide.context().close();
+
+    const sheet = await open(`${GAME}import`, '#/pipeline', viewport);
+    await sheet.getByRole('button', { name: 'Use a template' }).click();
+    const dialog = sheet.getByRole('dialog', { name: 'Use a template' });
+    await dialog.getByRole('button', { name: /^Game jam/ }).click();
+    await dialog.getByText('Texture format', { exact: true }).waitFor();
+    await shot(sheet, `game-templates-jam-${size}`);
+    await dialog.getByRole('button', { name: /^VR standalone/ }).click();
+    await dialog.getByText(/Meta's device comparison/).waitFor();
+    await shot(sheet, `game-templates-vr-${size}`);
+    await sheet.context().close();
+  }
 
   const site = await newProject(open);
   await site.getByLabel('Project name').fill('Frostveil');

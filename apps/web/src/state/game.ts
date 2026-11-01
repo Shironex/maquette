@@ -53,7 +53,12 @@ export function folderOf(file: string): string {
 }
 
 function defaultFolder(settings: GameSettings, asset: Asset): string {
-  const wanted = asset.kind === 'character' ? ['characters'] : ['props', 'kit'];
+  const wanted =
+    asset.kind === 'character'
+      ? ['characters']
+      : asset.kind === 'scene'
+        ? ['environment', 'environments', 'kit', 'props']
+        : ['props', 'kit'];
   return wanted.find(w => settings.budgets.some(b => b.folder === w)) ?? '';
 }
 

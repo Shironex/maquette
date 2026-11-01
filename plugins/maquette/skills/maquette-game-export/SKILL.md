@@ -37,9 +37,12 @@ MCP tools (`/docs/agents/mcp-tools/`); `project` is the id `list_projects` retur
 bake?, budgets?, assetFolders?, template? }`. Fields left out keep their value. The answer returns
 the settings like `get_game`. A value out of range is refused and nothing changes.
 
-`template` is `prop-set`, `character`, `level-kit` or `level-kit-obj`, alone or with `repo`. It
-fills the format and that template's folder budgets and nothing else; `get_game` lists what each
-would change under `templates`. It adds no assets and moves no file.
+`template` is `prop-set`, `character`, `level-kit`, `level-kit-obj`, `web-game`, `godot`, `unity`,
+`unreal`, `mobile`, `vr-standalone` or `game-jam`, alone or with `repo`. It fills the format, the
+texture format, size cap and map dropping the template names (the first four leave those alone) and
+its folder budgets, and nothing else. `get_game` lists every template with its numbers under
+`templates`; pass `previews` (ids, or `"all"`) to add what each would change in this game. It adds
+no assets and moves no file.
 
 | Field          | Values                                                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------- |
