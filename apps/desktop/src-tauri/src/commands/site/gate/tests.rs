@@ -184,7 +184,7 @@ fn every_starter_of_an_agent_set_repo_gets_the_card() {
     };
     assert_eq!(ask.command, COMMAND);
     assert_eq!(ask.source, CommandSource::Settings);
-    let real = std::fs::canonicalize(&f.site).expect("real");
+    let real = maquette_base::fs::real_folder(&f.site);
     assert_eq!(ask.repo, real.display().to_string());
     // The Page view and Preview on site join the same card, not a second one.
     let StartGate::Waiting { id: same, .. } = f.check(Starter::Person) else {
