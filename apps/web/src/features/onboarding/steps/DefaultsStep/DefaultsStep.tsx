@@ -71,12 +71,7 @@ export default function DefaultsStep({ api }: DefaultsStepProps) {
           className="mt-5 flex items-start gap-3 rounded-card border border-clay-line bg-panel p-4"
         >
           <div className="min-w-0 flex-1">
-            <h2 className="flex items-center gap-2 text-[13px] font-semibold">
-              Use recommended
-              <span className="rounded-pill bg-clay-soft px-2 py-px text-[11.5px] font-medium text-clay-text">
-                Recommended
-              </span>
-            </h2>
+            <h2 className="text-[13px] font-semibold">Use recommended</h2>
             <p className="mt-1 text-meta text-fg-dim">{defaultsSummary(config, catalog)}</p>
           </div>
           <Button size="sm" tooltip="Shows every preset, budget and setting" onClick={edit}>
