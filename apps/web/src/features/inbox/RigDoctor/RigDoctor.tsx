@@ -7,6 +7,7 @@ import {
   noSecondRound,
   routeHeldBy,
   WAIT_FOR_ANSWER,
+  acceptWaitsFor,
   WAIT_FOR_RUN,
   worseWarning,
 } from '@/state/rig';
@@ -144,7 +145,7 @@ function Actions({ record }: { record: RigRecord }) {
         <Button
           variant="primary"
           disabled={!project || s.busy}
-          disabledReason="Open a project to accept it into"
+          disabledReason={acceptWaitsFor(project)}
           loading={s.busy}
           onClick={() => project && void s.accept(project, null)}
         >

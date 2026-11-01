@@ -1,6 +1,7 @@
 import { Button, Icon } from '@maquette/ui';
 import type { RigRecord } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { acceptWaitsFor } from '@/state/rig';
 import { useRigActions, useRigRedo } from './RigDoctor.hooks';
 import { Footer, Tile } from './parts';
 
@@ -85,7 +86,7 @@ export function RigRefused({ record }: { record: RigRecord }) {
           <Button
             variant="secondary"
             disabled={!project || busy}
-            disabledReason="Open a project to accept it into"
+            disabledReason={acceptWaitsFor(project)}
             loading={busy}
             tooltip="Accepts the model as it came; its checks stay on the row"
             onClick={() => project && void accept(project, null)}

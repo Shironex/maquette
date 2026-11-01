@@ -4,7 +4,9 @@ import type {
   RigChain,
   RigChainEdit,
   RigRecord,
+  RigRoute,
   RigRow,
+  RigRun,
   RigStep,
   RigTrend,
 } from '@/ipc/client';
@@ -18,12 +20,26 @@ export function offersRigDoctor(check: Check): boolean {
 
 export const isRunning = (r: RigRecord) => r.state === 'testing' || r.state === 'fixing';
 
-/** The name a run of this state is timed under, so the next one can say how long it took. */
-export const runWait = (state: RigRecord['state']) => `rig-${state}`;
+/** The name a run is timed under: a fix, round 2 and a walk proof are different work on any route. */
+export const runWait = (run: RigRun, route: RigRoute | null) => `rig-${run}:${route ?? 'unread'}`;
+
+const RUN_STARTS: Record<RigRun, string> = {
+  'pose-test': 'Starting the pose test...',
+  fix: 'Starting the fix...',
+  round2: 'Starting round 2...',
+  'walk-proof': 'Starting the walk proof...',
+};
+
+/** What a run says before its first progress; a run nobody here started says only that it runs. */
+export const runStartLine = (run: RigRun | null) => (run ? RUN_STARTS[run] : 'Starting the run...');
 
 /** Why a button waits while a run goes on or an answer is on its way. */
 export const WAIT_FOR_RUN = 'Wait for the run to finish';
 export const WAIT_FOR_ANSWER = 'Wait for the answer on its way';
+
+/** Why Accept waits: nowhere to accept into, or an answer on its way. */
+export const acceptWaitsFor = (project: string | null | undefined) =>
+  project ? WAIT_FOR_ANSWER : 'Open a project to accept it into';
 
 const ORDER: RigStep[] = ['read', 'accept', 'before', 'fix', 'verify', 'land'];
 

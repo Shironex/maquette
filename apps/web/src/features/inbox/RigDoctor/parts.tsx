@@ -3,7 +3,8 @@ import { Icon, WaitLine, cn } from '@maquette/ui';
 import type { ReactNode } from 'react';
 import type { RigDefect, RigRecord, RigStat } from '@/ipc/client';
 import { usePastRun, waitCount } from '@/lib/waiting';
-import { isRunning, runWait, stepLines } from '@/state/rig';
+import { isRunning, runStartLine, runWait, stepLines } from '@/state/rig';
+import { runKindOf } from '@/state/use-rig-store';
 
 /** A label and a value in the left column. */
 export function Facts({ title, rows }: { title: string; rows: [string, ReactNode][] }) {
@@ -200,13 +201,13 @@ export function Footer({
 /** The bar and the log line of a run. */
 export function RunProgress({ record }: { record: RigRecord }) {
   const p = record.progress;
-  const estimate = usePastRun(runWait(record.state));
+  const kind = runKindOf(record);
+  const estimate = usePastRun(kind && runWait(kind, record.route));
   if (!p) {
     if (!isRunning(record)) return null;
-    const verb = record.state === 'fixing' ? 'Starting the fix...' : 'Starting the pose test...';
     return (
       <div className="rounded-[9px] border border-line bg-raised p-3">
-        <WaitLine label={verb} estimate={estimate} />
+        <WaitLine label={runStartLine(kind)} estimate={estimate} />
       </div>
     );
   }

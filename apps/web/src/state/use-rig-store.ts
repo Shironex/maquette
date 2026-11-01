@@ -68,19 +68,30 @@ const failed = (title: string, error: unknown) =>
 let openTicket = 0;
 
 /** The runs under way by case, timed so the next one can say how long this one took. */
-const runs = new Map<string, { state: RigRecord['state']; at: number }>();
+const runs = new Map<string, { state: RigRecord['state']; key: string | null; at: number }>();
+
+/** The run a person started on a case here; an agent's, or one from before a reload, is unknown. */
+const started = new Map<string, RigRun>();
+
+/** What the case is running, as far as this session knows. */
+export const runKindOf = (record: RigRecord) =>
+  record.state === 'testing' ? 'pose-test' : (started.get(record.id) ?? null);
 
 function timeRun(record: RigRecord) {
   const run = runs.get(record.id);
   if (isRunning(record)) {
-    if (run?.state !== record.state)
-      runs.set(record.id, { state: record.state, at: clock.nowMs() });
+    if (run?.state === record.state) return;
+    // Only a run started here is timed from its start; one first seen part way would read too short.
+    const kind = started.get(record.id);
+    const key = kind ? runWait(kind, record.route) : null;
+    runs.set(record.id, { state: record.state, key, at: clock.nowMs() });
     return;
   }
+  started.delete(record.id);
   if (!run) return;
   runs.delete(record.id);
   const ended = record.state !== 'cancelled' && record.state !== 'stopped' && !record.error;
-  if (ended) rememberRun(runWait(run.state), clock.nowMs() - run.at);
+  if (ended && run.key) rememberRun(run.key, clock.nowMs() - run.at);
 }
 
 export const useRigStore = create<RigStore>((set, get) => {
@@ -113,23 +124,28 @@ export const useRigStore = create<RigStore>((set, get) => {
       app.setView('inbox');
       try {
         const record = await commands.rigOpen(target);
-        rememberRun(RIG_OPEN_WAIT, clock.nowMs() - startedAt);
         // Left meanwhile: the case stays open, the Inbox's top bar leads back to it.
         const waited = ticket === openTicket && useAppStore.getState().view === 'inbox';
         if (ticket === openTicket) set({ opening: null });
-        if (waited) set({ record });
+        if (waited) {
+          rememberRun(RIG_OPEN_WAIT, clock.nowMs() - startedAt);
+          set({ record });
+        }
         get().onChanged(record);
       } catch (error) {
+        // Whoever left still hears it failed; only someone still waiting is taken back.
+        failed('Could not open the rig doctor', error);
         if (ticket !== openTicket) return;
         set({ opening: null });
-        if (from === 'board') useAppStore.getState().setView('board');
-        failed('Could not open the rig doctor', error);
+        const app = useAppStore.getState();
+        if (from === 'board' && app.view === 'inbox') app.setView('board');
       }
     },
     showCase: async id => {
+      const ticket = ++openTicket;
       try {
         const record = await commands.rigGet(id);
-        openTicket += 1;
+        if (ticket !== openTicket) return;
         set({ record, opening: null, from: 'inbox' });
         useAppStore.getState().setView('inbox');
       } catch (error) {
@@ -151,7 +167,16 @@ export const useRigStore = create<RigStore>((set, get) => {
     },
     accept: (project, asset) =>
       act('Could not accept the model', id => commands.rigAccept(id, project, asset)),
-    run: what => act('Could not start the rig doctor', id => commands.rigRun(id, what)),
+    run: what =>
+      act('Could not start the rig doctor', async id => {
+        started.set(id, what);
+        try {
+          return await commands.rigRun(id, what);
+        } catch (error) {
+          started.delete(id);
+          throw error;
+        }
+      }),
     cancel: async () => {
       const { record } = get();
       if (!record) return;
