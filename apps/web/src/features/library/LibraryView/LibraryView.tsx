@@ -184,7 +184,7 @@ export default function LibraryView() {
                   aria-label="Models"
                   className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-[18px] pb-5"
                 >
-                  <LibraryStats stats={v.stats} />
+                  {v.loaded ? <LibraryStats stats={v.stats} /> : null}
                   <LibrarySummary
                     title={v.title}
                     count={v.count}

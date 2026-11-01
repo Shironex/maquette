@@ -39,7 +39,7 @@ export default function MotionView() {
               }
             />
           ) : (
-            <Loader />
+            <Loader label="Reading the motion..." />
           )}
         </main>
       </>

@@ -70,7 +70,7 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
           </div>
         ) : (
           <div className="grid flex-1 place-items-center">
-            <Loader />
+            <Loader label="Reading the paths..." />
           </div>
         )}
       </main>
