@@ -69,14 +69,18 @@ describe('the Blender screen', () => {
     expect(screen.getByRole('region', { name: 'Blender did not run' })).toBeVisible();
   });
 
-  it('shows for a found copy with a warning, as one that did not run', () => {
+  it('says a saved path is gone without asking for an install, when another copy works', () => {
     withBlender('found');
     const { tools } = useAppStore.getState();
     useAppStore.setState({
       tools: { ...tools, reports: [{ ...blender('found'), warning: 'stale' }] },
     });
     render(<BlenderMissing />);
-    expect(screen.getByRole('region', { name: 'Blender did not run' })).toBeVisible();
+    const screenRegion = screen.getByRole('region', { name: 'Your saved Blender path is gone' });
+    expect(screenRegion).toBeVisible();
+    expect(screenRegion).not.toHaveTextContent(/did not run|install|4\.2/i);
+    expect(screen.queryByRole('button', { name: 'Get Blender' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy the install command' })).toBeNull();
   });
 
   it('names a command for the computers with one', () => {

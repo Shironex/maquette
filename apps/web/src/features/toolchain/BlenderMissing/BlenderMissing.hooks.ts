@@ -26,8 +26,7 @@ export function useBlenderMissing() {
   }, [showing]);
   const command = blenderInstallCommand(PLATFORM);
   return {
-    showing,
-    broken: trouble === 'broken',
+    trouble,
     checking,
     command,
     getBlender: () => {

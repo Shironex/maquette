@@ -90,18 +90,7 @@ function buildStep({ lastRun, hasRepo, target }: NextFacts): NextStep | null {
   return null;
 }
 
-/** What to do now, or null when nothing is waiting on the person. */
-export function nextStep(facts: NextFacts): NextStep | null {
-  if (facts.blender) {
-    const broken = facts.blender === 'broken';
-    return {
-      id: broken ? 'blender-broken' : 'blender',
-      sentence: `Blender ${broken ? 'did not run' : 'is missing'}, and every build runs in it.`,
-      button: 'Open Toolchain',
-      action: 'toolchain',
-    };
-  }
-  if (facts.running) return null;
+function projectStep(facts: NextFacts): NextStep | null {
   if (facts.inbox > 0) {
     const n = facts.inbox;
     return {
@@ -136,4 +125,26 @@ export function nextStep(facts: NextFacts): NextStep | null {
     };
   }
   return null;
+}
+
+/** What to do now, or null when nothing is waiting on the person. */
+export function nextStep(facts: NextFacts): NextStep | null {
+  const toolchain = { button: 'Open Toolchain', action: 'toolchain' } as const;
+  if (facts.blender === 'missing' || facts.blender === 'broken') {
+    const broken = facts.blender === 'broken';
+    return {
+      ...toolchain,
+      id: broken ? 'blender-broken' : 'blender',
+      sentence: `Blender ${broken ? 'did not run' : 'is missing'}, and every build runs in it.`,
+    };
+  }
+  if (facts.running) return null;
+  const step = projectStep(facts);
+  if (step || !facts.blender) return step;
+  // Builds still work on the other copy, so this waits behind everything else.
+  return {
+    ...toolchain,
+    id: 'blender-stale',
+    sentence: 'Your saved Blender path is gone, so I am using another copy.',
+  };
 }

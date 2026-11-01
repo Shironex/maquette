@@ -24,7 +24,7 @@ describe('the next step', () => {
     expect(nextStep(facts({ blender: 'missing', inbox: 3, running: true }))?.id).toBe('blender');
   });
 
-  it('says a copy that needs attention did not run, on the same way to Toolchain', () => {
+  it('says a copy that really fails did not run, on the same way to Toolchain', () => {
     const step = nextStep(facts({ blender: 'broken', inbox: 3, running: true }));
     expect(step?.id).toBe('blender-broken');
     expect(step?.action).toBe('toolchain');
@@ -32,7 +32,19 @@ describe('the next step', () => {
     expect(step?.sentence).not.toMatch(/missing/);
   });
 
-  it('reads the report: only no copy at all is missing', () => {
+  it('says a gone saved path only when nothing else waits, since builds still work', () => {
+    const stale = { blender: 'stale-path', assets: [asset('a', 'blender', 1)] } as const;
+    const step = nextStep(facts({ ...stale, lastRun: { state: 'done' } }));
+    expect(step?.id).toBe('blender-stale');
+    expect(step?.action).toBe('toolchain');
+    expect(step?.sentence).toMatch(/saved Blender path is gone/);
+    expect(step?.sentence).not.toMatch(/did not run|missing|install/i);
+    expect(nextStep(facts({ ...stale, inbox: 2 }))?.id).toBe('inbox');
+    expect(nextStep(facts(stale))?.id).toBe('run');
+    expect(nextStep(facts({ ...stale, running: true }))).toBeNull();
+  });
+
+  it('reads the report: no copy is missing, a failing copy broken, a fallback a stale path', () => {
     const report = (status: ToolReport['status'], warning: string | null = null) =>
       ({ id: 'blender', status, warning }) as ToolReport;
     expect(blenderTrouble(undefined)).toBeNull();
@@ -40,7 +52,8 @@ describe('the next step', () => {
     expect(blenderTrouble(report('missing'))).toBe('missing');
     expect(blenderTrouble(report('missing', 'stale'))).toBe('missing');
     expect(blenderTrouble(report('broken'))).toBe('broken');
-    expect(blenderTrouble(report('found', 'stale'))).toBe('broken');
+    expect(blenderTrouble(report('broken', 'stale'))).toBe('broken');
+    expect(blenderTrouble(report('found', 'stale'))).toBe('stale-path');
   });
 
   it('stays quiet during a run', () => {

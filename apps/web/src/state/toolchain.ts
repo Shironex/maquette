@@ -12,13 +12,18 @@ export function blenderInstallCommand(platform: Platform): string | null {
   return null;
 }
 
-export type BlenderTrouble = 'missing' | 'broken';
+export type BlenderTrouble = 'missing' | 'broken' | 'stale-path';
 
-/** What is wrong with Blender: a copy with a warning counts as broken, no copy as missing. */
+/**
+ * What is wrong with Blender. Detection only warns about a found Blender when
+ * the saved location is gone and it fell back to another copy that works, so
+ * builds go on; no copy is missing and a copy that fails is broken, warned or not.
+ */
 export function blenderTrouble(report: ToolReport | undefined): BlenderTrouble | null {
   if (!report) return null;
   if (report.status === 'missing') return 'missing';
-  return report.status === 'broken' || report.warning ? 'broken' : null;
+  if (report.status === 'broken') return 'broken';
+  return report.warning ? 'stale-path' : null;
 }
 
 /** `/Applications/Blender.app/Contents/MacOS/Blender` reads as the bundle. */
