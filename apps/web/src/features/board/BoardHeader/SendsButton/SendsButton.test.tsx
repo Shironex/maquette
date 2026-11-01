@@ -36,10 +36,22 @@ afterEach(() => {
 describe('Sends', () => {
   const sends = () => screen.queryByRole('button', { name: /^Sends/ });
 
-  it('is hidden with nothing in flight, finished or failed sends included', () => {
-    useProvidersStore.setState({ jobs: [job('a', 'tripo', 'failed'), job('b', 'meshy', 'inbox')] });
+  it('is hidden with nothing in flight and nothing failed', () => {
+    useProvidersStore.setState({ jobs: [job('b', 'meshy', 'inbox')] });
     render(<SendsButton />);
     expect(sends()).toBeNull();
+  });
+
+  it('stays while a send has failed, without counting it as in flight', async () => {
+    useProvidersStore.setState({ jobs: [job('a', 'tripo', 'failed'), job('b', 'meshy', 'inbox')] });
+    render(<SendsButton />);
+    const button = sends()!;
+    expect(button).toHaveAccessibleName(/1 failed/);
+    expect(within(button).queryByText('1')).toBeNull();
+    await userEvent.hover(button);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'No sends in flight. 1 failed, not counted as in flight'
+    );
   });
 
   it('counts a By hand send once, not once per list', () => {
@@ -58,7 +70,7 @@ describe('Sends', () => {
     expect(useProvidersStore.getState().queueOpen).toBe(false);
   });
 
-  it('goes to the 3D queue when paid sends are under way', async () => {
+  it('goes to Sends when paid sends are under way', async () => {
     useProvidersStore.setState({
       jobs: [job('a', 'by-hand', 'waiting'), job('b', 'tripo', 'running')],
     });
@@ -79,7 +91,7 @@ describe('Sends', () => {
     expect(within(button).getByText('1')).toHaveClass('text-clay-text');
     await userEvent.hover(button);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      '1 send in flight: 1 waiting for approval, 1 failed'
+      '1 send in flight: 1 waiting for approval. 1 failed, not counted as in flight'
     );
   });
 
