@@ -186,6 +186,11 @@ mod tests {
             "https://shironex.github.io/maquettes",
             "https://www.blender.org.example.com/",
             "https://www.blender.org@evil.example",
+            "https://www.blender.org:443@evil.example/",
+            "https://www.blender.org:8443/",
+            "https://www.blender.org\\@evil.example/",
+            "https://github.com/Shironex/maquette:x@evil.example/",
+            "https://shironex.github.io/maquette\\@evil.example/",
             "https://example.com/",
         ] {
             assert!(!is_project_link(bad), "{bad}");
