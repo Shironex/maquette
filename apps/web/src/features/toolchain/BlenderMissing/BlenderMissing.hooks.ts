@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
 import { commands, errorMessage } from '@/ipc/client';
 import { PLATFORM } from '@/ipc/runtime';
 import { copyText } from '@/features/config/copyText';
 import { useAppStore } from '@/state/use-app-store';
+import { useToolRecheckOnFocus } from '@/state/useToolRecheckOnFocus';
 import { BLENDER_DOWNLOAD, blenderInstallCommand, blenderTrouble } from '@/state/toolchain';
 
 /**
@@ -15,15 +15,7 @@ export function useBlenderMissing() {
   const notify = useAppStore(s => s.notify);
   const trouble = blenderTrouble(report);
   const showing = trouble !== null;
-  useEffect(() => {
-    if (!showing) return;
-    const look = () => {
-      const { tools, detectTools } = useAppStore.getState();
-      if (!tools.checking) void detectTools();
-    };
-    window.addEventListener('focus', look);
-    return () => window.removeEventListener('focus', look);
-  }, [showing]);
+  useToolRecheckOnFocus(showing);
   const command = blenderInstallCommand(PLATFORM);
   return {
     trouble,
