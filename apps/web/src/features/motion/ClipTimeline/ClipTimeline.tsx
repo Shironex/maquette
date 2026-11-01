@@ -91,7 +91,7 @@ export default function ClipTimeline() {
       aria-label="Timeline"
       className="flex flex-none flex-col rounded-card border border-line bg-panel"
     >
-      <div className="flex items-center gap-2 border-b border-line px-2.5 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-2.5 py-2">
         <IconButton icon="skip-back" label="Go to In" size="sm" onClick={controls.toStart} />
         <IconButton
           icon={player.playing ? 'pause' : 'play'}
@@ -119,10 +119,10 @@ export default function ClipTimeline() {
           onChange={(s: Speed) => controls.setSpeed(s)}
           fieldClassName="w-[72px]"
         />
-        <span className="ml-2 font-mono text-[12.5px] text-fg" aria-live="off">
+        <span className="ml-2 font-mono text-[12.5px] whitespace-nowrap text-fg" aria-live="off">
           {readout}
         </span>
-        <span className="ml-auto text-meta text-fg-dim">
+        <span className="ml-auto text-meta whitespace-nowrap text-fg-dim">
           {trimmedFrom ? `Trimmed from ${trimmedFrom} f in the library · ` : ''}Loop {from} to {to}
         </span>
       </div>
