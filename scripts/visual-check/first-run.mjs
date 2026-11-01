@@ -1,0 +1,100 @@
+/**
+ * The first run's shots for scripts/visual-check.mjs (ONLY=firstrun), each at
+ * the normal size and at the 1120 by 720 minimum: the Board's Next step strip
+ * (models in the Inbox, refs to send, Blender missing), the Blender missing
+ * screen in onboarding and in Settings, reached from the strip's button, and
+ * the first run card on an empty website and game project. A website project
+ * opens empty by switching to one of `?projects=many`; the Inbox's models then
+ * keep the strip over the card, the least room the card ever gets, and
+ * `&inbox=clear` shows it alone.
+ */
+
+const HD = { width: 1120, height: 720 };
+const SIZES = [
+  { viewport: undefined, suffix: '' },
+  { viewport: HD, suffix: '-1120' },
+];
+
+async function stripShots({ open, shot }, { viewport, suffix }) {
+  for (const [query, button, name] of [
+    ['&scenario=configured', 'Open Inbox', 'inbox'],
+    ['&scenario=configured&inbox=clear', 'Send to 3D', 'send'],
+  ]) {
+    const board = await open(query, '#/board', viewport);
+    const strip = board.getByRole('region', { name: 'Next step' });
+    await strip.getByRole('button', { name: button }).waitFor();
+    await board.mouse.move(0, 0);
+    await shot(board, `first-run-strip-${name}${suffix}`);
+    await board.context().close();
+  }
+}
+
+/** Blender gone from a configured workspace: the strip, then where its button leads. */
+async function settingsShots({ open, shot }, { viewport, suffix }) {
+  const board = await open('&scenario=configured&render=no-blender', '#/board', viewport);
+  const go = board
+    .getByRole('region', { name: 'Next step' })
+    .getByRole('button', { name: 'Open Toolchain' });
+  await go.waitFor();
+  await board.mouse.move(0, 0);
+  await shot(board, `first-run-strip-blender${suffix}`);
+  await go.click();
+  const missing = board.getByRole('region', { name: 'Blender is missing' });
+  await missing.waitFor();
+  await missing.scrollIntoViewIfNeeded();
+  await board.mouse.move(0, 0);
+  await shot(board, `first-run-settings-blender${suffix}`);
+  await board.context().close();
+}
+
+async function onboardingShots({ open, shot }, { viewport, suffix }) {
+  const page = await open('&scenario=no-blender', '', viewport);
+  await page.getByRole('button', { name: 'Set up' }).click();
+  await page.getByText('Empty folder, ready to use').waitFor();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('region', { name: 'Blender is missing' }).waitFor();
+  await page.mouse.move(0, 0);
+  await shot(page, `first-run-onboarding-blender${suffix}`);
+  // The screen pushes the tool list down, so see that Continue is still there.
+  await page.getByRole('button', { name: 'Continue' }).scrollIntoViewIfNeeded();
+  await shot(page, `first-run-onboarding-blender-end${suffix}`);
+  await page.context().close();
+}
+
+/** The card sits over the Board's columns, so nothing scrolls it back if it runs past them. */
+async function firstRunCard(page, shot, name) {
+  const card = page.getByRole('region', { name: 'Your first build in three steps' });
+  await card.waitFor();
+  await page.mouse.move(0, 0);
+  const over = await card.evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const view = el.closest('main').getBoundingClientRect();
+    return Math.max(view.top - box.top, box.bottom - view.bottom);
+  });
+  if (over > 0) console.error(`${name}: the first run card runs ${Math.ceil(over)} px past main`);
+  await shot(page, name);
+  await page.context().close();
+}
+
+async function cardShots({ open, shot }, { viewport, suffix }) {
+  for (const [query, name] of [
+    ['&scenario=configured&projects=many', 'first-run-card'],
+    ['&scenario=configured&projects=many&inbox=clear', 'first-run-card-no-strip'],
+  ]) {
+    const page = await open(query, '#/board', viewport);
+    await page.locator('[aria-haspopup=menu]').first().click();
+    await page.getByRole('menuitemradio', { name: /Starlit observatory/ }).click();
+    await firstRunCard(page, shot, `${name}${suffix}`);
+  }
+  const game = await open('&scenario=configured&game=import', '#/board', viewport);
+  await firstRunCard(game, shot, `first-run-card-game${suffix}`);
+}
+
+export async function firstRunShots({ open, shot }) {
+  for (const size of SIZES) {
+    await stripShots({ open, shot }, size);
+    await settingsShots({ open, shot }, size);
+    await onboardingShots({ open, shot }, size);
+    await cardShots({ open, shot }, size);
+  }
+}
