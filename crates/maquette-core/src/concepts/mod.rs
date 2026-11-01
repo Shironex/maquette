@@ -394,7 +394,7 @@ pub(crate) fn prepare_with(
     Ok((direction, files))
 }
 
-/// One past the highest `<id>_<n>.png` already in the folder, so a job
+/// One past the highest `<id>_<n>` image already in the folder, so a job
 /// that is still running (or a file left by a failed one) is never
 /// overwritten by the next batch.
 fn next_free_index(project_dir: &Path, id: &str) -> u32 {
@@ -406,8 +406,10 @@ fn next_free_index(project_dir: &Path, id: &str) -> u32 {
         .flatten()
         .filter_map(|e| {
             let name = e.file_name().to_string_lossy().into_owned();
-            name.strip_prefix(&prefix)?
-                .strip_suffix(".png")?
+            let rest = name.strip_prefix(&prefix)?;
+            [".png", ".jpg", ".webp"]
+                .iter()
+                .find_map(|extension| rest.strip_suffix(extension))?
                 .parse::<u32>()
                 .ok()
         })

@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::*;
-use crate::concepts::{mark, send_picks};
+use crate::concepts::{add_image, mark, send_picks};
 use crate::project::{NewProject, ProjectTemplate};
 
 struct Fixture {
@@ -429,4 +429,89 @@ fn a_whole_jpeg_and_webp_pass_the_ending_check() {
     bytes.extend(0u32.to_le_bytes());
     fs::write(&webp, bytes).expect("write");
     assert!(f.import(&[webp]).expect("webp").added[0].ends_with(".webp"));
+}
+
+fn break_manifest(f: &Fixture) -> Vec<u8> {
+    let path = f.dir.join("project.json");
+    let good = fs::read(&path).expect("read");
+    fs::write(&path, b"not json").expect("write");
+    good
+}
+
+#[test]
+fn a_late_failure_leaves_nothing_and_a_retry_starts_clean() {
+    let f = fixture();
+    let good = break_manifest(&f);
+    assert!(f.import(&[f.image("lantern.png")]).is_err());
+    assert!(load_direction(&f.dir, "lantern").expect("read").is_none());
+    assert!(!f.dir.join("concepts/lantern").exists());
+    fs::write(f.dir.join("project.json"), good).expect("restore");
+    let done = f.import(&[f.image("lantern.png")]).expect("retry");
+    assert_eq!(done.direction.images.len(), 1);
+}
+
+#[test]
+fn a_late_failure_takes_only_its_own_images_from_a_direction_that_was_there() {
+    let f = fixture();
+    let first = f.import(&[f.image("lantern.png")]).expect("first");
+    let good = break_manifest(&f);
+    assert!(f.import(&[f.image("lantern.png")]).is_err());
+    let kept = load_direction(&f.dir, "lantern")
+        .expect("read")
+        .expect("there");
+    assert_eq!(kept.images.len(), 1);
+    assert!(f.dir.join(&first.added[0]).is_file());
+    fs::write(f.dir.join("project.json"), good).expect("restore");
+    let files = fs::read_dir(f.dir.join("concepts/lantern"))
+        .expect("read")
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x != "json"))
+        .count();
+    assert_eq!(files, 1);
+}
+
+#[test]
+fn the_next_batch_numbers_past_a_jpeg_or_webp_left_in_the_folder() {
+    let f = fixture();
+    let folder = f.dir.join("concepts/lantern");
+    fs::create_dir_all(&folder).expect("dir");
+    fs::write(folder.join("lantern_05.jpg"), b"x").expect("write");
+    fs::write(folder.join("lantern_07.webp"), b"x").expect("write");
+    let new = crate::concepts::NewConcepts {
+        project: f.id.clone(),
+        direction: "Lantern".into(),
+        prompt: "p".into(),
+        refs: vec![],
+        aspect: crate::concepts::Aspect::Square,
+        count: 1,
+        use_style: false,
+    };
+    let (_, files) = crate::concepts::prepare(&f.dir, &new).expect("prepare");
+    assert_eq!(files[0].0, 8);
+}
+
+#[test]
+fn a_hand_made_card_keeps_its_kind_when_images_are_dropped_for_it() {
+    let f = fixture();
+    project::modify(f.root.path(), &f.layout, &f.id, |m| {
+        assets::add(
+            m,
+            NewAsset {
+                name: "Lantern".into(),
+                kind: AssetKind::Character,
+                stage: Stage::Concept,
+            },
+        )
+        .map(|_| ())
+    })
+    .expect("card");
+    let done = f.import(&[f.image("lantern.png")]).expect("import");
+    assert_eq!(
+        done.asset.thumbnail, None,
+        "a picture would read as a guessed kind"
+    );
+    mark(&f.dir, "lantern", &done.added[0], None, Some(true)).expect("pick");
+    let sent =
+        send_picks(f.root.path(), &f.layout, &f.id, "lantern", AssetKind::Prop).expect("send");
+    assert_eq!(sent.asset.kind, AssetKind::Character);
 }

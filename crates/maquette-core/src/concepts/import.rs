@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use super::picks::capitalised;
 use super::{
-    CONCEPTS_DIR, Direction, RESERVED, add_image, direction_dir, direction_id, load_direction,
+    CONCEPTS_DIR, ConceptImage, Direction, RESERVED, direction_dir, direction_id, load_direction,
     next_free_index, now_rfc3339, save_direction, write_lock,
 };
 use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
@@ -195,58 +195,99 @@ fn free_name(project_dir: &Path, name: &str) -> CoreResult<String> {
     )))
 }
 
-/// The direction called `name` as it is, or a new one with no brief.
-fn open_direction(project_dir: &Path, name: &str) -> CoreResult<Direction> {
-    let id = direction_id(name);
-    direction_dir(project_dir, &id)?;
-    let _guard = write_lock();
-    if let Some(found) = load_direction(project_dir, &id)? {
-        return Ok(found);
-    }
-    let now = now_rfc3339();
-    let direction = Direction {
-        id,
-        name: name.to_string(),
-        created_at: now.clone(),
-        updated_at: now,
-        // No board shaped these images.
-        style_off: true,
-        ..Direction::default()
-    };
-    save_direction(project_dir, &direction)?;
-    Ok(direction)
-}
-
 /// Takes `count` indexes after every image the direction has, is making or
 /// left behind, so a running job and this import never meet on one file.
-fn reserve_indexes(project_dir: &Path, direction: &Direction, count: u32) -> u32 {
-    let folder = project_dir.join(CONCEPTS_DIR).join(&direction.id);
+fn reserve_indexes(project_dir: &Path, id: &str, known_next: u32, count: u32) -> u32 {
+    let folder = project_dir.join(CONCEPTS_DIR).join(id);
     let mut reserved = RESERVED.lock().unwrap_or_else(|p| p.into_inner());
-    let first = direction
-        .next_index()
-        .max(next_free_index(project_dir, &direction.id))
+    let first = known_next
+        .max(next_free_index(project_dir, id))
         .max(reserved.get(&folder).copied().unwrap_or(0) + 1);
     reserved.insert(folder, first + count - 1);
     first
 }
 
-/// The card called `name` at Concept showing `picture`. A card of that
-/// name stays at its stage, and keeps a picture it already has.
-fn place_card(manifest: &mut ProjectManifest, name: &str, picture: &str) -> CoreResult<Asset> {
-    let id = match assets::find_by_name(manifest, name) {
-        Some(found) => found.id.clone(),
-        None => {
-            let new = NewAsset {
-                name: name.to_string(),
-                kind: AssetKind::Prop,
-                stage: Stage::Concept,
-            };
-            assets::add(manifest, new)?.id
-        }
-    };
-    if assets::find(manifest, &id)?.thumbnail.is_none() {
-        assets::set_ref_thumbnail(manifest, &id, picture)?;
+/// Saves the direction with the new images in one write, making it when it
+/// is new. Until this runs the Lab knows nothing of them.
+fn record(
+    project_dir: &Path,
+    id: &str,
+    name: &str,
+    added: &[(u32, String)],
+) -> CoreResult<Direction> {
+    let _guard = write_lock();
+    let now = now_rfc3339();
+    let mut direction = load_direction(project_dir, id)?.unwrap_or_else(|| Direction {
+        id: id.to_string(),
+        name: name.to_string(),
+        created_at: now.clone(),
+        // No board shaped these images.
+        style_off: true,
+        ..Direction::default()
+    });
+    for (index, file) in added {
+        let (width, height) = fs::read(project_dir.join(file))
+            .ok()
+            .and_then(|bytes| crate::inbox::images::dimensions(&bytes))
+            .map_or((None, None), |(w, h)| (Some(w), Some(h)));
+        direction.images.push(ConceptImage {
+            file: file.clone(),
+            index: *index,
+            width,
+            height,
+            starred: false,
+            picked: false,
+            ref_file: None,
+            created_at: now.clone(),
+            title: None,
+        });
     }
+    direction.images.sort_by_key(|i| i.index);
+    direction.updated_at = now;
+    save_direction(project_dir, &direction)?;
+    Ok(direction)
+}
+
+/// Takes back what this import wrote after a later step failed: its files,
+/// its images in the direction, and the folder when the import made it.
+fn undo(project_dir: &Path, id: &str, added: &[(u32, String)], fresh: bool) {
+    let result = (|| -> CoreResult<()> {
+        let folder = direction_dir(project_dir, id)?;
+        if fresh {
+            return fs::remove_dir_all(&folder).map_err(|e| CoreError::io(&folder, e));
+        }
+        for (_, file) in added {
+            let path = project_dir.join(file);
+            fs::remove_file(&path).map_err(|e| CoreError::io(&path, e))?;
+        }
+        let _guard = write_lock();
+        if let Some(mut direction) = load_direction(project_dir, id)? {
+            direction
+                .images
+                .retain(|i| !added.iter().any(|(_, f)| *f == i.file));
+            save_direction(project_dir, &direction)?;
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        tracing::warn!(%error, direction = id, "could not undo a failed image import");
+    }
+}
+
+/// The card called `name`: one already there stays as it is, and a new one
+/// at Concept shows `picture`. Only that new card gets a picture from
+/// `concepts/`, which is how a send knows its kind was a guess.
+fn place_card(manifest: &mut ProjectManifest, name: &str, picture: &str) -> CoreResult<Asset> {
+    if let Some(found) = assets::find_by_name(manifest, name) {
+        return Ok(found.clone());
+    }
+    let new = NewAsset {
+        name: name.to_string(),
+        kind: AssetKind::Prop,
+        stage: Stage::Concept,
+    };
+    let id = assets::add(manifest, new)?.id;
+    assets::set_ref_thumbnail(manifest, &id, picture)?;
     Ok(assets::find(manifest, &id)?.clone())
 }
 
@@ -262,31 +303,44 @@ pub fn import_images(
     let project_dir = project::dir(workspace_root, layout, project_id)?;
     let extensions = check_drop(paths)?;
     let name = free_name(&project_dir, &name_from(&paths[0]))?;
-    let direction = open_direction(&project_dir, &name)?;
-    let id = direction.id.clone();
-    let start = reserve_indexes(&project_dir, &direction, paths.len() as u32);
+    let id = direction_id(&name);
     let folder = direction_dir(&project_dir, &id)?;
+    let known = load_direction(&project_dir, &id)?;
+    let fresh = known.is_none() && !folder.exists();
+    let known_next = known.as_ref().map_or(1, Direction::next_index);
+    let start = reserve_indexes(&project_dir, &id, known_next, paths.len() as u32);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     let mut added = Vec::with_capacity(paths.len());
-    let mut direction = direction;
     for (index, (from, extension)) in (start..).zip(paths.iter().zip(extensions)) {
         let file = format!("{CONCEPTS_DIR}/{id}/{id}_{index:02}.{extension}");
-        fs::copy(from, project_dir.join(&file)).map_err(|e| CoreError::io(from, e))?;
-        direction = add_image(&project_dir, &id, index, &file, None)?;
-        added.push(file);
+        if let Err(error) = fs::copy(from, project_dir.join(&file)) {
+            undo(&project_dir, &id, &added, fresh);
+            return Err(CoreError::io(from, error));
+        }
+        added.push((index, file));
     }
-    let mut asset = None;
-    let manifest = project::modify(workspace_root, layout, project_id, |manifest| {
-        asset = Some(place_card(manifest, &direction.name, &added[0])?);
-        Ok(())
-    })?;
-    let asset = asset.ok_or_else(|| CoreError::Unavailable("The asset was not saved.".into()))?;
-    Ok(ImportedConcepts {
-        direction,
-        asset,
-        added,
-        project: manifest,
-    })
+    let placed = record(&project_dir, &id, &name, &added).and_then(|direction| {
+        let mut asset = None;
+        let manifest = project::modify(workspace_root, layout, project_id, |manifest| {
+            asset = Some(place_card(manifest, &direction.name, &added[0].1)?);
+            Ok(())
+        })?;
+        let asset =
+            asset.ok_or_else(|| CoreError::Unavailable("The asset was not saved.".into()))?;
+        Ok((direction, asset, manifest))
+    });
+    match placed {
+        Ok((direction, asset, manifest)) => Ok(ImportedConcepts {
+            direction,
+            asset,
+            added: added.into_iter().map(|(_, file)| file).collect(),
+            project: manifest,
+        }),
+        Err(error) => {
+            undo(&project_dir, &id, &added, fresh);
+            Err(error)
+        }
+    }
 }
 
 #[cfg(test)]
