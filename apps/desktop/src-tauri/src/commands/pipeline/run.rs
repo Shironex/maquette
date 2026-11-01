@@ -61,11 +61,14 @@ pub(crate) fn setup(
                 .to_string(),
         ),
         // The folder itself, so the card names what Ship writes to and a link
-        // moved during the wait changes nothing, checked again for that link.
+        // moved during the wait changes nothing. An agent's repo is checked
+        // again for that link; a repo a person chose stays their call.
         None => match ctx.manifest.site_repo.as_deref() {
             Some(saved) => {
                 let found = real_folder(Path::new(saved));
-                crate::commands::project::refuse_ship_folder(session, &found)?;
+                if crate::commands::site::gate::repo_set_by_agent(session, &ctx.root, project_id) {
+                    crate::commands::project::refuse_ship_folder(session, &found)?;
+                }
                 Some(found.display().to_string())
             }
             None => None,

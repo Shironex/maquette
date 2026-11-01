@@ -66,12 +66,18 @@ pub(crate) fn mark_repo(
     Ok(())
 }
 
+/// True when an agent set `project`'s repo and no person has set it since.
+pub(crate) fn repo_set_by_agent(session: &Session, root: &Path, project: &str) -> bool {
+    session
+        .app_state()
+        .repo_set_by_agent(&repos::root_key(root), project)
+}
+
 /// True when `ask` needs a person's yes before it runs.
 fn must_ask(session: &Session, project: &str, ask: &PreviewAsk) -> CommandResult<bool> {
     let (root, _) = session.workspace()?;
-    let state = session.app_state();
-    let by_agent = state.repo_set_by_agent(&repos::root_key(&root), project);
-    Ok(by_agent && !state.preview_approved(&ask.repo, &ask.key()))
+    Ok(repo_set_by_agent(session, &root, project)
+        && !session.app_state().preview_approved(&ask.repo, &ask.key()))
 }
 
 /// Decides whether `project`'s dev server may start now, raising the card

@@ -333,6 +333,15 @@ fn a_saved_repo_whose_link_moved_into_the_workspace_is_refused() {
     );
     std::fs::remove_file(&link).expect("unlink");
     std::os::unix::fs::symlink(&root, &link).expect("moved");
+    // A person chose this repo, so it stays their call.
+    assert!(setup(&session, &id, RunAsk::default(), tools()).is_ok());
+    crate::commands::site::gate::mark_repo(
+        &session,
+        &root,
+        &id,
+        maquette_core::app_state::RepoSetBy::Agent,
+    )
+    .expect("mark");
     assert!(setup(&session, &id, RunAsk::default(), tools()).is_err());
 }
 
