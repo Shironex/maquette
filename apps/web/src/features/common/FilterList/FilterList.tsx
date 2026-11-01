@@ -13,7 +13,8 @@ export function FilterOption({
   onClick,
 }: {
   label: ReactNode;
-  count: number;
+  /** Left out while the count is not known yet. */
+  count?: number;
   on: boolean;
   onClick: () => void;
 }) {
@@ -28,7 +29,9 @@ export function FilterOption({
       )}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="font-mono text-[11px] text-fg-mute">{count}</span>
+      {count === undefined ? null : (
+        <span className="font-mono text-[11px] text-fg-mute">{count}</span>
+      )}
     </button>
   );
 }

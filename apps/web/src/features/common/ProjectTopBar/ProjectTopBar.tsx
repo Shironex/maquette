@@ -8,14 +8,14 @@ import type { ProjectTopBarProps } from './ProjectTopBar.types';
  * the Lab show them; `extra` goes before Run pipeline.
  */
 export default function ProjectTopBar({ extra }: ProjectTopBarProps) {
-  const { stages, budget, sceneMb, loaded, canRun, running, showPipeline, run } =
+  const { stages, budget, sceneMb, budgetPending, loaded, canRun, running, showPipeline, run } =
     useProjectTopBar();
   return (
     <TopBar
       lead={<StageStepper stages={stages} />}
       right={
         <>
-          <SceneBudgetMeter value={sceneMb} target={budget} />
+          <SceneBudgetMeter value={sceneMb} target={budget} pending={budgetPending} />
           {extra}
           {running ? (
             <Button

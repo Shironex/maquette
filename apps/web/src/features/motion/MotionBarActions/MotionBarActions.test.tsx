@@ -7,6 +7,13 @@ import MotionBarActions from './MotionBarActions';
 afterEach(() => clearMocks());
 
 describe('the motion bar actions', () => {
+  it('shows no zero while the motion is being read', () => {
+    useMotionStore.setState({ view: null, error: null });
+    render(<MotionBarActions />);
+    expect(screen.getByRole('meter')).toHaveAccessibleName('Scene budget, Reading...');
+    expect(screen.queryByText('0.00')).toBeNull();
+  });
+
   it('saves and reverts only with changes', async () => {
     await openMotion();
     render(<MotionBarActions />);

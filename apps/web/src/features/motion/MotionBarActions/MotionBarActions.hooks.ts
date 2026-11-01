@@ -6,6 +6,7 @@ import { useMotionDirty, useMotionStore } from '@/state/use-motion-store';
 /** The scene budget with the draft's clips, and saving or reverting the draft on Mod+S. */
 export function useMotionBarActions() {
   const view = useMotionStore(s => s.view);
+  const loadFailed = useMotionStore(s => s.error !== null);
   const draft = useMotionStore(s => s.draft);
   const saving = useMotionStore(s => s.saving);
   const save = useMotionStore(s => s.save);
@@ -22,5 +23,15 @@ export function useMotionBarActions() {
     return () => window.removeEventListener('keydown', onKey);
   }, [dirty, save, models]);
   const line = view ? budgetLine(view, draft) : null;
-  return { view, line, tip: line ? budgetTip(line) : '', saving, save, revert, dirty, models };
+  return {
+    view,
+    loadFailed,
+    line,
+    tip: line ? budgetTip(line) : 'The scene budget is read with the motion.',
+    saving,
+    save,
+    revert,
+    dirty,
+    models,
+  };
 }

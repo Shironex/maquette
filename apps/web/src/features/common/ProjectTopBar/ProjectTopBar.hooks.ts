@@ -8,12 +8,14 @@ export function useProjectTopBar() {
   const setView = useAppStore(s => s.setView);
   const pipeline = usePipelineStore(s => s.view);
   const runPipeline = usePipelineStore(s => s.run);
+  const failed = usePipelineStore(s => s.error !== null);
   const assets = workspace?.project?.assets ?? [];
   const latest = pipeline?.runs[0];
   return {
     stages: stageViews(assets, latest, workspace?.project?.target),
     budget: workspace?.config.budgets.sceneMb ?? 3,
-    sceneMb: pipeline ? estimatedTransfer(pipeline) / 1e6 : 0,
+    sceneMb: pipeline ? estimatedTransfer(pipeline) / 1e6 : null,
+    budgetPending: failed ? 'Could not read' : undefined,
     loaded: Boolean(pipeline),
     canRun: (pipeline?.def.steps.length ?? 0) > 0,
     running: Boolean(pipeline?.active),
