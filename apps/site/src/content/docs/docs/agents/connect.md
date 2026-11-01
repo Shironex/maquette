@@ -53,7 +53,7 @@ Everything still works without API keys: By hand sends and built assets cost not
 
 ## What an agent cannot do
 
-The agent rules hold by construction.
+These rules hold in the app. They are not a sandbox: see the last point.
 
 - Blender only runs headless. No tool opens its window.
 - There is no screenshot or screen capture tool.
@@ -61,9 +61,11 @@ The agent rules hold by construction.
 - A round of Lab images on OpenAI Images that an agent asks for waits for you to Approve in the app, with what it should cost, before anything is sent. Deny cancels its jobs. Codex rounds and rounds you start in the Lab do not ask.
 - An agent cannot change the monthly OpenAI image cap. `set_image_backend` changes the backends and quality only; the cap is yours, in Settings.
 - With Ask before shipping on (the default), a run started over MCP stops before its Ship step and the app shows Approve or Deny.
-- A repo an agent names (`create_project`, `set_ship_settings`, `set_game_settings`, the `repo` of a run) must be a git repo or worktree given as an absolute path or with `~`. The workspace, anything inside or around it and the home folder are refused, and a repo does not change while its project has a run going.
-- The first start of the dev server of a repo an agent set waits for you. The card names the folder and the command that will run; Approve runs it and is remembered for that folder and command, so a changed path, dev command or package script asks again. Deny leaves the server stopped and `start_page_preview` answers an error with code `preview-refused`. This holds for the Page view and Preview on site too. A repo you set yourself in the app never asks.
+- A repo an agent names (`create_project`, `set_ship_settings`, `set_game_settings`, the `repo` of a run) must be a git repo or worktree given as an absolute path or with `~`. The workspace, anything inside or around it, the home folder and any folder holding it are refused, the real folder behind a link is what gets saved, and a repo does not change while its project has a run going.
+- The first start of the dev server of a repo an agent set waits for you. The card names the folder, the command, the package script it runs with its `pre` and `post` scripts and any `script-shell`; Approve runs it and is remembered, so a changed path, command, script or `.npmrc` asks again. Deny leaves the server stopped and `start_page_preview` answers an error with code `preview-refused`. This holds for the Page view and Preview on site too. A repo you set yourself in the app never asks, and saving the same repo again keeps the question; pick another folder to clear it.
+- Approving trusts the repo's contents: the files a script loads are not covered and can change without asking.
 - Settings overrides are checked by name. An unknown one is refused with the list of valid names.
+- The preview approval stops a dev command starting unseen. It is not a sandbox: `add_built_asset` runs an agent's Python in headless Blender on purpose, with your permissions.
 
 Every call shows in the activity list under Settings > Agents.
 
