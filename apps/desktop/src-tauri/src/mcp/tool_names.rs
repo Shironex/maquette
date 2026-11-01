@@ -34,13 +34,14 @@ pub fn parse(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Writes the snapshot to [`TOOL_NAMES_FILE`].
+/// Writes the snapshot to [`TOOL_NAMES_FILE`], when it changed. `rig.rs` in the
+/// MCP tests includes the file, so a new modified time would rebuild them.
 ///
 /// # Errors
 ///
 /// Fails when the file cannot be written.
 pub fn export() -> std::io::Result<()> {
-    std::fs::write(PathBuf::from(TOOL_NAMES_FILE), snapshot())
+    maquette_core::fs::write_if_changed(&PathBuf::from(TOOL_NAMES_FILE), &snapshot()).map(|_| ())
 }
 
 #[cfg(test)]
