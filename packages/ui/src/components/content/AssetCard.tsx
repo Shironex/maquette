@@ -11,8 +11,8 @@ import { VersionBadge } from '../status/VersionBadge';
 export interface AssetCardPicture {
   thumb?: string;
   fit?: 'contain' | 'cover';
-  /** What stands in while there is no thumbnail: a kind icon and a word. */
-  placeholder?: { icon: IconName; label?: string };
+  /** What stands in while there is no thumbnail: a kind icon and a word; `busy` while one renders. */
+  placeholder?: { icon: IconName; label?: string; busy?: boolean };
 }
 
 /** The line under the name. */
@@ -143,7 +143,11 @@ export function AssetCard({
           />
         ) : (
           <span className="flex size-full flex-col items-center justify-center gap-1.5 text-fg-mute">
-            <Icon name={placeholder?.icon ?? 'cube'} size={22} />
+            <Icon
+              name={placeholder?.icon ?? 'cube'}
+              size={22}
+              className={cn(placeholder?.busy && 'animate-pulse motion-reduce:animate-none')}
+            />
             {placeholder?.label ? <span className="text-meta">{placeholder.label}</span> : null}
           </span>
         )}
