@@ -573,7 +573,7 @@ async function coreShots() {
   await shot(page, 'onboarding-6-project');
 
   await cont(page);
-  await page.getByRole('heading', { name: 'Frostveil is ready' }).waitFor();
+  await page.getByRole('heading', { name: 'My first project is ready' }).waitFor();
   await shot(page, 'onboarding-7-ready');
 
   await cont(page);
