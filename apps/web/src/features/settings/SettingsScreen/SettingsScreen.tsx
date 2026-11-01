@@ -68,7 +68,7 @@ export default function SettingsScreen() {
       <main className="flex min-h-0 flex-1">
         <SectionNav active={active} onSelect={go} />
         <div className="min-w-0 flex-1 overflow-y-auto px-6 py-[18px]">
-          <div className="grid grid-cols-2 items-start gap-3.5">
+          <div className="grid grid-cols-1 items-start gap-3.5 min-[1280px]:grid-cols-2">
             <div className="flex flex-col gap-3.5">
               <WorkspaceSection active={active === 'workspace'} config={draft} />
               <section

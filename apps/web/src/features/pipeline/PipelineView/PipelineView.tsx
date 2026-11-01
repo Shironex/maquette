@@ -108,7 +108,7 @@ export default function PipelineView() {
                   tooltip="Sets how Ship writes to the site and shows what it would change"
                   onClick={() => ship.setOpen(true)}
                 >
-                  Ship settings
+                  <span className="@max-[900px]:sr-only">Ship settings</span>
                 </Button>
               </>
             ) : (

@@ -47,7 +47,7 @@ export default function RunLog({ view, step, onStep }: RunLogProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-line bg-[#181715]">
-      <div className="flex items-center gap-3 border-b border-line px-3.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-3.5">
         <Tabs
           tabs={[
             { id: 'logs', label: 'Logs' },
