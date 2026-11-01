@@ -90,7 +90,7 @@ export default function Composer({ view }: ComposerProps) {
         </Field>
       </div>
       {view.directions.length > 0 ? <EarlierDirections view={view} /> : null}
-      <div className="mt-auto flex flex-col gap-2 pt-1">
+      <div className="sticky bottom-0 -mx-[18px] -mb-4 mt-auto flex flex-col gap-2 border-t border-line bg-panel px-[18px] pt-3 pb-4">
         {usageWarning ? (
           <p className="flex items-start gap-1.5 text-meta text-amber" role="note">
             <Icon name="warning" size={13} className="mt-px flex-none" />
