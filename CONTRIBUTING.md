@@ -20,7 +20,7 @@ Changes you send are licensed under the project's license, AGPL-3.0.
 
 You need:
 
-- Node 22.12 or newer (`.nvmrc` says 22) and pnpm 10 (`packageManager` in `package.json`).
+- Node 22.23.4 or newer (`.nvmrc` says the same) and pnpm 10 (`packageManager` in `package.json`).
 - The Rust toolchain pinned in `rust-toolchain.toml`. With [rustup](https://rustup.rs) it installs
   itself the first time you run `cargo` in the repo.
 - The [Tauri 2 system dependencies](https://tauri.app/start/prerequisites/) for your OS: Xcode
