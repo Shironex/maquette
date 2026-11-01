@@ -15,6 +15,7 @@ use maquette_core::toolchain::find_on_path;
 use maquette_core::{CoreError, ProbeEnv, ProjectManifest, SystemRunner, project};
 use tauri::{AppHandle, Manager as _, State};
 
+use super::project::checked_repo;
 use super::thumbs::{self, Thumbs};
 use super::{CommandResult, blocking, toolchain};
 use crate::mcp::gate::{ShipGate, ShipReason};
@@ -140,8 +141,18 @@ fn uncommitted(repo: &Path) -> Option<u32> {
     game::detect::uncommitted(repo, &git, &SystemRunner, &env.child_path(None))
 }
 
+/// `git status` runs what a repo's own config says: a clean filter or a
+/// submodule's settings, which no flag turns off by name. So it only runs in
+/// a repo a person chose, never in one an agent named or set.
+fn may_run_git(session: &Session, project_id: &str, named_here: bool) -> CommandResult<bool> {
+    let (root, _) = session.workspace()?;
+    let key = maquette_core::project::repos::root_key(&root);
+    let by_agent = session.app_state().repo_set_by_agent(&key, project_id);
+    Ok(!named_here && !by_agent)
+}
+
 /// What Ship would write, into the project's game repo or, for one look,
-/// into `repo` (an agent's worktree, checked by [`game::check_repo`]).
+/// into `repo` (an agent's worktree, checked by [`checked_repo`]).
 pub(crate) fn ship_plan(
     session: &Session,
     project_id: &str,
@@ -149,13 +160,17 @@ pub(crate) fn ship_plan(
 ) -> CommandResult<ShipPlan> {
     let (mut manifest, dir) = game_project(session, project_id)?;
     if let Some(repo) = repo {
-        manifest.site_repo = Some(game::check_repo(repo)?.display().to_string());
+        manifest.site_repo = Some(checked_repo(session, repo)?.display().to_string());
     }
     let mut plan = game::ship_plan(&dir, &manifest)?;
-    plan.uncommitted = manifest
-        .site_repo
-        .as_deref()
-        .and_then(|r| uncommitted(Path::new(r)));
+    plan.uncommitted = if may_run_git(session, project_id, repo.is_some())? {
+        manifest
+            .site_repo
+            .as_deref()
+            .and_then(|r| uncommitted(Path::new(r)))
+    } else {
+        None
+    };
     Ok(plan)
 }
 

@@ -423,7 +423,7 @@ async fn agents_read_scan_import_and_change_a_game_project() {
         "gitdir: /src/crypt-game/.git/worktrees/agent\n",
     )
     .expect("git file");
-    let at = worktree.display().to_string();
+    let at = worktree.canonicalize().expect("real").display().to_string();
     let plan = call(
         &client,
         "get_ship_plan",

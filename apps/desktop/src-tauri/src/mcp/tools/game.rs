@@ -286,6 +286,11 @@ impl McpTools {
                 let current = game::settings_of(&manifest)?;
                 let change = args.change(&current.export)?;
                 let template = args.template()?;
+                // Everything is checked before the repo moves, as a website's call does.
+                match template {
+                    Some(id) => game::check_template(&root, &config.layout, &manifest, id)?,
+                    None => game::check_settings(&manifest, &change)?,
+                }
                 if let Some(repo) = args.repo.as_deref() {
                     let path = checked_repo(host.session(), repo)?;
                     let path = Some(path.display().to_string());
@@ -318,7 +323,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo. Files of assets moved to another folder (set_game_settings assetFolders) show as removed. repo plans a game against another git repo or worktree for this look only. Reads only; Ship runs from run_pipeline (which takes the same repo for one run) and waits for a person in the app.",
+        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo, empty for a repo an agent named or set, where git is not run. Files of assets moved to another folder (set_game_settings assetFolders) show as removed. repo plans a game against another git repo or worktree for this look only. Reads only; Ship runs from run_pipeline (which takes the same repo for one run) and waits for a person in the app.",
         annotations(read_only_hint = true)
     )]
     async fn get_ship_plan(&self, Parameters(args): Parameters<ShipPlanArgs>) -> Out {
