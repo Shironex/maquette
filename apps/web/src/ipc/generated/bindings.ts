@@ -603,6 +603,11 @@ export const commands = {
 	 */
 	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
 	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
+	/**
+	 *  Copies images dropped on the Board's Concept column into a Lab direction
+	 *  and puts its card at Concept.
+	 */
+	labImportConcepts: (project: string, paths: string[]) => __TAURI_INVOKE<ImportedConcepts>("lab_import_concepts", { project, paths }),
 	labSetStyle: (project: string, change: StyleBoardChange) => __TAURI_INVOKE<StyleBoard>("lab_set_style", { project, change }),
 	labMoveDirection: (project: string, direction: string, to: string) => __TAURI_INVOKE<MovedDirection>("lab_move_direction", { project, direction, to }),
 	labMakeObjects: (request: NewObjectRefs) => __TAURI_INVOKE<LabView>("lab_make_objects", { request }),
@@ -3301,6 +3306,16 @@ export type Imported = {
 	revised: AnimationClip[],
 	skipped: number,
 	leftOut: number,
+};
+
+/**  What importing images did. */
+export type ImportedConcepts = {
+	direction: Direction,
+	asset: Asset,
+	/**  The new files, relative to the project folder. */
+	added: string[],
+	/**  The project with the card added, for the Board. */
+	project: ProjectManifest,
 };
 
 /**  The asset an inbox model goes to by default. */

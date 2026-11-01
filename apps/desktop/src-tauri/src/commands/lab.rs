@@ -9,6 +9,7 @@ use maquette_core::concepts::backend::ImageJobKind;
 use maquette_core::concepts::jobs::{Lane, Start};
 
 use super::image_api::{self, Backend};
+use maquette_core::concepts::import::ImportedConcepts;
 use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, NewObjectRefs, REFS_DIR,
     SentObjects, SentPicks, StyleBoard, StyleBoardChange, sheet, style,
@@ -444,6 +445,25 @@ pub fn lab_import_refs(
     paths: Vec<String>,
 ) -> CommandResult<Vec<String>> {
     import_refs(&session, &project, &paths)
+}
+
+/// Copies images dropped on the Board's Concept column into a Lab direction
+/// and puts its card at Concept.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn lab_import_concepts(
+    session: State<'_, Session>,
+    project: String,
+    paths: Vec<String>,
+) -> CommandResult<ImportedConcepts> {
+    let (root, config) = session.workspace()?;
+    let paths: Vec<_> = paths.iter().map(|p| session.expand(p)).collect();
+    Ok(concepts::import::import_images(
+        &root,
+        &config.layout,
+        &project,
+        &paths,
+    )?)
 }
 
 pub mod queue;
