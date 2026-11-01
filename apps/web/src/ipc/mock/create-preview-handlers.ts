@@ -68,6 +68,7 @@ export function createPreviewHandlers(deps: {
     return {
       asked,
       rendering: 0,
+      renderingFiles: [],
       failed: 0,
       reason: null,
       project: asked ? deps.saveProject({ ...p, assets }) : p,
@@ -76,7 +77,8 @@ export function createPreviewHandlers(deps: {
 
   /** Asks for every missing preview now and lands them one at a time. */
   function renderSlowly(p: ProjectManifest): PreviewsAsked {
-    const ids = (p.assets ?? []).filter(wantsPreview).map(a => a.id);
+    const wanted = (p.assets ?? []).filter(wantsPreview);
+    const ids = wanted.map(a => a.id);
     const root = `${expand(DEFAULT_ROOT)}/projects/${p.id}`;
     ids.forEach((asset, i) => {
       setTimeout(
@@ -97,7 +99,14 @@ export function createPreviewHandlers(deps: {
         (i + 1) * SLOW_PREVIEW_MS
       );
     });
-    return { asked: ids.length, rendering: ids.length, failed: 0, reason: null, project: p };
+    return {
+      asked: ids.length,
+      rendering: ids.length,
+      renderingFiles: wanted.map(a => `${root}/${a.versions[a.versions.length - 1]?.file ?? ''}`),
+      failed: 0,
+      reason: null,
+      project: p,
+    };
   }
 
   return {

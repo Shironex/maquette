@@ -14,7 +14,8 @@ import {
   type ShipPlan,
   type ThumbnailReady,
 } from '@/ipc/client';
-import { isBoardModel, wantsPreview } from './thumbs';
+import { slashed } from '@/lib/format';
+import { isModelFile, wantsPreview } from './thumbs';
 import { useAppStore } from './use-app-store';
 import { usePipelineStore } from './use-pipeline-store';
 
@@ -28,15 +29,14 @@ interface GameStore {
   importing: boolean;
   plan: ShipPlan | null;
   saving: boolean;
-  /** Render previews is asking the thumbnail service. */
+  /** Render previews is asking the thumbnail service for `waitingFor`. */
   rendering: boolean;
-  /** Previews queued in Blender that have not finished yet, for `waitingFor`. */
-  waiting: number;
+  /** The model files of `waitingFor` queued in Blender, until each one's render ends. */
+  queued: string[];
+  /** The project Render previews is on, wherever the person has gone since. */
   waitingFor: string | null;
   /** Previews that failed since the last notice about them. */
   failedPreviews: number;
-  /** The models those were of, so their cards stop saying they render. */
-  failedFiles: string[];
   openImport: (project: string) => Promise<void>;
   closeImport: () => void;
   toggle: (file: string, on: boolean) => void;
@@ -53,6 +53,9 @@ interface GameStore {
   /** Counts a finished render (from the `thumbnailReady` event) against Render previews. */
   onThumbnail: (event: ThumbnailReady) => void;
 }
+
+/** Renders that ended while the service was still answering, before their files were known. */
+let endedEarly: ThumbnailReady[] = [];
 
 const plural = (n: number) => `${n} ${n === 1 ? 'preview' : 'previews'}`;
 
@@ -71,10 +74,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   plan: null,
   saving: false,
   rendering: false,
-  waiting: 0,
+  queued: [],
   waitingFor: null,
   failedPreviews: 0,
-  failedFiles: [],
 
   openImport: async project => {
     set({ importFor: project, scan: null, scanning: true, picked: [] });
@@ -174,19 +176,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   renderPreviews: async project => {
-    if (get().rendering || get().waiting > 0) return;
-    set({ rendering: true, failedPreviews: 0, failedFiles: [] });
+    if (get().rendering || get().queued.length > 0) return;
+    endedEarly = [];
+    set({ rendering: true, waitingFor: project, failedPreviews: 0 });
     try {
       const {
         asked,
-        rendering,
+        renderingFiles,
         failed,
         reason,
         project: next,
       } = await commands.thumbnailRenderMissing(project);
       const app = useAppStore.getState();
       app.setProject(next);
-      set({ waiting: rendering, waitingFor: project, failedPreviews: 0 });
+      set({ queued: renderingFiles, rendering: false });
+      const ended = endedEarly;
+      endedEarly = [];
+      for (const event of ended) get().onThumbnail(event);
       if (failed > 0) {
         app.notify({
           status: 'failed',
@@ -203,23 +209,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       }
     } catch (error) {
+      endedEarly = [];
+      set({ rendering: false });
       fail('Could not render the previews', error);
     } finally {
-      set({ rendering: false });
+      if (get().queued.length === 0) set({ waitingFor: null });
     }
   },
 
   onThumbnail: event => {
-    const project = useAppStore.getState().workspace?.project;
     // One event per file ends a render; the ones with a project only apply it.
-    if (!project || event.project || !isBoardModel(project, event.file)) return;
-    const counted = get().waitingFor === project.id && get().waiting > 0;
-    const waiting = counted ? get().waiting - 1 : get().waiting;
+    if (event.project) return;
+    if (get().rendering) {
+      endedEarly.push(event);
+      return;
+    }
+    const queued = get().queued.filter(file => slashed(file) !== slashed(event.file));
+    if (queued.length === get().queued.length) return;
     const failed = get().failedPreviews + (event.state === 'fallback' ? 1 : 0);
-    const done = waiting === 0;
-    const failedFiles =
-      event.state === 'fallback' ? [...get().failedFiles, event.file] : get().failedFiles;
-    set({ waiting, failedPreviews: done ? 0 : failed, failedFiles: done ? [] : failedFiles });
+    const done = queued.length === 0;
+    set({ queued, failedPreviews: done ? 0 : failed, waitingFor: done ? null : get().waitingFor });
     if (done && failed > 0) {
       useAppStore.getState().notify({
         status: 'failed',
@@ -242,9 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 /** True while Render previews is on this card's model, as the Inbox's thumbnails say theirs. */
 export function useRendersPreview(asset: Asset, project: string | undefined): boolean {
   return useGameStore(s => {
-    if (!s.rendering && !(s.waiting > 0 && s.waitingFor === project)) return false;
-    if (!wantsPreview(asset)) return false;
-    const file = asset.versions[asset.versions.length - 1]?.file ?? '';
-    return !s.failedFiles.some(f => f.replaceAll('\\', '/').endsWith(file));
+    if (s.waitingFor !== project || !wantsPreview(asset)) return false;
+    return s.rendering || s.queued.some(file => isModelFile(file, asset));
   });
 }

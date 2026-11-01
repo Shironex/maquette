@@ -164,6 +164,8 @@ pub struct PreviewsAsked {
     pub project: ProjectManifest,
     /// Models whose render is queued: each one ends in a `ThumbnailReady`.
     pub rendering: u32,
+    /// The model file of each of those, as its `ThumbnailReady` will name it.
+    pub rendering_files: Vec<String>,
     /// Models no render could be queued for (Blender missing, a model it
     /// cannot read), so nothing more will come for them.
     pub failed: u32,
@@ -186,7 +188,7 @@ pub(crate) fn render_missing(
     let dir = project::dir(root, &config.layout, project_id)?;
     let missing = thumbs::missing::missing(&dir, &manifest, only);
     let mut latest = manifest;
-    let (mut rendering, mut failed, mut reason) = (0_u32, 0_u32, None);
+    let (mut rendering_files, mut failed, mut reason) = (Vec::new(), 0_u32, None);
     for item in &missing {
         match ask_version(
             service,
@@ -197,7 +199,7 @@ pub(crate) fn render_missing(
             item.target.clone(),
         ) {
             Asked::Ready(changed) => latest = changed.unwrap_or(latest),
-            Asked::Rendering => rendering += 1,
+            Asked::Rendering => rendering_files.push(item.file.display().to_string()),
             Asked::Failed(why) => {
                 failed += 1;
                 reason.get_or_insert(why);
@@ -207,7 +209,8 @@ pub(crate) fn render_missing(
     Ok(PreviewsAsked {
         asked: u32::try_from(missing.len()).unwrap_or(u32::MAX),
         project: latest,
-        rendering,
+        rendering: u32::try_from(rendering_files.len()).unwrap_or(u32::MAX),
+        rendering_files,
         failed,
         reason,
     })

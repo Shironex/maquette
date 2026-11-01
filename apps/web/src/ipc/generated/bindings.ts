@@ -5130,6 +5130,8 @@ export type PreviewsAsked = {
 	project: ProjectManifest,
 	/**  Models whose render is queued: each one ends in a `ThumbnailReady`. */
 	rendering: number,
+	/**  The model file of each of those, as its `ThumbnailReady` will name it. */
+	renderingFiles: string[],
 	/**
 	 *  Models no render could be queued for (Blender missing, a model it
 	 *  cannot read), so nothing more will come for them.

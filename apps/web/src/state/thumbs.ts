@@ -1,4 +1,5 @@
 /** Thumbnails in the UI: kind placeholders and folding in finished renders. */
+import { slashed } from '@/lib/format';
 import type { IconName } from '@maquette/ui';
 import type {
   Asset,
@@ -33,13 +34,10 @@ export function wantsPreview(asset: Asset): boolean {
   return Boolean(latest && RENDERABLE.test(latest.file) && !shown);
 }
 
-/** True when `file` (an absolute path) is the newest model of one of the project's assets. */
-export function isBoardModel(project: ProjectManifest, file: string): boolean {
-  const path = file.replaceAll('\\', '/');
-  return (project.assets ?? []).some(a => {
-    const latest = a.versions[a.versions.length - 1];
-    return latest && path.endsWith(`/${latest.file}`);
-  });
+/** True when `file` (an absolute path) is the asset's newest model. */
+export function isModelFile(file: string, asset: Asset): boolean {
+  const latest = asset.versions[asset.versions.length - 1];
+  return latest ? slashed(file).endsWith(`/${latest.file}`) : false;
 }
 
 /** True when Blender will not render this item, so the preview must snapshot it. */

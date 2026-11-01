@@ -14,7 +14,7 @@ export function useMoreMenu() {
   const jobs = useProvidersStore(s => s.jobs);
   const renderPreviews = useGameStore(s => s.renderPreviews);
   const asking = useGameStore(s => s.rendering);
-  const waiting = useGameStore(s => s.waiting);
+  const waiting = useGameStore(s => s.queued.length);
   const removed = useRecentlyRemoved();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);

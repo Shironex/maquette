@@ -67,3 +67,6 @@ export function shortPath(path: string, segments = 3): string {
   if (parts.length <= segments) return path;
   return parts.slice(-segments).join('/');
 }
+
+/** A path with forward slashes, whichever system wrote it. */
+export const slashed = (path: string) => path.replaceAll('\\', '/');
