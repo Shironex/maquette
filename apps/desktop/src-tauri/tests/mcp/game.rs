@@ -213,15 +213,82 @@ async fn agents_read_scan_import_and_change_a_game_project() {
     assert_eq!(imported["imported"], json!(["brazier", "coffin"]));
     assert!(host.pipeline_changes.load(Ordering::SeqCst) > 0);
 
-    let templates = call(&client, "get_game", json!({ "project": project_id })).await;
-    let kit = templates["templates"]
+    // Without previews each template is listed with its numbers only.
+    let listed = call(&client, "get_game", json!({ "project": project_id })).await;
+    let ids: Vec<&str> = listed["templates"]
         .as_array()
         .expect("templates")
+        .iter()
+        .map(|t| t["template"]["id"].as_str().expect("id"))
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "prop-set",
+            "character",
+            "level-kit",
+            "level-kit-obj",
+            "web-game",
+            "godot",
+            "unity",
+            "unreal",
+            "mobile",
+            "vr-standalone",
+            "game-jam"
+        ]
+    );
+    assert!(listed["templates"][2]["template"]["budgets"].is_array());
+    assert!(listed["templates"][2]["template"]["name"].is_string());
+    assert!(
+        listed["templates"][2].get("changes").is_none(),
+        "no preview unless asked"
+    );
+
+    let templates = call(
+        &client,
+        "get_game",
+        json!({ "project": project_id, "previews": ["level-kit", "godot"] }),
+    )
+    .await;
+    let entries = templates["templates"].as_array().expect("templates");
+    assert_eq!(
+        entries
+            .iter()
+            .filter(|t| t.get("changes").is_some())
+            .count(),
+        2
+    );
+    let kit = entries
         .iter()
         .find(|t| t["template"]["id"] == "level-kit")
         .expect("level kit");
     assert_eq!(kit["budgets"][0]["folder"], "kit");
     assert_eq!(kit["changes"], true);
+    let godot = entries
+        .iter()
+        .find(|t| t["template"]["id"] == "godot")
+        .expect("godot");
+    assert_eq!(godot["exportAfter"]["textureCap"], 2048);
+    let all = call(
+        &client,
+        "get_game",
+        json!({ "project": project_id, "previews": ["all"] }),
+    )
+    .await;
+    assert!(
+        all["templates"]
+            .as_array()
+            .expect("all")
+            .iter()
+            .all(|t| t.get("changes").is_some())
+    );
+    let bad = raw_call(
+        &client,
+        "get_game",
+        json!({ "project": project_id, "previews": ["racing"] }),
+    )
+    .await;
+    assert_eq!(bad.is_error, Some(true), "{}", text(&bad));
     let mixed = raw_call(
         &client,
         "set_game_settings",
@@ -248,6 +315,29 @@ async fn agents_read_scan_import_and_change_a_game_project() {
         budgets.iter().any(|b| b["folder"] == "props"),
         "other rows stay"
     );
+    // Every new id applies through the tool and saves what its preview said.
+    // (game-jam first: the others put the maps back, so the later checks start from the default)
+    for (id, cap, textures, drop_maps) in [
+        ("game-jam", 1024, "jpg", true),
+        ("web-game", 1024, "jpg", false),
+        ("godot", 2048, "png", false),
+        ("unity", 2048, "png", false),
+        ("unreal", 4096, "png", false),
+        ("mobile", 1024, "jpg", false),
+        ("vr-standalone", 1024, "jpg", false),
+    ] {
+        let saved = call(
+            &client,
+            "set_game_settings",
+            json!({ "project": project_id, "template": id }),
+        )
+        .await;
+        let export = &saved["settings"]["export"];
+        assert_eq!(export["textureCap"], cap, "{id}");
+        assert_eq!(export["textures"], textures, "{id}");
+        assert_eq!(export["dropMaps"], drop_maps, "{id}");
+        assert_eq!(saved["settings"]["format"], "glb", "{id}");
+    }
 
     let refused = raw_call(
         &client,

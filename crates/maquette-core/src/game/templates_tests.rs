@@ -9,7 +9,7 @@ use crate::assets::AssetKind;
 use crate::project;
 
 /// Every file under `dir`, with its bytes.
-fn tree(dir: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+pub(super) fn tree(dir: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
     let mut out = Vec::new();
     let mut stack = vec![dir.to_path_buf()];
     while let Some(folder) = stack.pop() {
@@ -32,10 +32,11 @@ fn every_template_passes_the_checks_a_hand_edit_passes() {
     let (_ws, manifest) = game_project(glb_game, GameFormat::Glb);
     let base = settings_of(&manifest).expect("game");
     let list = game_templates();
-    assert_eq!(list.len(), 4);
+    assert_eq!(list.len(), 11);
     for template in list {
         let mut next = base.clone();
         next.format = template.format;
+        next.export = template.export_over(base.export);
         next.budgets = crate::settings::game::merge_budgets(&base.budgets, &template.budgets);
         validate(&next).expect(&template.name);
         assert!(!template.budgets.is_empty(), "{}", template.name);

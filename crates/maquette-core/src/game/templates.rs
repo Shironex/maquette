@@ -15,7 +15,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    FolderBudget, GameFormat, GameModel, GameSettings, budget, file_of, settings_of, ship, validate,
+    FolderBudget, GameExport, GameFormat, GameModel, GameSettings, GameTextures, budget, file_of,
+    settings_of, ship, validate,
 };
 use crate::error::CoreResult;
 use crate::pipeline;
@@ -51,6 +52,10 @@ pub struct GameTemplatePreview {
     pub template: GameTemplate,
     pub format_before: GameFormat,
     pub format_after: GameFormat,
+    /// The texture format, size cap and map setting before and after. A
+    /// template that sets none of them leaves the two equal.
+    pub export_before: GameExport,
+    pub export_after: GameExport,
     /// Only the rows that differ; every other row stays as it is.
     pub budgets: Vec<TemplateBudgetChange>,
     /// Files already in the game, shipped or there before, that the template
@@ -80,6 +85,7 @@ fn outcome(
 ) -> Outcome {
     let mut next = settings.clone();
     next.format = template.format;
+    next.export = template.export_over(settings.export);
     next.budgets = merge_budgets(&settings.budgets, &template.budgets);
     let mut kept_files = Vec::new();
     let mut new_paths = Vec::new();
@@ -207,12 +213,41 @@ fn notes(
             ));
         }
     }
+    if template.drop_maps == Some(true) && !settings.export.drop_maps {
+        out.push(
+            "Normal and metal-roughness maps are left out of exported models. Check that the game's shaders do not read them."
+                .to_string(),
+        );
+    }
+    if template.textures == Some(GameTextures::Jpg) && settings.export.textures != GameTextures::Jpg
+    {
+        out.push(
+            "JPG textures have no transparency. Set the texture format to Keep, or PNG, for a model with cutouts."
+                .to_string(),
+        );
+    }
     let lays_out_kit = template.budgets.iter().any(|b| b.folder == "kit");
     if lays_out_kit && settings.budgets.iter().any(|b| b.folder == "props") {
         out.push(
             "This game has a budget for props/, so new models still go there. Move a piece to kit/ with its Game folder in the Budget tab."
                 .to_string(),
         );
+    }
+    let own_folders: Vec<&str> = settings
+        .budgets
+        .iter()
+        .filter(|b| !b.folder.is_empty())
+        .map(|b| b.folder.as_str())
+        .collect();
+    if template.budgets.iter().all(|b| b.folder.is_empty()) && !own_folders.is_empty() {
+        out.push(format!(
+            "The row for the top level of the model folder is new. This game has budgets for {}, and a folder with its own row keeps it.",
+            own_folders
+                .iter()
+                .map(|f| format!("{f}/"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
     }
     out
 }
@@ -239,10 +274,15 @@ pub fn preview_template(
             })
         })
         .collect();
-    let changes = settings.format != template.format || !budgets.is_empty();
+    let export_after = done.next.export;
+    let changes = settings.format != template.format
+        || settings.export != export_after
+        || !budgets.is_empty();
     Ok(GameTemplatePreview {
         format_before: settings.format,
         format_after: template.format,
+        export_before: settings.export,
+        export_after,
         over_before: over_count(settings, manifest),
         over_after: over_count(&done.next, manifest),
         notes: notes(settings, manifest, &template, &done.new_paths),

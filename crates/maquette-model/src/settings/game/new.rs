@@ -46,13 +46,16 @@ pub fn new_settings(new: &NewGame, repo: Option<&Path>) -> CoreResult<GameSettin
         .map(|r| model_folders(&r.join(&models_dir)))
         .unwrap_or_default();
     let mut budgets = default_budgets(&folders);
+    let mut export = GameExport::default();
     if let Some(id) = new.template {
-        budgets = merge_budgets(&budgets, &game_template(id).budgets);
+        let template = game_template(id);
+        budgets = merge_budgets(&budgets, &template.budgets);
+        export = template.export_over(export);
     }
     Ok(GameSettings {
         format: new.format,
         models_dir,
-        export: GameExport::default(),
+        export,
         bake: false,
         budgets,
         models: BTreeMap::new(),

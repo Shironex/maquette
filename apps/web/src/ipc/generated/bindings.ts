@@ -2951,19 +2951,44 @@ export type GameTemplate = {
 	detail: string,
 	/**  Why it has these values. */
 	why: string,
+	group: GameTemplateGroup,
 	format: GameFormat,
+	/**  The texture format it sets, none to leave the game's as it is. */
+	textures: GameTextures | null,
+	/**  The longest texture edge it sets, none to leave the game's as it is. */
+	textureCap: number | null,
+	/**
+	 *  Whether it leaves normal and metal-roughness maps out, none to leave
+	 *  the game's as it is.
+	 */
+	dropMaps: boolean | null,
 	/**  The folders it lays out, with the budget of each. */
 	budgets: FolderBudget[],
 };
 
+/**  Where the picker lists a template. */
+export type GameTemplateGroup = 
+/**  The shape of the models: props, a character, a level kit. */
+"shape" | 
+/**  A game engine. */
+"engine" | 
+/**  A device or a kind of project with its own limits. */
+"target";
+
 /**  One of the built-in templates. */
-export type GameTemplateId = "prop-set" | "character" | "level-kit" | "level-kit-obj";
+export type GameTemplateId = "prop-set" | "character" | "level-kit" | "level-kit-obj" | "web-game" | "godot" | "unity" | "unreal" | "mobile" | "vr-standalone" | "game-jam";
 
 /**  What applying a template would change in one project. */
 export type GameTemplatePreview = {
 	template: GameTemplate,
 	formatBefore: GameFormat,
 	formatAfter: GameFormat,
+	/**
+	 *  The texture format, size cap and map setting before and after. A
+	 *  template that sets none of them leaves the two equal.
+	 */
+	exportBefore: GameExport,
+	exportAfter: GameExport,
 	/**  Only the rows that differ; every other row stays as it is. */
 	budgets: TemplateBudgetChange[],
 	/**

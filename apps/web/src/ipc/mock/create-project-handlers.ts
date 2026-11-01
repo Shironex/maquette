@@ -1,4 +1,5 @@
 import type {
+  GameExport,
   ImportScan,
   NewProject,
   ProjectManifest,
@@ -10,8 +11,11 @@ import type {
 import { clock } from '@/lib/clock';
 import { DEFAULT_ROOT, HOME } from './fixtures';
 import { expand, fail, slugify, type Args } from './backend-options';
+import { exportAfter, merged, templateOf } from './game-templates';
 import { cryptBudgets, inspectGameRepo, mazeBudgets } from './game-fixtures';
 import { LEGACY_SITE } from '@/state/repo-lines';
+
+const DEFAULT_EXPORT: GameExport = { textures: 'png', textureCap: 1024, dropMaps: false };
 
 interface ProjectContext {
   snapshot: () => WorkspaceSnapshot;
@@ -37,23 +41,25 @@ export function createProjectHandlers({
       if (!name) fail('invalid', 'Give the project a name.');
       let id = slugify(name);
       while (projects.get().some(p => p.id === id)) id = `${id}-2`;
+      const game = next.target === 'game' ? next.game : null;
+      const base = game?.format === 'obj' ? mazeBudgets() : cryptBudgets();
+      const template = game?.template ? templateOf(game.template) : null;
       const manifest: ProjectManifest = {
         version: 1,
         id,
         name,
         template: next.template,
         target: next.target ?? 'website',
-        game:
-          next.target === 'game' && next.game
-            ? {
-                format: next.game.format,
-                modelsDir: next.game.modelsDir,
-                export: { textures: 'png', textureCap: 1024, dropMaps: false },
-                bake: false,
-                budgets: next.game.format === 'obj' ? mazeBudgets() : cryptBudgets(),
-                models: {},
-              }
-            : null,
+        game: game
+          ? {
+              format: game.format,
+              modelsDir: game.modelsDir,
+              export: template ? exportAfter(DEFAULT_EXPORT, template) : DEFAULT_EXPORT,
+              bake: false,
+              budgets: template ? merged(base, template.budgets) : base,
+              models: {},
+            }
+          : null,
         siteRepo: next.siteRepo ? expand(next.siteRepo) : null,
         sourceFolder: next.sourceFolder ? expand(next.sourceFolder) : null,
         createdAt: clock.now().toISOString(),

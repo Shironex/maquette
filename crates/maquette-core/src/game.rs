@@ -90,6 +90,8 @@ mod move_tests;
 #[cfg(test)]
 mod rig_export_tests;
 #[cfg(test)]
+mod templates_each_tests;
+#[cfg(test)]
 mod templates_tests;
 #[cfg(test)]
 mod tests;
