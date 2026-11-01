@@ -63,17 +63,21 @@ describe('the next step', () => {
   it('walks a project with models from run to repo to done', () => {
     const assets = [asset('a', 'blender', 1)];
     expect(nextStep(facts({ assets }))?.id).toBe('run');
-    const done = { state: 'done', notShipped: false } as const;
-    expect(nextStep(facts({ assets, lastRun: { ...done, state: 'failed' } }))?.id).toBe(
-      'run-failed'
-    );
+    const done = { state: 'done' } as const;
+    expect(nextStep(facts({ assets, lastRun: { state: 'failed' } }))?.id).toBe('run-failed');
     expect(nextStep(facts({ assets, lastRun: done, hasRepo: false }))?.id).toBe('repo');
-    expect(nextStep(facts({ assets, lastRun: { ...done, notShipped: true } }))?.id).toBe('repo');
     expect(nextStep(facts({ assets, lastRun: done }))).toBeNull();
   });
 
+  it('drops the repo step as soon as a repo is set, before another run', () => {
+    const assets = [asset('a', 'blender', 1)];
+    const lastRun = { state: 'done' } as const;
+    expect(nextStep(facts({ assets, lastRun, hasRepo: false }))?.id).toBe('repo');
+    expect(nextStep(facts({ assets, lastRun, hasRepo: true }))).toBeNull();
+  });
+
   it('offers a cancelled run again and never calls it done', () => {
-    const lastRun = { state: 'cancelled', notShipped: false } as const;
+    const lastRun = { state: 'cancelled' } as const;
     for (const hasRepo of [true, false]) {
       const step = nextStep(facts({ assets: [asset('a', 'blender', 1)], lastRun, hasRepo }));
       expect(step?.id).toBe('run-cancelled');
@@ -89,7 +93,7 @@ describe('the next step', () => {
         target: 'game',
         hasRepo: false,
         assets: [asset('a', 'ship', 1)],
-        lastRun: { state: 'done', notShipped: true },
+        lastRun: { state: 'done' },
       })
     );
     expect(step?.sentence).toContain('game repo');

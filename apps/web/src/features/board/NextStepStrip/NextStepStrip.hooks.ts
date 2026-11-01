@@ -38,7 +38,7 @@ export function useNextStepStrip() {
     hasRepo: Boolean(project.siteRepo),
     assets: project.assets ?? [],
     sending: new Set(jobs.filter(j => isActive(j.state)).map(j => j.asset)),
-    lastRun: latest ? { state: latest.state, notShipped: Boolean(latest.notShipped) } : undefined,
+    lastRun: latest ? { state: latest.state } : undefined,
   });
   // Before the pipeline is read a project with models would ask for a first run it may have had.
   if (!step || step.id === dismissed || (step.id === 'run' && !pipeline)) return null;

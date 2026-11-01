@@ -30,7 +30,7 @@ export interface NextFacts {
   /** Assets a send is on its way for. */
   sending: ReadonlySet<string>;
   /** The newest run; undefined before there is one or before it is read. */
-  lastRun: { state: RunState; notShipped: boolean } | undefined;
+  lastRun: { state: RunState } | undefined;
 }
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
@@ -77,7 +77,7 @@ function buildStep({ lastRun, hasRepo, target }: NextFacts): NextStep | null {
       action: 'pipeline',
     };
   }
-  if (!hasRepo || lastRun.notShipped) {
+  if (!hasRepo) {
     const repo = target === 'game' ? 'game' : 'site';
     return {
       id: 'repo',
