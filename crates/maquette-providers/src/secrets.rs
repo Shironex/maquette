@@ -17,6 +17,11 @@ pub trait SecretStore: Send + Sync {
     fn get_account(&self, account: &str) -> CoreResult<Option<String>>;
     fn set_account(&self, account: &str, key: &str) -> CoreResult<()>;
     fn remove_account(&self, account: &str) -> CoreResult<()>;
+    /// Whether a key is saved, or None when the store could not say. Meant
+    /// for asking often: a store whose reads can prompt answers from memory.
+    fn is_saved(&self, account: &str) -> Option<bool> {
+        self.get_account(account).ok().map(|key| key.is_some())
+    }
 
     fn get(&self, service: ProviderId) -> CoreResult<Option<String>> {
         self.get_account(account(service))

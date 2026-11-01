@@ -120,3 +120,29 @@ fn a_taken_name_is_found_by_name_and_by_id() {
     assert!(taken("renamed later", rows).is_some());
     assert!(taken("Sun Island", rows).is_none());
 }
+
+#[test]
+fn a_second_name_with_no_latin_letters_is_not_taken() {
+    assert_eq!(project::slugify("月の島"), "project");
+    assert!(taken("星の島", [("project", "月の島")]).is_none());
+    assert!(taken("月の島", [("project", "月の島")]).is_some());
+    assert!(taken("Project", [("project", "Project")]).is_some());
+}
+
+#[test]
+fn a_key_the_store_could_not_read_is_not_called_missing() {
+    let says_no_key = |keys: &Keys| {
+        gates(&[], keys, true)
+            .iter()
+            .any(|g| g["gate"].as_str().is_some_and(|w| w.contains("API key")))
+    };
+    let keys = |tripo, meshy| Keys {
+        tripo,
+        meshy,
+        openai: None,
+    };
+    assert!(says_no_key(&keys(Some(false), Some(false))));
+    assert!(!says_no_key(&keys(None, Some(false))));
+    assert!(!says_no_key(&keys(None, None)));
+    assert!(!says_no_key(&keys(Some(true), Some(false))));
+}

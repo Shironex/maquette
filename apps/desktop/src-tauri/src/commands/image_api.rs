@@ -133,6 +133,16 @@ pub(crate) fn status(
     secrets: &dyn SecretStore,
     lab: &Concepts,
 ) -> CommandResult<ImageApiStatus> {
+    status_with(session, key_status(secrets)?, lab)
+}
+
+/// The status with the key already known, for a caller that must not read
+/// the key itself.
+pub(crate) fn status_with(
+    session: &Session,
+    key: OpenAiKeyStatus,
+    lab: &Concepts,
+) -> CommandResult<ImageApiStatus> {
     let (root, config) = session.workspace()?;
     let images = ledger::read(&root)?.images;
     let estimate = |quality| {
@@ -140,7 +150,7 @@ pub(crate) fn status(
     };
     Ok(ImageApiStatus {
         settings: config.lab.images,
-        key: key_status(secrets)?,
+        key,
         month_spent_usd: month_to_date(&images, now_ms()),
         pending_usd: lab.api_pending_usd(),
         model: openai_images::MODEL.to_string(),

@@ -96,9 +96,14 @@ fn game_template(template: Option<&str>) -> Result<Option<GameTemplateId>, Strin
 fn taken<'a>(name: &str, existing: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {
     let wanted = name.trim();
     let id = project::slugify(wanted);
+    // A name with no Latin letters slugs to the fallback, and takes a suffix as
+    // New project in the app does, so only its name can clash.
+    let fell_back = id == "project" && !wanted.eq_ignore_ascii_case("project");
     existing
         .into_iter()
-        .find(|(other_id, other)| *other_id == id || other.trim().eq_ignore_ascii_case(wanted))
+        .find(|(other_id, other)| {
+            (!fell_back && *other_id == id) || other.trim().eq_ignore_ascii_case(wanted)
+        })
         .map(|(other_id, other)| format!("{other:?} is already a project (id {other_id})."))
 }
 
@@ -238,7 +243,7 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
             "Settings > Image generation",
         ),
     ];
-    if !keys.tripo && !keys.meshy {
+    if keys.tripo == Some(false) && keys.meshy == Some(false) {
         out.push(gate(
             "Save a Tripo or Meshy API key, or use provider by-hand for free",
             "Settings > 3D providers",
@@ -259,14 +264,23 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
     out
 }
 
+/// Whether each key is saved. None when the store could not say, which is not
+/// the same as no key.
 struct Keys {
-    tripo: bool,
-    meshy: bool,
-    openai: bool,
+    tripo: Option<bool>,
+    meshy: Option<bool>,
+    openai: Option<bool>,
 }
 
-fn saved(host: &dyn Host, service: ProviderId) -> bool {
-    secrets::status(host.studio().secrets().as_ref(), service).is_ok_and(|s| s.saved)
+/// Reads through [`SecretStore::is_saved`], so asking again and again never
+/// raises a Keychain prompt.
+fn read_keys(host: &dyn Host) -> Keys {
+    let store = host.studio().secrets();
+    Keys {
+        tripo: store.is_saved(secrets::account(ProviderId::Tripo)),
+        meshy: store.is_saved(secrets::account(ProviderId::Meshy)),
+        openai: store.is_saved(secrets::OPENAI_ACCOUNT),
+    }
 }
 
 fn started(host: &dyn Host) -> Result<Value, ToolError> {
@@ -281,16 +295,17 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
             "next": next,
         }));
     };
-    let image = image_api::status(
+    let keys = read_keys(host);
+    let image = image_api::status_with(
         host.session(),
-        host.studio().secrets().as_ref(),
+        image_api::OpenAiKeyStatus {
+            saved: keys.openai == Some(true),
+            tail: None,
+        },
         host.concepts(),
     )?;
-    let keys = Keys {
-        tripo: saved(host, ProviderId::Tripo),
-        meshy: saved(host, ProviderId::Meshy),
-        openai: image.key.saved,
-    };
+    let mut image_value = status_value(&image);
+    image_value["keySaved"] = json!(keys.openai);
     let inbox_count = inbox::list(&root, &config).map_or(0, |items| items.len());
     let rows = summaries(
         host.session(),
@@ -326,7 +341,7 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         workspace_open: true,
         blender: tool_works(&reports, ToolId::Blender),
         codex: tool_works(&reports, ToolId::Codex),
-        any_key: keys.tripo || keys.meshy,
+        any_key: keys.tripo != Some(false) || keys.meshy != Some(false),
         inbox: inbox_count,
         project: facts.into_iter().nth(current),
     });
@@ -334,7 +349,7 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         "workspace": host.session().display(&root),
         "toolchain": tools,
         "keys": { "tripo": keys.tripo, "meshy": keys.meshy, "openai": keys.openai },
-        "imageBackend": status_value(&image),
+        "imageBackend": image_value,
         "askBeforeShipping": ask,
         "inboxModels": inbox_count,
         "projects": projects,
