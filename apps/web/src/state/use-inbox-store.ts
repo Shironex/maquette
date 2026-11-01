@@ -22,6 +22,8 @@ interface InboxStore {
   /** Models ticked for a batch redo, in list order. */
   checked: string[];
   loading: boolean;
+  /** The newest read of the inbox failed. */
+  loadFailed: boolean;
   /** The item an action is running for. */
   busy: string | null;
   load: () => Promise<void>;
@@ -61,11 +63,12 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   selected: null,
   checked: [],
   loading: false,
+  loadFailed: false,
   busy: null,
 
   load: async () => {
     const ticket = ++loads;
-    set({ loading: true });
+    set({ loading: true, loadFailed: false });
     try {
       const listed = await commands.inboxList();
       // The watcher fires several loads when a model lands; an older answer
@@ -84,7 +87,7 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       void get().snapshotMissing();
     } catch (error) {
       if (ticket !== loads) return;
-      set({ loading: false });
+      set({ loading: false, loadFailed: true });
       fail('Could not read the inbox', error);
     }
   },

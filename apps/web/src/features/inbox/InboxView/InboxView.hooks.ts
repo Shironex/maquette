@@ -13,7 +13,7 @@ import { useTriageStore } from '@/state/use-triage-store';
  * inbox changes, so a discard shows up under Recently discarded.
  */
 export function useInboxView() {
-  const { snapshot, selected, loading } = useInboxStore();
+  const { snapshot, selected, loading, loadFailed } = useInboxStore();
   const { layout, setLayout, filter, loadDiscarded } = useTriageStore();
   const items = snapshot?.items ?? [];
   // The list's filter decides too: a model it hides is not the one on show.
@@ -27,7 +27,7 @@ export function useInboxView() {
     void loadDiscarded();
   }, [snapshot, loadDiscarded]);
   const reading = snapshot === null && loading;
-  const estimate = useWait('inbox', reading);
+  const estimate = useWait('inbox', reading, loadFailed);
   return {
     snapshot,
     reading,
