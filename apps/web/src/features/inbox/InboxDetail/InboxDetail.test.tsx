@@ -67,7 +67,7 @@ describe('InboxDetail', () => {
     const accept = vi.fn(async () => true);
     useInboxStore.setState({ accept });
     render(<InboxDetail item={inboxItem('veil_gate.glb')} />);
-    const button = screen.getByRole('button', { name: 'Accept to Blender' });
+    const button = screen.getByRole('button', { name: 'Accept into project' });
     expect(await tooltipText(button)).toBe('Moves it into Frostveil');
     await userEvent.click(button);
     expect(accept).toHaveBeenCalledWith('veil_gate.glb', 'frostveil');
@@ -75,7 +75,7 @@ describe('InboxDetail', () => {
 
   it('says a linked model adds a version to its card', async () => {
     render(<InboxDetail item={inboxItem('ice_crystals.glb')} />);
-    expect(await tooltipText(screen.getByRole('button', { name: 'Accept to Blender' }))).toBe(
+    expect(await tooltipText(screen.getByRole('button', { name: 'Accept into project' }))).toBe(
       'Adds a version to Ice crystals'
     );
   });
@@ -84,7 +84,7 @@ describe('InboxDetail', () => {
     render(<InboxDetail item={inboxItem('rune_obelisk.glb')} />);
     expect(screen.getByText('No preview for this file')).toBeInTheDocument();
     expect(screen.getByText('Could not read the file')).toBeInTheDocument();
-    const accept = screen.getByRole('button', { name: 'Accept to Blender' });
+    const accept = screen.getByRole('button', { name: 'Accept into project' });
     expect(accept).toHaveAttribute('aria-disabled', 'true');
     expect(await tooltipText(accept)).toBe('This file could not be read');
   });

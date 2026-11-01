@@ -197,7 +197,7 @@ export const STAGES: readonly Stage[] = [
 export const SHOTS = {
   inbox: {
     ...screen('inbox'),
-    alt: 'Model inbox: a character with one failed check and two warnings before Accept to Blender.',
+    alt: 'Model inbox: a character with one failed check and two warnings before Accept into project.',
     tool: 'Inbox',
     caption: '4 models waiting, 1 failure and 2 warnings on a character',
   },

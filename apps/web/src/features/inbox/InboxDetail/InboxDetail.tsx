@@ -33,7 +33,7 @@ const KINDS: readonly { value: AssetKind; label: string }[] = [
   { value: 'scene', label: 'Scene' },
 ];
 
-/** One inbox model: the 3D preview, its checks and source, and Accept to Blender. */
+/** One inbox model: the 3D preview, its checks and source, and Accept into project. */
 export default function InboxDetail({ item }: InboxDetailProps) {
   const {
     now,
@@ -242,7 +242,7 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           tooltip={acceptTitle}
           onClick={() => project && void accept(item.id, project.id)}
         >
-          Accept to Blender
+          Accept into project
         </Button>
       </div>
       {discarding ? <DiscardDialog item={item} onClose={closeDiscard} /> : null}
