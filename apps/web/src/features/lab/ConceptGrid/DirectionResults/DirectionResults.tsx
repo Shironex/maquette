@@ -6,10 +6,10 @@ import { ImageTile } from '../ImageTile';
 import { JobTile } from '../JobTile';
 import { useDirectionResults } from './DirectionResults.hooks';
 
-const KINDS: readonly { id: AssetKind; label: string }[] = [
-  { id: 'scene', label: 'As a scene' },
-  { id: 'prop', label: 'As a prop' },
-  { id: 'character', label: 'As a character' },
+const KINDS: readonly { id: AssetKind; label: string; detail: string }[] = [
+  { id: 'prop', label: 'As a prop', detail: 'The picture shows one object' },
+  { id: 'character', label: 'As a character', detail: 'The picture shows one figure' },
+  { id: 'scene', label: 'As a scene', detail: 'Everything in it fuses into one mesh' },
 ];
 
 export interface DirectionResultsProps {
@@ -35,12 +35,25 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
     sendTo3d,
     to3d,
     chip,
+    cutFirstPick,
   } = useDirectionResults(view, direction);
-  const kindItems = KINDS.map(k => ({
-    id: k.id,
-    label: k.label,
-    onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
-  }));
+  const kindItems = [
+    {
+      id: 'cut',
+      label: 'Cut into objects first',
+      icon: 'cube-focus' as const,
+      detail: 'Recommended for a scene: one image per object, so each becomes its own model',
+      section: 'cut',
+      onSelect: cutFirstPick,
+    },
+    ...KINDS.map(k => ({
+      id: k.id,
+      label: k.label,
+      detail: k.detail,
+      section: 'whole',
+      onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
+    })),
+  ];
   const tileItems = cells.map(cell => (
     <li key={cell.key}>
       {cell.kind === 'image' ? (

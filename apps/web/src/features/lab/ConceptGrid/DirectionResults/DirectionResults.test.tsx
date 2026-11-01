@@ -45,6 +45,22 @@ describe('the results of a direction', () => {
     expect(sendPicks).toHaveBeenCalledWith('prop');
   });
 
+  it('offers cutting a scene into objects before sending it whole', async () => {
+    const openObjects = vi.fn();
+    useLabStore.setState({ openObjects });
+    render(<DirectionResults view={view} direction={arena} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Send picks to Refs' }));
+    const rows = screen.getAllByRole('menuitem').map(r => r.textContent);
+    expect(rows[0]).toContain('Cut into objects first');
+    expect(screen.getByRole('menuitem', { name: 'As a scene' })).toHaveAccessibleDescription(
+      'Everything in it fuses into one mesh'
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Cut into objects first' }));
+    expect(openObjects).toHaveBeenCalledWith(
+      expect.objectContaining({ project: view.project, sourceName: 'Frozen lake arena' })
+    );
+  });
+
   it('holds the send buttons until a concept is picked', async () => {
     render(<DirectionResults view={view} direction={train} />);
     expect(screen.getByRole('button', { name: 'Send picks to Refs' })).toHaveAttribute(
