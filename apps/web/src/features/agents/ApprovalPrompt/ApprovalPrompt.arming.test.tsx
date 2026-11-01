@@ -201,6 +201,32 @@ describe('arming Approve', () => {
       expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
     });
 
+    describe('when the window comes back', () => {
+      const visibility = (state: DocumentVisibilityState) => {
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(state);
+        fireEvent(document, new Event('visibilitychange'));
+      };
+
+      it('holds again on becoming visible, not on being hidden', async () => {
+        const card = await armedCard();
+        visibility('hidden');
+        expect(approve(card)).not.toHaveAttribute('aria-disabled');
+        waited(5000);
+        visibility('visible');
+        expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
+        waited(ARM_DELAY_MS);
+        expect(approve(card)).not.toHaveAttribute('aria-disabled');
+      });
+
+      it('lets go of the listener', async () => {
+        await paced();
+        const remove = vi.spyOn(document, 'removeEventListener');
+        const { unmount } = render(<ApprovalPrompt />);
+        unmount();
+        expect(remove).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+      });
+    });
+
     it('settles through jitter too small to move a button', async () => {
       const card = await armedCard();
       for (let i = 0; i < 20; i += 1) {

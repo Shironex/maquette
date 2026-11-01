@@ -62,8 +62,9 @@ function moved(from: readonly DOMRect[], to: readonly DOMRect[]) {
  * card really moves on screen, whatever moved it: its own height, content
  * above it, a scroll, a resized window. While any card is open each frame
  * compares the cards with where they were at the last restart, so small steps
- * cannot add up unseen. It comes back `ARM_DELAY_MS` after the last of those,
- * so a click in between does nothing and is not kept. Nothing on the cards
+ * cannot add up unseen. A window coming back into view restarts it too. It
+ * comes back `ARM_DELAY_MS` after the last of those, so a click in between
+ * does nothing and is not kept. Nothing on the cards
  * keeps moving by itself, and shifts under `MOVE_PX` do not count, so it
  * settles; a list that really never stopped moving would stay held. The delay
  * guards a press and is no animation, so reduced motion keeps it.
@@ -86,6 +87,15 @@ function useApprovalHold(layout: string, anyOpen: boolean) {
     const timer = setTimeout(() => setArmed(true), ARM_DELAY_MS);
     return () => clearTimeout(timer);
   }, [restarts]);
+
+  // Frames stop in a hidden window, so a timer can arm unseen while it is away.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') restart();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [restart]);
 
   // A new layout is a new set of cards, measured afresh.
   useEffect(() => {
