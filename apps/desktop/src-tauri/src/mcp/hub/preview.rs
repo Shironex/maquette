@@ -104,6 +104,9 @@ mod tests {
             command: command.to_string(),
             source: CommandSource::SiteConfig,
             script_runs: None,
+            hooks: Vec::new(),
+            script_shell: None,
+            files_hash: None,
         }
     }
 

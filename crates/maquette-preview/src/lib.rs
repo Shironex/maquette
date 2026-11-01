@@ -10,6 +10,7 @@
 //! maquette-core re-exports this crate as `site::preview` and its `page`
 //! module as `page`.
 
+pub mod ask;
 pub mod command;
 pub mod frame;
 pub mod page;
@@ -20,7 +21,8 @@ use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub use command::{CommandSource, DevCommand, PreviewAsk};
+pub use ask::PreviewAsk;
+pub use command::{CommandSource, DevCommand};
 pub use frame::FrameProxy;
 pub use server::{START_TIMEOUT, ServerOwner, ServerState, ServerStatus, SitePreview};
 

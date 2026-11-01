@@ -972,8 +972,8 @@ export type AppState = {
 	/**
 	 *  The projects whose repo an agent set: workspace root, then project
 	 *  ids. Files from before this have none, so those repos count as a
-	 *  person's. Kept here, out of every tool's reach and off the synced
-	 *  workspace, like the paths themselves.
+	 *  person's. Kept here, per computer and off the synced workspace, like
+	 *  the paths themselves.
 	 */
 	agentSetRepos: { [key in string]: string[] },
 	/**
@@ -5068,10 +5068,10 @@ export type PrepareChanged = {
 export type PresetVariant = "prop" | "character";
 
 /**
- *  What a person is asked before an agent-set repo's dev command first
- *  runs, resolved the way the server resolves it. Its [`key`](Self::key)
- *  holds both the folder's command and what a package script runs, so a
- *  changed path, command or script asks again.
+ *  The question, resolved the way the server resolves the command. Its
+ *  [`key`](Self::key) holds everything named here, so a change to any of it
+ *  asks again. A yes trusts the repo's contents: files a script loads are
+ *  not covered.
  */
 export type PreviewAsk = {
 	/**  The repo's real folder: links resolved, so a moved link asks again. */
@@ -5079,8 +5079,18 @@ export type PreviewAsk = {
 	/**  The command as one line, before the port is picked. */
 	command: string,
 	source: CommandSource,
-	/**  For a package script, what the script itself runs. */
+	/**  When the command runs a package script, what that script runs. */
 	scriptRuns: string | null,
+	/**  The script's `pre` and `post` scripts, as `predev: its command`. */
+	hooks: string[],
+	/**  The `script-shell` of the repo's `.npmrc`, which runs every script. */
+	scriptShell: string | null,
+	/**
+	 *  Hashes of files that change what runs: `.npmrc` (never its text, it
+	 *  can hold tokens), and `package.json` when a package manager runs
+	 *  something no script here names.
+	 */
+	filesHash: string | null,
 };
 
 /**  What a preview runs on: an inbox model, or an asset's newest version. */

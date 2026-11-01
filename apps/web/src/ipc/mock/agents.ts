@@ -203,6 +203,9 @@ export function createFakeAgents({
           command: 'pnpm run dev --port {port}',
           source: 'package-json',
           scriptRuns: 'astro dev',
+          hooks: ['predev: node scripts/sync-models.js'],
+          scriptShell: null,
+          filesHash: null,
         },
       },
     ];
