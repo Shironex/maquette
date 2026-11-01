@@ -7,6 +7,8 @@ import { basename, join } from 'node:path';
 const CMD_SPECIAL = /["%^&|<>!()]/;
 /** The lines of a failed step the summary prints again, since they have scrolled away. */
 const TAIL_LINES = 60;
+/** How long a stopped step gets to end by itself. */
+const STOP_GRACE_MS = 2000;
 
 /**
  * The program and arguments for a command on this machine. pnpm is a `.cmd` on
@@ -40,23 +42,34 @@ function eachLine(stream, onLine) {
 
 const running = new Set();
 
+/** Signals a step's whole process group, which may already have ended. */
+function signalGroup(pid, signal) {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    // The group has already ended.
+  }
+}
+
 /**
  * Stops whatever is still running, for a gate that is itself being stopped, with
- * what each step started: pnpm hands off to cargo, and cargo to rustc.
+ * what each step started: pnpm hands off to cargo, and cargo to rustc. What
+ * ignores the request is killed after a short wait, then `done` is called.
  */
-export function stopAll() {
-  for (const child of running) {
-    if (child.pid === undefined) continue;
-    if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
-      continue;
+export function stopAll(done, graceMs = STOP_GRACE_MS) {
+  const pids = [...running].map(child => child.pid).filter(pid => pid !== undefined);
+  if (process.platform === 'win32') {
+    for (const pid of pids) {
+      spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
     }
-    try {
-      process.kill(-child.pid, 'SIGTERM');
-    } catch {
-      // The group has already ended.
-    }
+    done();
+    return;
   }
+  for (const pid of pids) signalGroup(pid, 'SIGTERM');
+  setTimeout(() => {
+    for (const pid of pids) signalGroup(pid, 'SIGKILL');
+    done();
+  }, graceMs);
 }
 
 /** Runs one step to its end. Never rejects: a step that cannot start has failed. */

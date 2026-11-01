@@ -109,13 +109,16 @@ if (unknown.length > 0) {
   process.exit(2);
 }
 
+let stopping = false;
 for (const [signal, code] of [
+  ['SIGHUP', 129],
   ['SIGINT', 130],
   ['SIGTERM', 143],
 ]) {
   process.on(signal, () => {
-    stopAll();
-    process.exit(code);
+    if (stopping) return;
+    stopping = true;
+    stopAll(() => process.exit(code));
   });
 }
 

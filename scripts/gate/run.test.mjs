@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 
-import { resolveCommand, runLanes, summary } from './run.mjs';
+import { resolveCommand, runLanes, stopAll, summary } from './run.mjs';
 
 const logDir = mkdtempSync(join(tmpdir(), 'gate-run-'));
 after(() => rmSync(logDir, { recursive: true, force: true }));
@@ -117,6 +117,26 @@ describe('runLanes', () => {
     assert.deepEqual(result.tail, ['hello from talks']);
     await new Promise(resolve => setTimeout(resolve, 50));
     assert.equal(readFileSync(result.logFile, 'utf8'), 'hello from talks\n');
+  });
+});
+
+describe('stopAll', () => {
+  test('kills a step that ignores the request to stop', async () => {
+    const stubborn = {
+      name: 'stubborn',
+      cmd: process.execPath,
+      args: [
+        '-e',
+        "process.on('SIGTERM', () => {}); console.log('up'); setInterval(() => {}, 1000)",
+      ],
+    };
+    let stopped;
+    const print = line => {
+      if (line.endsWith('| up')) stopped = new Promise(resolve => stopAll(resolve, 100));
+    };
+    const [result] = await runLanes({ a: [stubborn] }, { logDir, print });
+    await stopped;
+    assert.equal(result.status, 'FAILED');
   });
 });
 
