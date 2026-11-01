@@ -216,6 +216,43 @@ fn a_texture_without_highlights_is_left_as_it_is() {
 }
 
 #[test]
+fn a_texture_that_is_mostly_pale_islands_is_refused_with_a_note() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    struct Patchwork;
+    impl ScriptRunner for Patchwork {
+        fn run_script(
+            &self,
+            _tools: &Toolbox,
+            work: &Path,
+            _script: (&str, &str),
+            _extra: &[String],
+        ) -> CoreResult<()> {
+            let report = serde_json::json!({"strength": 0.75, "images": [{
+                "input": "image_0.jpg", "output": null, "width": 2048, "height": 2048,
+                "coverage": 0.119, "darkCoverage": 0.154, "touched": 0.16,
+                "skipped": "11.9% of the texture reads as baked highlights, more than shine can be"
+            }]});
+            std::fs::write(work.join("report.json"), report.to_string()).expect("report");
+            Ok(())
+        }
+    }
+    let before = written();
+    let (after, report) = apply(
+        &Patchwork,
+        &Toolbox::default(),
+        dir.path(),
+        MaterialMode::MtoonSoft,
+        Highlights::Soften,
+        before.clone(),
+    );
+    assert_eq!(after.bytes, before.bytes);
+    let report = report.expect("report");
+    assert!(!report.softened());
+    let note = report.note.expect("note");
+    assert!(note.contains("more than shine can be"), "{note}");
+}
+
+#[test]
 fn a_failed_run_keeps_the_texture_and_says_why() {
     let dir = tempfile::tempdir().expect("tempdir");
     let runner = Softener::new(true);

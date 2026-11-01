@@ -43,6 +43,9 @@ const STEP_NAME: &str = "Highlights";
 const KEY_VERSION: &str = "maquette avatar highlights v1";
 /// How far a highlight moves toward the colour around it.
 pub const STRENGTH: f64 = 0.75;
+/// More baked highlights than this share of a texture cannot be shine; the
+/// script (`MAX_COVERAGE`) refuses to soften such an image.
+const MAX_COVERAGE: f64 = 0.05;
 /// Added to the name of a softened copy's image.
 const SUFFIX: &str = " highlights softened";
 
@@ -278,7 +281,13 @@ pub(crate) fn apply(
             let note = if images.is_empty() {
                 Some("The model has no base color texture to soften.".to_string())
             } else if bytes.is_none() {
-                Some("No strong baked highlights were found.".to_string())
+                let refused = images
+                    .iter()
+                    .find(|i| i.coverage > MAX_COVERAGE)
+                    .and_then(|i| i.note.clone());
+                Some(
+                    refused.unwrap_or_else(|| "No strong baked highlights were found.".to_string()),
+                )
             } else {
                 None
             };
