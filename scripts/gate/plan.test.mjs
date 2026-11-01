@@ -97,6 +97,7 @@ describe('classify', () => {
       'apps/desktop/src-tauri/tool-names.txt',
       'apps/web/src/ipc/generated/bindings.ts',
       'apps/web/src/assets/mock/models/elsheria.glb',
+      'apps/web/vite/basis-transcoder.ts',
       '.github/ISSUE_TEMPLATE/bug_report.yml',
     ]) {
       assert.ok(existsSync(resolve(root, file)), `${file} is still there`);
@@ -130,9 +131,11 @@ describe('classify', () => {
       if (/\.(ts|tsx|mjs|astro)$/.test(file) && !file.includes('/generated/')) {
         const text = readFileSync(resolve(root, file), 'utf8');
         for (const [, path] of text.matchAll(
-          /['"]((?:\.\.\/)+(?:\.\.\/)*(?:crates|desktop\/src-tauri|\.github)\/[^'"?]+)/g
+          /['"]((?:\.\.\/)+(?:crates|desktop\/src-tauri|web|site|\.github)\/[^'"?]+)/g
         )) {
-          reads.add(relative(root, resolve(root, dirname(file), path)).replaceAll('\\', '/'));
+          const target = relative(root, resolve(root, dirname(file), path)).replaceAll('\\', '/');
+          const home = file.split('/').slice(0, 2).join('/');
+          if (!target.startsWith(`${home}/`)) reads.add(target);
         }
         for (const [, path] of text.matchAll(/['"]@crates\/([^'"?]+)/g))
           reads.add(`crates/${path}`);

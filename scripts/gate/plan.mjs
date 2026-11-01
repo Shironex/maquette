@@ -16,7 +16,10 @@ const DOCS_RE = new RegExp(DOCS);
 /**
  * Files one part of the repo reads from another's folder, by a path or from disk,
  * so the changed paths alone do not show who is affected. These run the whole gate.
- * A test scans the sources for reads of this kind and needs each one covered.
+ * A test scans .ts, .tsx, .mjs, .astro and .rs under apps, packages and crates for
+ * `../` paths that leave their app, and needs each one covered. It does not see
+ * .css, .json, .js, .mts or .cjs files, anything in scripts/, or a path that does
+ * not start with `../`, such as one built with join(). Those are listed by hand.
  */
 const WHOLE_GATE = [
   // Vitest (state/bridge-shim.test.ts) and the mock bundle read the Rust crate's shim.
@@ -30,8 +33,11 @@ const WHOLE_GATE = [
   // Vitest (state/about.test.ts) reads this form, which otherwise counts as docs.
   '.github/ISSUE_TEMPLATE/bug_report.yml',
 ];
-/** Folders of the same kind: maquette-glb's tests read the mock models. */
-const WHOLE_GATE_FOLDERS = ['apps/web/src/assets/mock/'];
+/**
+ * Folders of the same kind: maquette-glb's tests read the mock models, and the
+ * site's build imports the web app's Vite plugin.
+ */
+const WHOLE_GATE_FOLDERS = ['apps/web/src/assets/mock/', 'apps/web/vite/'];
 /** A package's own config (package.json, vite, tsconfig), which reaches past its files. */
 const PACKAGE_CONFIG = /^(apps|packages)\/[^/]+\/(?![^/]+\.md$)[^/]+$/;
 /** The skills' scripts, which core compiles in and its tests compare. */
