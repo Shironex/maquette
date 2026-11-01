@@ -265,7 +265,11 @@ function Working({ record }: { record: RigRecord }) {
         </div>
         <Footer
           note={footerNote(record)}
-          warning={record.state === 'fixed' ? worseWarning(record) : null}
+          warning={
+            record.state === 'fixed' && record.stop?.kind !== 'no-change'
+              ? worseWarning(record)
+              : null
+          }
         >
           <Actions record={record} />
         </Footer>

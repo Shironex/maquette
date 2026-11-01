@@ -12,6 +12,7 @@ import {
   creatureCase,
   creatureFixedCase,
   noChangeCase,
+  secondRoundNoChangeCase,
   oneIslandCase,
   refusedCase,
   runningCase,
@@ -36,6 +37,7 @@ const SEEDS: Record<string, () => RigRecord> = {
   refused: refusedCase,
   stopped: stoppedCase,
   'no-change': noChangeCase,
+  'round2-no-change': secondRoundNoChangeCase,
   'one-island': oneIslandCase,
   running: runningCase,
 };

@@ -189,7 +189,7 @@ pub(super) fn stat(label: &str, before: Option<String>, after: String, bad: bool
 pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let case = run.snapshot();
     let input = run.dir.join("in.glb");
-    let draft = run.dir.join("draft.glb");
+    let draft = run.attempt();
     // The round counts once it made a draft: while it runs, and if it fails or moves nothing, the case stays as it was.
     let round = case.round + 1;
     let last_round = round >= MAX_ROUNDS;
@@ -205,7 +205,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             }
             run.script(ROUTE, "fixweights.py", &args)?;
         }
-        report = read_json(&run.dir.join("draft.glb.report.json"))?;
+        report = read_json(&run.attempt_report())?;
         Ok(format!(
             "{} vertices changed",
             count(num(&report, "changed"))
@@ -216,10 +216,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         format!("{} vertices changed", count(num(&report, "changed"))),
     );
     if num(&report, "changed") == 0 && defects::misplaced(&report).is_none() {
-        let v = case.source.version.unwrap_or(1);
-        run.nothing_changed(format!(
-            "No vertex's weights moved. No draft was made and v{v} stays."
-        ));
+        run.nothing_changed("No vertex's weights moved.");
         return Ok(());
     }
     let verify_file = run.dir.join("verify.json");
@@ -292,7 +289,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     ];
     let fix_steps = steps::humanoid(&case, round, &report);
     let stop = steps::stop_of(&case.name, &checks, last_round, worst.as_ref());
-    let draft_path = arg(&draft);
+    let draft_path = run.keep_attempt()?;
     run.update(|c| {
         c.round = round;
         c.after = Some(sheet);
@@ -349,7 +346,7 @@ fn moved_offer(
         return Ok(None);
     };
     let moved = run.dir.join("draft_moved.glb");
-    let report_file = run.dir.join("draft.glb.report.json");
+    let report_file = run.attempt_report();
     run.script(
         ROUTE,
         "rigmove.py",

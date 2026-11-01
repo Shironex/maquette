@@ -6,6 +6,7 @@ import {
   creatureCase,
   creatureFixedCase,
   noChangeCase,
+  secondRoundNoChangeCase,
   oneIslandCase,
   refusedCase,
   stoppedCase,
@@ -86,6 +87,13 @@ describe('RigDoctor', () => {
     expect(screen.queryByRole('button', { name: /Add as/ })).toBeNull();
     expect(screen.queryByText('Only JOINTS_0 and WEIGHTS_0 changed')).toBeNull();
     expect(noChangeCase().defects.every(d => !d.fixed)).toBe(true);
+  });
+
+  it('keeps the first draft and its Add when round 2 changed nothing', () => {
+    show(secondRoundNoChangeCase());
+    expect(screen.getByText(/Round 2 changed nothing/)).toBeInTheDocument();
+    expect(screen.getByText(/The draft from round 1 stays/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add as/ })).toBeEnabled();
   });
 
   it('shows a creature run with its chains, map, log and a disabled Add', () => {

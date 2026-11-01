@@ -271,6 +271,34 @@ fn a_fix_that_changes_nothing_says_so_and_leaves_no_draft() {
         fixed.defects
     );
     assert!(!Path::new(&fixed.dir).join("draft.glb").exists());
+
+    // The same model as a second round: an earlier draft stays through it.
+    let kept = Path::new(&fixed.dir).join("draft.glb");
+    std::fs::copy(&file, &kept).expect("a first draft");
+    let first = std::fs::read(&kept).expect("read");
+    let mut earlier = fixed.clone();
+    earlier.state = RigState::Fixed;
+    earlier.step = RigStep::Land;
+    earlier.round = 1;
+    earlier.stop = None;
+    earlier.draft = Some(kept.display().to_string());
+    earlier.after = Some(case.before.clone().expect("a sheet"));
+    record::save(&earlier).expect("save");
+    let second = go(&both, at, &open.id, RigRun::Round2);
+    assert_eq!(second.error, None);
+    assert_eq!(second.state, RigState::Fixed, "{:?}", second.stop);
+    assert_eq!(second.round, 1);
+    assert_eq!(second.draft, earlier.draft);
+    assert!(second.after.is_some());
+    assert_eq!(
+        std::fs::read(&kept).expect("read"),
+        first,
+        "the draft is untouched"
+    );
+    assert_eq!(
+        second.stop.as_ref().map(|s| s.title.as_str()),
+        Some("Round 2 changed nothing")
+    );
 }
 
 #[test]
