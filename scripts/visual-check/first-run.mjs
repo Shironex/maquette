@@ -1,7 +1,8 @@
 /**
  * The first run's shots for scripts/visual-check.mjs (ONLY=firstrun), each at
  * the normal size and at the 1120 by 720 minimum: the Board's Next step strip
- * (models in the Inbox, refs to send, Blender missing), the Blender missing
+ * (models in the Inbox, refs to send, a failed run, the repo with the longest
+ * sentence, Blender missing), the Blender missing
  * screen in onboarding and in Settings, reached from the strip's button, and
  * the first run card on an empty website and game project. A website project
  * opens empty by switching to one of `?projects=many`; the Inbox's models then
@@ -19,6 +20,8 @@ async function stripShots({ open, shot }, { viewport, suffix }) {
   for (const [query, button, name] of [
     ['&scenario=configured', 'Open Inbox', 'inbox'],
     ['&scenario=configured&inbox=clear', 'Send to 3D', 'send'],
+    ['&scenario=configured&inbox=clear&pipeline=models', 'Open Pipeline', 'failed-run'],
+    ['&scenario=idle&inbox=clear&pipeline=no-repo', 'Open Settings', 'repo'],
   ]) {
     const board = await open(query, '#/board', viewport);
     const strip = board.getByRole('region', { name: 'Next step' });
