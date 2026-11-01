@@ -4,6 +4,7 @@
  * the most blocking first, one sentence and one button.
  */
 import type { Asset, ProjectTarget, RunState } from '@/ipc/client';
+import type { BlenderTrouble } from './toolchain';
 
 export type NextAction = 'toolchain' | 'inbox' | 'lab' | 'import' | 'send' | 'pipeline' | 'repo';
 
@@ -18,8 +19,8 @@ export interface NextStep {
 }
 
 export interface NextFacts {
-  /** True only once a finished check says so. */
-  blenderMissing: boolean;
+  /** Set only once a finished check says so. */
+  blender: BlenderTrouble | null;
   inbox: number;
   running: boolean;
   /** The empty Board shows its first run card instead. */
@@ -91,10 +92,11 @@ function buildStep({ lastRun, hasRepo, target }: NextFacts): NextStep | null {
 
 /** What to do now, or null when nothing is waiting on the person. */
 export function nextStep(facts: NextFacts): NextStep | null {
-  if (facts.blenderMissing) {
+  if (facts.blender) {
+    const broken = facts.blender === 'broken';
     return {
-      id: 'blender',
-      sentence: 'Blender is missing, and every build runs in it.',
+      id: broken ? 'blender-broken' : 'blender',
+      sentence: `Blender ${broken ? 'did not run' : 'is missing'}, and every build runs in it.`,
       button: 'Open Toolchain',
       action: 'toolchain',
     };

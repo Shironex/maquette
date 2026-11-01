@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { Asset } from '@/ipc/client';
+import type { Asset, ToolReport } from '@/ipc/client';
+import { blenderTrouble } from './toolchain';
 import { nextStep, type NextFacts } from './next-step';
 
 const asset = (id: string, stage: Asset['stage'], versions = 0) =>
   ({ id, name: id, stage, versions: Array(versions).fill({}) }) as unknown as Asset;
 
 const facts = (over: Partial<NextFacts> = {}): NextFacts => ({
-  blenderMissing: false,
+  blender: null,
   inbox: 0,
   running: false,
   tipsShowing: false,
@@ -20,7 +21,26 @@ const facts = (over: Partial<NextFacts> = {}): NextFacts => ({
 
 describe('the next step', () => {
   it('puts a missing Blender before everything, even a run', () => {
-    expect(nextStep(facts({ blenderMissing: true, inbox: 3, running: true }))?.id).toBe('blender');
+    expect(nextStep(facts({ blender: 'missing', inbox: 3, running: true }))?.id).toBe('blender');
+  });
+
+  it('says a copy that needs attention did not run, on the same way to Toolchain', () => {
+    const step = nextStep(facts({ blender: 'broken', inbox: 3, running: true }));
+    expect(step?.id).toBe('blender-broken');
+    expect(step?.action).toBe('toolchain');
+    expect(step?.sentence).toMatch(/did not run/);
+    expect(step?.sentence).not.toMatch(/missing/);
+  });
+
+  it('reads the report: only no copy at all is missing', () => {
+    const report = (status: ToolReport['status'], warning: string | null = null) =>
+      ({ id: 'blender', status, warning }) as ToolReport;
+    expect(blenderTrouble(undefined)).toBeNull();
+    expect(blenderTrouble(report('found'))).toBeNull();
+    expect(blenderTrouble(report('missing'))).toBe('missing');
+    expect(blenderTrouble(report('missing', 'stale'))).toBe('missing');
+    expect(blenderTrouble(report('broken'))).toBe('broken');
+    expect(blenderTrouble(report('found', 'stale'))).toBe('broken');
   });
 
   it('stays quiet during a run', () => {

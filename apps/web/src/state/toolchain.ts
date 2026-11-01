@@ -12,6 +12,15 @@ export function blenderInstallCommand(platform: Platform): string | null {
   return null;
 }
 
+export type BlenderTrouble = 'missing' | 'broken';
+
+/** What is wrong with Blender: a copy with a warning counts as broken, no copy as missing. */
+export function blenderTrouble(report: ToolReport | undefined): BlenderTrouble | null {
+  if (!report) return null;
+  if (report.status === 'missing') return 'missing';
+  return report.status === 'broken' || report.warning ? 'broken' : null;
+}
+
 /** `/Applications/Blender.app/Contents/MacOS/Blender` reads as the bundle. */
 export function displayToolPath(path: string): string {
   const bundle = path.match(/^(.*?\.app)(?:[\\/]|$)/);

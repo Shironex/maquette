@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { readJson, writeJson } from '@/lib/storage';
 import { nextStep, type NextAction } from '@/state/next-step';
 import { isActive } from '@/state/providers';
+import { blenderTrouble } from '@/state/toolchain';
 import { useAppStore } from '@/state/use-app-store';
 import { useFirstRunTips } from '@/state/use-first-run-tips';
 import { useGameStore } from '@/state/use-game-store';
@@ -27,10 +28,9 @@ export function useNextStepStrip() {
   const pipeline = usePipelineStore(s => (s.view?.project === project?.id ? s.view : null));
   const [dismissed, setDismissed] = useState(() => readJson(DISMISSED_KEY));
   if (!project) return null;
-  const blender = tools.reports.find(r => r.id === 'blender');
   const latest = pipeline?.runs[0];
   const step = nextStep({
-    blenderMissing: !tools.checking && blender !== undefined && blender.status !== 'found',
+    blender: tools.checking ? null : blenderTrouble(tools.reports.find(r => r.id === 'blender')),
     inbox,
     running: Boolean(pipeline?.active),
     tipsShowing: !tipsHidden,

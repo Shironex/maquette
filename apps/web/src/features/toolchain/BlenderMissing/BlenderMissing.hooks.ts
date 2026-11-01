@@ -3,7 +3,7 @@ import { commands, errorMessage } from '@/ipc/client';
 import { PLATFORM } from '@/ipc/runtime';
 import { copyText } from '@/features/config/copyText';
 import { useAppStore } from '@/state/use-app-store';
-import { BLENDER_DOWNLOAD, blenderInstallCommand } from '@/state/toolchain';
+import { BLENDER_DOWNLOAD, blenderInstallCommand, blenderTrouble } from '@/state/toolchain';
 
 /**
  * What the Blender screen shows, and a new look for Blender each time the
@@ -13,7 +13,8 @@ export function useBlenderMissing() {
   const report = useAppStore(s => s.tools.reports.find(r => r.id === 'blender'));
   const checking = useAppStore(s => s.tools.checking);
   const notify = useAppStore(s => s.notify);
-  const showing = report !== undefined && report.status !== 'found';
+  const trouble = blenderTrouble(report);
+  const showing = trouble !== null;
   useEffect(() => {
     if (!showing) return;
     const look = () => {
@@ -26,7 +27,7 @@ export function useBlenderMissing() {
   const command = blenderInstallCommand(PLATFORM);
   return {
     showing,
-    broken: report?.status === 'broken',
+    broken: trouble === 'broken',
     checking,
     command,
     getBlender: () => {

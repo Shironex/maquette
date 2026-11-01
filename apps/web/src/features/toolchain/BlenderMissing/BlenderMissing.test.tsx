@@ -69,6 +69,16 @@ describe('the Blender screen', () => {
     expect(screen.getByRole('region', { name: 'Blender did not run' })).toBeVisible();
   });
 
+  it('shows for a found copy with a warning, as one that did not run', () => {
+    withBlender('found');
+    const { tools } = useAppStore.getState();
+    useAppStore.setState({
+      tools: { ...tools, reports: [{ ...blender('found'), warning: 'stale' }] },
+    });
+    render(<BlenderMissing />);
+    expect(screen.getByRole('region', { name: 'Blender did not run' })).toBeVisible();
+  });
+
   it('names a command for the computers with one', () => {
     expect(blenderInstallCommand('mac')).toBe('brew install --cask blender');
     expect(blenderInstallCommand('windows')).toBe('winget install BlenderFoundation.Blender');
