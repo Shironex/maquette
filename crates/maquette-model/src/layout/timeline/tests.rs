@@ -3,7 +3,7 @@ use std::fs;
 use serde_json::json;
 
 use super::*;
-use crate::layout::{LayoutPatch, LayoutStop, apply, load, path, save};
+use crate::layout::{LayoutPatch, LayoutStop, apply, load, path, update};
 
 fn stop(id: &str) -> LayoutStop {
     LayoutStop {
