@@ -147,6 +147,8 @@ pub(super) fn candidates_summary(found: &FoundSprings) -> Value {
             "length": c.length,
             "vertices": c.vertices,
             "confidence": c.confidence,
+            "joints": c.joints,
+            "color": c.color,
             "small": c.small,
         })).collect::<Vec<_>>(),
     })

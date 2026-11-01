@@ -6,12 +6,14 @@
 mod springs;
 
 use crate::mcp::tools::ToolError;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use maquette_core::avatar::export::{self, AvatarBuild, AvatarPatch};
+use maquette_core::avatar::AvatarSpec;
+use maquette_core::avatar::export::{self, AvatarBuild, AvatarPatch, AvatarView};
 use maquette_core::avatar::normalize::{Elbows, Fingers, Normalized};
 use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
 use maquette_core::avatar::springs::SpringsMode;
+use maquette_core::inbox::vrm::{FindingLevel, VrmReadiness};
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -34,6 +36,11 @@ pub struct GetAvatarArgs {
     pub asset: String,
     /// The version to read; the newest when left out.
     pub version: Option<u32>,
+    /// Extra detail the short answer leaves out: "bones" (all 55 humanoid bones with the joint
+    /// each maps to) and "joints" (every skin joint to pick from with set_avatar bones). The
+    /// answer is short by default; the missing required bones are always named.
+    #[serde(default)]
+    pub include: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -183,6 +190,135 @@ fn pose_summary(found: &Normalized) -> Value {
     })
 }
 
+/// What a read of the avatar may add to its short answer.
+#[derive(Debug, Default, Clone, Copy)]
+struct Include {
+    bones: bool,
+    joints: bool,
+}
+
+impl Include {
+    fn parse(words: &[String]) -> Result<Self, String> {
+        let mut out = Self::default();
+        for word in words {
+            match word.to_lowercase().as_str() {
+                "bones" => out.bones = true,
+                "joints" => out.joints = true,
+                _ => return Err(format!("include takes bones or joints, not {word:?}.")),
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// The readiness, short: counts, the missing required bones, the naming, the rest pose
+/// measures and the findings. The 55 bones and every joint only when asked for.
+fn readiness_summary(r: &VrmReadiness, include: Include) -> Value {
+    let missing: Vec<&str> = r
+        .bones
+        .iter()
+        .filter(|b| b.required && b.joint.is_none())
+        .map(|b| b.bone.as_str())
+        .collect();
+    let mut out = json!({
+        "ready": r.ready,
+        "mapped": r.mapped,
+        "required": r.required,
+        "missingRequired": missing,
+        "naming": to_short_value(&r.naming),
+        "pose": to_short_value(&r.pose),
+        "findings": to_short_value(&r.findings),
+        "jointCount": r.joints.len(),
+    });
+    if include.bones {
+        out["bones"] = to_short_value(&r.bones);
+    }
+    if include.joints {
+        out["joints"] = to_short_value(&r.joints);
+    }
+    out
+}
+
+/// The avatar, short: everything get_avatar says except the bone and joint lists.
+fn view_summary(view: &AvatarView, waiting: bool, include: Include) -> Value {
+    json!({
+        "project": view.project,
+        "asset": view.asset,
+        "name": view.name,
+        "version": view.version,
+        "model": view.model,
+        "spec": to_short_value(&view.spec),
+        "stored": view.stored,
+        "readiness": view.readiness.as_ref().map(|r| readiness_summary(r, include)),
+        "readinessError": view.readiness_error,
+        "needsNormalize": view.needs_normalize,
+        "needsReweight": view.needs_reweight,
+        "reweighted": view.reweighted.as_ref().map(reweight_summary),
+        "normalized": view.normalized.as_ref().map(pose_summary),
+        "springs": {
+            "ready": view.springs.ready,
+            "found": view.springs.found.as_ref().map(springs::candidates_summary),
+            "chained": view.springs.chained.as_ref().map(springs::chain_summary),
+        },
+        "export": to_short_value(&view.export),
+        "exportPath": view.export_path,
+        "metaProblem": view.meta_problem,
+        "waitingApproval": waiting,
+    })
+}
+
+/// The paths of the leaves that differ between two spec values, as `meta.name`.
+fn changed_fields(path: &str, before: &Value, after: &Value, out: &mut Vec<String>) {
+    if let (Value::Object(a), Value::Object(b)) = (before, after) {
+        let keys: BTreeSet<&String> = a.keys().chain(b.keys()).collect();
+        for key in keys {
+            let next = if path.is_empty() {
+                key.clone()
+            } else {
+                format!("{path}.{key}")
+            };
+            changed_fields(
+                &next,
+                a.get(key).unwrap_or(&Value::Null),
+                b.get(key).unwrap_or(&Value::Null),
+                out,
+            );
+        }
+    } else if before != after {
+        out.push(path.to_string());
+    }
+}
+
+/// What a set_avatar answers: what changed, the spec, what still stops a build and the status.
+fn set_answer(before: &AvatarSpec, saved: &AvatarView) -> Value {
+    let mut changed = Vec::new();
+    changed_fields(
+        "",
+        &to_short_value(before),
+        &to_short_value(&saved.spec),
+        &mut changed,
+    );
+    let mut problems: Vec<String> = saved.meta_problem.iter().cloned().collect();
+    problems.extend(saved.readiness_error.iter().cloned());
+    if let Some(r) = &saved.readiness {
+        problems.extend(
+            r.findings
+                .iter()
+                .filter(|f| f.level == FindingLevel::Blocker)
+                .map(|f| f.title.clone()),
+        );
+    }
+    json!({
+        "status": if changed.is_empty() { "unchanged" } else { "saved" },
+        "changed": changed,
+        "spec": to_short_value(&saved.spec),
+        "problems": problems,
+        "ready": saved.readiness.as_ref().is_some_and(|r| r.ready) && saved.meta_problem.is_none(),
+        "needsReweight": saved.needs_reweight,
+        "needsNormalize": saved.needs_normalize,
+    })
+}
+
 /// The answer to a build, and the approval it leaves for a person.
 fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
     match built {
@@ -262,12 +398,13 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
 #[tool_router(router = avatar_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a character asset's VRM avatar: its readiness (the 55 humanoid bones with the joint each maps to, the 15 required, the naming report, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (meta, bone overrides, material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, needsReweight and the last reweight, the last normalised rest pose with its sheets and state (pending, approved or denied), the springs, the last export (path, size, what it still lacks) and whether an approval waits. springs.ready says the model the VRM is written from is ready. springs.found lists the parts that could swing that a build looked for, each with an id such as hair-1, a kind (hair, cloth, accessory), the bone it hangs from, its centre line, length, vertex count, how sure the finder is and a colour on springs.found.sheet; small pieces close to the body come after them as charm-1 with small true and a chain of 2 to 4 joints. springs.chained is the last chains with their sheets and state; the confirmed ones are spec.springs.",
+        description = "Get a character asset's VRM avatar, short by default: its readiness (bones mapped, the 15 required and any still missing, the naming report, the rest pose measures and the findings, blockers first; include [\"bones\"] adds the 55 humanoid bones with the joint each maps to and include [\"joints\"] the skin's joints to pick from with set_avatar bones), the spec (meta, bone overrides, material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, needsReweight and the last reweight, the last normalised rest pose with its sheets and state (pending, approved or denied), the springs, the last export (path, size, what it still lacks) and whether an approval waits. springs.ready says the model the VRM is written from is ready. springs.found lists the parts that could swing that a build looked for, each with an id such as hair-1, a kind (hair, cloth, accessory), the bone it hangs from, its centre line, length, vertex count, how sure the finder is and a colour on springs.found.sheet; small pieces close to the body come after them as charm-1 with small true and a chain of 2 to 4 joints. springs.chained is the last chains with their sheets and state; the confirmed ones are spec.springs.",
         annotations(read_only_hint = true)
     )]
     async fn get_avatar(&self, Parameters(args): Parameters<GetAvatarArgs>) -> Out {
         let found = self
             .blocking(move |host, hub| {
+                let include = Include::parse(&args.include)?;
                 let asset = asset_id(host, &args.project, &args.asset)?;
                 let target = Target {
                     project: &args.project,
@@ -279,20 +416,17 @@ impl McpTools {
                     springs: SpringsMode::default(),
                 };
                 let view = commands::view(host.session(), &target)?;
-                let mut value = to_short_value(&view);
-                value["waitingApproval"] = json!(
-                    hub.rest_pose_for(&args.project, &asset).is_some()
-                        || hub.reweight_for(&args.project, &asset).is_some()
-                        || hub.springs_for(&args.project, &asset).is_some()
-                );
-                Ok(value)
+                let waiting = hub.rest_pose_for(&args.project, &asset).is_some()
+                    || hub.reweight_for(&args.project, &asset).is_some()
+                    || hub.springs_for(&args.project, &asset).is_some();
+                Ok(view_summary(&view, waiting, include))
             })
             .await;
         respond(found)
     }
 
     #[tool(
-        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet; springs \"none\" confirms no springs, while an empty list only clears the picks). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
+        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet; springs \"none\" confirms no springs, while an empty list only clears the picks). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns a short answer: status (saved or unchanged), changed (the spec fields that changed, such as meta.name), the spec, problems (what still stops a build) and ready; get_avatar reads the rest. The open app updates live.",
         annotations(idempotent_hint = true)
     )]
     async fn set_avatar(&self, Parameters(args): Parameters<SetAvatarArgs>) -> Out {
@@ -352,7 +486,7 @@ impl McpTools {
                 let next = export::apply_patch(&current.spec, &defaults, &patch)?;
                 let saved = commands::save(host.session(), &target, next)?;
                 host.avatar_changed(&args.project, &asset);
-                Ok(to_short_value(&saved))
+                Ok(set_answer(&current.spec, &saved))
             })
             .await;
         respond(found)
