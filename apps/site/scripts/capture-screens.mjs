@@ -128,7 +128,7 @@ const REFS = 'scenario=configured&lab=refs&library=demo';
 const TALL = { width: 1440, height: 1000 };
 async function boardShot(name, viewport) {
   const p = await open(IDLE, 'board', viewport);
-  await p.getByText('Update to v3').first().waitFor();
+  await p.getByText('Library has v3').first().waitFor();
   await p.waitForTimeout(1200);
   await save(p, name);
 }
