@@ -72,6 +72,17 @@ describe('the next step', () => {
     expect(nextStep(facts({ assets, lastRun: done }))).toBeNull();
   });
 
+  it('offers a cancelled run again and never calls it done', () => {
+    const lastRun = { state: 'cancelled', notShipped: false } as const;
+    for (const hasRepo of [true, false]) {
+      const step = nextStep(facts({ assets: [asset('a', 'blender', 1)], lastRun, hasRepo }));
+      expect(step?.id).toBe('run-cancelled');
+      expect(step?.action).toBe('pipeline');
+      expect(step?.sentence).toMatch(/cancelled/);
+      expect(step?.sentence).not.toMatch(/done/);
+    }
+  });
+
   it('names the game repo for a game', () => {
     const step = nextStep(
       facts({

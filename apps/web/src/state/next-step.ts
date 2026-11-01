@@ -69,6 +69,14 @@ function buildStep({ lastRun, hasRepo, target }: NextFacts): NextStep | null {
       action: 'pipeline',
     };
   }
+  if (lastRun.state === 'cancelled') {
+    return {
+      id: 'run-cancelled',
+      sentence: 'The last run was cancelled. Run the pipeline again when you are ready.',
+      button: 'Open Pipeline',
+      action: 'pipeline',
+    };
+  }
   if (!hasRepo || lastRun.notShipped) {
     const repo = target === 'game' ? 'game' : 'site';
     return {
