@@ -91,16 +91,31 @@ export function isLook(style: RenderStyle): style is RenderLook {
   return style !== 'turntable' && style !== 'contact-sheet';
 }
 
-/** How long Blender takes, roughly, for the note beside the Render button. */
-export function secondsAbout(style: RenderStyle, settings: RenderSettings): number {
-  const scale = Math.max(1, (settings.size ?? 2048) / 2048);
-  if (style === 'turntable') {
-    const frames = (settings.length ?? 3) * FPS;
-    return Math.max(5, Math.round((frames * (settings.look === 'shaded' ? 2 : 0.4)) / 5) * 5);
-  }
-  if (style === 'shaded') return Math.round(20 * scale * scale);
-  if (style === 'contact-sheet') return 15;
-  return Math.round(6 * scale * scale);
+/** The name one picture's render is timed under: the same style, size and, for a loop, length. */
+export function renderWait(style: RenderStyle, settings: RenderSettings): string {
+  const length = style === 'turntable' ? `:${settings.length ?? 3}` : '';
+  return `render:${style}:${settings.size ?? 2048}${length}`;
+}
+
+/** The name a batch is timed under: only a batch of as many files says anything about this one. */
+export const renderBatchWait = (files: number) => `render-batch:${files}`;
+
+/** The names a finished render is remembered under, and how long it took; null if it did not finish. */
+export function finishedRender(record: RenderRecord): { keys: string[]; ms: number } | null {
+  if (record.state !== 'done' || !record.finishedAt) return null;
+  const ms = Date.parse(record.finishedAt) - Date.parse(record.createdAt);
+  const files = filesOf(record).filter(f => f.state !== 'skipped');
+  if (!Number.isFinite(ms) || ms < 0 || files.length === 0) return null;
+  const only = files.length === 1 ? files[0] : undefined;
+  const clean = files.every(f => f.state === 'done');
+  if (!clean) return null;
+  return {
+    ms,
+    keys: [
+      renderBatchWait(files.length),
+      ...(only ? [renderWait(only.style, record.settings)] : []),
+    ],
+  };
 }
 
 /** Every file of a render, in the order they run. */

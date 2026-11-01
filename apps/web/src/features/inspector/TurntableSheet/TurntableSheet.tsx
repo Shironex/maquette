@@ -1,3 +1,4 @@
+import { lastRunLabel, readLastRun } from '@/lib/waiting';
 import { Button, Icon, NumberField, SegmentedControl, Select, Toggle, cn } from '@maquette/ui';
 import type { LoopFormat, PackSource, RenderLook } from '@/ipc/client';
 import { RenderProblemCard } from '@/features/common/RenderProblemCard';
@@ -10,7 +11,7 @@ import {
   STYLE_LABEL,
   TARGET_BYTES,
   fileOf,
-  secondsAbout,
+  renderWait,
   shortPath,
 } from '@/state/renders';
 import { useTurntableSheet } from './TurntableSheet.hooks';
@@ -236,7 +237,10 @@ export default function TurntableSheet({ source, assetId, name }: TurntableSheet
       <div className="flex items-center gap-2 border-t border-line px-4 py-3">
         <span className="flex flex-1 items-center gap-1.5 text-meta text-fg-mute">
           <Icon name="clock" size={13} />
-          About {secondsAbout('turntable', s)} s in headless Blender · no credits
+          Headless Blender · no credits
+          {lastRunLabel(readLastRun(renderWait('turntable', s)))
+            ? ` · ${lastRunLabel(readLastRun(renderWait('turntable', s)))}`
+            : ''}
         </span>
         <Button variant="ghost" onClick={t.close}>
           Cancel
