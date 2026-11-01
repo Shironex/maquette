@@ -8,7 +8,7 @@ use super::WAITING;
 /// Seconds between polls of something a person has to answer.
 pub(super) const POLL_EVERY_SECONDS: u32 = 5;
 
-const APPROVE_IN_APP: &str = "The approval prompt in the Maquette app, also listed under Settings > Agents. No tool can approve.";
+pub(super) const APPROVE_IN_APP: &str = "The approval prompt in the Maquette app, also listed under Settings > Agents. No tool can approve.";
 const APPROVE_IN_AVATAR: &str = "The Avatar view in the Maquette app, also listed under Settings > Agents. No tool can approve.";
 
 /// One step of a `next` list.
@@ -43,7 +43,7 @@ pub(super) fn add_waiting_fields(value: &mut Value) {
 }
 
 /// What to do after a run ended.
-pub(super) fn after_run(status: &str, build_only: bool) -> Option<Vec<Value>> {
+pub(super) fn after_run(status: &str, build_only: bool, no_repo: bool) -> Option<Vec<Value>> {
     match status {
         "failed" => Some(vec![
             step(
@@ -60,6 +60,16 @@ pub(super) fn after_run(status: &str, build_only: bool) -> Option<Vec<Value>> {
             step(
                 "run_pipeline",
                 "Run without buildOnly to ship; a person may have to approve.",
+            ),
+        ]),
+        "done" if no_repo => Some(vec![
+            step(
+                "set_ship_settings",
+                "Nothing shipped: this project has no repo. Set siteRepo (set_game_settings repo for a game), then run again.",
+            ),
+            step(
+                "get_size_report",
+                "Compare what came in with what the build made.",
             ),
         ]),
         "done" => Some(vec![step(
@@ -102,11 +112,14 @@ mod tests {
 
     #[test]
     fn a_failed_run_points_at_its_log_and_a_running_one_at_nothing() {
-        let failed = after_run("failed", false).expect("steps");
+        let failed = after_run("failed", false, false).expect("steps");
         assert_eq!(failed[0]["tool"], "get_run");
-        assert!(after_run("running", false).is_none());
+        assert!(after_run("running", false, false).is_none());
+        // A run that left Ship out sends the agent to the repo, not to what shipped.
+        let no_repo = after_run("done", false, true).expect("steps");
+        assert_eq!(no_repo[0]["tool"], "set_ship_settings");
         assert_eq!(
-            after_run("done", true).expect("steps")[0]["tool"],
+            after_run("done", true, false).expect("steps")[0]["tool"],
             "get_ship_plan"
         );
     }

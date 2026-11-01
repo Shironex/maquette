@@ -146,7 +146,7 @@ fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
         out["shipped"] = json!(shipped);
         out["shipReason"] = json!(reason);
     }
-    if let Some(next) = after_run(status, run.build_only) {
+    if let Some(next) = after_run(status, run.build_only, run.not_shipped.is_some()) {
         out["next"] = Value::Array(next);
     }
     if let Some(approval) = approval {

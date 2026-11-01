@@ -140,11 +140,11 @@ pub(super) fn next_steps(facts: &Facts) -> Vec<Value> {
         out.push(match project.target {
             ProjectTarget::Website => step(
                 "set_ship_settings",
-                "Set siteRepo: without a repo Ship has nowhere to write.",
+                "Set siteRepo: without a repo a run leaves Ship out and answers shipped false.",
             ),
             ProjectTarget::Game => step(
                 "set_game_settings",
-                "Set repo: without a repo Ship has nowhere to write.",
+                "Set repo: without a repo a run leaves Ship out and answers shipped false.",
             ),
         });
     }
