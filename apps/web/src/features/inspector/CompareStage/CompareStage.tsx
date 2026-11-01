@@ -86,7 +86,7 @@ export default function CompareStage({
         />
         {fps === 0 ? 'WebGL 2 · starting' : `WebGL 2 · ${Math.round(fps)} fps`}
       </span>
-      {!ready && !loadError ? <StageLoader label={`Loading ${models} models…`} /> : null}
+      {!ready && !loadError ? <StageLoader label={`Loading ${models} models...`} /> : null}
       {loadError ? (
         <span className="absolute inset-x-6 top-1/2 -translate-y-1/2 rounded-card bg-danger-soft px-3 py-2 text-center text-danger">
           {loadError}

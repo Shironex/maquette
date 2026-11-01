@@ -45,7 +45,7 @@ export default function MotionBarActions() {
         tooltip="Saves the states and clip choices into layout.json; the next run builds the scene with them"
         shortcut={KEYS.save}
       >
-        {saving ? 'Saving…' : 'Save motion'}
+        {saving ? 'Saving...' : 'Save motion'}
       </Button>
     </>
   );

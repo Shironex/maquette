@@ -42,9 +42,9 @@ describe('the layout editor', () => {
     expect(screen.getByText('tabs')).toBeInTheDocument();
     expect(props.models).toHaveLength(4);
     expect(props.grid).toBe(true);
-    expect(screen.getByText('Loading 4 models…')).toBeInTheDocument();
+    expect(screen.getByText('Loading 4 models...')).toBeInTheDocument();
     act(() => props.handlers.onReady());
-    expect(screen.queryByText('Loading 4 models…')).toBeNull();
+    expect(screen.queryByText('Loading 4 models...')).toBeNull();
   });
 
   it('hides the grid and frames every model again', async () => {
