@@ -98,7 +98,7 @@ describe('BoardCard of a built asset', () => {
     await openMockLibrary('demo');
     await useLibraryStore.getState().load();
     render(<BoardCard asset={mockAsset('Elsheria')} board={fakeBoardEnv()} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Update to v3' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Library has v3' }));
     expect(useLibraryStore.getState().updating).toEqual({
       project: 'frostveil',
       asset: 'elsheria',

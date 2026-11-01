@@ -109,7 +109,7 @@ export async function libraryShots({ open, shot }) {
   await empty.context().close();
 
   const board = await open(DEMO, '#/board');
-  await board.getByRole('button', { name: 'Update to v3' }).waitFor();
+  await board.getByRole('button', { name: 'Library has v3' }).waitFor();
   await shot(board, 'library-update-board');
 
   await board.getByRole('button', { name: 'More for Veil platform' }).click();
@@ -119,7 +119,7 @@ export async function libraryShots({ open, shot }) {
   await shot(board, 'library-add');
   await add.getByRole('button', { name: 'Cancel' }).click();
 
-  await board.getByRole('button', { name: 'Update to v3' }).click();
+  await board.getByRole('button', { name: 'Library has v3' }).click();
   const update = board.getByRole('dialog', { name: 'Update Elsheria to library v3' });
   await update.getByText('Decimate to 60k').waitFor();
   await shot(board, 'library-update-dialog');
