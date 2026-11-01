@@ -35,7 +35,7 @@ Because the app is not signed with a developer certificate, macOS asks again whe
 
 ## Run it from source
 
-For contributors, or to try the latest `main`. You need Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml`.
+For contributors, or to try the latest `main`. You need Node 22.23.4 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml`.
 
 ```sh
 pnpm install

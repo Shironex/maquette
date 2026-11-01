@@ -246,7 +246,7 @@ Download the latest build from the [releases page](https://github.com/Shironex/m
 
 ## Develop
 
-To run Maquette from source you need Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml` (1.94.1), plus the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
+To run Maquette from source you need Node 22.23.4 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml` (1.94.1), plus the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```sh
 pnpm install
