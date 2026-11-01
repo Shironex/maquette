@@ -89,7 +89,7 @@ function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
 
 /**
  * Making the model: Send to 3D (or Rebuild for a built asset), its refs, a
- * model file someone fixed, and the rig doctor for a rigged model.
+ * model file someone fixed, and the rig doctor unless the model has no joints.
  */
 function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuItem[] {
   const openPanel = useProvidersStore(s => s.openPanel);
@@ -98,7 +98,10 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
   const openRefs = useRefsStore(s => s.open);
   const addModelFile = useProvidersStore(s => s.addModelFile);
   const { workspace, project, actions } = board;
-  const rigged = (asset.versions.at(-1)?.stats?.joints ?? 0) > 0;
+  // Stats can be missing on an accepted model; the rig doctor reads the file
+  // itself and says so when it finds no rig.
+  const newest = asset.versions.at(-1);
+  const rigged = Boolean(newest) && (!newest?.stats || newest.stats.joints > 0);
   const section = 'make';
   const make: MenuItem = built
     ? {
@@ -328,11 +331,8 @@ export function useCardMenu(props: CardMenuProps) {
     hint: 'Takes the card off the Board and moves its files to the workspace trash, where Recently removed can restore it',
     onSelect: () => actions.setRemoving([asset]),
   };
-  // A card waiting for its model leads with bringing it in. Sending it elsewhere
-  // stays possible; a second way to add a file and a rig that is about to change go.
-  const first = waiting
-    ? [...handoff, ...make.filter(i => i.id !== 'model-file' && i.id !== 'rig-doctor')]
-    : make;
+  // A card waiting for its model leads with bringing it in; the rest stays.
+  const first = waiting ? [...handoff, ...make] : make;
   const items = [...first, ...assetItems, ...moveItems, remove];
   const closeAll = () => {
     actions.setMenuFor(null);

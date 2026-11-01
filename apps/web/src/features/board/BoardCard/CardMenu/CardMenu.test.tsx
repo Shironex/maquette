@@ -7,6 +7,7 @@ import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useRefsStore } from '@/state/use-refs-store';
+import { useRigStore } from '@/state/use-rig-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useQuickViewStore } from '@/state/use-quick-view-store';
 import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
@@ -63,13 +64,41 @@ describe('CardMenu', () => {
 
   it('offers the rig doctor only for a rigged model, and on the newest version', () => {
     const elsheria = mockAsset('Elsheria');
-    const plain = mockAsset('Veil gate');
+    const plain = mockAsset('Veil platform');
     const { rerender } = render(
       <CardMenu asset={plain} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />
     );
     expect(screen.queryByRole('menuitem', { name: 'Fix in rig doctor' })).toBeNull();
     rerender(
       <CardMenu asset={elsheria} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />
+    );
+    expect(screen.getByRole('menuitem', { name: 'Fix in rig doctor' })).toBeInTheDocument();
+  });
+
+  it('offers the rig doctor when the stats are unknown, and it opens from there', async () => {
+    const show = vi.fn(async () => {});
+    const before = useRigStore.getState().show;
+    useRigStore.setState({ show });
+    const asset = mockAsset('Veil platform');
+    const unknown = { ...asset, versions: asset.versions.map(v => ({ ...v, stats: null })) };
+    render(
+      <CardMenu asset={unknown} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Fix in rig doctor' }));
+    expect(show).toHaveBeenCalledOnce();
+    useRigStore.setState({ show: before });
+  });
+
+  it('keeps the rig doctor on a rigged card with a By hand send waiting', async () => {
+    await useProvidersStore.getState().load('frostveil');
+    const waiting = useProvidersStore.getState().jobs.find(j => j.id === 'guardian-statues-1')!;
+    render(
+      <CardMenu
+        asset={mockAsset('Elsheria')}
+        waiting={waiting}
+        refPicture={null}
+        board={fakeBoardEnv()}
+      />
     );
     expect(screen.getByRole('menuitem', { name: 'Fix in rig doctor' })).toBeInTheDocument();
   });
@@ -157,7 +186,7 @@ describe('CardMenu', () => {
     expect(labels.at(-1)).toBe('Remove from project...');
     expect(screen.getByRole('group', { name: 'Make' })).toBeInTheDocument();
     expect(labels).toContain('Send to 3D');
-    expect(labels).not.toContain('Add a model file as the next version...');
+    expect(labels).toContain('Add a model file as the next version...');
     await user.click(screen.getByRole('menuitem', { name: 'Reveal image in Finder' }));
     expect(revealImage).toHaveBeenCalledWith('guardian-statues-1', 'front.png');
     await user.click(screen.getByRole('menuitem', { name: 'Open handoff folder' }));
