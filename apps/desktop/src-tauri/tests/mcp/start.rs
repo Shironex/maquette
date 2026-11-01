@@ -306,7 +306,8 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
         json!({ "project": "web", "siteRepo": site }),
     )
     .await;
-    assert_eq!(repo("web"), Some(site.display().to_string()));
+    let real_site = site.canonicalize().expect("real").display().to_string();
+    assert_eq!(repo("web"), Some(real_site.clone()));
 
     // A bad word changes nothing, the repo included.
     call_error(
@@ -315,7 +316,7 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
         json!({ "project": "web", "siteRepo": null, "textures": "png" }),
     )
     .await;
-    assert_eq!(repo("web"), Some(site.display().to_string()));
+    assert_eq!(repo("web"), Some(real_site.clone()));
 
     let missing = call_error(
         &client,
@@ -324,7 +325,7 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
     )
     .await;
     assert!(!missing.is_empty());
-    assert_eq!(repo("web"), Some(site.display().to_string()));
+    assert_eq!(repo("web"), Some(real_site.clone()));
 
     call(
         &client,

@@ -2,11 +2,12 @@ use std::path::{Path, PathBuf};
 
 use maquette_core::app_state::RepoSetBy;
 use maquette_core::concepts::Concepts;
+use maquette_core::fs::real_folder;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::providers::ProviderJobs;
 use maquette_core::{
-    ImportScan, NewProject, ProjectActivity, ProjectManifest, ProjectSummary, RepoInspection,
-    project,
+    CoreError, ImportScan, NewProject, ProjectActivity, ProjectManifest, ProjectSummary,
+    RepoInspection, project,
 };
 use tauri::State;
 
@@ -106,14 +107,16 @@ pub(crate) fn create_in_workspace(
             .map(|p| session.expand(&p).display().to_string()),
         ..project
     };
-    let manifest = project::create(&root, &config.layout, new)?;
+    let has_repo = new
+        .site_repo
+        .as_deref()
+        .is_some_and(|r| !r.trim().is_empty());
+    let by = if has_repo { by } else { RepoSetBy::Person };
+    // The mark goes down before the repo does, so a failure in between asks.
+    let manifest = project::create_with(&root, &config.layout, new, |id| {
+        mark_repo(session, &root, id, by).map_err(|e| CoreError::Invalid(e.message))
+    })?;
     session.save_repos(&root)?;
-    let by = if manifest.site_repo.is_some() {
-        by
-    } else {
-        RepoSetBy::Person
-    };
-    mark_repo(session, &root, &manifest.id, by)?;
     let dir = project::dir(&root, &config.layout, &manifest.id)?;
     maquette_core::pipeline::ensure(&dir, &manifest)?;
     Ok(manifest)
@@ -152,22 +155,23 @@ pub fn project_update(
 
 /// Checks a repo an agent names: `~` expanded, an absolute path to a git repo
 /// or worktree, and nowhere Ship could write over Maquette's own files or a
-/// home folder. Every door an agent has to a repo goes through this.
+/// home folder. Every door an agent has to a repo goes through this, and it
+/// answers the real folder, so a link moved later cannot change where Ship
+/// writes and the Ship card names the folder itself.
 pub(crate) fn checked_repo(session: &Session, path: &str) -> CommandResult<PathBuf> {
     let (root, config) = session.workspace()?;
     let expanded = session.expand(path);
     let at = maquette_core::game::check_repo(&expanded.display().to_string())?;
-    let real = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
-    let found = real(&at);
-    let workspace = real(&root);
-    let projects = real(&root.join(&config.layout.projects));
-    let home = real(&session.expand("~"));
+    let found = real_folder(&at);
+    let workspace = real_folder(&root);
+    let projects = real_folder(&root.join(&config.layout.projects));
+    let home = real_folder(&session.expand("~"));
     match repo_refusal(&found, &workspace, &projects, &home) {
         Some(why) => Err(invalid(&format!(
             "{} {why} Pick the site's own repo.",
             at.display()
         ))),
-        None => Ok(at),
+        None => Ok(found),
     }
 }
 
@@ -184,8 +188,14 @@ fn repo_refusal(
         Some("holds the Maquette workspace.")
     } else if found.starts_with(projects) {
         Some("is inside a project's folder.")
+    } else if projects.starts_with(found) {
+        // Only a linked projects folder gets here: its name is one plain
+        // segment under the workspace, which the checks above cover.
+        Some("holds the projects folder.")
     } else if found == home {
         Some("is the home folder.")
+    } else if home.starts_with(found) {
+        Some("holds the home folder.")
     } else {
         None
     }
@@ -221,16 +231,17 @@ pub(crate) fn set_repo(
     if moved {
         refuse_during_run(runner, id)?;
     }
-    // Settings saves the name and the repo together, so a rename alone says
-    // nothing about the repo and leaves an agent's mark on it.
-    let renamed_only = !moved && before.name != name;
+    // Before the repo, so a failure or a race in between asks. An agent
+    // clearing a repo keeps its mark: only a person's move drops it.
+    if by == RepoSetBy::Agent && site_repo.is_some() {
+        mark_repo(session, &root, id, RepoSetBy::Agent)?;
+    }
     let manifest = project::update(&root, &config.layout, id, name, site_repo)?;
     session.save_repos(&root)?;
-    let cleared = manifest.site_repo.is_none();
-    match by {
-        RepoSetBy::Person if renamed_only => {}
-        RepoSetBy::Agent if !cleared => mark_repo(session, &root, id, RepoSetBy::Agent)?,
-        _ => mark_repo(session, &root, id, RepoSetBy::Person)?,
+    // Settings and onboarding save the same repo as they click through,
+    // which says nothing about it, so only a real move clears the mark.
+    if by == RepoSetBy::Person && moved {
+        mark_repo(session, &root, id, RepoSetBy::Person)?;
     }
     Ok(manifest)
 }
@@ -360,6 +371,9 @@ mod repo_tests {
             )
         };
         assert!(check("/home/me").is_some());
+        assert!(check("/home").is_some(), "a folder holding home");
+        assert!(check("/").is_some());
+        assert!(check("/elsewhere").is_some(), "a folder holding projects");
         assert!(check("/w/maquette").is_some());
         assert!(check("/w/maquette/projects/web").is_some());
         assert!(check("/w").is_some());

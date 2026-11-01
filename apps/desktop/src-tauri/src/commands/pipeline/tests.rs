@@ -326,7 +326,7 @@ fn a_run_ships_into_a_repo_given_for_it_alone() {
         repo,
         ..RunAsk::default()
     };
-    let at = worktree.display().to_string();
+    let at = worktree.canonicalize().expect("real").display().to_string();
     let run = setup(&session, &id, ask(Some(at.clone())), tools()).expect("setup");
     assert_eq!(run.vars["siteRepo"], at);
     let plain = dir.path().join("plain");

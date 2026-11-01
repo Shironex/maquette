@@ -331,20 +331,57 @@ fn reopened(f: &Fixture) -> Session {
 }
 
 #[test]
-fn a_person_setting_the_repo_clears_the_mark_but_a_rename_does_not() {
+fn only_a_person_really_moving_the_repo_clears_the_mark() {
     let f = fixture(RepoSetBy::Agent);
+    // Settings and onboarding save the same repo as they click through.
     f.set_repo("New name", &f.site, RepoSetBy::Person);
-    assert!(
-        matches!(f.check(Starter::Agent), StartGate::Waiting { .. }),
-        "a rename alone says nothing about the repo"
-    );
+    assert!(matches!(f.check(Starter::Agent), StartGate::Waiting { .. }));
     f.hub.decide(&f.card(), false);
-    f.set_repo("New name", &f.site, RepoSetBy::Person);
+    let other = f.root.with_file_name("other");
+    std::fs::create_dir_all(&other).expect("other");
+    f.set_repo("New name", &other, RepoSetBy::Person);
     assert!(matches!(f.check(Starter::Agent), StartGate::Clear(_)));
 
     // And an agent setting that same repo puts the mark back.
-    f.set_repo("New name", &f.site, RepoSetBy::Agent);
+    f.set_repo("New name", &other, RepoSetBy::Agent);
     assert!(!matches!(f.check(Starter::Agent), StartGate::Clear(_)));
+}
+
+fn marked(f: &Fixture) -> bool {
+    let key = project::repos::root_key(&f.root);
+    f.host.session().app_state().repo_set_by_agent(&key, &f.id)
+}
+
+#[test]
+fn the_mark_goes_down_before_the_repo_and_a_failure_leaves_it() {
+    let f = fixture(RepoSetBy::Person);
+    assert!(!marked(&f));
+    let other = f.root.with_file_name("other");
+    let failed = set_repo(
+        f.host.session(),
+        f.host.runner(),
+        &f.id,
+        "  ".to_string(), // A name the save refuses, after the mark.
+        Some(other.display().to_string()),
+        RepoSetBy::Agent,
+    );
+    assert!(failed.is_err());
+    assert!(marked(&f), "a failure in between asks");
+}
+
+#[test]
+fn an_agent_clearing_a_repo_keeps_the_mark() {
+    let f = fixture(RepoSetBy::Agent);
+    let cleared = set_repo(
+        f.host.session(),
+        f.host.runner(),
+        &f.id,
+        "Room".to_string(),
+        None,
+        RepoSetBy::Agent,
+    );
+    cleared.expect("cleared");
+    assert!(marked(&f), "no window for a later set to slip through");
 }
 
 #[test]

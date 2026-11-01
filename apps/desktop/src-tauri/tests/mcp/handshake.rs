@@ -477,7 +477,10 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(hub.approvals().len(), 1, "the app shows the prompt");
     assert_eq!(
         hub.approvals()[0].detail,
-        Some(format!("Writes to {}", ship_repo.display())),
+        Some(format!(
+            "Writes to {}",
+            ship_repo.canonicalize().expect("real").display()
+        )),
         "the prompt says where Ship writes"
     );
 

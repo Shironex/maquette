@@ -1,7 +1,9 @@
 //! What a run is asked to do, and the setup the runner gets for it.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
+use maquette_core::fs::real_folder;
 use maquette_core::materials;
 use maquette_core::pipeline::runner::RunSetup;
 use maquette_core::pipeline::tools::Toolbox;
@@ -58,7 +60,13 @@ pub(crate) fn setup(
                 .display()
                 .to_string(),
         ),
-        None => ctx.manifest.site_repo.clone(),
+        // The folder itself, so the card names what Ship writes to and a link
+        // moved during the wait changes nothing.
+        None => ctx
+            .manifest
+            .site_repo
+            .as_deref()
+            .map(|r| real_folder(Path::new(r)).display().to_string()),
     };
     let ship = maquette_core::ship::load(&ctx.project_dir)?;
     let mut vars = BTreeMap::new();
