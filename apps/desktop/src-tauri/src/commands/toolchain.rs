@@ -16,15 +16,38 @@ pub(crate) fn overrides(session: &Session, state: &AppState) -> BTreeMap<ToolId,
         .collect()
 }
 
+/// A new check, remembered. One that a Locate or Reset overtook read the
+/// old overrides, so it runs again rather than answer or be kept.
+fn check_now(session: &Session) -> Vec<ToolReport> {
+    loop {
+        let turn = session.tools_turn();
+        let overrides = overrides(session, &session.app_state());
+        let reports = toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner);
+        if session.keep_tools(turn, reports.clone()) {
+            return reports;
+        }
+    }
+}
+
+/// [`check_now`] off the async runtime's threads.
+pub(crate) async fn check_blocking(session: &Session) -> CommandResult<Vec<ToolReport>> {
+    loop {
+        let turn = session.tools_turn();
+        let overrides = overrides(session, &session.app_state());
+        let reports = run_blocking(move || {
+            toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
+        })
+        .await?;
+        if session.keep_tools(turn, reports.clone()) {
+            return Ok(reports);
+        }
+    }
+}
+
 /// [`toolbox`] for callers off the async runtime, such as the MCP server's
 /// blocking tasks.
 pub(crate) fn toolbox_blocking(session: &Session) -> Toolbox {
-    let reports = session.tools().unwrap_or_else(|| {
-        let overrides = overrides(session, &session.app_state());
-        let reports = toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner);
-        session.set_tools(Some(reports.clone()));
-        reports
-    });
+    let reports = session.tools().unwrap_or_else(|| check_now(session));
     Toolbox::from_reports(&reports, &ProbeEnv::from_system())
 }
 
@@ -32,16 +55,7 @@ pub(crate) fn toolbox_blocking(session: &Session) -> Toolbox {
 pub(crate) async fn toolbox(session: &Session) -> CommandResult<Toolbox> {
     let reports = match session.tools() {
         Some(reports) => reports,
-        None => {
-            let overrides = overrides(session, &session.app_state());
-            let reports = tauri::async_runtime::spawn_blocking(move || {
-                toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
-            })
-            .await
-            .map_err(super::join_failed)?;
-            session.set_tools(Some(reports.clone()));
-            reports
-        }
+        None => check_blocking(session).await?,
     };
     Ok(Toolbox::from_reports(&reports, &ProbeEnv::from_system()))
 }
@@ -57,13 +71,7 @@ async fn run_blocking<T: Send + 'static>(
 #[tauri::command]
 #[specta::specta]
 pub async fn toolchain_detect(session: State<'_, Session>) -> CommandResult<Vec<ToolReport>> {
-    let overrides = overrides(&session, &session.app_state());
-    let reports = run_blocking(move || {
-        toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
-    })
-    .await?;
-    session.set_tools(Some(reports.clone()));
-    Ok(reports)
+    check_blocking(&session).await
 }
 
 /// Points a tool at a file the user picked. The override is only saved when
@@ -95,7 +103,7 @@ pub async fn toolchain_locate(
     session.update_app_state(|state| {
         state.tool_overrides.insert(tool, stored);
     })?;
-    session.set_tools(None);
+    session.forget_tools();
     Ok(report)
 }
 
@@ -108,7 +116,7 @@ pub async fn toolchain_reset(
     session.update_app_state(|state| {
         state.tool_overrides.remove(&tool);
     })?;
-    session.set_tools(None);
+    session.forget_tools();
     run_blocking(move || toolchain::detect(tool, &ProbeEnv::from_system(), None, &SystemRunner))
         .await
 }
