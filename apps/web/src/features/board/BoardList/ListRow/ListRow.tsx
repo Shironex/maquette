@@ -70,6 +70,7 @@ export default function ListRow(props: ListRowProps) {
               className={cn(v.previewing && 'animate-pulse motion-reduce:animate-none')}
             />
           )}
+          {v.previewing ? <span className="sr-only">Rendering a preview</span> : null}
         </span>
       </td>
       <td className={cn(CELL, 'max-w-0')}>
