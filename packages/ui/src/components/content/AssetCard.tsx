@@ -188,6 +188,8 @@ export function AssetCard({
             size="sm"
             aria-haspopup={menu !== undefined ? 'menu' : undefined}
             aria-expanded={menu !== undefined ? Boolean(moreOpen) : undefined}
+            // A 40 px target centred on the button, without moving the card's lines.
+            className="relative before:absolute before:top-1/2 before:left-1/2 before:size-10 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']"
             onClick={onMore}
           />
         </div>

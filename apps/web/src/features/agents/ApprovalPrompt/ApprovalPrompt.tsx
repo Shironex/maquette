@@ -1,4 +1,4 @@
-import { ApprovalCard } from '../ApprovalCard';
+import { ApprovalCard, useApprovalStack } from '../ApprovalCard';
 import { useFloatingApprovals } from './ApprovalPrompt.hooks';
 
 /**
@@ -7,14 +7,28 @@ import { useFloatingApprovals } from './ApprovalPrompt.hooks';
  * credits. Shown over every view until someone approves or denies it, in the
  * bottom right corner above the status bar: the top right is where the views'
  * header controls are, and a prompt there blocked their clicks. Many
- * prompts scroll inside the column and never reach the header row.
+ * prompts fold to what they ask and scroll inside the column, and never reach
+ * the header row.
  */
 export default function ApprovalPrompt() {
   const approvals = useFloatingApprovals();
+  const stack = useApprovalStack(approvals);
   if (!approvals?.length) return null;
-  const cards = approvals.map(a => <ApprovalCard key={a.id} approval={a} floating />);
+  const cards = approvals.map(a => (
+    <ApprovalCard
+      key={a.id}
+      approval={a}
+      floating
+      collapsed={stack.collapsed(a.id)}
+      onToggle={() => stack.toggle(a.id)}
+      armed={stack.armed}
+    />
+  ));
   return (
-    <div className="pointer-events-none fixed right-5 bottom-11 z-40 flex max-h-[calc(100vh-240px)] w-[400px] flex-col gap-2.5 overflow-y-auto">
+    <div
+      ref={stack.column}
+      className="pointer-events-none fixed right-5 bottom-11 z-40 flex max-h-[calc(100vh-240px)] w-[400px] flex-col gap-2.5 overflow-y-auto"
+    >
       {cards}
     </div>
   );

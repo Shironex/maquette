@@ -8,6 +8,7 @@ import {
   TopBar,
   Loader,
 } from '@maquette/ui';
+import { hasModels } from '@/state/board';
 import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
@@ -137,7 +138,7 @@ export default function PipelineView() {
               </Button>
             ) : (
               <Button
-                variant="primary"
+                variant={hasModels(project.assets ?? []) ? 'primary' : 'secondary'}
                 icon="play"
                 disabled={starting || errors.length > 0 || view.def.steps.length === 0}
                 disabledReason={

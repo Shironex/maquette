@@ -41,6 +41,27 @@ export const COMMAND_SOURCE: Record<CommandSource, string> = {
 };
 
 /**
+ * Which approval cards are open. A new card opens only while no other is, so
+ * several never bury the page, and one answered does not open the next. A
+ * card can still open or move under the pointer, so this alone does not
+ * protect its Approve from a stray click; the hold in `useApprovalStack` does.
+ */
+export function settleOpen(
+  open: Readonly<Record<string, boolean>>,
+  ids: readonly string[]
+): Readonly<Record<string, boolean>> {
+  const next: Record<string, boolean> = {};
+  let anyOpen = ids.some(id => open[id]);
+  for (const id of ids) {
+    const known = open[id];
+    next[id] = known ?? !anyOpen;
+    if (next[id]) anyOpen = true;
+  }
+  const same = ids.length === Object.keys(open).length && ids.every(id => open[id] === next[id]);
+  return same ? open : next;
+}
+
+/**
  * The approval's question: "Ship Frostveil, run 26?" with the project's
  * display name when known, "Send Guardian statue to Tripo?", or "Make 2
  * images for Harbour with OpenAI Images?".

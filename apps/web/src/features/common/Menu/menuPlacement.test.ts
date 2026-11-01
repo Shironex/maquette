@@ -26,6 +26,15 @@ describe('placeMenu', () => {
     expect(place.top).toBeGreaterThanOrEqual(8);
   });
 
+  it('moves over its anchor to stay whole when only the window has the room', () => {
+    const natural = { left: 100, top: 380, right: 300, bottom: 880 };
+    const anchor = { left: 100, top: 350, right: 300, bottom: 376 };
+    expect(placeMenu(natural, anchor, { width: 1120, height: 720 })).toMatchObject({
+      top: 212,
+      maxHeight: 500,
+    });
+  });
+
   it('caps a menu taller than the room and keeps it inside the window', () => {
     const place = placeMenu(box(100, 40, 180, 2000), box(100, 10, 30, 26), view);
     expect(place.maxHeight).toBe(652);

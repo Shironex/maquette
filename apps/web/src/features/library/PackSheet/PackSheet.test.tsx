@@ -1,17 +1,20 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NO_FILTERS } from '@/state/library';
+import { useAppStore } from '@/state/use-app-store';
 import { useLibrarySelectionStore } from '@/state/use-library-selection-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { usePackStore } from '@/state/use-pack-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
 import { follow, resetPacks } from '@/test/open-pack';
 import LibraryView from '../LibraryView/LibraryView';
+import PackSheet from './PackSheet';
 
 vi.mock('@/features/viewer/ModelPreview', () => ({ default: () => null }));
 
 afterEach(() => {
+  vi.restoreAllMocks();
   clearMocks();
   resetPacks();
   useLibraryStore.setState({ view: null, filters: NO_FILTERS, selected: null, layout: 'grid' });
@@ -21,7 +24,12 @@ afterEach(() => {
 describe('export pack from the library', () => {
   it('packs the picked models: settings, then the check', async () => {
     await openMockLibrary('scale');
-    render(<LibraryView />);
+    render(
+      <>
+        <LibraryView />
+        <PackSheet />
+      </>
+    );
     const filters = await screen.findByRole('region', { name: 'Filters' });
     await userEvent.click(within(filters).getByRole('button', { name: /^Village props/ }));
     const models = screen.getByRole('region', { name: 'Models' });
@@ -42,7 +50,12 @@ describe('export pack from the library', () => {
 
   it('packs the collection on show from the top bar', async () => {
     await openMockLibrary('scale');
-    render(<LibraryView />);
+    render(
+      <>
+        <LibraryView />
+        <PackSheet />
+      </>
+    );
     const filters = await screen.findByRole('region', { name: 'Filters' });
     await userEvent.click(within(filters).getByRole('button', { name: /^Market set/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Export pack' }));
@@ -50,5 +63,22 @@ describe('export pack from the library', () => {
     expect(within(sheet).getByRole('textbox', { name: 'Pack name' })).toHaveValue('market-set');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     expect(usePackStore.getState().open).toBe(false);
+  });
+
+  it('gives focus back to what opened it on close', async () => {
+    await openMockLibrary('scale');
+    const id = useAppStore.getState().workspace!.project!.id;
+    render(
+      <>
+        <button type="button">More</button>
+        <PackSheet />
+      </>
+    );
+    const opener = screen.getByRole('button', { name: 'More' });
+    opener.focus();
+    await act(() => usePackStore.getState().show({ from: 'project', project: id }));
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(usePackStore.getState().open).toBe(false));
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 });

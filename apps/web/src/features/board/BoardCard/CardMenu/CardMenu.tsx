@@ -1,5 +1,5 @@
 import { Menu } from '@/features/common/Menu';
-import { useCardMenu } from './CardMenu.hooks';
+import { CARD_MENU_SECTIONS, useCardMenu } from './CardMenu.hooks';
 import type { CardMenuProps } from './CardMenu.types';
 
 /** A card's menu: its actions, or the projects to copy it to after Copy to project. */
@@ -33,6 +33,7 @@ export default function CardMenu(props: CardMenuProps) {
       key="actions"
       label={`${asset.name} actions`}
       onClose={() => board.actions.setMenuFor(null)}
+      sections={CARD_MENU_SECTIONS}
       items={items}
     />
   );

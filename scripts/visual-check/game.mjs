@@ -129,7 +129,7 @@ export async function gameShots({ open, shot }) {
   const board = await open(`${GAME}crypt`, '#/board');
   const more = board.getByRole('button', { name: 'More board actions' });
   await more.click();
-  await board.getByRole('menuitem', { name: /^Render \d+ previews?$/ }).click();
+  await board.getByRole('menuitem', { name: /^Render previews/ }).click();
   await board.waitForTimeout(1500);
   await more.click();
   await board.getByRole('menu', { name: 'More board actions' }).waitFor();

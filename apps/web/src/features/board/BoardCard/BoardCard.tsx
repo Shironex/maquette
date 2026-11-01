@@ -61,10 +61,10 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
             icon="arrow-up"
             data-card-action
             className="max-w-full"
-            tooltip={`Update available: the library has v${update.to} of ${update.entry.entry.name}, this is on v${update.from}`}
+            tooltip={`Update from the library: it has v${update.to} of ${update.entry.entry.name}, this card is on v${update.from}`}
             onClick={card.openUpdate}
           >
-            <span className="min-w-0 truncate @max-[120px]:sr-only">Update to v{update.to}</span>
+            <span className="min-w-0 truncate @max-[120px]:sr-only">Library has v{update.to}</span>
           </Button>
         ) : undefined
       }

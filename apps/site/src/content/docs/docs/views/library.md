@@ -126,7 +126,7 @@ The project decides what it takes:
 
 ## Updates
 
-When an entry gets a newer version, every asset copied from an older one shows Update to vN on its Board card, **Update to library vN...** in the card menu, **Update available** in the Inspector's Library section, and in the Library side panel.
+When an entry gets a newer version, every asset copied from an older one shows Library has vN on its Board card, **Update to library vN...** in the card menu, **Update available** in the Inspector's Library section, and in the Library side panel.
 
 Update opens a dialog with the plan. It lists what carries over (real size, fix-ups, skip bake and material tweaks) and what no longer applies, with the reason:
 

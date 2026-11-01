@@ -6,7 +6,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 
 export async function openAgentSession(
-  agents: 'active' | 'batch' | 'images' | 'preview' | null = 'batch'
+  agents: 'active' | 'batch' | 'images' | 'preview' | 'many' | null = 'batch'
 ) {
   const handle = createBackend({
     scenario: 'configured',

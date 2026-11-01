@@ -20,6 +20,7 @@ import { AnimationDialogs } from '@/features/animations/AnimationDialogs';
 import { RetargetDialog } from '@/features/retarget/RetargetDialog';
 import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
+import { PackSheetHost } from '../PackSheetHost';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
 import { QuitDialog } from '../QuitDialog';
 import { RepoPrompt } from '../RepoPrompt';
@@ -91,6 +92,7 @@ export default function AppShell() {
       <CreditsSheet />
       <SplitSheet />
       <RenderSheet />
+      <PackSheetHost />
       <AssembleSheet />
       <ObjectRefsDialog />
       <StyleBoardDialog />

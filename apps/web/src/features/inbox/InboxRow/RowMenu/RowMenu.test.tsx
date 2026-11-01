@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { tooltipText } from '@/test/tooltipText';
 import { RowMenu } from '.';
 
 beforeEach(async () => {
@@ -36,7 +35,7 @@ describe('an inbox row menu', () => {
     render(<RowMenu item={item('rune_obelisk.glb')} onClose={() => {}} />);
     const redo = screen.getByRole('menuitem', { name: 'Redo...' });
     expect(redo).toHaveAttribute('aria-disabled', 'true');
-    expect(await tooltipText(redo)).toMatch(/did not come from a Send to 3D/);
+    expect(redo).toHaveAccessibleDescription(/did not come from a Send to 3D/);
   });
 
   it('redoes the ticked models as one batch', async () => {

@@ -85,7 +85,7 @@ export default defineConfig({
       id: 'board',
       title: 'Board',
       caption: 'Board: every asset of a project on its way from concept to ship.',
-      nav: view('scenario=idle&library=demo', 'board', 'Update to v3'),
+      nav: view('scenario=idle&library=demo', 'board', 'Library has v3'),
       delayMs: 1200,
     },
     {

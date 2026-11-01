@@ -436,7 +436,7 @@ fn a_running_paid_send_or_build_refuses_that_asset_and_keeps_its_files() {
     assert_eq!(bowl.state, RemoveState::Refused);
     let reason = bowl.reason.as_deref().expect("reason");
     assert!(reason.contains("Meshy is making the model of Clay bowl now (send clay-bowl-2)"));
-    assert!(reason.contains("cancel it in the 3D queue"));
+    assert!(reason.contains("cancel it in Sends"));
     assert!(sends.stopped.borrow().is_empty());
     assert!(w.project.join("models/clay_bowl_v1.glb").exists());
     // The other asset of the batch still goes.

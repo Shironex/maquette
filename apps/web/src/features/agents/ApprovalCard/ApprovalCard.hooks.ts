@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { commands, errorMessage, type Approval } from '@/ipc/client';
+import { settleOpen } from '@/state/agents';
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
 import { commitFirstLine, originalsLine, shipGroups } from '@/state/game';
@@ -32,6 +33,109 @@ function useShipNotes(approval: Approval, game: boolean): string[] {
     };
   }, [game, project, runId]);
   return game ? notes : [];
+}
+
+/** How long Approve stays unarmed after its place on screen changed. */
+export const ARM_DELAY_MS = 500;
+
+/** A smaller shift does not move a button enough to hit the wrong one. */
+const MOVE_PX = 2;
+
+const placeOf = (list: Element) => Array.from(list.children, c => c.getBoundingClientRect());
+
+function moved(from: readonly DOMRect[], to: readonly DOMRect[]) {
+  if (from.length !== to.length) return true;
+  return to.some((now, i) => {
+    const was = from[i]!;
+    return (
+      Math.abs(now.top - was.top) >= MOVE_PX ||
+      Math.abs(now.left - was.left) >= MOVE_PX ||
+      Math.abs(now.width - was.width) >= MOVE_PX ||
+      Math.abs(now.height - was.height) >= MOVE_PX
+    );
+  });
+}
+
+/**
+ * The one hold on every Approve of a list. `armed` goes false in the same
+ * render the cards change (one opens, folds, arrives or leaves), and when a
+ * card really moves on screen, whatever moved it: its own height, content
+ * above it, a scroll, a resized window. While any card is open each frame
+ * compares the cards with where they were at the last restart, so small steps
+ * cannot add up unseen. A window coming back into view restarts it too. It
+ * comes back `ARM_DELAY_MS` after the last of those, so a click in between
+ * does nothing and is not kept. Nothing on the cards
+ * keeps moving by itself, and shifts under `MOVE_PX` do not count, so it
+ * settles; a list that really never stopped moving would stay held. The delay
+ * guards a press and is no animation, so reduced motion keeps it.
+ */
+function useApprovalHold(layout: string, anyOpen: boolean) {
+  const column = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(layout);
+  const [restarts, setRestarts] = useState(0);
+  const [armed, setArmed] = useState(false);
+  const restart = useCallback(() => {
+    setArmed(false);
+    setRestarts(n => n + 1);
+  }, []);
+  if (seen !== layout) {
+    setSeen(layout);
+    restart();
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => setArmed(true), ARM_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [restarts]);
+
+  // Frames stop in a hidden window, so a timer can arm unseen while it is away.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') restart();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [restart]);
+
+  // A new layout is a new set of cards, measured afresh.
+  useEffect(() => {
+    const list = column.current;
+    if (!list || !anyOpen) return;
+    let place = placeOf(list);
+    const look = () => {
+      const now = placeOf(list);
+      if (moved(place, now)) {
+        place = now;
+        restart();
+      }
+      frame = requestAnimationFrame(look);
+    };
+    let frame = requestAnimationFrame(look);
+    return () => cancelAnimationFrame(frame);
+  }, [layout, anyOpen, restart]);
+
+  return { column, armed };
+}
+
+/**
+ * Which of a list of approval cards are open, the toggle each one gets, and
+ * the hold on their Approve: `column` goes on the element around the cards.
+ */
+export function useApprovalStack(approvals: readonly Approval[] | undefined) {
+  const [stored, setOpen] = useState<Readonly<Record<string, boolean>>>({});
+  const ids = approvals?.map(a => a.id) ?? [];
+  const open = settleOpen(stored, ids);
+  if (open !== stored) setOpen(open);
+  const { column, armed } = useApprovalHold(
+    ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','),
+    ids.some(id => open[id])
+  );
+  return {
+    column,
+    armed,
+    collapsed: (id: string) => !open[id],
+    toggle: (id: string) => setOpen(now => ({ ...now, [id]: !now[id] })),
+  };
 }
 
 /** The project an approval is for, the clock for its age, and the decision. */

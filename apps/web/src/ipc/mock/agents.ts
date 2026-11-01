@@ -4,7 +4,8 @@
  * run waiting at Ship for approval and a send to Tripo waiting the same way.
  * `?agents=batch` asks for three sends under one approval instead, and
  * `?agents=images` a round of two Lab images on OpenAI Images (the jobs
- * `?lab=approval` holds).
+ * `?lab=approval` holds). `?agents=many` asks all of those at once, a page
+ * preview too, for the folded cards.
  */
 import type { Approval, McpCall, McpStatus, RigRecord, WorkspaceConfig } from '../client';
 import { createRigHandlers } from './create-rig-handlers';
@@ -69,7 +70,7 @@ export function createFakeAgents({
   /**
    * `batch`: the send waiting is a batch of three. `images`: an OpenAI Images
    * round waits instead of it. `preview`: only a page preview waits, the first
-   * start of a repo an agent set.
+   * start of a repo an agent set. `many`: a batch, a round and a preview together.
    */
   scene?: string | null;
   emit?: (status: McpStatus) => void;
@@ -82,9 +83,10 @@ export function createFakeAgents({
   /** What an agent's rig doctor case waits for; only the rig doctor view adds it. */
   rig?: { state: string | null; pace: number; emit: (record: RigRecord) => void };
 }) {
-  const batch = scene === 'batch';
-  const images = scene === 'images';
-  const preview = scene === 'preview';
+  const many = scene === 'many';
+  const batch = scene === 'batch' || many;
+  const images = scene === 'images' || many;
+  const preview = scene === 'preview' || many;
   const rig = rigOptions
     ? createRigHandlers(rigOptions.state, rigOptions.pace, rigOptions.emit)
     : null;
@@ -162,7 +164,7 @@ export function createFakeAgents({
 
   if (images && approvals[0]) {
     approvals = [
-      approvals[0],
+      ...(many ? approvals : approvals.slice(0, 1)),
       {
         id: 'approval-3',
         kind: 'image-round',
@@ -185,6 +187,7 @@ export function createFakeAgents({
 
   if (preview) {
     approvals = [
+      ...(many ? approvals : []),
       {
         id: 'approval-4',
         kind: 'page-preview',

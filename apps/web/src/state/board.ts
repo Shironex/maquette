@@ -10,6 +10,25 @@ export const KIND_LABEL: Record<AssetKind, string> = {
   scene: 'Scene',
 };
 
+/** True once any asset has a model, so a pipeline run has something to build. */
+export const hasModels = (assets: readonly Asset[]) => assets.some(a => a.versions.length > 0);
+
+/** What the Board's one bright button is. */
+export type BoardPrimary = 'run' | 'add' | null;
+
+/**
+ * Run pipeline once there are models and no run is going; before that Add,
+ * unless the empty Board's first run card already leads with its own button.
+ */
+export function boardPrimary(
+  assets: readonly Asset[],
+  { open, running, tips }: { open: boolean; running: boolean; tips: boolean }
+): BoardPrimary {
+  if (!open) return null;
+  if (hasModels(assets)) return running ? null : 'run';
+  return assets.length === 0 && tips ? null : 'add';
+}
+
 /** The project with one card in another column; the core's answer replaces it. */
 export function withStage(project: ProjectManifest, id: string, stage: Stage): ProjectManifest {
   return {

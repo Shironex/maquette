@@ -18,7 +18,6 @@ import { LibraryRow } from '../LibraryRow';
 import { LibraryStats } from '../LibraryStats';
 import { LibrarySummary } from '../LibrarySummary';
 import { LookAlikesView } from '../LookAlikesView';
-import { PackSheet } from '../PackSheet';
 import LibraryGroups from './LibraryGroups';
 import { useLibraryView, useModelSelection, useModelsWindow } from './LibraryView.hooks';
 
@@ -238,7 +237,6 @@ export default function LibraryView() {
         </main>
       )}
       {v.addManyOpen ? <AddManySheet /> : null}
-      {v.pack.open ? <PackSheet /> : null}
     </>
   );
 }

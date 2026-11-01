@@ -1,6 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
+import { clock } from '@/lib/clock';
 import { moveFocus } from './menuKeys';
 import { placeMenu, type MenuPlace } from './menuPlacement';
+
+/**
+ * How long after opening a click that counts as second of a double-click is
+ * dropped. Long enough for a slow one; a single click is never held up.
+ */
+export const DOUBLE_CLICK_GUARD_MS = 600;
 
 /**
  * The menu's place in the window, and its keyboard. The menu first renders
@@ -10,15 +24,19 @@ import { placeMenu, type MenuPlace } from './menuPlacement';
  * between the items with the arrow keys, Home and End, and closes on
  * Escape, a click outside, or a scroll or resize of the page around it.
  * Closed with focus inside it, it gives focus back to what opened it.
+ * The second click of the double-click that opened it, landing on a row now
+ * under the pointer, does nothing; a keyboard press has no click count.
  */
 export function useMenu(onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<MenuPlace | null>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const openedAt = useRef(0);
 
   useLayoutEffect(() => {
     const menu = ref.current;
     if (!menu) return;
+    openedAt.current = clock.nowMs();
     const active = document.activeElement;
     if (active instanceof HTMLElement && active !== document.body) opener.current = active;
     const natural = menu.getBoundingClientRect();
@@ -70,5 +88,10 @@ export function useMenu(onClose: () => void) {
   const onKeyDown = (e: KeyboardEvent) => {
     if (ref.current && moveFocus(ref.current, e.key)) e.preventDefault();
   };
-  return { ref, onKeyDown, place };
+  const onClickCapture = (e: MouseEvent) => {
+    if (e.detail < 2 || clock.nowMs() - openedAt.current >= DOUBLE_CLICK_GUARD_MS) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  return { ref, onKeyDown, onClickCapture, place };
 }

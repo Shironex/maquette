@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -58,5 +59,18 @@ describe('the project top bar', () => {
     render(<ProjectTopBar extra={<button type="button">Open in browser</button>} />);
     expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Run pipeline' })).toBeVisible();
+  });
+
+  it('is bright only where the view asks, and says when a run has nothing to build', async () => {
+    await openMockWorkspace();
+    await usePipelineStore.getState().load('frostveil');
+    const { rerender } = render(<ProjectTopBar />);
+    const run = screen.getByRole('button', { name: 'Run pipeline' });
+    expect(run).not.toHaveClass('bg-clay');
+    rerender(<ProjectTopBar primaryRun />);
+    expect(run).toHaveClass('bg-clay');
+    const project = useAppStore.getState().workspace!.project!;
+    act(() => useAppStore.getState().setProject({ ...project, assets: [] }));
+    expect(await tooltipText(run)).toBe('No models yet, so a run has nothing to build');
   });
 });

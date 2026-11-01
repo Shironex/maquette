@@ -24,7 +24,6 @@ export function useLibraryView() {
   const scan = looks.scan;
   const showAddMany = useAddManyStore(s => s.show);
   const addManyOpen = useAddManyStore(s => s.open);
-  const packOpen = usePackStore(s => s.open);
   const showPack = usePackStore(s => s.show);
   const items = view?.items ?? [];
   const collections = view?.collections ?? [];
@@ -70,7 +69,6 @@ export function useLibraryView() {
     addManyOpen,
     openAddMany: () => showAddMany(workspace?.project?.id ?? null),
     pack: {
-      open: packOpen,
       tip: collection
         ? `Writes every model in ${collection.name} as one pack, checked in Blender and zipped`
         : 'Writes the models in view as one pack, checked in Blender and zipped; pick some first to pack only those',

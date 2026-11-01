@@ -9,9 +9,28 @@ import { useApprovalCard } from './ApprovalCard.hooks';
 export interface ApprovalCardProps {
   approval: Approval;
   floating?: boolean;
+  /**
+   * Shows only what is asked and that it waits. Everything else, Approve and
+   * Deny included, is not rendered until it is opened, so no answer can be
+   * given without the details on show.
+   */
+  collapsed?: boolean;
+  /** Opens or closes it; without this it stays open. */
+  onToggle?: () => void;
+  /**
+   * False while the list's hold is on (see `useApprovalStack`): Approve does
+   * nothing, Deny stays live.
+   */
+  armed?: boolean;
 }
 
-export default function ApprovalCard({ approval, floating }: ApprovalCardProps) {
+export default function ApprovalCard({
+  approval,
+  floating,
+  collapsed = false,
+  onToggle,
+  armed = true,
+}: ApprovalCardProps) {
   const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';
@@ -37,6 +56,7 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
       ) : null}
     </li>
   ));
+  const title = approvalTitle(approval, site?.name);
   const noteItems = notes.map(note => <li key={note}>{note}</li>);
   const hooks = preview?.hooks.map(hook => (
     <Fragment key={hook}>
@@ -73,9 +93,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
         </span>
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
-            {approvalTitle(approval, site?.name)}
+            {title}
           </h2>
-          {preview ? (
+          {collapsed ? (
+            <p className="mt-0.5 text-meta font-medium text-amber">
+              Waiting for you · {formatAgo(approval.requestedAtMs ?? now, now)}
+            </p>
+          ) : preview ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent set this site repo over MCP. Its dev command runs on this computer as you, so
               read it first. Nothing runs until you approve. A changed folder, command, package.json
@@ -124,166 +148,192 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             </p>
           )}
         </div>
-        <span className="flex-none text-meta text-fg-mute tabular-nums">
-          {formatAgo(approval.requestedAtMs ?? now, now)}
-        </span>
+        {collapsed ? null : (
+          <span className="flex-none text-meta text-fg-mute tabular-nums">
+            {formatAgo(approval.requestedAtMs ?? now, now)}
+          </span>
+        )}
+        {onToggle ? (
+          <Button
+            size="sm"
+            iconRight={collapsed ? 'caret-down' : undefined}
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? 'Review' : 'Hide'}: ${title}`}
+            tooltip={
+              collapsed ? 'Shows the details, Approve and Deny' : 'Folds it; it keeps waiting'
+            }
+            onClick={onToggle}
+          >
+            {collapsed ? 'Review' : 'Hide'}
+          </Button>
+        ) : null}
       </div>
-      {shipTo ? (
-        <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 font-mono text-meta break-all text-fg-dim">
-          {shipTo}
-        </p>
-      ) : null}
-      {preview ? (
-        <dl className="m-0 ml-11 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta">
-          <dt className="text-fg-mute">Folder</dt>
-          <dd className="m-0 font-mono break-all text-fg-dim">{preview.repo}</dd>
-          <dt className="text-fg-mute">Command</dt>
-          <dd className="m-0 font-mono break-all text-fg">{preview.command}</dd>
-          {preview.scriptRuns ? (
-            <>
-              <dt className="text-fg-mute">Script runs</dt>
-              <dd className="m-0 font-mono break-all text-fg">{preview.scriptRuns}</dd>
-            </>
-          ) : null}
-          {hooks}
-          {preview.scriptShell ? (
-            <>
-              <dt className="text-fg-mute">Script shell</dt>
-              <dd className="m-0 font-mono break-all text-amber">{preview.scriptShell}</dd>
-            </>
-          ) : null}
-          {preview.scriptRuns ? null : (
-            <>
-              <dt className="text-fg-mute">Runs</dt>
-              <dd className="m-0 text-amber">Maquette cannot tell what this command runs.</dd>
-            </>
-          )}
-          {preview.managerConfig.length > 0 ? (
-            <>
-              <dt className="text-fg-mute">Shell or manager</dt>
-              <dd className="m-0 text-fg-dim">
-                Can be set in <span className="font-mono">{preview.managerConfig.join(', ')}</span>
-              </dd>
-            </>
-          ) : null}
-          <dt className="text-fg-mute">From</dt>
-          <dd className="m-0 text-fg-dim">{COMMAND_SOURCE[preview.source]}</dd>
-        </dl>
-      ) : null}
-      {send && approval.items.length > 0 ? (
-        <div className="ml-11 rounded-[7px] border border-line bg-raised text-meta">
-          <ul className="m-0 flex max-h-[180px] list-none flex-col overflow-y-auto p-0">{items}</ul>
-          {approval.detail ? (
-            <p className="border-t border-line px-2.5 py-1.5 font-medium text-fg-dim">
-              {approval.detail}
+      {collapsed ? null : (
+        <>
+          {shipTo ? (
+            <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 font-mono text-meta break-all text-fg-dim">
+              {shipTo}
             </p>
           ) : null}
-        </div>
-      ) : detailLine ? (
-        <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta text-fg-dim">
-          {detailLine}
-        </p>
-      ) : null}
-      {rest && pose.sheets ? (
-        <div className="ml-11 grid grid-cols-2 gap-2">
-          {pose.sheets.before ? (
-            <img
-              src={pose.sheets.before}
-              alt="The before sheet"
-              className="w-full rounded-[7px] border border-line"
-            />
+          {preview ? (
+            <dl className="m-0 ml-11 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta">
+              <dt className="text-fg-mute">Folder</dt>
+              <dd className="m-0 font-mono break-all text-fg-dim">{preview.repo}</dd>
+              <dt className="text-fg-mute">Command</dt>
+              <dd className="m-0 font-mono break-all text-fg">{preview.command}</dd>
+              {preview.scriptRuns ? (
+                <>
+                  <dt className="text-fg-mute">Script runs</dt>
+                  <dd className="m-0 font-mono break-all text-fg">{preview.scriptRuns}</dd>
+                </>
+              ) : null}
+              {hooks}
+              {preview.scriptShell ? (
+                <>
+                  <dt className="text-fg-mute">Script shell</dt>
+                  <dd className="m-0 font-mono break-all text-amber">{preview.scriptShell}</dd>
+                </>
+              ) : null}
+              {preview.scriptRuns ? null : (
+                <>
+                  <dt className="text-fg-mute">Runs</dt>
+                  <dd className="m-0 text-amber">Maquette cannot tell what this command runs.</dd>
+                </>
+              )}
+              {preview.managerConfig.length > 0 ? (
+                <>
+                  <dt className="text-fg-mute">Shell or manager</dt>
+                  <dd className="m-0 text-fg-dim">
+                    Can be set in{' '}
+                    <span className="font-mono">{preview.managerConfig.join(', ')}</span>
+                  </dd>
+                </>
+              ) : null}
+              <dt className="text-fg-mute">From</dt>
+              <dd className="m-0 text-fg-dim">{COMMAND_SOURCE[preview.source]}</dd>
+            </dl>
           ) : null}
-          {pose.sheets.after ? (
-            <img
-              src={pose.sheets.after}
-              alt="The after sheet"
-              className="w-full rounded-[7px] border border-line"
-            />
+          {send && approval.items.length > 0 ? (
+            <div className="ml-11 rounded-[7px] border border-line bg-raised text-meta">
+              <ul className="m-0 flex max-h-[180px] list-none flex-col overflow-y-auto p-0">
+                {items}
+              </ul>
+              {approval.detail ? (
+                <p className="border-t border-line px-2.5 py-1.5 font-medium text-fg-dim">
+                  {approval.detail}
+                </p>
+              ) : null}
+            </div>
+          ) : detailLine ? (
+            <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta text-fg-dim">
+              {detailLine}
+            </p>
           ) : null}
-        </div>
-      ) : null}
-      {notes.length > 0 ? (
-        <ul className="m-0 ml-11 flex list-none flex-col gap-1 p-0 text-meta text-amber">
-          {noteItems}
-        </ul>
-      ) : null}
-      {rest ? (
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            disabled={pose.denying}
-            loading={pose.denying}
-            tooltip={
-              doctor
-                ? 'Adds nothing; the draft is kept and the agent can read that it waits'
-                : chains
-                  ? 'Writes the VRM without springs; the agent is told it was turned down'
-                  : weights
-                    ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
-                    : 'Writes nothing; the agent is told the pose was turned down'
-            }
-            onClick={() => void pose.deny()}
-          >
-            Deny
-          </Button>
-          <Button
-            variant="primary"
-            icon="magnifying-glass"
-            tooltip={
-              doctor
-                ? 'Opens the rig doctor, to add the draft or discard it there'
-                : 'Opens the before and after sheets large, to approve or deny there'
-            }
-            onClick={pose.open}
-          >
-            Open the sheets
-          </Button>
-        </div>
-      ) : (
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            disabled={deciding}
-            tooltip={
-              preview
-                ? 'Runs nothing; the server stays stopped and the agent is told you refused'
-                : round
-                  ? 'Makes nothing and spends nothing; the jobs end cancelled'
-                  : send
-                    ? 'Sends nothing and spends no credits'
-                    : 'Ships nothing'
-            }
-            onClick={() => void decide(approval.id, false)}
-          >
-            Deny
-          </Button>
-          <Button
-            variant="primary"
-            icon="check"
-            loading={deciding}
-            disabled={deciding}
-            tooltip={
-              preview
-                ? 'Runs this command in this folder and remembers the yes for this folder and command'
-                : round
-                  ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
-                  : send
-                    ? 'Sends it to the provider, which spends credits'
-                    : 'Writes the files to the game repo'
-            }
-            onClick={() => void decide(approval.id, true)}
-          >
-            {preview
-              ? 'Approve and run'
-              : round
-                ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
-                : send
-                  ? approval.items.length > 1
-                    ? `Approve and send ${approval.items.length}`
-                    : 'Approve and send'
-                  : 'Approve and ship'}
-          </Button>
-        </div>
+          {rest && pose.sheets ? (
+            <div className="ml-11 grid grid-cols-2 gap-2">
+              {pose.sheets.before ? (
+                <img
+                  src={pose.sheets.before}
+                  alt="The before sheet"
+                  className="w-full rounded-[7px] border border-line"
+                />
+              ) : null}
+              {pose.sheets.after ? (
+                <img
+                  src={pose.sheets.after}
+                  alt="The after sheet"
+                  className="w-full rounded-[7px] border border-line"
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {notes.length > 0 ? (
+            <ul className="m-0 ml-11 flex list-none flex-col gap-1 p-0 text-meta text-amber">
+              {noteItems}
+            </ul>
+          ) : null}
+          {rest ? (
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={pose.denying}
+                loading={pose.denying}
+                tooltip={
+                  doctor
+                    ? 'Adds nothing; the draft is kept and the agent can read that it waits'
+                    : chains
+                      ? 'Writes the VRM without springs; the agent is told it was turned down'
+                      : weights
+                        ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
+                        : 'Writes nothing; the agent is told the pose was turned down'
+                }
+                onClick={() => void pose.deny()}
+              >
+                Deny
+              </Button>
+              <Button
+                variant="primary"
+                icon="magnifying-glass"
+                tooltip={
+                  doctor
+                    ? 'Opens the rig doctor, to add the draft or discard it there'
+                    : 'Opens the before and after sheets large, to approve or deny there'
+                }
+                onClick={pose.open}
+              >
+                Open the sheets
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={deciding}
+                tooltip={
+                  preview
+                    ? 'Runs nothing; the server stays stopped and the agent is told you refused'
+                    : round
+                      ? 'Makes nothing and spends nothing; the jobs end cancelled'
+                      : send
+                        ? 'Sends nothing and spends no credits'
+                        : 'Ships nothing'
+                }
+                onClick={() => void decide(approval.id, false)}
+              >
+                Deny
+              </Button>
+              <Button
+                variant="primary"
+                icon="check"
+                loading={deciding}
+                disabled={deciding || !armed}
+                disabledReason={
+                  armed ? undefined : 'Ready in a moment, so a stray click cannot approve'
+                }
+                tooltip={
+                  preview
+                    ? 'Runs this command in this folder and remembers the yes for this folder and command'
+                    : round
+                      ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
+                      : send
+                        ? 'Sends it to the provider, which spends credits'
+                        : 'Writes the files to the game repo'
+                }
+                onClick={() => void decide(approval.id, true)}
+              >
+                {preview
+                  ? 'Approve and run'
+                  : round
+                    ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
+                    : send
+                      ? approval.items.length > 1
+                        ? `Approve and send ${approval.items.length}`
+                        : 'Approve and send'
+                      : 'Approve and ship'}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

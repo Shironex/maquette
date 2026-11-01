@@ -40,7 +40,8 @@ export type Args = Record<string, unknown>;
  * run waiting at Ship for approval and a send to Tripo waiting the same way;
  * `?agents=batch` makes that send a batch of three under one approval;
  * `?agents=preview` holds only the dev server of a repo an agent set, so the
- * Page view waits on its card until a yes starts it.
+ * Page view waits on its card until a yes starts it; `?agents=many` asks a
+ * ship, a batch, a round and a preview at once.
  * `?handoff=batch` adds the veil gate props concept, six object refs made
  * from it and a By hand batch of them in mixed states.
  * `?style=board` gives Frostveil a style board (see `style-board.ts`).
