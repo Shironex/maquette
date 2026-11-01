@@ -24,6 +24,13 @@ export function formatAgo(thenMs: number, nowMs: number): string {
   return `${Math.round(h / 24)} days ago`;
 }
 
+/** "43s", "1m 04s": how long something ran, finished or still going. */
+export function formatElapsed(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+}
+
 /** "09:05", the local time of day of `ms`. */
 export function formatClock(ms: number): string {
   const at = new Date(ms);
