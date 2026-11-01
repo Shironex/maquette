@@ -11,7 +11,7 @@ export const commands = {
 	appAbout: () => __TAURI_INVOKE<AboutInfo>("app_about"),
 	/**
 	 *  Opens one of the project's own pages (the repo, its releases and issue
-	 *  forms, the docs site) in the browser. Anything else is refused.
+	 *  forms, the docs site) or Blender's site in the browser. Anything else is refused.
 	 */
 	appOpenLink: (url: string) => __TAURI_INVOKE<null>("app_open_link", { url }),
 	/**  Whether this build updates itself, and what the last check found. */
