@@ -174,8 +174,10 @@ export function AssetCard({
         </Tooltip>
       ) : null}
       <div className="flex flex-col gap-1 px-2.5 pt-[9px] pb-2.5">
-        <div className="flex items-center justify-between gap-1.5 font-semibold">
-          <span className="truncate">{name}</span>
+        <div className="flex items-start justify-between gap-1.5 font-semibold">
+          <span className="line-clamp-2 min-w-0 [overflow-wrap:anywhere]" title={name}>
+            {name}
+          </span>
           <IconButton
             icon="dots-three"
             label={`More for ${name}`}
