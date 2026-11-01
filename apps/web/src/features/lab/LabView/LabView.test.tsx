@@ -24,7 +24,7 @@ describe('the Lab view', () => {
   it('shows the composer, the results and the queue once the concepts load', async () => {
     await openMockWorkspace();
     render(<LabView />);
-    expect(screen.getByText('Loading the concepts')).toBeVisible();
+    expect(screen.getByText('Reading the concepts...')).toBeVisible();
     await useLabStore.getState().load('frostveil');
     expect(await screen.findByRole('region', { name: 'New direction' })).toBeVisible();
     expect(screen.getByRole('complementary', { name: 'Image queue' })).toBeVisible();

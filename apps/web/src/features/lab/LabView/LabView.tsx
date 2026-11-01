@@ -1,4 +1,4 @@
-import { EmptyState } from '@maquette/ui';
+import { EmptyState, Loader } from '@maquette/ui';
 import { ProjectTopBar } from '@/features/common/ProjectTopBar';
 import { Composer } from '../Composer';
 import { ConceptGrid } from '../ConceptGrid';
@@ -12,7 +12,7 @@ import { useLabView } from './LabView.hooks';
  * the usage limit banner while one holds), the Codex queue on the right.
  */
 export default function LabView() {
-  const { project, view } = useLabView();
+  const { project, view, failed, estimate } = useLabView();
   const ready = view && project && view.project === project.id;
   return (
     <>
@@ -29,13 +29,19 @@ export default function LabView() {
         </main>
       ) : (
         <main className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState
-            icon="flask"
-            title={project ? 'Loading the concepts' : 'No project open'}
-            body={
-              project ? undefined : 'Create or open a project in Settings to generate concepts.'
-            }
-          />
+          {project && !failed ? (
+            <Loader label="Reading the concepts..." estimate={estimate} />
+          ) : (
+            <EmptyState
+              icon={project ? 'warning-circle' : 'flask'}
+              title={project ? 'The concepts could not be read' : 'No project open'}
+              body={
+                project
+                  ? 'Open the project again to retry.'
+                  : 'Create or open a project in Settings to generate concepts.'
+              }
+            />
+          )}
         </main>
       )}
     </>

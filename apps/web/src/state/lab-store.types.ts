@@ -41,6 +41,8 @@ export interface StyleDraft {
 export interface LabStore {
   view: LabView | null;
   loading: boolean;
+  /** The last read of the concepts failed. */
+  loadFailed: boolean;
   /** The direction shown in the results. */
   selected: string | null;
   draft: Draft;

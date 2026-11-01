@@ -9,7 +9,8 @@ import type {
   Direction,
   LabView,
 } from '@/ipc/client';
-import { formatClock } from '@/lib/format';
+import { formatClock, formatElapsed } from '@/lib/format';
+import { lastRunLabel } from '@/lib/waiting';
 
 export const ASPECTS: readonly { value: Aspect; label: string }[] = [
   { value: '16:9', label: '16:9' },
@@ -107,12 +108,7 @@ export function editObject(
   };
 }
 
-/** "58s", "1m 04s", "12m 30s". */
-export function formatElapsed(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
-}
+export { formatElapsed };
 
 const isLive = (state: ConceptJobState) =>
   state === 'approval' || state === 'queued' || state === 'running' || state === 'rate-limited';
@@ -165,7 +161,7 @@ export function refusalLine(message: string | null): string {
 }
 
 /** The second line of a queue row. */
-export function jobMeta(job: ConceptJob, now: number): string {
+export function jobMeta(job: ConceptJob, now: number, lastMs: number | null = null): string {
   if (job.state === 'failed' && job.refused) return refusalLine(job.message);
   const took = (end: number | null) =>
     job.startedAtMs !== null ? formatElapsed((end ?? now) - job.startedAtMs) : null;
@@ -175,7 +171,7 @@ export function jobMeta(job: ConceptJob, now: number): string {
     case 'queued':
       return 'Waiting for a free slot';
     case 'running':
-      return `Generating · ${took(null) ?? '0s'}`;
+      return ['Generating', took(null) ?? '0s', lastRunLabel(lastMs)].filter(Boolean).join(' · ');
     case 'done': {
       const size = job.width && job.height ? `${job.width} × ${job.height}` : 'Saved';
       const time = took(job.finishedAtMs);
@@ -188,6 +184,16 @@ export function jobMeta(job: ConceptJob, now: number): string {
     default:
       return job.message ?? 'Failed';
   }
+}
+
+/** How long the job finished last took, for the "last 58s" beside the ones still going. */
+export function lastJobMs(jobs: readonly ConceptJob[]): number | null {
+  let last: ConceptJob | null = null;
+  for (const job of jobs) {
+    if (job.state !== 'done' || job.startedAtMs === null || job.finishedAtMs === null) continue;
+    if (!last || job.finishedAtMs > (last.finishedAtMs ?? 0)) last = job;
+  }
+  return last ? (last.finishedAtMs ?? 0) - (last.startedAtMs ?? 0) : null;
 }
 
 /** One cell of the results grid: a finished image or a job still going. */
