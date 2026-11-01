@@ -37,7 +37,7 @@ fn the_file_round_trips_in_camel_case_and_a_missing_one_is_empty() {
         .stops
         .push(stop("Concept", [0.9, 0.5, 1.4], [0.0, 0.15, 0.0]));
     layout.desk = Some(Desk { size: [1.6, 0.8] });
-    save(dir.path(), &layout).expect("save");
+    update(dir.path(), |_| Ok(layout.clone())).expect("save");
     let text = fs::read_to_string(path(dir.path())).expect("read");
     let value: serde_json::Value = serde_json::from_str(&text).expect("json");
     assert_eq!(value["version"], json!(1));
@@ -71,7 +71,7 @@ fn validation_refuses_what_blender_could_not_place() {
         let err = validate(&layout).expect_err(needle).to_string();
         assert!(err.contains(needle), "{err}");
         let dir = tempfile::tempdir().expect("tempdir");
-        assert!(save(dir.path(), &layout).is_err());
+        assert!(update(dir.path(), |_| Ok(layout.clone())).is_err());
         assert!(
             !path(dir.path()).exists(),
             "a refused layout writes nothing"

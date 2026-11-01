@@ -220,7 +220,7 @@ fn table_one_shell(scripts: &std::path::Path) -> CoreResult<bool> {
 pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let case = run.snapshot();
     let input = run.dir.join("in.glb");
-    let draft = run.dir.join("draft.glb");
+    let draft = run.attempt();
     let scripts = run.dir.join("scripts").join(ROUTE);
     // The round counts once it made a draft: while it runs, and if it fails or moves nothing, the case stays as it was.
     let round = case.round + 1;
@@ -244,7 +244,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             &[arg(&input), arg(&draft), "dry".to_string()],
         )?;
         run.script(ROUTE, "fix.py", &[arg(&input), arg(&draft)])?;
-        report = read_json(&run.dir.join("draft.glb.report.json"))?;
+        report = read_json(&run.attempt_report())?;
         Ok(format!(
             "{} vertices changed",
             count(num(&report, "changed"))
@@ -258,14 +258,13 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         ),
     );
     if num(&report, "changed") == 0 {
-        let v = case.source.version.unwrap_or(1);
         let why = if table_one_shell(&scripts)? {
             "This is one continuous shell, so the per piece rules stay off and only stray weight can move, and none did."
         } else {
             "No weight on any vertex moved by more than 0.02."
         };
-        run.nothing_changed(format!(
-            "{why} No draft was made and v{v} stays. If the chains read wrong, correct them and run it again."
+        run.nothing_changed(&format!(
+            "{why} If the chains read wrong, correct them and run it again."
         ));
         return Ok(());
     }
@@ -340,7 +339,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     ];
     let fix_steps = steps::creature(&report);
     let stop = steps::stop_of(&case.name, &checks, last_round, worst.as_ref());
-    let draft_path = arg(&draft);
+    let draft_path = run.keep_attempt()?;
     run.update(|c| {
         c.round = round;
         c.after = Some(after);

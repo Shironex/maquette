@@ -209,6 +209,7 @@ impl PipelineRunner {
             finished_at_ms: None,
             steps: initial_steps(&setup.def, &plan, setup.build_only),
             message: None,
+            not_shipped: None,
         };
         let project = setup.project.clone();
         lane.queue.push_back((record.clone(), setup, options));

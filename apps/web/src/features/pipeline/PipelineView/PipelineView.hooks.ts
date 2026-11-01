@@ -7,6 +7,7 @@ import { gameOf } from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
 import { useGameStore } from '@/state/use-game-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { shipsNowhere } from '@/state/pipeline';
 import { useShipStore } from '@/state/use-ship-store';
 
 /** The open project's pipeline, plus the log filter, the cache and build only switches. */
@@ -18,6 +19,8 @@ export function usePipelineView() {
   const [force, setForce] = useState(false);
   const [buildOnly, setBuildOnly] = useState(false);
   const [logStep, setLogStep] = useState('all');
+  const [askNoRepo, setAskNoRepo] = useState(false);
+  const setView = useAppStore(s => s.setView);
   const game = gameOf(project);
   const saveSettings = useGameStore(s => s.saveSettings);
   const shipWaits = useShipApproval(project?.id) !== null;
@@ -85,6 +88,25 @@ export function usePipelineView() {
       },
       focus: shipFocus,
       waits: shipWaits,
+      noRepo: {
+        asking: askNoRepo,
+        word: game ? 'game' : 'site',
+        // A full run says first when it cannot ship; Build only does not mean to.
+        start: () => {
+          if (!buildOnly && view && shipsNowhere(view.def, project?.siteRepo)) setAskNoRepo(true);
+          else void run({ force, buildOnly });
+        },
+        run: () => {
+          setAskNoRepo(false);
+          void run({ force, buildOnly });
+        },
+        settings: () => {
+          setAskNoRepo(false);
+          setView('settings');
+        },
+        dismiss: () => setAskNoRepo(false),
+        openSettings: () => setView('settings'),
+      },
     },
     // The runner's layout: the presets panel's width and why the bake card folds.
     panels: { side, fold },

@@ -246,6 +246,19 @@ export function noChangeCase(): RigRecord {
   };
 }
 
+/** A second round that moved nothing: the first round's draft stays. */
+export function secondRoundNoChangeCase(): RigRecord {
+  return {
+    ...fixedCase('duchess-vesperine-v1', 'Duchess Vesperine'),
+    stop: {
+      kind: 'no-change',
+      title: 'Round 2 changed nothing',
+      detail: "No vertex's weights moved. The draft from round 1 stays, as it was.",
+      row: null,
+    },
+  };
+}
+
 /** One continuous mesh: the narrow reweight is what the fix means here. */
 export function oneIslandCase(): RigRecord {
   const tested = testedCase('rowan-shell-v1', 'Rowan shell');

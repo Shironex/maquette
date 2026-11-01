@@ -216,7 +216,7 @@ fn the_first_view_counts_what_its_camera_sees_or_its_own_list() {
     layout
         .stops
         .push(stop("Ship", [6.0, 0.6, 2.5], [6.0, 0.25, 0.0]));
-    save(dir.path(), &layout).expect("save");
+    update(dir.path(), |_| Ok(layout.clone())).expect("save");
     let first = first_view_of(dir.path(), &manifest, &def, 3.0, None);
     assert_eq!(first.stop.as_deref(), Some("Concept"));
     assert!(!first.custom);
@@ -229,7 +229,7 @@ fn the_first_view_counts_what_its_camera_sees_or_its_own_list() {
     assert!((first.target_mb - 3.0).abs() < f64::EPSILON);
 
     layout.stops[0].models = Some(vec!["bowl".into()]);
-    save(dir.path(), &layout).expect("save");
+    update(dir.path(), |_| Ok(layout.clone())).expect("save");
     let custom = first_view_of(dir.path(), &manifest, &def, 3.0, None);
     assert!(custom.custom);
     assert_eq!(custom.models.len(), 1);

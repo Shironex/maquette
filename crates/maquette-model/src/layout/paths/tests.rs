@@ -3,7 +3,7 @@ use std::fs;
 use serde_json::json;
 
 use super::*;
-use crate::layout::{LayoutPatch, LayoutStop, PlacementPatch, apply, load, path, save};
+use crate::layout::{LayoutPatch, LayoutStop, PlacementPatch, apply, load, path, update};
 
 fn stop(id: &str) -> LayoutStop {
     LayoutStop {
@@ -66,7 +66,7 @@ fn known() -> Vec<String> {
 #[test]
 fn paths_save_and_load_and_older_files_load_without_them() {
     let dir = tempfile::tempdir().expect("tempdir");
-    save(dir.path(), &wired()).expect("save");
+    update(dir.path(), |_| Ok(wired())).expect("save");
     let back = load(dir.path()).expect("load");
     assert_eq!(back.paths, wired().paths);
     assert_eq!(back.timeline.paths, wired().timeline.paths);

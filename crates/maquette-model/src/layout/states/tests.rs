@@ -4,7 +4,7 @@ use std::fs;
 use serde_json::json;
 
 use super::*;
-use crate::layout::{LayoutPatch, LayoutStop, apply, load, path, save};
+use crate::layout::{LayoutPatch, LayoutStop, apply, load, path, update};
 
 fn stop(id: &str) -> LayoutStop {
     LayoutStop {
@@ -86,7 +86,7 @@ fn states_and_clip_choices_round_trip_and_clips_that_ship_are_left_out() {
             ("Walk loop".to_string(), ClipSettings { ship: true }),
         ]),
     );
-    save(dir.path(), &layout).expect("save");
+    update(dir.path(), |_| Ok(layout.clone())).expect("save");
     let text = fs::read_to_string(path(dir.path())).expect("read");
     let value: serde_json::Value = serde_json::from_str(&text).expect("json");
     assert_eq!(

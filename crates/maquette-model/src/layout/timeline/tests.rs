@@ -3,7 +3,7 @@ use std::fs;
 use serde_json::json;
 
 use super::*;
-use crate::layout::{LayoutPatch, LayoutStop, apply, load, path, save};
+use crate::layout::{LayoutPatch, LayoutStop, apply, load, path, update};
 
 fn stop(id: &str) -> LayoutStop {
     LayoutStop {
@@ -41,7 +41,7 @@ fn spread() -> SceneLayout {
 #[test]
 fn a_timeline_saves_and_loads_and_older_files_load_without_one() {
     let dir = tempfile::tempdir().expect("tempdir");
-    save(dir.path(), &spread()).expect("save");
+    update(dir.path(), |_| Ok(spread())).expect("save");
     let back = load(dir.path()).expect("load");
     assert_eq!(back.timeline, spread().timeline);
     let text = fs::read_to_string(path(dir.path())).expect("read");
@@ -135,7 +135,7 @@ fn the_style_and_text_tracks_keep_to_the_stops() {
     }))
     .expect("patch");
     let next = apply(&base, &patch, &[]).expect("applies");
-    save(dir.path(), &next).expect("saves");
+    update(dir.path(), |_| Ok(next.clone())).expect("saves");
     let back = load(dir.path()).expect("loads");
     assert_eq!(
         back.timeline.style.as_ref().map(|t| t.look),
@@ -166,7 +166,7 @@ fn the_style_and_text_tracks_keep_to_the_stops() {
         },
         ..base
     };
-    assert!(save(dir.path(), &bad).is_err());
+    assert!(update(dir.path(), |_| Ok(bad.clone())).is_err());
 }
 
 #[test]

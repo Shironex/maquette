@@ -189,22 +189,15 @@ pub fn load(project_dir: &Path) -> CoreResult<SceneLayout> {
     Ok(layout)
 }
 
-/// Checks the layout and writes it atomically. A refused layout writes
-/// nothing.
-///
-/// # Errors
-///
-/// Fails when [`validate`] refuses it or the file cannot be written.
-pub fn save(project_dir: &Path, layout: &SceneLayout) -> CoreResult<()> {
-    save_file(project_dir, layout)
-}
-
 /// One read, change and write of `layout.json` at a time, so writers that
 /// overlap all land.
 static WRITES: Mutex<()> = Mutex::new(());
 
 /// Reads `layout.json` from disk, applies `change` and writes what comes
-/// back. Returns what was written. `change` must not call this again.
+/// back, checked and atomically; a refused layout writes nothing. This is
+/// the only way to write the file, so writers that overlap cannot lose each
+/// other's changes. Returns what was written. `change` must not call this
+/// again.
 ///
 /// # Errors
 ///

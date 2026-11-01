@@ -175,7 +175,7 @@ Reads a project's steps and their dependencies, validation issues, the compressi
 
 Runs a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no `from`) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails. It waits up to `waitSeconds`, then answers with the run's status. The run carries on either way.
 
-With Ask before shipping on, and always in a [game project](/docs/start/game-projects/), the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again.
+With Ask before shipping on, and always in a [game project](/docs/start/game-projects/), the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again. A project with no site repo never waits: the run leaves Ship out and answers `done` with `shipped: false`.
 
 | Parameter     | Type    | Required | Notes                                                                                                                                |
 | ------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -196,7 +196,7 @@ A build only run never waits for approval, since it has no Ship step. Its summar
 
 `read only`
 
-Reads one run's status and the end of its log. The status is `queued`, `running`, `done`, `failed`, `cancelled` or `waiting for approval`.
+Reads one run's status and the end of its log. The status is `queued`, `running`, `done`, `failed`, `cancelled` or `waiting for approval`. A finished run also says `shipped` (true or false) and `shipReason`: a run in a project with no site repo is `done` with `shipped: false`.
 
 | Parameter  | Type   | Required | Notes                                                                            |
 | ---------- | ------ | -------- | -------------------------------------------------------------------------------- |

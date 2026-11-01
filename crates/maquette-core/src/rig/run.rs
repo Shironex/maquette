@@ -22,6 +22,9 @@ const CANCELLED: &str = "The rig doctor run was cancelled.";
 /// One running pose test or fix.
 pub(super) struct Run {
     record: Arc<Mutex<RigRecord>>,
+    /// The case as it stood before this run, which a fix that moves nothing
+    /// goes back to.
+    earlier: RigRecord,
     inner: Arc<Inner>,
     tools: Toolbox,
     cancel: Arc<AtomicBool>,
@@ -31,7 +34,7 @@ pub(super) struct Run {
 
 impl Run {
     pub(super) fn new(
-        case: RigRecord,
+        (case, earlier): (RigRecord, RigRecord),
         inner: Arc<Inner>,
         tools: Toolbox,
         cancel: Arc<AtomicBool>,
@@ -39,6 +42,7 @@ impl Run {
     ) -> Self {
         Self {
             record: Arc::new(Mutex::new(case)),
+            earlier,
             inner,
             tools,
             cancel,
@@ -61,11 +65,60 @@ impl Run {
         }
     }
 
-    /// The fix moved no weight: no draft and nothing to add. The defects stay
-    /// open, and the case stands where its pose test left it, so a person can
-    /// correct the chains and run it again.
-    pub(super) fn nothing_changed(&self, detail: String) {
-        let _ = std::fs::remove_file(self.dir.join("draft.glb"));
+    /// The file a fix writes. It only becomes `draft.glb` when the round is
+    /// done, so a round that moves nothing, fails or is cancelled leaves the
+    /// draft before it alone.
+    pub(super) fn attempt(&self) -> PathBuf {
+        self.dir.join("attempt.glb")
+    }
+
+    /// The report a fix script writes next to the attempt.
+    pub(super) fn attempt_report(&self) -> PathBuf {
+        self.dir.join("attempt.glb.report.json")
+    }
+
+    /// The round is done: its attempt is the draft now, and its path is returned.
+    pub(super) fn keep_attempt(&self) -> CoreResult<String> {
+        let (attempt, draft) = (self.attempt(), self.dir.join("draft.glb"));
+        fs::rename(&attempt, &draft).map_err(|e| CoreError::io(&draft, e))?;
+        Ok(draft.display().to_string())
+    }
+
+    /// The fix moved no weight, so there is nothing to add. `why` says what
+    /// it found. A draft from an earlier round stays, with everything that
+    /// describes it. Without one the defects stay open and the case stands
+    /// where its pose test left it, so a person can correct the chains and
+    /// run it again.
+    pub(super) fn nothing_changed(&self, why: &str) {
+        let _ = fs::remove_file(self.attempt());
+        let earlier = &self.earlier;
+        if earlier.draft.is_some() {
+            let kept = format!(
+                "{why} The draft from round {} stays, as it was.",
+                earlier.round
+            );
+            self.update(|c| {
+                c.after.clone_from(&earlier.after);
+                c.walk_proof.clone_from(&earlier.walk_proof);
+                c.state = earlier.state;
+                c.step = earlier.step;
+                c.stop = Some(match &earlier.stop {
+                    // What held the draft still holds it.
+                    Some(stop) => RigStop {
+                        detail: format!("{} {kept}", stop.detail),
+                        ..stop.clone()
+                    },
+                    None => RigStop {
+                        kind: RigStopKind::NoChange,
+                        title: format!("Round {} changed nothing", earlier.round + 1),
+                        detail: kept,
+                        row: None,
+                    },
+                });
+            });
+            return;
+        }
+        let v = earlier.source.version.unwrap_or(1);
         self.update(|c| {
             c.after = None;
             c.draft = None;
@@ -80,7 +133,7 @@ impl Run {
             c.stop = Some(RigStop {
                 kind: RigStopKind::NoChange,
                 title: "The fix changed nothing".to_string(),
-                detail,
+                detail: format!("{why} No draft was made and v{v} stays."),
                 row: None,
             });
         });

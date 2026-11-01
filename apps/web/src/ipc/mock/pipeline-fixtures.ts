@@ -193,6 +193,7 @@ export function runHistory(now: number): RunRecord[] {
       step('ship', 'Ship', 'done', 900),
     ],
     message: null,
+    notShipped: null,
   };
   const r24: RunRecord = {
     id: 'frostveil-run-24',

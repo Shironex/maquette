@@ -140,6 +140,10 @@ fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
         "message": run.message,
         "steps": steps,
     });
+    if let Some((shipped, reason)) = run.ship_outcome() {
+        out["shipped"] = json!(shipped);
+        out["shipReason"] = json!(reason);
+    }
     if let Some(approval) = approval {
         out["approval"] = json!({
             "id": approval.id,
@@ -206,7 +210,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Get one run's status and the end of its log. Status is queued, running, done, failed, cancelled or \"waiting for approval\" (its Ship step waits for a person in the app).",
+        description = "Get one run's status and the end of its log. Status is queued, running, done, failed, cancelled or \"waiting for approval\" (its Ship step waits for a person in the app). A finished run also says shipped, true or false, and shipReason: a done run with no site repo has shipped false.",
         annotations(read_only_hint = true)
     )]
     async fn get_run(&self, Parameters(args): Parameters<GetRunArgs>) -> Out {
@@ -232,7 +236,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run. A project with no site repo builds, skips Ship without asking and answers done with shipped false and shipReason."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));

@@ -141,6 +141,7 @@ export function createPackHandlers(ctx: PackContext) {
         zip: r.settings.zip ? `${r.dir}.zip` : null,
         finishedAt: clock.now().toISOString(),
         bytes,
+        leftOut: left,
         message: left
           ? `${left} ${left === 1 ? 'model' : 'models'} left out of the pack.`
           : r.message,
@@ -183,7 +184,7 @@ export function createPackHandlers(ctx: PackContext) {
   }
 
   function launch(r: PackRecord) {
-    tell({ ...r, state: 'running', message: null });
+    tell({ ...r, state: 'running', message: null, leftOut: 0 });
     setTimeout(() => step(r.id), ctx.pace);
     return clone(records.get(r.id)!);
   }
@@ -214,6 +215,7 @@ export function createPackHandlers(ctx: PackContext) {
       finishedAt: null,
       bytes: null,
       message: null,
+      leftOut: 0,
       preset: req.preset,
     };
     saved = saved.map(p => (p.id === req.preset ? { ...p, used: p.used + 1 } : p));

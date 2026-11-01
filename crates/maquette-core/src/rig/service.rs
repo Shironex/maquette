@@ -192,6 +192,7 @@ impl RigDoctors {
     ) -> CoreResult<RigRecord> {
         let mut case = self.get(root, config, id)?;
         check_can_run(&case, what)?;
+        let earlier = case.clone();
         let cancel = Arc::new(AtomicBool::new(false));
         {
             let mut active = self.active();
@@ -221,7 +222,7 @@ impl RigDoctors {
         self.publish(&mut case)?;
         let dir = PathBuf::from(&case.dir);
         let answer = case.clone();
-        let run = Run::new(case, Arc::clone(&self.inner), tools, cancel, dir);
+        let run = Run::new((case, earlier), Arc::clone(&self.inner), tools, cancel, dir);
         let doctors = self.clone();
         let key = id.to_string();
         thread::spawn(move || {

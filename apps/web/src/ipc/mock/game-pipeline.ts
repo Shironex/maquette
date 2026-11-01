@@ -126,6 +126,7 @@ export function gameRuns(project: string, def: PipelineDef, now: number): RunRec
     finishedAtMs: state === 'running' ? null : now - ago + MIN,
     steps: steps(state === 'running' ? 'waiting' : 'done'),
     message: null,
+    notShipped: null,
   });
   return [run(7, 'running', 2 * MIN), run(6, 'done', 60 * MIN)];
 }

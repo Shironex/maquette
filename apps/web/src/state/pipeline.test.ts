@@ -10,6 +10,7 @@ import {
   nodeViews,
   runStatusLine,
   runSummary,
+  shipsNowhere,
   stageViews,
 } from './pipeline';
 
@@ -158,5 +159,38 @@ describe('stageViews', () => {
   it('names the stages of a game, Export in place of Web', () => {
     const labels = stageViews([asset('blender')], undefined, 'game').map(s => s.label);
     expect(labels).toEqual(['Concept', 'Refs', '3D model', 'Blender', 'Export', 'Ship']);
+  });
+});
+
+describe('a run with nowhere to ship', () => {
+  const shipped = (
+    run: RunRecord,
+    state: RunRecord['steps'][number]['state'],
+    message: string
+  ) => ({
+    ...run,
+    notShipped: message,
+    steps: run.steps.map(s => (s.id === 'ship' ? { ...s, state, message } : s)),
+  });
+
+  it('reads as not shipped on the node and in the status line', () => {
+    const base = view();
+    const reason = 'No site repo is set for this project, so nothing was shipped.';
+    const run = shipped({ ...base.runs[0]!, state: 'done' }, 'skipped', reason);
+    const nodes = nodeViews({ ...base, runs: [run] });
+    expect(nodes.ship).toEqual({ state: 'waiting', label: 'Not shipped' });
+    expect(runStatusLine(run)).toBe(`Run ${run.number} done, nothing shipped`);
+  });
+
+  it('knows before the run: only a Ship step that takes the repo needs one', () => {
+    const { def } = view();
+    const ship = def.steps.find(s => s.id === 'ship')!;
+    const others = def.steps.filter(s => s.id !== 'ship');
+    const taking = { ...def, steps: [...others, { ...ship, args: ['--site', '{siteRepo}'] }] };
+    expect(shipsNowhere(taking, null)).toBe(true);
+    expect(shipsNowhere(taking, '  ')).toBe(true);
+    expect(shipsNowhere(taking, '/sites/moon')).toBe(false);
+    expect(shipsNowhere({ ...def, steps: others }, null)).toBe(false);
+    expect(shipsNowhere({ ...def, steps: [...others, { ...ship, args: [] }] }, null)).toBe(false);
   });
 });

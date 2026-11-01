@@ -144,7 +144,9 @@ function runItems(latest: RunRecord | undefined, now: number): StatusBarItem[] {
   return [
     ...(latest.state === 'failed'
       ? [{ label: runStatusLine(latest), dot: 'offline' as const }]
-      : []),
+      : latest.notShipped
+        ? [{ label: runStatusLine(latest), dot: 'warn' as const }]
+        : []),
     {
       label: `Last run ${formatAgo(latest.finishedAtMs ?? latest.queuedAtMs ?? now, now)}`,
       right: true,

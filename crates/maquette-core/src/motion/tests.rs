@@ -68,7 +68,7 @@ fn the_view_lists_every_model_and_counts_motion_inside_the_scene_budget() {
         "figure".into(),
         BTreeMap::from([("Idle".to_string(), ClipSettings { ship: false })]),
     );
-    layout::save(dir.path(), &layout).expect("layout");
+    layout::update(dir.path(), |_| Ok(layout.clone())).expect("layout");
     let budgets = Budgets::default();
     let view = view(dir.path(), &manifest, &def, &budgets, None).expect("view");
     let ids: Vec<&str> = view.models.iter().map(|m| m.asset.as_str()).collect();
@@ -136,7 +136,7 @@ fn saving_motion_keeps_the_layout_and_refuses_unknown_parts() {
     layout
         .models
         .insert("crate".into(), layout::Placement::default());
-    layout::save(dir.path(), &layout).expect("layout");
+    layout::update(dir.path(), |_| Ok(layout.clone())).expect("layout");
     let rest = ObjectState {
         id: "closed".into(),
         name: "Closed".into(),

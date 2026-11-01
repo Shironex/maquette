@@ -60,6 +60,7 @@ const record = (items: PackItem[]): PackRecord => ({
   finishedAt: '2026-10-31T14:05:12Z',
   bytes: 13_600_000,
   message: null,
+  leftOut: 0,
   preset: 'plain-obj',
 });
 
@@ -192,6 +193,7 @@ describe('export pack rules', () => {
         item('b', 'warn', { files: files('b') }),
       ]),
       message: '1 model left out of the pack.',
+      leftOut: 1,
     };
     expect(doneLine(passing)).toBe('1 of 2 models are in the pack. 1 model left out of the pack.');
   });

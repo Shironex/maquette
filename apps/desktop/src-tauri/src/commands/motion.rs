@@ -123,7 +123,7 @@ mod tests {
         placed
             .models
             .insert("lamp".into(), layout::Placement::default());
-        layout::save(&project_dir, &placed).expect("layout");
+        layout::update(&project_dir, |_| Ok(placed.clone())).expect("layout");
         let states = BTreeMap::from([(
             "lamp".to_string(),
             ObjectStates {

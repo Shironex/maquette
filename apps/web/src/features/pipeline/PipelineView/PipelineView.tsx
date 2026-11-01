@@ -22,6 +22,7 @@ import { PreviewSiteButton } from '../PreviewSiteButton';
 import { RunLog } from '../RunLog';
 import { StartersBanner } from '../StartersBanner';
 import { ShipView } from '../ShipView';
+import { NoRepoDialog } from './NoRepoDialog';
 import { SiteShipView } from '../SiteShipView';
 import { runOverview } from './runOverview';
 import { usePipelineView } from './PipelineView.hooks';
@@ -152,7 +153,7 @@ export default function PipelineView() {
                     : 'Runs every step, skipping cached ones',
                   buildOnly ? ', and stops before Ship' : '',
                 ].join('')}
-                onClick={() => void run({ force, buildOnly })}
+                onClick={ship.noRepo.start}
               >
                 Run pipeline
               </Button>
@@ -160,6 +161,14 @@ export default function PipelineView() {
           </>
         }
       />
+      {ship.noRepo.asking ? (
+        <NoRepoDialog
+          repo={ship.noRepo.word}
+          onRun={ship.noRepo.run}
+          onSettings={ship.noRepo.settings}
+          onDismiss={ship.noRepo.dismiss}
+        />
+      ) : null}
       {game && ship.open ? (
         <ShipView project={project.id} onClose={() => ship.setOpen(false)} />
       ) : ship.open ? (
@@ -222,6 +231,23 @@ export default function PipelineView() {
                     </Button>
                   ) : null}
                 </>
+              }
+            />
+          ) : null}
+
+          {latest?.notShipped && !active ? (
+            <InlineBanner
+              tone="warning"
+              title={`Run ${latest.number} finished, but nothing shipped`}
+              detail={latest.notShipped}
+              actions={
+                <Button
+                  size="sm"
+                  tooltip={`Opens Settings, where the ${ship.noRepo.word} repo is picked`}
+                  onClick={ship.noRepo.openSettings}
+                >
+                  Open Settings
+                </Button>
               }
             />
           ) : null}

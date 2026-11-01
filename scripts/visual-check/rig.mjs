@@ -16,6 +16,11 @@ async function openCase(open, state, name) {
 }
 
 export async function rigShots({ open, shot }) {
+  const kept = await openCase(open, 'round2-no-change', /Duchess Vesperine/);
+  await kept.getByText(/Round 2 changed nothing/).waitFor();
+  await shot(kept, 'rig-round2-no-change');
+  await kept.context().close();
+
   const before = await openCase(open, 'read', /Duchess Vesperine/);
   await before.getByRole('region', { name: 'Before sheet' }).waitFor();
   await before.getByText('Hair strands on finger bones').waitFor();

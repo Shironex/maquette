@@ -248,6 +248,7 @@ export function seedRecords(
     finishedAt: iso(nowMs - ageMs + 192_000),
     bytes: null,
     message: null,
+    leftOut: 0,
     preset: 'plain-obj',
   });
   const done = record('tavern-kit', 30, 9, 2 * 86_400_000);

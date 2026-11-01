@@ -96,22 +96,18 @@ export const passes = (i: PackItem) => i.state === 'pass' || i.state === 'kept';
 
 const hasFiles = (i: PackItem) => i.files.length > 0;
 
-/** How many models the finish left out, as the record's message says. */
-const leftOutCount = (record: Pick<PackRecord, 'message'>) =>
-  Number(/^(\d+) models? left out/.exec(record.message ?? '')?.[1] ?? 0);
-
 /**
  * The models that are in a finished pack. A model with files that passed,
  * was kept or still carries a warning shipped: only a failed model, one
  * with no files, or a warning a "zip the ones that pass" left out is not.
  * The record keeps no per-model flag for that last case, so it is read from
- * how many models the finish says it left out.
+ * how many models the finish left out.
  */
-export function shippedItems(record: Pick<PackRecord, 'items' | 'message'>): PackItem[] {
+export function shippedItems(record: Pick<PackRecord, 'items' | 'leftOut'>): PackItem[] {
   const sure = record.items.filter(i => passes(i) && hasFiles(i));
   const warned = record.items.filter(i => i.state === 'warn' && hasFiles(i));
   const never = record.items.length - sure.length - warned.length;
-  return leftOutCount(record) > never ? sure : [...sure, ...warned];
+  return (record.leftOut ?? 0) > never ? sure : [...sure, ...warned];
 }
 
 /** The shipped models that carry a warning, kept as it is. */
@@ -130,7 +126,7 @@ export interface ImportRow {
  * imported into an empty scene, so a type's rows count the models that have
  * one, and how many of them came through as asked.
  */
-export function importRows(record: Pick<PackRecord, 'items' | 'message'>): ImportRow[] {
+export function importRows(record: Pick<PackRecord, 'items' | 'leftOut'>): ImportRow[] {
   const shipped = new Set(shippedItems(record));
   // A failed model that wrote files counts as written, and as not opened.
   const types = [
