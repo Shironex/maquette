@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 
-export type StatusDot = 'ok' | 'running' | 'offline' | 'idle';
+export type StatusDot = 'ok' | 'running' | 'warn' | 'offline' | 'idle';
 
 export interface StatusBarItem {
   label: string;
@@ -20,6 +20,7 @@ export interface StatusBarItem {
 const DOT: Record<StatusDot, string> = {
   ok: 'bg-sage',
   running: 'bg-amber shadow-[0_0_0_3px_var(--amber-soft)]',
+  warn: 'bg-amber',
   offline: 'bg-danger',
   idle: 'bg-line-strong',
 };
