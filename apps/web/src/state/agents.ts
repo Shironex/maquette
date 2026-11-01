@@ -43,8 +43,8 @@ export const COMMAND_SOURCE: Record<CommandSource, string> = {
 /**
  * Which approval cards are open. A new card opens only while no other is, so
  * several never bury the page, and one answered does not open the next. A
- * card can still open or move under the pointer (see `useArmed`), so this
- * alone does not protect its Approve from a stray click.
+ * card can still open or move under the pointer, so this alone does not
+ * protect its Approve from a stray click; the hold in `useApprovalStack` does.
  */
 export function settleOpen(
   open: Readonly<Record<string, boolean>>,

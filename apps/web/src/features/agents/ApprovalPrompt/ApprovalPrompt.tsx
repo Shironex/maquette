@@ -21,11 +21,14 @@ export default function ApprovalPrompt() {
       floating
       collapsed={stack.collapsed(a.id)}
       onToggle={() => stack.toggle(a.id)}
-      layout={stack.layout}
+      armed={stack.armed}
     />
   ));
   return (
-    <div className="pointer-events-none fixed right-5 bottom-11 z-40 flex max-h-[calc(100vh-240px)] w-[400px] flex-col gap-2.5 overflow-y-auto">
+    <div
+      ref={stack.column}
+      className="pointer-events-none fixed right-5 bottom-11 z-40 flex max-h-[calc(100vh-240px)] w-[400px] flex-col gap-2.5 overflow-y-auto"
+    >
       {cards}
     </div>
   );

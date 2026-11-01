@@ -4,7 +4,7 @@ import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { COMMAND_SOURCE, approvalTitle } from '@/state/agents';
 import { formatCredits } from '@/state/credits';
-import { useApprovalCard, useArmed } from './ApprovalCard.hooks';
+import { useApprovalCard } from './ApprovalCard.hooks';
 
 export interface ApprovalCardProps {
   approval: Approval;
@@ -18,11 +18,10 @@ export interface ApprovalCardProps {
   /** Opens or closes it; without this it stays open. */
   onToggle?: () => void;
   /**
-   * Changes whenever this card's buttons can have moved. Approve is unarmed
-   * for a moment after each change, and after opening; Deny stays live.
-   * Without this, Approve is armed from the start.
+   * False while the list's hold is on (see `useApprovalStack`): Approve does
+   * nothing, Deny stays live.
    */
-  layout?: string;
+  armed?: boolean;
 }
 
 export default function ApprovalCard({
@@ -30,9 +29,8 @@ export default function ApprovalCard({
   floating,
   collapsed = false,
   onToggle,
-  layout,
+  armed = true,
 }: ApprovalCardProps) {
-  const armed = useArmed(layout, !collapsed);
   const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';

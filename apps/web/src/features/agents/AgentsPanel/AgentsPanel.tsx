@@ -24,7 +24,7 @@ export default function AgentsPanel({ config, onChange, errors }: AgentsPanelPro
       approval={a}
       collapsed={stack.collapsed(a.id)}
       onToggle={() => stack.toggle(a.id)}
-      layout={stack.layout}
+      armed={stack.armed}
     />
   ));
   return (
@@ -38,7 +38,9 @@ export default function AgentsPanel({ config, onChange, errors }: AgentsPanelPro
           <h3 className="text-meta font-semibold tracking-[0.02em] text-fg-mute uppercase">
             Waiting for you
           </h3>
-          {approvals}
+          <div ref={stack.column} className="flex flex-col gap-2">
+            {approvals}
+          </div>
         </div>
       ) : null}
       <ActivityList status={status} />

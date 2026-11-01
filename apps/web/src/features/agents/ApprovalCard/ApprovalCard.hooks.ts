@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { commands, errorMessage, type Approval } from '@/ipc/client';
 import { settleOpen } from '@/state/agents';
 import { fileUrl } from '@/ipc/files';
@@ -35,36 +35,89 @@ function useShipNotes(approval: Approval, game: boolean): string[] {
   return game ? notes : [];
 }
 
-/** How long Approve stays unarmed after its place on screen may have changed. */
+/** How long Approve stays unarmed after its place on screen changed. */
 export const ARM_DELAY_MS = 500;
 
+/** Smaller height changes do not move a button enough to hit the wrong one. */
+const MOVE_PX = 2;
+
 /**
- * False from the render `layout` changes until `ARM_DELAY_MS` later. A click
- * in that time does nothing and is not kept for later. The delay guards a
- * press, it is no animation, so reduced motion keeps it and nothing moves.
+ * The one hold on every Approve of a list. `armed` goes false in the same
+ * render the cards change (one opens, folds, arrives or leaves), and when
+ * they really move: a card or the list changes height, the list or a parent
+ * scrolls, the window resizes. It comes back `ARM_DELAY_MS` after the last of
+ * those, so a click in between does nothing and is not kept. Nothing on the
+ * cards keeps moving by itself, and changes under `MOVE_PX` do not count, so
+ * it settles; a list that really never stopped moving would stay held. The
+ * delay guards a press and is no animation, so reduced motion keeps it.
  */
-export function useArmed(layout: string | undefined, showing: boolean) {
-  const [armedAt, setArmedAt] = useState<string | null>(null);
+function useApprovalHold(layout: string) {
+  const column = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(layout);
+  const [restarts, setRestarts] = useState(0);
+  const [armed, setArmed] = useState(false);
+  const restart = useCallback(() => {
+    setArmed(false);
+    setRestarts(n => n + 1);
+  }, []);
+  if (seen !== layout) {
+    setSeen(layout);
+    restart();
+  }
+
   useEffect(() => {
-    if (layout === undefined || !showing) return;
-    const timer = setTimeout(() => setArmedAt(layout), ARM_DELAY_MS);
+    const timer = setTimeout(() => setArmed(true), ARM_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [layout, showing]);
-  return layout === undefined || (showing && armedAt === layout);
+  }, [restarts]);
+
+  useEffect(() => {
+    const list = column.current;
+    if (!list) return;
+    const heights = new Map<Element, number>();
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(entries => {
+            let moved = false;
+            for (const { target, contentRect } of entries) {
+              const before = heights.get(target);
+              heights.set(target, contentRect.height);
+              if (before !== undefined && Math.abs(contentRect.height - before) >= MOVE_PX)
+                moved = true;
+            }
+            if (moved) restart();
+          });
+    observer?.observe(list);
+    for (const card of list.children) observer?.observe(card);
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && e.target.contains(list)) restart();
+    };
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    window.addEventListener('resize', restart);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('scroll', onScroll, { capture: true });
+      window.removeEventListener('resize', restart);
+    };
+    // A new layout is a new set of cards to watch.
+  }, [layout, restart]);
+
+  return { column, armed };
 }
 
 /**
  * Which of a list of approval cards are open, the toggle each one gets, and
- * `layout`, which changes whenever a card opens, closes, arrives or leaves:
- * every time an answer button can have moved.
+ * the hold on their Approve: `column` goes on the element around the cards.
  */
 export function useApprovalStack(approvals: readonly Approval[] | undefined) {
   const [stored, setOpen] = useState<Readonly<Record<string, boolean>>>({});
   const ids = approvals?.map(a => a.id) ?? [];
   const open = settleOpen(stored, ids);
   if (open !== stored) setOpen(open);
+  const { column, armed } = useApprovalHold(ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','));
   return {
-    layout: ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','),
+    column,
+    armed,
     collapsed: (id: string) => !open[id],
     toggle: (id: string) => setOpen(now => ({ ...now, [id]: !now[id] })),
   };
