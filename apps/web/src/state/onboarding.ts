@@ -352,6 +352,42 @@ export function readySummary(
   ];
 }
 
+export interface ModelRoute {
+  name: string;
+  status: string;
+  ready: boolean;
+  detail: string;
+}
+
+/** What each way of making a model needs, for the first look at the defaults. */
+export function modelRoutes(tools: readonly ToolReport[]): ModelRoute[] {
+  const codex = tools.find(t => t.id === 'codex');
+  const codexReady = codex?.status === 'found' && !codex.warning;
+  return [
+    {
+      name: 'By hand',
+      status: 'ready, free',
+      ready: true,
+      detail:
+        "Maquette writes a folder with the images; you make the model on the provider's site.",
+    },
+    {
+      name: 'Tripo and Meshy',
+      status: 'key in Settings, later',
+      ready: false,
+      detail: 'Spends credits, and every send waits for your Approve. Add a key in Settings.',
+    },
+    {
+      name: 'Lab images',
+      status: codexReady ? 'Codex ready' : 'needs Codex, or your own images',
+      ready: codexReady,
+      detail: codexReady
+        ? 'The Lab draws concepts through the Codex CLI.'
+        : "Install the Codex CLI and run codex login, or drag your own images onto the Board's Concept column.",
+    },
+  ];
+}
+
 /** The tail after the amber warning on the Toolchain row. */
 export function missingEffect(tools: readonly ToolReport[]): string | undefined {
   const optional = summarizeTools(tools).missing.filter(
