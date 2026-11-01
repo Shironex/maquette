@@ -99,7 +99,7 @@ export function createFakeAgents({
           job: null,
           assetName: null,
           service: null,
-          detail: null,
+          detail: 'Writes to /Users/you/code/frostveil-site',
           requestedAtMs: now - 12_000,
           items: [],
         },

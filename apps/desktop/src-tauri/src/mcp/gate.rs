@@ -29,14 +29,18 @@ pub enum ShipReason {
 pub struct ShipGate {
     pub hub: Arc<Hub>,
     pub reason: ShipReason,
+    /// The folder Ship writes into, shown on the approval. None when it has
+    /// no repo and only fills the project's shipped folder.
+    pub destination: Option<String>,
 }
 
 impl ShipGate {
     /// The gate for a run an agent starts.
-    pub fn for_agent(hub: Arc<Hub>) -> Self {
+    pub fn for_agent(hub: Arc<Hub>, destination: Option<String>) -> Self {
         Self {
             hub,
             reason: ShipReason::Agent,
+            destination,
         }
     }
 }
@@ -60,7 +64,8 @@ impl StepGate for ShipGate {
     }
 
     fn wait(&self, run: &RunRecord, step: &StepDef, cancelled: &AtomicBool) -> GateDecision {
-        let id = self.hub.request_approval(run, step);
+        let detail = self.destination.as_ref().map(|d| format!("Writes to {d}"));
+        let id = self.hub.request_approval(run, step, detail);
         match self.hub.wait_decision(&id, cancelled) {
             Some(true) => GateDecision::Allow,
             Some(false) => GateDecision::Deny(DENIED.to_string()),

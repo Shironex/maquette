@@ -335,7 +335,7 @@ pub async fn pipeline_run(
     }
     let setup = setup(&session, &project, ask, tools)?;
     // A game's Ship writes into the game repo, so it waits for approval.
-    let gate = super::game::ship_gate(&session, &project, &agents.hub);
+    let gate = super::game::ship_gate(&session, &project, &agents.hub, destination(&setup));
     Ok(runner.0.submit_with(
         setup,
         maquette_core::pipeline::runner::RunOptions {
@@ -424,7 +424,7 @@ pub(crate) mod bake;
 pub(crate) use bake::save_bake;
 mod run;
 pub use run::RunAsk;
-pub(crate) use run::setup;
+pub(crate) use run::{destination, setup};
 
 #[cfg(test)]
 mod tests;

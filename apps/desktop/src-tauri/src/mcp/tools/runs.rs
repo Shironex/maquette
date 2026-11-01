@@ -261,13 +261,19 @@ impl McpTools {
                     },
                     tools,
                 )?;
+                let to = pipeline::destination(&setup);
                 let gate =
-                    crate::commands::game::ship_gate(host.session(), &args.project, &gate_hub)
-                        .or_else(|| {
-                            config.agents.rules.ask_before_shipping.then(|| {
-                                Arc::new(ShipGate::for_agent(gate_hub)) as Arc<dyn StepGate>
-                            })
-                        });
+                    crate::commands::game::ship_gate(
+                        host.session(),
+                        &args.project,
+                        &gate_hub,
+                        to.clone(),
+                    )
+                    .or_else(|| {
+                        config.agents.rules.ask_before_shipping.then(|| {
+                            Arc::new(ShipGate::for_agent(gate_hub, to)) as Arc<dyn StepGate>
+                        })
+                    });
                 host.runner()
                     .submit_with(
                         setup,

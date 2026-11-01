@@ -293,7 +293,12 @@ impl Hub {
     }
 
     /// Records that `run` waits before `step` and returns the approval's id.
-    pub fn request_approval(&self, run: &RunRecord, step: &StepDef) -> String {
+    pub fn request_approval(
+        &self,
+        run: &RunRecord,
+        step: &StepDef,
+        detail: Option<String>,
+    ) -> String {
         self.push(|id| Approval {
             id,
             kind: ApprovalKind::Ship,
@@ -304,7 +309,7 @@ impl Hub {
             job: None,
             asset_name: None,
             service: None,
-            detail: None,
+            detail,
             items: Vec::new(),
             requested_at_ms: now_ms(),
             estimate: None,

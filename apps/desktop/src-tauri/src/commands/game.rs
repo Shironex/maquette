@@ -60,11 +60,13 @@ pub(crate) fn ship_gate(
     session: &Session,
     project_id: &str,
     hub: &Arc<Hub>,
+    destination: Option<String>,
 ) -> Option<Arc<dyn StepGate>> {
     game_project(session, project_id).ok()?;
     Some(Arc::new(ShipGate {
         hub: Arc::clone(hub),
         reason: ShipReason::Game,
+        destination,
     }))
 }
 
@@ -296,7 +298,7 @@ mod tests {
         let site = make("Moon Island", ProjectTarget::Website, None);
         let hub = Arc::new(Hub::new(|| {}));
 
-        let gate = ship_gate(&session, &game.id, &hub).expect("a game gates Ship");
+        let gate = ship_gate(&session, &game.id, &hub, None).expect("a game gates Ship");
         let dir = project::dir(&root, &config.layout, &game.id).expect("dir");
         let def = maquette_core::pipeline::ensure(&dir, &game).expect("pipeline");
         let ship = def
@@ -306,7 +308,7 @@ mod tests {
             .expect("ship step");
         assert!(gate.applies(ship));
         assert!(gate.waiting_message(ship).contains("game repo"));
-        assert!(ship_gate(&session, &site.id, &hub).is_none());
+        assert!(ship_gate(&session, &site.id, &hub, None).is_none());
         assert!(
             scan(&session, &site.id).is_err(),
             "a website has no game scan"

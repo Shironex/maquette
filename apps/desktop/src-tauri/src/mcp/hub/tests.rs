@@ -56,7 +56,7 @@ fn the_activity_list_keeps_the_newest_calls() {
 #[test]
 fn an_approval_waits_for_a_decision_or_a_cancel() {
     let hub = Arc::new(Hub::new(|| {}));
-    let id = hub.request_approval(&run("moon-run-3"), &ship());
+    let id = hub.request_approval(&run("moon-run-3"), &ship(), None);
     assert_eq!(hub.pending_for("moon-run-3").expect("pending").id, id);
     let waiter = {
         let hub = hub.clone();
@@ -69,7 +69,7 @@ fn an_approval_waits_for_a_decision_or_a_cancel() {
     assert!(hub.pending_for("moon-run-3").is_none());
     assert!(!hub.decide(&id, false), "already decided");
 
-    let id = hub.request_approval(&run("moon-run-4"), &ship());
+    let id = hub.request_approval(&run("moon-run-4"), &ship(), None);
     assert_eq!(hub.wait_decision(&id, &AtomicBool::new(true)), None);
     assert!(hub.approvals().is_empty());
 }

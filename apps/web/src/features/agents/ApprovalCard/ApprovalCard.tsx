@@ -19,6 +19,7 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
   const rest = approval.kind === 'rest-pose' || weights || chains || doctor;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
+  const shipTo = approval.kind === 'ship' ? approval.detail : null;
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
   const items = approval.items.map(item => (
     <li
@@ -101,6 +102,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           {formatAgo(approval.requestedAtMs ?? now, now)}
         </span>
       </div>
+      {shipTo ? (
+        <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 font-mono text-meta break-all text-fg-dim">
+          {shipTo}
+        </p>
+      ) : null}
       {send && approval.items.length > 0 ? (
         <div className="ml-11 rounded-[7px] border border-line bg-raised text-meta">
           <ul className="m-0 flex max-h-[180px] list-none flex-col overflow-y-auto p-0">{items}</ul>

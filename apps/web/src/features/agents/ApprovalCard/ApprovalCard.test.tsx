@@ -75,6 +75,7 @@ describe('an approval card', () => {
     render(<ApprovalCard approval={approval('approval-1')} />);
     const card = screen.getByRole('alertdialog');
     expect(card).toHaveTextContent('Everything before Ship is done');
+    expect(card).toHaveTextContent('Writes to /Users/you/code/frostveil-site');
     expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
   });
 
