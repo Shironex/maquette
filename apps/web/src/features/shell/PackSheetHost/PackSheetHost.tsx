@@ -9,10 +9,10 @@ const PackSheet = lazy(async () => ({
 
 /** The pack sheet, over whichever view asked for it, loaded the first time it opens. */
 export default function PackSheetHost() {
-  const { open, close } = usePackSheetHost();
+  const { open, close, hasPack } = usePackSheetHost();
   if (!open) return null;
   return (
-    <PackSheetBoundary onClose={close}>
+    <PackSheetBoundary onClose={close} hasPack={hasPack}>
       <Suspense fallback={null}>
         <PackSheet />
       </Suspense>

@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { PackRecord } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { usePackStore } from '@/state/use-pack-store';
 import { PackSheetHost } from '.';
@@ -36,6 +37,15 @@ describe('the pack sheet host', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(usePackStore.getState().open).toBe(false));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('points to Earlier packs when a pack was on show', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<PackSheetHost />);
+    act(() => usePackStore.setState({ open: true, record: { id: 'p' } as PackRecord }));
+    const sheet = await screen.findByRole('dialog', { name: 'Export pack could not open' });
+    expect(sheet).toHaveTextContent('Earlier packs');
+    expect(sheet).not.toHaveTextContent('Nothing was exported');
   });
 
   it('closes the failure sheet when another project opens', async () => {

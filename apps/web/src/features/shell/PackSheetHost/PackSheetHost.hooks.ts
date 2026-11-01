@@ -21,11 +21,12 @@ function useClosesWithProject() {
   }, [current, open, close]);
 }
 
-/** Whether the pack sheet is up, and how it closes. */
+/** Whether the pack sheet is up, how it closes, and whether a pack is on show. */
 export function usePackSheetHost() {
   useClosesWithProject();
   return {
     open: usePackStore(s => s.open),
     close: usePackStore(s => s.close),
+    hasPack: usePackStore(s => s.record !== null),
   };
 }
