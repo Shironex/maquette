@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Menu } from '.';
@@ -134,5 +134,25 @@ describe('the menu', () => {
     await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Send' })).toHaveFocus());
     await userEvent.keyboard('{End}');
     expect(screen.getByRole('menuitem', { name: 'Remove' })).toHaveFocus();
+  });
+
+  it('drops the second click of a double-click just after opening, not a later or keyboard one', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const onSelect = vi.fn();
+      render(
+        <Menu label="Actions" onClose={vi.fn()} items={[{ id: 'a', label: 'Go', onSelect }]} />
+      );
+      const row = await screen.findByRole('menuitem', { name: 'Go' });
+      fireEvent.click(row, { detail: 2 });
+      expect(onSelect).not.toHaveBeenCalled();
+      fireEvent.click(row, { detail: 0 });
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(300);
+      fireEvent.click(row, { detail: 2 });
+      expect(onSelect).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

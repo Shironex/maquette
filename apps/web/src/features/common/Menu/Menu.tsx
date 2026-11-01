@@ -14,7 +14,7 @@ import { MENU_PANEL, MENU_SECTION_LABEL, MENU_SEPARATOR } from './menuStyles';
  * it beside itself.
  */
 export default function Menu({ label, items, onClose, header, sections, className }: MenuProps) {
-  const { ref, onKeyDown, place } = useMenu(onClose);
+  const { ref, onKeyDown, onClickCapture, place } = useMenu(onClose);
   const baseId = useId();
   const rows = sectionRuns(items).map((run, i) => {
     const first = run[0];
@@ -43,6 +43,7 @@ export default function Menu({ label, items, onClose, header, sections, classNam
       role="menu"
       aria-label={label}
       onKeyDown={onKeyDown}
+      onClickCapture={onClickCapture}
       style={
         place
           ? { left: place.left, top: place.top, width: place.width, maxHeight: place.maxHeight }
