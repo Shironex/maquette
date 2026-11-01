@@ -68,7 +68,90 @@ async function removeShots(board, shot) {
   await board.keyboard.press('Escape');
 }
 
+/**
+ * At the 1120 by 720 minimum: the header's bright button on an empty and a
+ * populated project, the ... menu, a normal, a rigged and a By hand card's
+ * menu, the 40 px target of the dots, Export pack staying over the Board, and
+ * several approval cards folded and opened.
+ */
+async function headerMenuShots({ open, shot }) {
+  const HD = { width: 1120, height: 720 };
+  const empty = await open('&scenario=configured&game=import', '#/board', HD);
+  await empty.getByRole('heading', { name: 'Your first build in three steps' }).waitFor();
+  await empty.mouse.move(0, 0);
+  await shot(empty, 'header-empty');
+  await empty.getByRole('button', { name: 'Hide tips' }).click();
+  await empty.mouse.move(0, 0);
+  await shot(empty, 'header-empty-tips-hidden');
+  await empty.context().close();
+
+  const page = await open('&scenario=configured', '#/board', HD);
+  await page.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  await page.mouse.move(0, 0);
+  await shot(page, 'header-populated');
+  await page.getByRole('button', { name: 'More board actions' }).click();
+  await page.getByRole('group', { name: 'Make' }).waitFor();
+  await page.mouse.move(0, 0);
+  await shot(page, 'header-more-menu');
+  await page.keyboard.press('Escape');
+  for (const [name, file] of [
+    ['Veil platform', 'normal'],
+    ['Elsheria', 'rigged'],
+    ['Guardian statues', 'handoff'],
+  ]) {
+    const dots = page.getByRole('button', { name: `More for ${name}` });
+    if (file === 'normal') {
+      // The corners of the 40 px target still hit the button, the card did not move.
+      const box = await dots.boundingBox();
+      const hits = await dots.evaluate(
+        (el, { x, y }) =>
+          [
+            [x - 6, y - 6],
+            [x + 32, y + 32],
+          ].every(([px, py]) => {
+            const at = document.elementFromPoint(px, py);
+            return at === el || el.contains(at);
+          }),
+        box
+      );
+      if (!hits) throw new Error('the card dots do not have their 40 px target');
+    }
+    await dots.click();
+    await page.getByRole('menu', { name: `${name} actions` }).waitFor();
+    await page.mouse.move(0, 0);
+    await shot(page, `card-menu-${file}`);
+    await page.keyboard.press('Escape');
+  }
+  await page.getByRole('button', { name: 'More board actions' }).click();
+  await page.getByRole('menuitem', { name: 'Export pack' }).click();
+  await page
+    .getByRole('dialog', { name: 'Export pack' })
+    .getByText(/made ready/)
+    .waitFor();
+  if (!page.url().endsWith('#/board')) throw new Error(`Export pack left the Board: ${page.url()}`);
+  await page.mouse.move(0, 0);
+  await shot(page, 'header-pack-sheet');
+  await page.context().close();
+
+  const asked = await open('&scenario=configured&agents=many', '#/board', HD);
+  const preview = asked.getByRole('alertdialog', {
+    name: 'Run the dev command of frostveil-site?',
+  });
+  await preview.waitFor();
+  await asked.mouse.move(0, 0);
+  await shot(asked, 'approvals-collapsed');
+  await asked.getByRole('button', { name: 'Review: Send 3 assets to Tripo?' }).click();
+  await asked.mouse.move(0, 0);
+  await shot(asked, 'approvals-expanded');
+  await preview.getByRole('button', { name: /^Review/ }).click();
+  await preview.getByRole('button', { name: 'Approve and run' }).scrollIntoViewIfNeeded();
+  await asked.mouse.move(0, 0);
+  await shot(asked, 'approvals-preview-expanded');
+  await asked.context().close();
+}
+
 export async function boardShots({ open, shot }) {
+  await headerMenuShots({ open, shot });
   const board = await open('&scenario=configured', '#/board');
   await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
   const lanterns = board.getByRole('button', { name: 'More for Guardian statues' });

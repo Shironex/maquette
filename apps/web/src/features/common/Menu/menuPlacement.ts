@@ -24,8 +24,8 @@ interface Box {
  * have where its caller put it, `anchor` the box it opens from (the
  * trigger's wrapper). It is kept EDGE inside the window, shifted sideways
  * when it would cross an edge, and flipped above the anchor when there is
- * more room there than below. A menu taller than the room is capped and
- * scrolls inside.
+ * more room there than below. A menu taller than both sides moves over the
+ * anchor to stay whole; one taller than the window is capped and scrolls inside.
  */
 export function placeMenu(
   natural: Box,
@@ -38,6 +38,12 @@ export function placeMenu(
   const below = view.height - EDGE - natural.top;
   const gap = Math.max(MIN_GAP, natural.top - anchor.bottom);
   const above = anchor.top - gap - EDGE;
+  const whole = view.height - 2 * EDGE;
+  // Too tall for either side of the anchor but not for the window: it covers
+  // the anchor and shows every item, its last one too.
+  if (height > below && height > above && height <= whole) {
+    return { left, top: view.height - EDGE - height, width, maxHeight: height };
+  }
   if (height <= below || below >= above) {
     return { left, top: Math.max(EDGE, natural.top), width, maxHeight: Math.max(0, below) };
   }
