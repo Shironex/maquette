@@ -1,6 +1,7 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands, type ProjectManifest } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProjectsStore } from '@/state/use-projects-store';
@@ -8,6 +9,7 @@ import { useProvidersStore } from '@/state/use-providers-store';
 import { useTrashStore } from '@/state/use-trash-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import BoardView from './BoardView';
+import { useCardActions } from './BoardView.hooks';
 
 afterEach(() => {
   clearMocks();
@@ -28,6 +30,70 @@ async function renderBoard() {
   render(<BoardView />);
   await screen.findByRole('button', { name: /^Elsheria, v2/ });
 }
+
+describe('moving a card', () => {
+  const stageOf = (id: string) =>
+    useAppStore.getState().workspace?.project?.assets?.find(a => a.id === id)?.stage;
+
+  it('moves at once and goes back with a notice when the move fails', async () => {
+    await renderBoard();
+    const asset = useAppStore.getState().workspace?.project?.assets?.[0];
+    if (!asset) throw new Error('no asset');
+    let refuse: (reason: unknown) => void = () => {};
+    const spy = vi.spyOn(commands, 'assetMove').mockReturnValue(
+      new Promise((_, reject) => {
+        refuse = reject;
+      })
+    );
+    const to = asset.stage === 'ship' ? 'web' : 'ship';
+    const { result } = renderHook(() => useCardActions(useAppStore.getState().workspace?.project));
+    let moving: Promise<void> = Promise.resolve();
+    act(() => {
+      moving = result.current.move(asset, to);
+    });
+    expect(stageOf(asset.id)).toBe(to);
+    await act(async () => {
+      refuse({ code: 'x', message: 'disk full' });
+      await moving;
+    });
+    expect(stageOf(asset.id)).toBe(asset.stage);
+    expect(useAppStore.getState().notice?.title).toBe(`Could not move ${asset.name}`);
+    spy.mockRestore();
+  });
+
+  it('lets only the newest answer land', async () => {
+    await renderBoard();
+    const project = useAppStore.getState().workspace?.project;
+    const [a, b] = project?.assets ?? [];
+    if (!project || !a || !b) throw new Error('no assets');
+    const answers: ((p: ProjectManifest) => void)[] = [];
+    const spy = vi.spyOn(commands, 'assetMove').mockImplementation(
+      () =>
+        new Promise(resolve => {
+          answers.push(resolve);
+        })
+    );
+    const { result } = renderHook(() => useCardActions(useAppStore.getState().workspace?.project));
+    const moved: Promise<void>[] = [];
+    act(() => {
+      moved.push(result.current.move(a, a.stage === 'ship' ? 'web' : 'ship'));
+    });
+    act(() => {
+      moved.push(result.current.move(b, b.stage === 'ship' ? 'web' : 'ship'));
+    });
+    const wanted = stageOf(b.id);
+    await act(async () => {
+      answers[0]?.(project);
+      await moved[0];
+    });
+    expect(stageOf(b.id)).toBe(wanted);
+    await act(async () => {
+      answers[1]?.(useAppStore.getState().workspace?.project ?? project);
+      await moved[1];
+    });
+    spy.mockRestore();
+  });
+});
 
 describe('the Board', () => {
   it('selects cards with their boxes and Shift, then sends the selection in one batch', async () => {
