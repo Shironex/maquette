@@ -9,6 +9,7 @@ import {
   type ThumbnailReady,
 } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { openInBlender as openBlender } from './open-in-blender';
 import { useAppStore } from './use-app-store';
 import { retextureOffer } from './retexture-offer';
 import { usePrepareStore } from './use-prepare-store';
@@ -178,11 +179,8 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   },
 
   openInBlender: async id => {
-    try {
-      await commands.inboxOpenInBlender(id);
-    } catch (error) {
-      fail('Could not open Blender', error);
-    }
+    const name = get().snapshot?.items.find(i => i.id === id)?.name ?? id;
+    await openBlender(name, () => commands.inboxOpenInBlender(id));
   },
 
   onThumbnail: event => {
