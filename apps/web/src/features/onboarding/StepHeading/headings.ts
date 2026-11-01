@@ -4,7 +4,7 @@ import { STEP } from '@/state/onboarding';
 export const HEADINGS: Record<number, { title: string; lead: string }> = {
   [STEP.workspace]: {
     title: 'Pick a home for your projects',
-    lead: 'I keep every project, the Tripo inbox and the build cache under one root folder. Pick an empty folder, or an existing Maquette workspace to pick up where you left off.',
+    lead: 'I keep every project, the model inbox and the build cache under one root folder. Pick an empty folder, or an existing Maquette workspace to pick up where you left off.',
   },
   [STEP.toolchain]: {
     title: 'Check your tools',
