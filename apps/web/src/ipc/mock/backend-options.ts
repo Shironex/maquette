@@ -64,7 +64,7 @@ export type Args = Record<string, unknown>;
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
  * `many-assets-fixtures.ts`), `?inspect=diorama` 66 models in the scene, `?ship=hand-built` the website Ship settings
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
- * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models, `models` Frostveil with no refs waiting and `no-repo` that without its repo (see
+ * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models, `models` Frostveil with no refs waiting, `no-repo` that without its repo and `cancelled` that with its last run cancelled (see
  * `pipeline-many.ts`), `?stress=lists` every long list at a busy workspace's size
  * (see `stress-fixtures.ts`), `?avatar=` an avatar build (see
  * `create-avatar-handlers.ts`), `?previews=slow` Render previews a picture at a time. Configured scenarios also open with

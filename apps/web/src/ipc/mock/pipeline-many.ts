@@ -16,7 +16,7 @@ const extra = () => manyAssets().slice(0, EXTRA);
 export function seedManyPipeline(project: ProjectManifest, state: string | null): ProjectManifest {
   if (project.id !== 'frostveil') return project;
   if (state === 'many') return { ...project, assets: [...(project.assets ?? []), ...extra()] };
-  if (state !== 'models' && state !== 'no-repo') return project;
+  if (state !== 'models' && state !== 'no-repo' && state !== 'cancelled') return project;
   // No refs waiting for a send, so the Next step strip reaches the run and the repo.
   const assets = (project.assets ?? []).filter(a => a.stage !== 'refs');
   return { ...project, assets, siteRepo: state === 'no-repo' ? null : project.siteRepo };

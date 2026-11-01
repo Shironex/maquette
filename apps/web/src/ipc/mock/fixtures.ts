@@ -157,7 +157,7 @@ export function toolReports(scenario: string): ToolReport[] {
           status: 'missing',
           source: null,
           detail: 'not found on PATH',
-          hint: 'Install Blender from blender.org, or locate Blender.app.',
+          hint: 'Install Blender from blender.org or with brew install --cask blender, or locate Blender.app.',
         })
       : report({
           id: 'blender',
@@ -169,7 +169,14 @@ export function toolReports(scenario: string): ToolReport[] {
           detail: 'runs headless',
         });
   return [
-    blender,
+    scenario === 'no-blender-run'
+      ? { ...blender, status: 'broken', detail: 'did not answer' }
+      : scenario === 'no-blender-path'
+        ? {
+            ...blender,
+            warning: 'The saved location no longer works, so Maquette looked for another copy.',
+          }
+        : blender,
     report({
       id: 'codex',
       label: 'Codex CLI',
@@ -192,7 +199,7 @@ export function toolReports(scenario: string): ToolReport[] {
       status: 'missing',
       source: null,
       detail: 'not found on PATH',
-      hint: 'Install KTX-Software, then Re-check. Until then Compress keeps textures as PNG.',
+      hint: 'Install KTX-Software, then Re-check. Until then Compress keeps textures as PNG, so models download larger and use more GPU memory.',
     }),
     report({
       id: 'gltf-transform',

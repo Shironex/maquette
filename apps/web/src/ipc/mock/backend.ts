@@ -105,6 +105,7 @@ export function createBackend({
   }
   const now = clock.nowMs();
   const store = seedRunStore(configured, scenario === 'idle', now);
+  if (pipelineState === 'cancelled' && store.runs[0]) store.runs[0].state = 'cancelled';
   const presets = new Map<string, CompressPreset[]>();
   const runner = createFakeRunner(store, {
     emit: payload => emit?.({ name: 'pipeline', payload }),
