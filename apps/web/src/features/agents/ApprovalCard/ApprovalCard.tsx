@@ -4,19 +4,25 @@ import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { COMMAND_SOURCE, approvalTitle } from '@/state/agents';
 import { formatCredits } from '@/state/credits';
-import { useApprovalCard } from './ApprovalCard.hooks';
+import { useApprovalCard, useArmed } from './ApprovalCard.hooks';
 
 export interface ApprovalCardProps {
   approval: Approval;
   floating?: boolean;
   /**
    * Shows only what is asked and that it waits. Everything else, Approve and
-   * Deny included, is not there until it is opened, so no answer can be given
-   * without the details on show.
+   * Deny included, is not rendered until it is opened, so no answer can be
+   * given without the details on show.
    */
   collapsed?: boolean;
   /** Opens or closes it; without this it stays open. */
   onToggle?: () => void;
+  /**
+   * Changes whenever this card's buttons can have moved. Approve is unarmed
+   * for a moment after each change, and after opening; Deny stays live.
+   * Without this, Approve is armed from the start.
+   */
+  layout?: string;
 }
 
 export default function ApprovalCard({
@@ -24,7 +30,9 @@ export default function ApprovalCard({
   floating,
   collapsed = false,
   onToggle,
+  layout,
 }: ApprovalCardProps) {
+  const armed = useArmed(layout, !collapsed);
   const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';
@@ -300,7 +308,10 @@ export default function ApprovalCard({
                 variant="primary"
                 icon="check"
                 loading={deciding}
-                disabled={deciding}
+                disabled={deciding || !armed}
+                disabledReason={
+                  armed ? undefined : 'Ready in a moment, so a stray click cannot approve'
+                }
                 tooltip={
                   preview
                     ? 'Runs this command in this folder and remembers the yes for this folder and command'

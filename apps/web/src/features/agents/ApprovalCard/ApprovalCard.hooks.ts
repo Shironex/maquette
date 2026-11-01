@@ -35,12 +35,36 @@ function useShipNotes(approval: Approval, game: boolean): string[] {
   return game ? notes : [];
 }
 
-/** Which of a list of approval cards are open, and the toggle each one gets. */
+/** How long Approve stays unarmed after its place on screen may have changed. */
+export const ARM_DELAY_MS = 500;
+
+/**
+ * False from the render `layout` changes until `ARM_DELAY_MS` later. A click
+ * in that time does nothing and is not kept for later. The delay guards a
+ * press, it is no animation, so reduced motion keeps it and nothing moves.
+ */
+export function useArmed(layout: string | undefined, showing: boolean) {
+  const [armedAt, setArmedAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (layout === undefined || !showing) return;
+    const timer = setTimeout(() => setArmedAt(layout), ARM_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [layout, showing]);
+  return layout === undefined || (showing && armedAt === layout);
+}
+
+/**
+ * Which of a list of approval cards are open, the toggle each one gets, and
+ * `layout`, which changes whenever a card opens, closes, arrives or leaves:
+ * every time an answer button can have moved.
+ */
 export function useApprovalStack(approvals: readonly Approval[] | undefined) {
   const [stored, setOpen] = useState<Readonly<Record<string, boolean>>>({});
-  const open = settleOpen(stored, approvals?.map(a => a.id) ?? []);
+  const ids = approvals?.map(a => a.id) ?? [];
+  const open = settleOpen(stored, ids);
   if (open !== stored) setOpen(open);
   return {
+    layout: ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','),
     collapsed: (id: string) => !open[id],
     toggle: (id: string) => setOpen(now => ({ ...now, [id]: !now[id] })),
   };

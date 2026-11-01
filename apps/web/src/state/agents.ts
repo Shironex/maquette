@@ -41,14 +41,10 @@ export const COMMAND_SOURCE: Record<CommandSource, string> = {
 };
 
 /**
- * The approval's question: "Ship Frostveil, run 26?" with the project's
- * display name when known, "Send Guardian statue to Tripo?", or "Make 2
- * images for Harbour with OpenAI Images?".
- */
-/**
  * Which approval cards are open. A new card opens only while no other is, so
- * several never bury the page. One answered does not open the next: its
- * Approve must not slide under the pointer that just clicked.
+ * several never bury the page, and one answered does not open the next. A
+ * card can still open or move under the pointer (see `useArmed`), so this
+ * alone does not protect its Approve from a stray click.
  */
 export function settleOpen(
   open: Readonly<Record<string, boolean>>,
@@ -65,6 +61,11 @@ export function settleOpen(
   return same ? open : next;
 }
 
+/**
+ * The approval's question: "Ship Frostveil, run 26?" with the project's
+ * display name when known, "Send Guardian statue to Tripo?", or "Make 2
+ * images for Harbour with OpenAI Images?".
+ */
 export function approvalTitle(approval: Approval, projectName?: string): string {
   if (approval.kind === 'image-round') {
     const n = approval.conceptJobs?.length ?? 0;

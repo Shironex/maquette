@@ -21,6 +21,7 @@ export default function ApprovalPrompt() {
       floating
       collapsed={stack.collapsed(a.id)}
       onToggle={() => stack.toggle(a.id)}
+      layout={stack.layout}
     />
   ));
   return (

@@ -24,6 +24,7 @@ export default function AgentsPanel({ config, onChange, errors }: AgentsPanelPro
       approval={a}
       collapsed={stack.collapsed(a.id)}
       onToggle={() => stack.toggle(a.id)}
+      layout={stack.layout}
     />
   ));
   return (
