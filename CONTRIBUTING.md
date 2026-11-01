@@ -73,9 +73,16 @@ The gate differs from CI in three ways:
 - **Generated files:** the gate fails if the Rust tests rewrote the IPC bindings or `tool-names.txt`,
   because the Node lane may have read either version. Commit the new files and run it again.
 
-`pnpm gate:fast` checks only what changed since `main`, for quick rounds while you work. It lints and
-formats those files, runs the Vitest tests they affect, and skips the lane or steps they cannot reach;
-a change it cannot place runs the whole gate. It proves less and does not replace `pnpm gate`.
+`pnpm gate:fast` checks only what changed since `main`, for quick rounds while you work, and does not
+replace `pnpm gate`. A change to a file it cannot place, a package's config or a file known to be read
+across parts of the repo (the list is in `scripts/gate/plan.mjs`) runs the whole gate. Otherwise it
+does not prove:
+
+- that unchanged files still pass ESLint and Prettier: it checks the changed files, with a cache, so a
+  rule that looks at other files can miss a deleted one;
+- that tests it did not pick still pass: after a module change Vitest runs only what imports it;
+- anything in a lane or step it skipped, such as Rust after a web change. A new read across parts that
+  the list and its test do not catch would be skipped too.
 
 Architecture rules (folder per component, one way dependencies, file size limits) are in
 [docs/architecture.md](docs/architecture.md).

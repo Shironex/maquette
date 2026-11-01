@@ -1,7 +1,8 @@
 /** Tests for scripts/gate/plan.mjs: `pnpm test:scripts`. */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
 import { describe, test } from 'node:test';
 
 import { classify, DOCS, fastPlan, fullPlan } from './plan.mjs';
@@ -73,7 +74,7 @@ describe('classify', () => {
     assert.deepEqual(only('packages/ui/src/index.ts'), ['web']);
     assert.deepEqual(only('scripts/gate.mjs'), ['scripts']);
     assert.deepEqual(only('crates/maquette-core/src/lib.rs'), ['rust']);
-    assert.deepEqual(only('apps/desktop/src-tauri/tool-names.txt'), ['rust']);
+    assert.deepEqual(only('apps/desktop/src-tauri/src/lib.rs'), ['rust']);
     assert.deepEqual(only('plugins/maquette/skills/a/SKILL.md'), ['docs']);
     assert.deepEqual(only('plugins/maquette/.mcp.json'), ['skills']);
   });
@@ -89,9 +90,62 @@ describe('classify', () => {
     }
   });
 
-  test('the generated bindings need both lanes', () => {
-    const touched = classify(['apps/web/src/ipc/generated/bindings.ts']);
-    assert.ok(touched.web && touched.rust);
+  test('what another part of the repo reads runs the whole gate', () => {
+    for (const file of [
+      'crates/maquette-preview/src/frame/shim.js',
+      'apps/desktop/src-tauri/tauri.conf.json',
+      'apps/desktop/src-tauri/tool-names.txt',
+      'apps/web/src/ipc/generated/bindings.ts',
+      'apps/web/src/assets/mock/models/elsheria.glb',
+      '.github/ISSUE_TEMPLATE/bug_report.yml',
+    ]) {
+      assert.ok(existsSync(resolve(root, file)), `${file} is still there`);
+      assert.equal(classify([file]).other, true, file);
+    }
+  });
+
+  test('a package config runs the whole gate, and its README does not', () => {
+    for (const file of [
+      'apps/web/package.json',
+      'apps/site/tsconfig.json',
+      'packages/ui/tokens.json',
+    ]) {
+      assert.equal(classify([file]).other, true, file);
+    }
+    assert.equal(classify(['apps/web/README.md']).other, false);
+  });
+
+  test('a skill script reaches the Rust lane, since core compiles it in', () => {
+    const touched = classify(['plugins/maquette/skills/a/scripts/b.py']);
+    assert.ok(touched.rust && touched.skills);
+  });
+
+  test('every read across parts found in the sources is covered', () => {
+    const tracked = execFileSync('git', ['ls-files', '-z', 'apps', 'packages', 'crates'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).split('\0');
+    const reads = new Set();
+    for (const file of tracked) {
+      if (/\.(ts|tsx|mjs|astro)$/.test(file) && !file.includes('/generated/')) {
+        const text = readFileSync(resolve(root, file), 'utf8');
+        for (const [, path] of text.matchAll(
+          /['"]((?:\.\.\/)+(?:\.\.\/)*(?:crates|desktop\/src-tauri|\.github)\/[^'"?]+)/g
+        )) {
+          reads.add(relative(root, resolve(root, dirname(file), path)).replaceAll('\\', '/'));
+        }
+        for (const [, path] of text.matchAll(/['"]@crates\/([^'"?]+)/g))
+          reads.add(`crates/${path}`);
+      }
+      if (file.endsWith('.rs')) {
+        const text = readFileSync(resolve(root, file), 'utf8');
+        for (const [, path] of text.matchAll(/"(?:\.\.\/)+(apps\/(?:web|site)\/[^"]+)"/g)) {
+          reads.add(path);
+        }
+      }
+    }
+    assert.ok(reads.size >= 4, `only found ${[...reads].join(', ')}`);
+    for (const path of reads) assert.equal(classify([path]).other, true, path);
   });
 });
 
@@ -115,6 +169,14 @@ describe('fastPlan', () => {
     assert.ok(plan.node[0].args.includes('apps/web/src/App.tsx'));
     assert.ok(plan.node[0].args.includes('--cache'));
     assert.deepEqual(plan.node[3].args.slice(1, 5), ['vitest', 'run', '--changed', 'abc']);
+  });
+
+  test('a module change runs the affected tests, anything else runs them all', () => {
+    const vitest = files => fastPlan(files, options).node.find(s => s.name === 'test');
+    assert.equal(vitest(['apps/web/src/a.ts']).args[2], 'run');
+    assert.deepEqual(vitest(['apps/web/src/a.css']).args, ['test']);
+    assert.deepEqual(vitest(['apps/site/public/scene/models/a.glb']).args, ['test']);
+    assert.deepEqual(vitest(['apps/site/src/content/docs/a.md']).args, ['test']);
   });
 
   test('a UI kit or site change builds the site', () => {

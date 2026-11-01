@@ -13,6 +13,35 @@ export const DOCS =
   '^(docs/|assets/|\\.github/ISSUE_TEMPLATE/|LICENSE$|\\.github/[^/]+\\.(md|yml)$|\\.github/CODEOWNERS$)|^([^/]+/)*[^/]+\\.md$';
 const DOCS_RE = new RegExp(DOCS);
 
+/**
+ * Files one part of the repo reads from another's folder, by a path or from disk,
+ * so the changed paths alone do not show who is affected. These run the whole gate.
+ * A test scans the sources for reads of this kind and needs each one covered.
+ */
+const WHOLE_GATE = [
+  // Vitest (state/bridge-shim.test.ts) and the mock bundle read the Rust crate's shim.
+  'crates/maquette-preview/src/frame/shim.js',
+  // The site's copy and docs read the app's version; so do the release scripts.
+  'apps/desktop/src-tauri/tauri.conf.json',
+  // Written by the Rust tests; the script tests and the meta lint read it.
+  'apps/desktop/src-tauri/tool-names.txt',
+  // Written by the Rust tests; typecheck, Vitest and the app read it.
+  'apps/web/src/ipc/generated/bindings.ts',
+  // Vitest (state/about.test.ts) reads this form, which otherwise counts as docs.
+  '.github/ISSUE_TEMPLATE/bug_report.yml',
+];
+/** Folders of the same kind: maquette-glb's tests read the mock models. */
+const WHOLE_GATE_FOLDERS = ['apps/web/src/assets/mock/'];
+/** A package's own config (package.json, vite, tsconfig), which reaches past its files. */
+const PACKAGE_CONFIG = /^(apps|packages)\/[^/]+\/(?![^/]+\.md$)[^/]+$/;
+/** The skills' scripts, which core compiles in and its tests compare. */
+const SKILL_SCRIPTS = /^plugins\/.*\/scripts\//;
+
+const readsAcrossParts = file =>
+  WHOLE_GATE.includes(file) ||
+  WHOLE_GATE_FOLDERS.some(folder => file.startsWith(folder)) ||
+  PACKAGE_CONFIG.test(file);
+
 /** More paths than this go to the tool as the whole repo, to stay under Windows' command line limit. */
 const MAX_FILE_ARGS = 200;
 
@@ -83,11 +112,12 @@ export function classify(files) {
     other: false,
   };
   for (const file of files) {
-    if (file.startsWith('apps/site/')) touched.site = true;
-    else if (file === 'apps/web/src/ipc/generated/bindings.ts') {
-      touched.web = true;
+    if (readsAcrossParts(file)) touched.other = true;
+    else if (SKILL_SCRIPTS.test(file)) {
+      touched.skills = true;
       touched.rust = true;
-    } else if (DOCS_RE.test(file)) touched.docs = true;
+    } else if (file.startsWith('apps/site/')) touched.site = true;
+    else if (DOCS_RE.test(file)) touched.docs = true;
     else if (file.startsWith('apps/web/') || file.startsWith('packages/')) touched.web = true;
     else if (file.startsWith('scripts/')) touched.scripts = true;
     else if (file.startsWith('plugins/') || file.startsWith('.claude-plugin/'))
@@ -100,8 +130,9 @@ export function classify(files) {
 }
 
 /**
- * The fast gate for a list of changed paths. A path it cannot place runs the
- * whole gate, and no list at all runs nothing.
+ * The fast gate for a list of changed paths. A path it cannot place, or one
+ * another part of the repo reads, runs the whole gate, and no list at all runs
+ * nothing.
  *
  * `exists` says whether a path is still there: a removed file has nothing to
  * lint, but it still counts towards what changed.
@@ -126,7 +157,16 @@ export function fastPlan(files, { nextest, cacheDir, base, exists }) {
   node.push(pnpm('lint:meta', 'lint:meta'));
   if (frontend) node.push(pnpm('typecheck', 'typecheck'));
   if (touched.web || touched.site) {
-    node.push(heavy(pnpm('test', 'exec', 'vitest', 'run', '--changed', base, '--passWithNoTests')));
+    // --changed follows imports only, and tests also read tokens, models and
+    // fixtures from disk, so a change to anything but a module runs them all.
+    const frontendFiles = files.filter(f => /^(apps\/(web|site)|packages)\//.test(f));
+    const modulesOnly = frontendFiles.every(f => LINTABLE.test(f) || DOCS_RE.test(f));
+    const inSiteDocs = frontendFiles.some(f => f.startsWith('apps/site/') && DOCS_RE.test(f));
+    node.push(
+      modulesOnly && !inSiteDocs
+        ? heavy(pnpm('test', 'exec', 'vitest', 'run', '--changed', base, '--passWithNoTests'))
+        : heavy(pnpm('test', 'test'))
+    );
   }
   if (touched.scripts) node.push(pnpm('test:scripts', 'test:scripts'));
   if (touched.site || files.some(f => f.startsWith('packages/'))) {
