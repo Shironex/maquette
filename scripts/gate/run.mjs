@@ -1,5 +1,5 @@
 /** Runs the gate's steps: a lane in order, lanes side by side, every line labelled. */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
@@ -40,9 +40,23 @@ function eachLine(stream, onLine) {
 
 const running = new Set();
 
-/** Stops whatever is still running, for a gate that is itself being stopped. */
+/**
+ * Stops whatever is still running, for a gate that is itself being stopped, with
+ * what each step started: pnpm hands off to cargo, and cargo to rustc.
+ */
 export function stopAll() {
-  for (const child of running) child.kill();
+  for (const child of running) {
+    if (child.pid === undefined) continue;
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      continue;
+    }
+    try {
+      process.kill(-child.pid, 'SIGTERM');
+    } catch {
+      // The group has already ended.
+    }
+  }
 }
 
 /** Runs one step to its end. Never rejects: a step that cannot start has failed. */
@@ -68,7 +82,9 @@ function runStep(lane, step, { logDir, print, env }) {
     let child;
     try {
       const [program, args] = resolveCommand(step.cmd, step.args);
-      child = spawn(program, args, { stdio: ['ignore', 'pipe', 'pipe'], env });
+      // Its own process group where there are groups, for stopAll to signal whole.
+      const detached = process.platform !== 'win32';
+      child = spawn(program, args, { stdio: ['ignore', 'pipe', 'pipe'], env, detached });
     } catch (error) {
       onLine(String(error));
       finish(false);
