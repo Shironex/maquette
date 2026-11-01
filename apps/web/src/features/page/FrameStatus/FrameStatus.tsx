@@ -4,7 +4,7 @@ import type { FrameStatusProps } from './FrameStatus.types';
 
 /** What the frame shows until the page answers: the dev server's state and what to do next. */
 export default function FrameStatus({ state, site, command }: FrameStatusProps) {
-  const { start, pickConcept, showSite, openSettings, projectName } = useFrameStatus();
+  const { asking, start, pickConcept, showSite, openSettings, projectName } = useFrameStatus();
 
   switch (state.kind) {
     case 'starting':
@@ -152,6 +152,15 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
         />
       );
     default:
+      if (asking) {
+        return (
+          <EmptyState
+            icon="terminal-window"
+            title="The dev server waits for your approval"
+            body={`An agent set this site repo, so ${command ?? 'its dev command'} has not run. Read the folder and the command on the card, then approve or deny it.`}
+          />
+        );
+      }
       return (
         <EmptyState
           icon="browser"

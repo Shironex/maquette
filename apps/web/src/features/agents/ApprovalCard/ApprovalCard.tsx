@@ -1,7 +1,7 @@
 import { Button, Icon, cn } from '@maquette/ui';
 import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
-import { approvalTitle } from '@/state/agents';
+import { COMMAND_SOURCE, approvalTitle } from '@/state/agents';
 import { formatCredits } from '@/state/credits';
 import { useApprovalCard } from './ApprovalCard.hooks';
 
@@ -19,6 +19,7 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
   const rest = approval.kind === 'rest-pose' || weights || chains || doctor;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
+  const preview = approval.kind === 'page-preview' ? approval.preview : null;
   const shipTo = approval.kind === 'ship' ? approval.detail : null;
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
   const items = approval.items.map(item => (
@@ -48,7 +49,17 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
       <div className="flex items-start gap-3">
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
           <Icon
-            name={rest ? 'person-arms-spread' : round ? 'image' : send ? 'cube' : 'rocket-launch'}
+            name={
+              rest
+                ? 'person-arms-spread'
+                : preview
+                  ? 'terminal-window'
+                  : round
+                    ? 'image'
+                    : send
+                      ? 'cube'
+                      : 'rocket-launch'
+            }
             size={17}
           />
         </span>
@@ -56,7 +67,12 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {approvalTitle(approval, site?.name)}
           </h2>
-          {doctor ? (
+          {preview ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent set this site repo over MCP. Its dev command runs on this computer as you, so
+              read it first. Nothing runs until you approve; a changed folder or command asks again.
+            </p>
+          ) : doctor ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent started this rig doctor run over MCP. Nothing is added until you look at the
               sheets and add it yourself.
@@ -106,6 +122,22 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
         <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 font-mono text-meta break-all text-fg-dim">
           {shipTo}
         </p>
+      ) : null}
+      {preview ? (
+        <dl className="m-0 ml-11 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta">
+          <dt className="text-fg-mute">Folder</dt>
+          <dd className="m-0 font-mono break-all text-fg-dim">{preview.repo}</dd>
+          <dt className="text-fg-mute">Command</dt>
+          <dd className="m-0 font-mono break-all text-fg">{preview.command}</dd>
+          {preview.scriptRuns ? (
+            <>
+              <dt className="text-fg-mute">Script runs</dt>
+              <dd className="m-0 font-mono break-all text-fg">{preview.scriptRuns}</dd>
+            </>
+          ) : null}
+          <dt className="text-fg-mute">From</dt>
+          <dd className="m-0 text-fg-dim">{COMMAND_SOURCE[preview.source]}</dd>
+        </dl>
       ) : null}
       {send && approval.items.length > 0 ? (
         <div className="ml-11 rounded-[7px] border border-line bg-raised text-meta">
@@ -182,11 +214,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             variant="secondary"
             disabled={deciding}
             tooltip={
-              round
-                ? 'Makes nothing and spends nothing; the jobs end cancelled'
-                : send
-                  ? 'Sends nothing and spends no credits'
-                  : 'Ships nothing'
+              preview
+                ? 'Runs nothing; the server stays stopped and the agent is told you refused'
+                : round
+                  ? 'Makes nothing and spends nothing; the jobs end cancelled'
+                  : send
+                    ? 'Sends nothing and spends no credits'
+                    : 'Ships nothing'
             }
             onClick={() => void decide(approval.id, false)}
           >
@@ -198,21 +232,25 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             loading={deciding}
             disabled={deciding}
             tooltip={
-              round
-                ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
-                : send
-                  ? 'Sends it to the provider, which spends credits'
-                  : 'Writes the files to the game repo'
+              preview
+                ? 'Runs this command in this folder and remembers the yes for this folder and command'
+                : round
+                  ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
+                  : send
+                    ? 'Sends it to the provider, which spends credits'
+                    : 'Writes the files to the game repo'
             }
             onClick={() => void decide(approval.id, true)}
           >
-            {round
-              ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
-              : send
-                ? approval.items.length > 1
-                  ? `Approve and send ${approval.items.length}`
-                  : 'Approve and send'
-                : 'Approve and ship'}
+            {preview
+              ? 'Approve and run'
+              : round
+                ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
+                : send
+                  ? approval.items.length > 1
+                    ? `Approve and send ${approval.items.length}`
+                    : 'Approve and send'
+                  : 'Approve and ship'}
           </Button>
         </div>
       )}

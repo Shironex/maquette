@@ -1,5 +1,5 @@
 /** Words and numbers for the MCP server in Settings > Agents and the status bar. */
-import type { Approval, McpStatus } from '@/ipc/client';
+import type { Approval, CommandSource, McpStatus } from '@/ipc/client';
 
 export interface ServerLine {
   tone: 'ok' | 'error' | 'off';
@@ -28,6 +28,18 @@ export function clockTime(ms: number): string {
   return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 }
 
+/** The last folder of a repo path, on either computer's separators. */
+function repoFolder(repo: string | undefined): string {
+  return repo?.split(/[\\/]/).filter(Boolean).pop() ?? 'this site';
+}
+
+/** Where a dev command came from, for the page preview card. */
+export const COMMAND_SOURCE: Record<CommandSource, string> = {
+  settings: 'Settings > Project',
+  'site-config': "the site's maquette.site.json",
+  'package-json': "the site's package.json",
+};
+
 /**
  * The approval's question: "Ship Frostveil, run 26?" with the project's
  * display name when known, "Send Guardian statue to Tripo?", or "Make 2
@@ -51,6 +63,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   }
   if (approval.kind === 'reweight') {
     return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
+  }
+  if (approval.kind === 'page-preview') {
+    return `Run the dev command of ${repoFolder(approval.preview?.repo)}?`;
   }
   if (approval.kind === 'send-to-3d') {
     const n = approval.items.length;
@@ -77,7 +92,9 @@ export function approvalsLabel(approvals: Approval[]): string {
               ? 'reweight'
               : kinds.has('springs')
                 ? 'spring chain'
-                : 'send';
+                : kinds.has('page-preview')
+                  ? 'dev server'
+                  : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

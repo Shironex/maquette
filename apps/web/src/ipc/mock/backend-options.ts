@@ -37,7 +37,9 @@ export type Args = Record<string, unknown>;
  * the refs sheet and the ref warnings (see `create-refs-handlers.ts`).
  * `?agents=active` turns the MCP server on, with an agent's activity, a
  * run waiting at Ship for approval and a send to Tripo waiting the same way;
- * `?agents=batch` makes that send a batch of three under one approval.
+ * `?agents=batch` makes that send a batch of three under one approval;
+ * `?agents=preview` holds only the dev server of a repo an agent set, so the
+ * Page view waits on its card until a yes starts it.
  * `?handoff=batch` adds the veil gate props concept, six object refs made
  * from it and a By hand batch of them in mixed states.
  * `?style=board` gives Frostveil a style board (see `style-board.ts`).
