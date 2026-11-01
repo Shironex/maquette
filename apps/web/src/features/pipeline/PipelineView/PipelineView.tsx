@@ -91,7 +91,7 @@ export default function PipelineView() {
   }
 
   const { latest, active, transfer, failedAt, failedName, errors, subtitle } = runOverview(view);
-  const nothing = nothingToRun(project);
+  const nothing = nothingToRun(project, view);
   const errorText = errors.map(e => e.message).join(' ');
   const budgetMb = transfer / 1e6;
 

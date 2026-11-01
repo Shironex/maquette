@@ -13,7 +13,7 @@ export function useProjectTopBar() {
   const failed = usePipelineStore(s => s.error !== null);
   const assets = workspace?.project?.assets ?? [];
   const latest = pipeline?.runs[0];
-  const nothing = nothingToRun(workspace?.project);
+  const nothing = nothingToRun(workspace?.project, pipeline);
   return {
     stages: stageViews(assets, latest, workspace?.project?.target),
     budget: workspace?.config.budgets.sceneMb ?? 3,

@@ -1,6 +1,13 @@
 /** Pure helpers for the Board: columns, card numbers, the subtitle. */
 import type { Status } from '@maquette/ui';
-import type { Asset, AssetKind, ProjectManifest, Stage, WorkspaceSnapshot } from '@/ipc/client';
+import type {
+  Asset,
+  AssetKind,
+  PipelineView,
+  ProjectManifest,
+  Stage,
+  WorkspaceSnapshot,
+} from '@/ipc/client';
 import { formatBytes, formatK } from '@/lib/format';
 import { STAGES } from './pipeline';
 
@@ -13,12 +20,23 @@ export const KIND_LABEL: Record<AssetKind, string> = {
 /** True once any asset has a model, so a pipeline run has something to build. */
 export const hasModels = (assets: readonly Asset[]) => assets.some(a => a.versions.length > 0);
 
+/** A step the template did not bring: it may make what it needs, models or not. */
+function hasOwnSteps({ def, starters }: Pick<PipelineView, 'def' | 'starters'>): boolean {
+  const own = new Set(starters.map(s => s.path));
+  return def.steps.some(s => (s.script ? !own.has(s.script) : s.kind === 'shell'));
+}
+
 /**
  * Why a run has nothing to do, or null: no asset has a model. An imported
- * folder keeps its own scene and scripts, so it may build without any.
+ * folder keeps its own scene and scripts, so it may build without any, and
+ * so may a project with script steps of its own.
  */
-export function nothingToRun(project: ProjectManifest | null | undefined): string | null {
+export function nothingToRun(
+  project: ProjectManifest | null | undefined,
+  pipeline?: Pick<PipelineView, 'def' | 'starters'> | null
+): string | null {
   if (!project || project.template === 'imported' || hasModels(project.assets ?? [])) return null;
+  if (pipeline && hasOwnSteps(pipeline)) return null;
   return 'No models yet, so a run has nothing to build';
 }
 
