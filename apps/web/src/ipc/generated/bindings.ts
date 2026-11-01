@@ -880,6 +880,11 @@ export type AgentRules = {
 	blenderHeadlessOnly: boolean,
 	neverCaptureScreen: boolean,
 	askBeforeShipping: boolean,
+	/**
+	 *  Whether agents are offered the avatar and rig doctor tools. Files
+	 *  from before this setting leave it out, and keep them.
+	 */
+	avatarRigTools?: boolean,
 };
 
 export type AgentSettings = {
