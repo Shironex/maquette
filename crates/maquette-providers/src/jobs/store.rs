@@ -7,14 +7,14 @@ use std::path::Path;
 
 use super::spend;
 use super::{
-    CLOSED_WHILE_SENDING, Entry, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
-    ProviderEvent, Shared, Stored, snapshot,
+    CLOSED_WHILE_SENDING, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
+    ProviderEvent, Saving, Shared, Stored, Workspace, snapshot,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use maquette_base::history::now_ms;
 use maquette_model::assets::{self, AssetStatus, Stage};
-use maquette_model::project;
+use maquette_model::project::{self, ProjectManifest};
 
 /// Fixes a saved job up for a fresh start. True when it changed.
 pub(super) fn resume_fixup(stored: &mut Stored) -> bool {
@@ -105,23 +105,39 @@ fn read(project_dir: &Path) -> Vec<Stored> {
 }
 
 /// Writes a project's jobs. Keeps the newest finished ones only.
-pub(super) fn persist(shared: &Shared, project: &str) {
+///
+/// The caller holds `saving` from its change to the list until here, so
+/// close cannot clear the list in between.
+pub(super) fn persist(shared: &Shared, _saving: &Saving<'_>, project: &str) {
+    #[cfg(test)]
+    {
+        let hook = shared
+            .before_save
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take();
+        if let Some(hook) = hook {
+            hook();
+        }
+    }
     let Some(workspace) = shared.workspace() else {
         return;
     };
     let Ok(dir) = workspace.project_dir(project) else {
         return;
     };
+    // Written under the jobs lock as well, so whoever reads a job's new
+    // state also finds it on disk.
     let jobs = shared.jobs();
-    write_project(&workspace.root, &dir, &jobs, project);
-}
-
-fn write_project(root: &Path, dir: &Path, jobs: &[Entry], project: &str) {
-    let mut mine: Vec<Stored> = jobs
+    let mine: Vec<Stored> = jobs
         .iter()
         .filter(|e| e.stored.job.project == project)
         .map(|e| e.stored.clone())
         .collect();
+    write_project(&workspace.root, &dir, mine);
+}
+
+fn write_project(root: &Path, dir: &Path, mut mine: Vec<Stored>) {
     // Saved relative to the workspace, so the file reads on every computer.
     for stored in &mut mine {
         if let Some(folder) = stored.job.handoff.as_deref() {
@@ -168,8 +184,41 @@ pub(super) fn update_with(
     spend: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
+    change_job(shared, None, id, save, spend, change)
+}
+
+/// [`update`] for a job thread or bake started under workspace
+/// `generation`: refused once that workspace has closed, so it never
+/// changes a job of the next one that has the same id.
+pub(super) fn update_in(
+    shared: &Shared,
+    generation: u64,
+    id: &str,
+    save: bool,
+    change: impl FnOnce(&mut Stored) -> CoreResult<()>,
+) -> CoreResult<()> {
+    change_job(shared, Some(generation), id, save, true, change)
+}
+
+fn change_job(
+    shared: &Shared,
+    generation: Option<u64>,
+    id: &str,
+    save: bool,
+    spend: bool,
+    change: impl FnOnce(&mut Stored) -> CoreResult<()>,
+) -> CoreResult<()> {
+    // A change that is not saved (progress) need not wait for a write.
+    let saving = save.then(|| shared.saving());
     let (job, project, before, after) = {
         let mut jobs = shared.jobs();
+        // Checked under the jobs lock, which close holds to empty the list
+        // and forget the workspace, so the list is still this generation's.
+        if generation.is_some_and(|g| shared.generation() != Some(g)) {
+            return Err(CoreError::Unavailable(
+                "The workspace this job ran in has closed.".to_string(),
+            ));
+        }
         let entry = jobs
             .iter_mut()
             .find(|e| e.stored.job.id == id)
@@ -183,8 +232,8 @@ pub(super) fn update_with(
             entry.stored.clone(),
         )
     };
-    if save {
-        persist(shared, &project);
+    if let Some(saving) = saving {
+        persist(shared, &saving, &project);
     }
     shared.emit(ProviderEvent::Job { job: Box::new(job) });
     if spend {
@@ -203,6 +252,20 @@ pub(super) fn touch_asset(
     let Some(workspace) = shared.workspace() else {
         return;
     };
+    if let Some(manifest) = touch_in(&workspace, project, asset, stage, status) {
+        shared.emit(ProviderEvent::Project { project: manifest });
+    }
+}
+
+/// Moves an asset of `workspace` on the Board and sets its status. The
+/// changed project, for the caller to tell the UI.
+pub(super) fn touch_in(
+    workspace: &Workspace,
+    project: &str,
+    asset: &str,
+    stage: Option<Stage>,
+    status: AssetStatus,
+) -> Option<ProjectManifest> {
     let changed = project::modify(&workspace.root, &workspace.config.layout, project, |m| {
         if let Some(stage) = stage
             && assets::find(m, asset)?.stage < stage
@@ -211,8 +274,7 @@ pub(super) fn touch_asset(
         }
         assets::set_status(m, asset, status)
     });
-    match changed {
-        Ok(manifest) => shared.emit(ProviderEvent::Project { project: manifest }),
-        Err(err) => tracing::warn!(error = %err, "could not update the asset"),
-    }
+    changed
+        .inspect_err(|err| tracing::warn!(error = %err, "could not update the asset"))
+        .ok()
 }

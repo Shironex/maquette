@@ -291,7 +291,7 @@ pub fn provider_clear_finished(
     studio: State<'_, Studio>,
     project: String,
 ) -> CommandResult<Vec<ProviderJob>> {
-    studio.0.clear_finished(&project);
+    studio.0.clear_finished(&project)?;
     Ok(studio.0.list(Some(&project)))
 }
 

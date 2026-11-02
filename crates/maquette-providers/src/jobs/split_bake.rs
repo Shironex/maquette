@@ -7,7 +7,7 @@
 
 use super::split_files::{source_of, split_dir, version_file};
 use super::{BakeBack, BakeState, ProviderEvent, ProviderJob, ProviderJobs, Stored, Workspace};
-use super::{Provider, update};
+use super::{Provider, update, update_in};
 use crate::error::{CoreError, CoreResult};
 use crate::split::SplitAfter;
 use maquette_base::ports::TextureBake;
@@ -83,8 +83,15 @@ pub(super) fn resume(stored: &mut Stored) -> bool {
     true
 }
 
-fn set_bake(jobs: &ProviderJobs, id: &str, change: impl FnOnce(&mut BakeBack)) -> CoreResult<()> {
-    update(&jobs.shared, id, true, |stored| {
+/// Changes a split's bake back. With `generation`, only while the
+/// workspace a bake started under is still open.
+fn set_bake(
+    jobs: &ProviderJobs,
+    generation: Option<u64>,
+    id: &str,
+    change: impl FnOnce(&mut BakeBack),
+) -> CoreResult<()> {
+    let change = |stored: &mut Stored| {
         let bake = stored
             .job
             .split
@@ -95,7 +102,11 @@ fn set_bake(jobs: &ProviderJobs, id: &str, change: impl FnOnce(&mut BakeBack)) -
             })?;
         change(bake);
         Ok(())
-    })
+    };
+    match generation {
+        Some(generation) => update_in(&jobs.shared, generation, id, true, change),
+        None => update(&jobs.shared, id, true, change),
+    }
 }
 
 impl ProviderJobs {
@@ -193,18 +204,20 @@ impl ProviderJobs {
             .as_ref()
             .map(super::SplitJob::source_label)
             .unwrap_or_default();
-        set_bake(self, id, |b| {
+        set_bake(self, Some(workspace.generation), id, |b| {
             b.state = BakeState::Running;
             b.message = Some(format!("Baking the texture back from {from} in Blender"));
         })?;
         let made = bake_onto(&*self.shared.ports.bake, &workspace, &job, bake.onto, tools);
         match made {
             Ok(landed) => {
-                self.shared.emit(ProviderEvent::Project {
-                    project: landed.project,
-                });
+                if self.shared.generation() == Some(workspace.generation) {
+                    self.shared.emit(ProviderEvent::Project {
+                        project: landed.project,
+                    });
+                }
                 let version = landed.version.version;
-                set_bake(self, id, |b| {
+                set_bake(self, Some(workspace.generation), id, |b| {
                     b.state = BakeState::Done;
                     b.version = Some(version);
                     b.message = Some(format!(
@@ -214,7 +227,7 @@ impl ProviderJobs {
                 })?;
             }
             Err(err) => {
-                set_bake(self, id, |b| {
+                set_bake(self, Some(workspace.generation), id, |b| {
                     b.state = BakeState::Failed;
                     b.message = Some(format!("The bake back did not finish. {err}"));
                 })?;
@@ -232,7 +245,7 @@ impl ProviderJobs {
     /// Fails for a job with no bake back, or one running or done.
     pub fn schedule_bake(&self, id: &str) -> CoreResult<ProviderJob> {
         let mut refused = None;
-        set_bake(self, id, |b| match b.state {
+        set_bake(self, None, id, |b| match b.state {
             BakeState::Offered | BakeState::Failed => b.state = BakeState::Scheduled,
             BakeState::Scheduled => {}
             BakeState::Running | BakeState::Done => {

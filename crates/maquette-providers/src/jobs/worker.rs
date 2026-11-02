@@ -10,8 +10,8 @@ use super::retexture::run_meshy_retexture;
 use super::split_files::{SOURCE_FILE, source_of, split_dir};
 use super::split_remote::{run_meshy_split, run_tripo_split};
 use super::{
-    Chain, Flow, FlowResult, JobPhase, JobState, Outcome, ProviderJob, Shared, Stored, Workspace,
-    api_key, touch_asset, update,
+    Chain, Flow, FlowResult, JobPhase, JobState, Outcome, ProviderEvent, ProviderJob, Shared,
+    Stored, Workspace, api_key, touch_in, update_in,
 };
 use crate::http::{Api, ApiError, StopFlag};
 use crate::meshy::{self, Meshy};
@@ -22,8 +22,11 @@ use maquette_model::assets::{AssetKind, AssetStatus};
 
 /// Starts queued jobs while the lane has room.
 pub(super) fn pump(shared: &Arc<Shared>) {
-    let start: Vec<(String, Arc<StopFlag>)> = {
+    let (generation, start): (u64, Vec<(String, Arc<StopFlag>)>) = {
         let mut jobs = shared.jobs();
+        let Some(generation) = shared.generation() else {
+            return;
+        };
         let running = jobs.iter().filter(|e| e.thread).count();
         let free = shared.options.limit.saturating_sub(running);
         let mut start = Vec::new();
@@ -35,43 +38,75 @@ pub(super) fn pump(shared: &Arc<Shared>) {
             entry.thread = true;
             start.push((entry.stored.job.id.clone(), Arc::clone(&entry.stop)));
         }
-        start
+        (generation, start)
     };
     for (id, stop) in start {
         let shared = Arc::clone(shared);
         let spawned = std::thread::Builder::new()
             .name(format!("provider-{id}"))
-            .spawn(move || worker(&shared, &id, &stop));
+            .spawn(move || worker(&shared, &id, &stop, generation));
         if let Err(err) = spawned {
             tracing::warn!(error = %err, "could not start a provider job");
         }
     }
 }
 
+/// A job thread: the job it runs and the workspace generation it started
+/// under. Once that workspace closes, it changes nothing.
 pub(super) struct Run<'a> {
     shared: &'a Shared,
     id: &'a str,
+    generation: u64,
 }
 
-impl Run<'_> {
+impl<'a> Run<'a> {
+    /// A job thread's view of job `id`, as one started now would have.
+    #[cfg(test)]
+    pub(super) fn current(shared: &'a Shared, id: &'a str) -> Self {
+        let generation = shared.generation().expect("an open workspace");
+        Self {
+            shared,
+            id,
+            generation,
+        }
+    }
+
+    /// True while the workspace this thread started under is open.
+    fn current_workspace(&self) -> bool {
+        self.shared.generation() == Some(self.generation)
+    }
+
     pub(super) fn chain(&self) -> Chain {
-        self.shared
-            .jobs()
-            .iter()
+        let jobs = self.shared.jobs();
+        if !self.current_workspace() {
+            return Chain::default();
+        }
+        jobs.iter()
             .find(|e| e.stored.job.id == self.id)
             .map(|e| e.stored.chain.clone())
             .unwrap_or_default()
     }
 
     pub(super) fn save(&self, change: impl FnOnce(&mut Stored)) {
-        let _ = update(self.shared, self.id, true, |s| {
+        let _ = update_in(self.shared, self.generation, self.id, true, |s| {
             change(s);
             Ok(())
         });
     }
 
+    /// Moves the job's asset in `workspace`, the one this thread started
+    /// under, and tells the UI while that is still the open one.
+    fn touch(&self, workspace: &Workspace, job: &ProviderJob, status: AssetStatus) {
+        if let Some(manifest) = touch_in(workspace, &job.project, &job.asset, None, status)
+            && self.current_workspace()
+        {
+            self.shared
+                .emit(ProviderEvent::Project { project: manifest });
+        }
+    }
+
     pub(super) fn progress(&self, phase: JobPhase, progress: f64) {
-        let _ = update(self.shared, self.id, false, |s| {
+        let _ = update_in(self.shared, self.generation, self.id, false, |s| {
             s.job.phase = Some(phase);
             s.job.progress = s.job.progress.max(progress.clamp(0.0, 1.0));
             Ok(())
@@ -100,9 +135,20 @@ pub(super) fn lerp((from, to): (f64, f64), t: f64) -> f64 {
     from + (to - from) * t.clamp(0.0, 1.0)
 }
 
-fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
+fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag, generation: u64) {
+    let run = Run {
+        shared,
+        id,
+        generation,
+    };
+    let Some(workspace) = shared.workspace().filter(|w| w.generation == generation) else {
+        return;
+    };
     let job = {
         let jobs = shared.jobs();
+        if !run.current_workspace() {
+            return;
+        }
         jobs.iter()
             .find(|e| e.stored.job.id == id)
             .map(|e| e.stored.job.clone())
@@ -110,25 +156,23 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
     let Some(job) = job else {
         return;
     };
-    let workspace = shared.workspace();
-    let run = Run { shared, id };
     run.save(|s| {
         s.job.state = JobState::Running;
         s.job.started_at_ms.get_or_insert_with(now_ms);
         s.job.message = None;
     });
-    touch_asset(shared, &job.project, &job.asset, None, AssetStatus::Running);
-    let result = match (&workspace, job.provider.service()) {
-        (Some(workspace), Some(service)) => {
-            run_remote(shared, &run, workspace, &job, service, stop)
-        }
-        _ => Err(Flow::Fail("Open the workspace first.".to_string())),
+    run.touch(&workspace, &job, AssetStatus::Running);
+    let result = match job.provider.service() {
+        Some(service) => run_remote(shared, &run, &workspace, &job, service, stop),
+        None => Err(Flow::Fail("Open the workspace first.".to_string())),
     };
     let cancelled = {
         let jobs = shared.jobs();
-        jobs.iter()
-            .find(|e| e.stored.job.id == id)
-            .is_none_or(|e| e.cancelled)
+        !run.current_workspace()
+            || jobs
+                .iter()
+                .find(|e| e.stored.job.id == id)
+                .is_none_or(|e| e.cancelled)
     };
     match result {
         _ if cancelled => {}
@@ -136,13 +180,13 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
             // The app is closing or the workspace changed: the saved chain
             // resumes next time.
         }
-        Ok(outcome) => finish(shared, &run, workspace.as_ref(), &job, outcome),
+        Ok(outcome) => finish(shared, &run, &workspace, &job, outcome),
         Err(flow) => {
             let message = match flow {
                 Flow::Api(error) => error.message(job.provider.label()),
                 Flow::Fail(message) => message,
             };
-            touch_asset(shared, &job.project, &job.asset, None, AssetStatus::Failed);
+            run.touch(&workspace, &job, AssetStatus::Failed);
             run.save(|s| {
                 s.job.state = JobState::Failed;
                 s.job.finished_at_ms = Some(now_ms());
@@ -152,7 +196,9 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
     }
     {
         let mut jobs = shared.jobs();
-        if let Some(entry) = jobs.iter_mut().find(|e| e.stored.job.id == id) {
+        if run.current_workspace()
+            && let Some(entry) = jobs.iter_mut().find(|e| e.stored.job.id == id)
+        {
             entry.thread = false;
         }
     }
@@ -162,13 +208,10 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
 fn finish(
     shared: &Shared,
     run: &Run<'_>,
-    workspace: Option<&Workspace>,
+    workspace: &Workspace,
     job: &ProviderJob,
     outcome: Outcome,
 ) {
-    let Some(workspace) = workspace else {
-        return;
-    };
     match write_inbox(workspace, &job.id, &outcome.glb) {
         Ok(name) => {
             if job.variant == PresetVariant::Character {
@@ -184,7 +227,7 @@ fn finish(
                 .as_ref()
                 .map(|_| super::split_bake::textures_in(workspace, &name));
             // The asset first, so whoever sees the job arrive sees the Board too.
-            touch_asset(shared, &job.project, &job.asset, None, AssetStatus::Review);
+            run.touch(workspace, job, AssetStatus::Review);
             run.save(|s| {
                 s.job.state = JobState::Inbox;
                 s.job.phase = None;
@@ -203,7 +246,7 @@ fn finish(
             });
         }
         Err(err) => {
-            touch_asset(shared, &job.project, &job.asset, None, AssetStatus::Failed);
+            run.touch(workspace, job, AssetStatus::Failed);
             run.save(|s| {
                 s.job.state = JobState::Failed;
                 s.job.finished_at_ms = Some(now_ms());

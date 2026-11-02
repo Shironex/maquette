@@ -16,9 +16,12 @@ mod records;
 mod remote;
 mod request;
 mod retexture;
+#[cfg(test)]
+mod save_tests;
 mod send;
 mod sends;
 mod settle;
+mod shared;
 mod spend;
 mod split;
 mod split_bake;
@@ -30,7 +33,8 @@ mod tests;
 mod worker;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use super::http::{ApiError, StopFlag, Timing};
@@ -53,7 +57,8 @@ pub use retexture::RetextureRequest;
 pub use split::{SplitRequest, SplitSource};
 
 use model::{Chain, JobsFile, Stored};
-use store::{load, persist, resume_fixup, touch_asset, update, update_with};
+use shared::{Entry, Saving, Shared, Workspace};
+use store::{load, persist, resume_fixup, touch_asset, touch_in, update, update_in, update_with};
 use worker::pump;
 
 pub const JOBS_FILE: &str = "providers.json";
@@ -146,62 +151,6 @@ impl Default for Options {
     }
 }
 
-#[derive(Clone)]
-struct Workspace {
-    root: PathBuf,
-    config: WorkspaceConfig,
-}
-
-impl Workspace {
-    fn project_dir(&self, project: &str) -> CoreResult<PathBuf> {
-        project::dir(&self.root, &self.config.layout, project)
-    }
-}
-
-struct Entry {
-    stored: Stored,
-    stop: Arc<StopFlag>,
-    thread: bool,
-    /// Set by Cancel, so a stopped thread knows it was not the app closing.
-    cancelled: bool,
-}
-
-type Callback = Box<dyn Fn(ProviderEvent) + Send + Sync>;
-
-struct Shared {
-    jobs: Mutex<Vec<Entry>>,
-    /// Held from a send's checks until its job is in the queue, so two sends
-    /// at once cannot both pass the busy check or take the same id.
-    sending: Mutex<()>,
-    workspace: Mutex<Option<Workspace>>,
-    on_event: Callback,
-    secrets: Arc<dyn SecretStore>,
-    options: Options,
-    /// The inbox and the bake back, as the app wired them in.
-    ports: SendPorts,
-}
-
-impl Shared {
-    fn jobs(&self) -> MutexGuard<'_, Vec<Entry>> {
-        self.jobs.lock().unwrap_or_else(|p| p.into_inner())
-    }
-
-    fn sending(&self) -> MutexGuard<'_, ()> {
-        self.sending.lock().unwrap_or_else(|p| p.into_inner())
-    }
-
-    fn workspace(&self) -> Option<Workspace> {
-        self.workspace
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .clone()
-    }
-
-    fn emit(&self, event: ProviderEvent) {
-        (self.on_event)(event);
-    }
-}
-
 fn cancel_mode(stored: &Stored) -> CancelMode {
     let job = &stored.job;
     match job.state {
@@ -271,12 +220,18 @@ impl ProviderJobs {
         Self {
             shared: Arc::new(Shared {
                 jobs: Mutex::new(Vec::new()),
+                saves: Mutex::new(()),
                 sending: Mutex::new(()),
                 workspace: Mutex::new(None),
+                opened: AtomicU64::new(0),
                 on_event: Box::new(on_event),
                 secrets,
                 options,
                 ports,
+                #[cfg(test)]
+                before_save: Mutex::new(None),
+                #[cfg(test)]
+                before_queue: Mutex::new(None),
             }),
         }
     }
@@ -293,10 +248,16 @@ impl ProviderJobs {
     /// Jobs of a previously open workspace stop polling; their state stays
     /// saved for the next time it opens.
     pub fn open_workspace(&self, root: &Path, config: &WorkspaceConfig) {
-        self.close();
+        // Held until the loaded jobs are saved. A save under way finishes
+        // first; then clear forgets the old workspace, and the new one gets
+        // a new generation, so a job thread or bake of the old one finds no
+        // job it may change, even one with the same id here.
+        let saving = self.shared.saving();
+        self.clear(&saving);
         let workspace = Workspace {
             root: root.to_path_buf(),
             config: config.clone(),
+            generation: self.shared.opened.fetch_add(1, Ordering::SeqCst) + 1,
         };
         *self
             .shared
@@ -342,8 +303,9 @@ impl ProviderJobs {
         touched.sort();
         touched.dedup();
         for project in touched {
-            persist(&self.shared, &project);
+            persist(&self.shared, &saving, &project);
         }
+        drop(saving);
         for manifest in &projects {
             // Sends whose model came in another way first, so the heal
             // then sees their cards with no live job.
@@ -377,13 +339,25 @@ impl ProviderJobs {
     }
 
     /// Stops every polling thread, keeping the saved state. For app exit
-    /// and workspace switches.
+    /// and workspace switches. Waits for a save under way, and a job
+    /// thread that saves afterwards finds no job and writes nothing.
     pub fn close(&self) {
+        self.clear(&self.shared.saving());
+    }
+
+    /// Empties the list and forgets the workspace, both under the jobs
+    /// lock, so a save or send that comes later has nowhere to write.
+    fn clear(&self, _saving: &Saving<'_>) {
         let mut jobs = self.shared.jobs();
         for entry in jobs.iter() {
             entry.stop.stop();
         }
         jobs.clear();
+        *self
+            .shared
+            .workspace
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
     }
 
     pub fn list(&self, project: Option<&str>) -> Vec<ProviderJob> {
