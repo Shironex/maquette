@@ -1,0 +1,182 @@
+/*
+ * The planning canvas on top of React Flow's base styles, built from the
+ * theme's tokens. Handles are round dots shown on hover and while linking;
+ * the selected node takes the clay outline the Board uses.
+ */
+.plan-canvas,
+.plan-dots {
+  --plan-dot: #36342f;
+  --plan-edge: #67635b;
+}
+
+.plan-dots {
+  background-color: var(--bg-app);
+  background-image: radial-gradient(circle at 1px 1px, var(--plan-dot) 1px, transparent 1.3px);
+  background-size: 12px 12px;
+}
+
+.plan-canvas .react-flow {
+  --xy-background-color: var(--bg-app);
+  --xy-edge-stroke: var(--plan-edge);
+  --xy-edge-stroke-selected: var(--clay);
+  --xy-edge-stroke-width: 1.5;
+  --xy-connectionline-stroke: var(--clay);
+  --xy-connectionline-stroke-width: 1.5;
+  --xy-selection-background-color: var(--clay-soft);
+  --xy-selection-border: 1px dashed var(--clay-line);
+  --xy-minimap-background-color: var(--bg-panel);
+  --xy-node-boxshadow-selected: none;
+}
+
+.plan-canvas .react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.plan-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 rgba(255, 250, 240, 0.03) inset,
+    0 4px 14px rgba(10, 9, 8, 0.3);
+  color: var(--text-dim);
+}
+
+.plan-node-note {
+  background: #2f2c27;
+}
+
+.plan-node.is-selected {
+  border-color: var(--clay);
+  box-shadow:
+    0 0 0 1px var(--clay),
+    0 6px 20px rgba(10, 9, 8, 0.4);
+}
+
+.plan-canvas .plan-handle {
+  width: 10px;
+  height: 10px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-app);
+  border: 1.5px solid var(--text-mute);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.plan-canvas .react-flow__node:hover .plan-handle,
+.plan-canvas .react-flow__node.selected .plan-handle,
+.plan-canvas .react-flow.connecting .plan-handle,
+.plan-canvas .plan-handle.connectionindicator:focus-visible {
+  opacity: 1;
+}
+
+.plan-canvas .plan-handle:hover {
+  background: var(--text-mute);
+}
+
+.plan-canvas .react-flow__node:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+.plan-canvas .plan-mini {
+  right: 14px;
+  bottom: 14px;
+  margin: 0;
+  width: 188px;
+  height: 122px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+}
+
+.plan-canvas .plan-mini svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.plan-bar {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-raised);
+}
+
+.plan-zoom {
+  position: absolute;
+  z-index: 5;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 9px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+}
+
+.plan-zoom button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.plan-zoom button:first-child {
+  border-top: 0;
+}
+
+.plan-zoom button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.plan-zoom button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.plan-zoom .pct {
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font: 500 10.5px/1 var(--font-mono);
+  color: var(--text-mute);
+  border-top: 1px solid var(--line);
+}
+
+.plan-empty {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  pointer-events: none;
+}

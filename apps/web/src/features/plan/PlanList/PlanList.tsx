@@ -1,0 +1,160 @@
+import { Button, EmptyState, InlineBanner, TextField, TopBar } from '@maquette/ui';
+import { SectionLabel } from '@/features/common/SectionLabel';
+import type { PlanSummary } from '@/ipc/client';
+import { formatAgo } from '@/lib/format';
+import { contentLine } from '@/state/plans';
+import { NewCanvasDialog } from '../NewCanvasDialog';
+import { RemoveCanvasDialog } from '../RemoveCanvasDialog';
+import { usePlanList } from './PlanList.hooks';
+import { PlanRow } from './PlanRow';
+
+export interface PlanListProps {
+  list: readonly PlanSummary[];
+  /** The canvas being opened, if any. */
+  opening: string | null;
+  openError: string | null;
+}
+
+const edited = (plan: PlanSummary, now: number) =>
+  plan.edited ? formatAgo(Date.parse(plan.edited), now) : 'unknown';
+
+/**
+ * A project's canvases: the ones edited last as cards, then all of them in
+ * a table with rename and remove. Each canvas is one file in `plans/`.
+ */
+export default function PlanList({ list, opening, openError }: PlanListProps) {
+  const v = usePlanList(list);
+  const count = `${list.length} ${list.length === 1 ? 'canvas' : 'canvases'}`;
+  const cards = v.recent.map(plan => (
+    <button
+      key={plan.id}
+      type="button"
+      aria-busy={opening === plan.id}
+      onClick={() => v.open(plan.id)}
+      className="flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-raised text-left hover:border-line-strong focus-visible:outline-2 focus-visible:outline-focus"
+    >
+      <span className="plan-dots relative h-[104px] border-b border-line" aria-hidden="true">
+        <span className="absolute right-2.5 bottom-2 font-mono text-[11px] text-fg-mute">
+          {plan.nodes} {plan.nodes === 1 ? 'node' : 'nodes'}
+        </span>
+      </span>
+      <span className="flex flex-col gap-1 px-3 pt-2.5 pb-3">
+        {/* The spaces keep the card's name readable ("Combat ideas 6 nodes ..."). */}
+        <span className="truncate text-[13.5px] font-semibold text-fg">{plan.name}</span>{' '}
+        <span className="truncate font-mono text-[11.5px] text-fg-mute">{contentLine(plan)}</span>{' '}
+        <span className="text-meta text-fg-dim">Edited {edited(plan, v.now)}</span>
+      </span>
+    </button>
+  ));
+  const rows = v.found.map(plan => (
+    <PlanRow
+      key={plan.id}
+      plan={plan}
+      edited={edited(plan, v.now)}
+      renaming={v.renaming?.id === plan.id ? v.renaming.name : null}
+      onOpen={() => v.open(plan.id)}
+      onRename={() => v.startRename(plan)}
+      onType={v.typeName}
+      onCommit={() => void v.commitRename()}
+      onCancel={v.cancelRename}
+      onRemove={() => v.askRemove(plan)}
+    />
+  ));
+  const newButton = (
+    <Button variant="primary" icon="plus" tooltip="Makes an empty canvas" onClick={v.startNew}>
+      New canvas
+    </Button>
+  );
+  return (
+    <>
+      <TopBar
+        lead={
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-panel-title">Plan</h1>
+            <span className="text-meta text-fg-mute">{count}</span>
+          </div>
+        }
+        right={
+          <>
+            {list.length > 0 ? (
+              <TextField
+                aria-label="Find a canvas"
+                placeholder="Find a canvas"
+                icon="magnifying-glass"
+                value={v.query}
+                onChange={e => v.setQuery(e.target.value)}
+                fieldClassName="w-[220px]"
+              />
+            ) : null}
+            {newButton}
+          </>
+        }
+      />
+      <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
+        {openError ? (
+          <InlineBanner tone="danger" title="The canvas could not be opened" detail={openError} />
+        ) : null}
+        {list.length === 0 ? (
+          <div className="grid flex-1 place-items-center">
+            <EmptyState
+              icon="graph"
+              title="No canvases yet"
+              body="A canvas is a board of notes, pictures and links to plan with. Each one is a file in plans/ in the project folder."
+              action={newButton}
+            />
+          </div>
+        ) : null}
+        {v.recent.length > 0 ? (
+          <section aria-label="Recent canvases" className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <SectionLabel>Recent</SectionLabel>
+              <span className="text-meta text-fg-mute">
+                Each canvas is one file in plans/ in the project folder
+              </span>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3.5">
+              {cards}
+            </div>
+          </section>
+        ) : null}
+        {list.length > 0 ? (
+          <section aria-label="All canvases" className="flex flex-col gap-2">
+            <SectionLabel>All canvases</SectionLabel>
+            <table className="w-full table-fixed border-collapse text-[12.5px]">
+              <colgroup>
+                <col />
+                <col className="w-[72px]" />
+                <col className="w-[132px]" />
+                <col className="w-[34%]" />
+                <col className="w-[84px]" />
+              </colgroup>
+              <thead>
+                <tr className="text-[11px] font-semibold tracking-[0.04em] text-fg-mute uppercase">
+                  <th className="py-1.5 pl-3 text-left font-semibold">Name</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Nodes</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Edited</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">File</th>
+                  <th className="py-1.5 pr-3 text-right font-semibold">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {v.found.length === 0 ? (
+                  <tr className="border-t border-line">
+                    <td colSpan={5} className="py-2.5 pl-3 text-fg-mute">
+                      No canvas is called that.
+                    </td>
+                  </tr>
+                ) : null}
+                {rows}
+              </tbody>
+            </table>
+          </section>
+        ) : null}
+      </main>
+      {v.making ? <NewCanvasDialog onClose={v.closeNew} /> : null}
+      {v.removing ? <RemoveCanvasDialog plan={v.removing} onClose={v.closeRemove} /> : null}
+    </>
+  );
+}
