@@ -25,7 +25,7 @@ and `get_canvas` reads one, so read the canvas the person points at before you p
 
 ## Hard rules
 
-- Never remove a person's node or link, or a node of yours a person wrote in last (`get_canvas`
+- Never remove a person's node or link, or a node of yours a person wrote in (`get_canvas`
   shows `personWrote: true`; it is theirs now). `remove_nodes` refuses it; ask the person instead.
 - Pass the same `agent` name on every call, such as "Research agent", and a `run` id that groups
   one task's calls, so the person can read and undo the whole run at once.
@@ -70,4 +70,6 @@ Tell the person in one line what you added and where (near which node), and the 
 undoes your own changes carefully: a field someone changed since stays as they left it, and a node
 a person edited or linked since is kept with their links (`kept` counts them). It answers with how
 many changes it undid; `nothingChanged: true` means everything was changed since, and the changes
-still count as undone. The person can undo or keep any agent change from the Changes panel.
+still count as undone. A change a later agent change rewrote on top of waits: undo the later one
+first, or name both (or their run) to undo them together. The person can undo or keep any agent
+change from the Changes panel.
