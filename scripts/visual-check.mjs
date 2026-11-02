@@ -25,7 +25,8 @@
  * the quit question for tweaks. The redo set covers Redo from the Inbox (a
  * row's menu, the send panel prefilled with a Meshy texture prompt and its
  * estimate, two models ticked, the batch redo and its confirm) and the
- * Credits sheet (all sends, filtered to Meshy). The byhand set covers the
+ * Credits sheet (all sends, the line saying who approved an agent send,
+ * filtered to Meshy). The byhand set covers the
  * By hand card with its subscription cost and export name, an export the
  * Downloads watch copies in, one it asks about and the downloads picker,
  * a close name waiting for a look next to its ref, the asset chooser and
@@ -821,6 +822,10 @@ async function redoShots() {
   const credits = board.getByRole('dialog', { name: 'Credits' });
   await credits.getByText('1,240').waitFor();
   await shot(board, 'credits');
+  // The agent send a person approved on the floating card, with its line.
+  const approvedBy = credits.getByText(/approved .* in the floating card/);
+  await approvedBy.scrollIntoViewIfNeeded();
+  await shot(board, 'credits-approved-by');
   await credits
     .getByRole('group', { name: 'Provider' })
     .getByRole('button', { name: 'Meshy' })
