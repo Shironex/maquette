@@ -19,7 +19,7 @@ use super::{
     normalized, path, trimmed, validate,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::project::{latin_slug, now_rfc3339, windows_safe};
+use crate::project::now_rfc3339;
 
 /// One canvas as the view gets it: its id, its file relative to the
 /// project, the canvas, and where each of its pictures is on this computer.
@@ -179,72 +179,13 @@ pub fn get(project_dir: &Path, id: &str) -> CoreResult<PlanDoc> {
     Ok(doc(project_dir, id, plan))
 }
 
-/// A free id for a canvas called `name`: its slug, then `-2`, `-3` and on,
-/// never the camera plan's id, which only the built in plan takes.
-fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
-    let base = latin_slug(name).map_or_else(|| "canvas".to_string(), windows_safe);
-    for n in 1..10_000 {
-        let id = if n == 1 {
-            base.clone()
-        } else {
-            format!("{base}-{n}")
-        };
-        // A log left without its canvas counts as taken: it would pass to the new canvas.
-        if id != super::camera::CAMERA_PLAN_ID
-            && !path(project_dir, &id)?.exists()
-            && !log::path(project_dir, &id)?.exists()
-        {
-            return Ok(id);
-        }
-    }
-    Err(CoreError::Invalid(format!(
-        "There are too many canvases called {name}."
-    )))
-}
-
-/// Makes an empty canvas called `name` and writes its file.
-///
-/// # Errors
-///
-/// Fails on a name [`check_name`] refuses or when the file cannot be written.
-pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<PlanDoc> {
-    create_by(project_dir, name, preset, None)
-}
-
-/// [`create`], noting who made it (an agent's name) in the change log.
-///
-/// # Errors
-///
-/// As [`create`].
-pub fn create_by(
-    project_dir: &Path,
-    name: &str,
-    preset: PlanPreset,
-    by: Option<&str>,
-) -> CoreResult<PlanDoc> {
-    check_name(name)?;
-    let _lock = writing();
-    let id = free_id(project_dir, trimmed(name))?;
-    let folder = dir(project_dir);
-    fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
-    let plan = PlanFile::new(name, preset);
-    write_plan(&path(project_dir, &id)?, &plan)?;
-    let line = plain_entry(
-        by,
-        format!("Made the canvas {}", plan.name),
-        ChangeMark::Create,
-    );
-    change::note(project_dir, &id, &line);
-    Ok(doc(project_dir, &id, plan))
-}
-
 /// Moves a canvas that is not a camera plan off the camera plan's id (a
 /// file from before the id was kept for it) to a free id made from its
 /// name, with its change log, and notes the move there. The caller holds
 /// the canvas lock. Answers with the new id.
 pub(super) fn move_aside(project_dir: &Path, plan: &PlanFile) -> CoreResult<String> {
     let id = super::camera::CAMERA_PLAN_ID;
-    let to = free_id(project_dir, &plan.name)?;
+    let to = super::create::free_id(project_dir, &plan.name)?;
     let (from, plan_to) = (path(project_dir, id)?, path(project_dir, &to)?);
     let (log_from, log_to) = (log::path(project_dir, id)?, log::path(project_dir, &to)?);
     if plan_to.exists() || log_to.exists() {
