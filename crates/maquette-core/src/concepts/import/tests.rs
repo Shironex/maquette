@@ -573,3 +573,41 @@ fn a_card_left_behind_does_not_point_into_the_folder_that_moved() {
     let card = assets::find(&moved.from, &done.asset.id).expect("still here");
     assert_eq!(card.thumbnail, None);
 }
+
+#[test]
+fn a_ref_goes_only_to_the_card_of_its_own_direction_in_another_script() {
+    let f = fixture();
+    f.import(&[f.image("雪.png")]).expect("snow");
+    let moon = f.import(&[f.image("月.png")]).expect("moon");
+    mark(&f.dir, &moon.direction.id, &moon.added[0], None, Some(true)).expect("pick");
+    let sent = send_picks(
+        f.root.path(),
+        &f.layout,
+        &f.id,
+        &moon.direction.id,
+        AssetKind::Prop,
+    )
+    .expect("send");
+    project::modify(f.root.path(), &f.layout, &f.id, |m| {
+        for asset in &mut m.assets {
+            asset.thumbnail = None;
+        }
+        Ok(())
+    })
+    .expect("clear");
+    let healed = crate::concepts::heal_ref_thumbnails(f.root.path(), &f.layout, &f.id)
+        .expect("heal")
+        .expect("changed");
+    let shown = |name: &str| {
+        healed
+            .assets
+            .iter()
+            .find(|a| a.name == name)
+            .and_then(|a| a.thumbnail.clone())
+    };
+    assert_eq!(shown("雪"), None);
+    assert!(
+        shown("月").is_some_and(|t| t.starts_with("refs/")),
+        "{sent:?}"
+    );
+}

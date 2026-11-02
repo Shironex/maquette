@@ -328,11 +328,12 @@ pub(crate) fn move_direction(
     }
     let found = concepts::load_direction(&dir, direction_id)?
         .ok_or_else(|| CoreError::NotFound(format!("the direction {direction_id}")))?;
-    let asset = project::slugify(found.name.trim());
-    let keep_asset = studio
-        .list(Some(project_id))
-        .iter()
-        .any(|j| j.asset == asset && (j.state.is_active() || j.state == JobState::Inbox));
+    let manifest = project::load(&root, &config.layout, project_id)?;
+    let asset = direction_asset(&manifest, &found.name);
+    let keep_asset = studio.list(Some(project_id)).iter().any(|j| {
+        asset.as_deref() == Some(j.asset.as_str())
+            && (j.state.is_active() || j.state == JobState::Inbox)
+    });
     Ok(concepts::move_direction(
         &root,
         &config.layout,
@@ -354,6 +355,11 @@ pub fn lab_move_direction(
     to: String,
 ) -> CommandResult<MovedDirection> {
     move_direction(&session, &lab.0, &studio.0, &project, &direction, &to)
+}
+
+/// The id of the card a direction called `name` belongs to.
+fn direction_asset(manifest: &project::ProjectManifest, name: &str) -> Option<String> {
+    maquette_core::assets::find_by_name(manifest, name).map(|a| a.id.clone())
 }
 
 /// Copies images into `refs/` and returns their final paths relative to the

@@ -216,6 +216,34 @@ fn a_ref_must_be_a_file_within_the_limits() {
 }
 
 #[test]
+fn a_direction_in_another_script_belongs_to_its_own_card() {
+    let f = refs_fixture();
+    let (root, config, _) = project_dir(&f.session, "moon").expect("dir");
+    let mut manifest = project::load(&root, &config.layout, "moon").expect("load");
+    for name in ["雪", "月"] {
+        maquette_core::assets::add(
+            &mut manifest,
+            maquette_core::NewAsset {
+                name: name.into(),
+                kind: AssetKind::Prop,
+                stage: maquette_core::Stage::Concept,
+            },
+        )
+        .expect("card");
+    }
+    let id = |name: &str| {
+        manifest
+            .assets
+            .iter()
+            .find(|a| a.name == name)
+            .map(|a| a.id.clone())
+    };
+    assert_eq!(direction_asset(&manifest, "月"), id("月"));
+    assert_eq!(direction_asset(&manifest, "雪"), id("雪"));
+    assert_eq!(direction_asset(&manifest, "星"), None);
+}
+
+#[test]
 fn a_direction_moves_to_another_project() {
     let dir = tempfile::tempdir().expect("temp dir");
     let root = dir.path().join("ws");
