@@ -187,3 +187,15 @@ fn counts_read_short() {
     assert_eq!(short_count(1_260_000), "1.3M");
     assert_eq!(short_count(2_000_000), "2M");
 }
+
+#[test]
+fn an_asset_with_a_name_windows_reserves_ships_as_it_always_did() {
+    let mut m = manifest();
+    let id = add(&mut m, new_asset("Con")).expect("con").id;
+    // An asset made before new ids moved off reserved names.
+    let old = m.assets.iter_mut().find(|a| a.id == id).expect("asset");
+    old.id = "con".to_string();
+    with_version(&mut m, "con", 1);
+    // `_v1` already keeps the shipped name off a reserved one.
+    assert!(!shipped_names(&m, &ShipSettings::default()).contains_key("con_v1"));
+}

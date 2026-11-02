@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
-use crate::project::{ProjectManifest, folder_slug, now_rfc3339};
+use crate::project::{ProjectManifest, folder_slug, now_rfc3339, slugify};
 use crate::ship::ShipSettings;
 
 pub mod copy;
@@ -240,7 +240,9 @@ pub fn shipped_names(manifest: &ProjectManifest, ship: &ShipSettings) -> BTreeMa
             continue;
         }
         // The same text the asset id and its version files are made of.
-        let base = folder_slug(&asset.name).replace('-', "_");
+        // Plain slugify: `_v<n>` never lands on a name Windows reserves, and an
+        // old `con` asset keeps shipping as `con_v1`.
+        let base = slugify(&asset.name).replace('-', "_");
         let shipped = format!("{base}_v{}", version.version);
         if &shipped != stem && taken.insert(shipped.clone()) {
             out.insert(stem.clone(), shipped);
