@@ -38,7 +38,7 @@ fn stop(id: &str, name: &str, x: f32) -> LayoutStop {
     }
 }
 
-fn fixture(dir: &Path) -> Session {
+pub(super) fn fixture(dir: &Path) -> Session {
     let root = dir.join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
     let session = Session::with_state(dir.join("cfg"), None, AppState::default());

@@ -18,6 +18,7 @@ import { LinkDialog } from '../LinkDialog';
 import { PlanChanges } from '../PlanChanges';
 import { PlanNodeCard } from '../PlanNodeCard';
 import { usePlanCanvas, type AddKind } from './PlanCanvas.hooks';
+import { PRESET_NAME } from '@/state/plan-presets';
 
 const NODE_TYPES: NodeTypes = {
   note: PlanNodeCard,
@@ -52,8 +53,6 @@ const TOOLS: { kind: AddKind; label: string; icon: IconName; key: string; tip: s
     tip: 'Links an asset of the Board or a Lab direction',
   },
 ];
-
-const PRESET_NAME = { brainstorm: 'Brainstorm', story: 'Story', mechanics: 'Game mechanics' };
 
 /**
  * An open canvas: notes, pictures and links to move, link and delete, a
