@@ -10,16 +10,15 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use super::tests::meshy_job;
-use super::{Entry, JOBS_FILE, Options, ProviderJobs, Workspace, update};
+use super::{JOBS_FILE, Options, ProviderJobs, update};
 use crate::error::CoreResult;
-use crate::http::StopFlag;
 use crate::secrets::MemoryStore;
 use maquette_base::ports::TextureBake;
 use maquette_base::tools::Toolbox;
 use maquette_model::assets::AssetKind;
-use maquette_model::project;
+use maquette_model::project::{self, NewProject, ProjectTemplate};
 use maquette_model::sends::{InboxAim, InboxPort, SendPorts};
-use maquette_model::workspace::WorkspaceConfig;
+use maquette_model::workspace::{self, WorkspaceConfig};
 
 /// Ports no test here reaches.
 struct Unused;
@@ -50,11 +49,31 @@ impl TextureBake for Unused {
     }
 }
 
-/// A workspace with one saved Meshy job, `lantern-1` in `moon-island`.
-fn one_job(root: &Path) -> (ProviderJobs, PathBuf) {
-    let config = WorkspaceConfig::default();
-    let dir = project::dir(root, &config.layout, "moon-island").expect("project dir");
-    fs::create_dir_all(&dir).expect("project dir");
+/// Jobs on a fresh workspace whose project `moon-island` has one saved
+/// finished Meshy job, `lantern-1`. Returns the jobs, the workspace config
+/// and the project's jobs file.
+fn one_job(root: &Path) -> (ProviderJobs, WorkspaceConfig, PathBuf) {
+    let config = workspace::create(root, &WorkspaceConfig::default()).expect("workspace");
+    let manifest = project::create(
+        root,
+        &config.layout,
+        NewProject {
+            name: "Moon Island".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    let mut stored = meshy_job("failed", json!({}));
+    stored.job.project.clone_from(&manifest.id);
+    let path = project::dir(root, &config.layout, &manifest.id)
+        .expect("project dir")
+        .join(JOBS_FILE);
+    let file = json!({ "version": 1, "jobs": [stored] });
+    fs::write(&path, file.to_string()).expect("jobs file");
     let unused = Arc::new(Unused);
     let jobs = ProviderJobs::new(
         Arc::new(MemoryStore::default()),
@@ -65,18 +84,9 @@ fn one_job(root: &Path) -> (ProviderJobs, PathBuf) {
         },
         |_| {},
     );
-    *jobs.shared.workspace.lock().expect("workspace") = Some(Workspace {
-        root: root.to_path_buf(),
-        config,
-    });
-    jobs.shared.jobs().push(Entry {
-        stored: meshy_job("running", json!({ "modelTask": "m-model" })),
-        stop: Arc::new(StopFlag::default()),
-        thread: true,
-        cancelled: false,
-    });
-    update(&jobs.shared, "lantern-1", true, |_| Ok(())).expect("first save");
-    (jobs, dir.join(JOBS_FILE))
+    jobs.open_workspace(root, &config);
+    assert_eq!(jobs.list(None).len(), 1, "the saved job loaded");
+    (jobs, config, path)
 }
 
 fn saved_ids(path: &Path) -> Vec<String> {
@@ -92,7 +102,7 @@ fn saved_ids(path: &Path) -> Vec<String> {
 #[test]
 fn closing_while_a_job_saves_keeps_its_saved_send() {
     let root = tempfile::tempdir().expect("dir");
-    let (jobs, path) = one_job(root.path());
+    let (jobs, _, path) = one_job(root.path());
     assert_eq!(saved_ids(&path), ["lantern-1"]);
 
     // The save stops right after its change and waits for close to finish,
@@ -129,4 +139,17 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
     // A job thread that saves after close finds nothing and writes nothing.
     assert!(update(&jobs.shared, "lantern-1", true, |_| Ok(())).is_err());
     assert_eq!(saved_ids(&path), ["lantern-1"]);
+}
+
+#[test]
+fn clearing_finished_jobs_after_close_writes_nothing() {
+    let root = tempfile::tempdir().expect("dir");
+    let (jobs, _, path) = one_job(root.path());
+    jobs.close();
+    let cleared = jobs.clear_finished("moon-island");
+    assert_eq!(saved_ids(&path), ["lantern-1"], "the saved job is kept");
+    assert!(
+        format!("{cleared:?}").contains("Open a workspace"),
+        "{cleared:?}"
+    );
 }

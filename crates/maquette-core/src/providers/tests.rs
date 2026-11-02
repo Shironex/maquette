@@ -19,6 +19,7 @@ use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
 mod arrivals;
+mod closed;
 mod connect;
 mod handoff_paths;
 mod ids;

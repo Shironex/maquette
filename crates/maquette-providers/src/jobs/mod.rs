@@ -209,6 +209,13 @@ impl Shared {
         }
     }
 
+    /// The open workspace, checked under `saving` just before a change
+    /// that gets saved, so nothing is written once the jobs have closed.
+    fn still_open(&self, _saving: &Saving<'_>) -> CoreResult<Workspace> {
+        self.workspace()
+            .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))
+    }
+
     fn workspace(&self) -> Option<Workspace> {
         self.workspace
             .lock()
@@ -415,12 +422,19 @@ impl ProviderJobs {
         self.clear(&self.shared.saving());
     }
 
+    /// Empties the list and forgets the workspace, both under the jobs
+    /// lock, so a save or send that comes later has nowhere to write.
     fn clear(&self, _saving: &Saving<'_>) {
         let mut jobs = self.shared.jobs();
         for entry in jobs.iter() {
             entry.stop.stop();
         }
         jobs.clear();
+        *self
+            .shared
+            .workspace
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
     }
 
     pub fn list(&self, project: Option<&str>) -> Vec<ProviderJob> {

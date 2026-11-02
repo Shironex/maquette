@@ -69,14 +69,20 @@ fn file_stem(file: &str) -> String {
 
 impl ProviderJobs {
     /// Drops finished jobs of a project from the queue.
-    pub fn clear_finished(&self, project: &str) {
+    ///
+    /// # Errors
+    ///
+    /// Fails once the jobs have closed, writing nothing.
+    pub fn clear_finished(&self, project: &str) -> CoreResult<()> {
         let saving = self.shared.saving();
+        self.shared.still_open(&saving)?;
         self.shared.jobs().retain(|e| {
             e.stored.job.project != project
                 || e.stored.job.state.is_active()
                 || e.stored.job.state == JobState::Inbox
         });
         persist(&self.shared, &saving, project);
+        Ok(())
     }
 
     /// Copies the finished send records of `asset` in project `from` to the
@@ -99,6 +105,9 @@ impl ProviderJobs {
         };
         let _one = self.shared.sending();
         let saving = self.shared.saving();
+        if self.shared.still_open(&saving).is_err() {
+            return 0;
+        }
         let copied = {
             let mut jobs = self.shared.jobs();
             let sources: Vec<Stored> = jobs

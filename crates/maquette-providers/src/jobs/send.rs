@@ -188,6 +188,7 @@ impl ProviderJobs {
             chain: Chain::default(),
         };
         let saving = self.shared.saving();
+        self.shared.still_open(&saving)?;
         self.shared.jobs().push(Entry {
             stored: stored.clone(),
             stop: Arc::new(StopFlag::default()),
