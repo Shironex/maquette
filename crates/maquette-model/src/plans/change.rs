@@ -9,7 +9,7 @@ use std::path::Path;
 use super::files::{doc, write_plan, writing};
 use super::log::{self, PlanLogEntry};
 use super::ops::{self, Merge, PlanOp};
-use stack::on_top;
+use stack::{beneath, on_top};
 
 mod stack;
 use super::summary::{self, ChangeMark};
@@ -252,6 +252,11 @@ pub fn undo(
                     "The change {want} was undone already."
                 )));
             }
+            if !entry.undoes.is_empty() {
+                return Err(CoreError::Invalid(format!(
+                    "The change {want} is an undo, and an undo can not be undone. Redo your own edits with Redo on the canvas; an agent makes its change again instead."
+                )));
+            }
             if entry.trimmed || entry.ops.is_empty() {
                 return Err(CoreError::Invalid(format!(
                     "The change {want} can not be undone: it changed no nodes or was too big to keep."
@@ -299,17 +304,27 @@ pub fn undo(
     })
 }
 
+/// What a Keep wrote, and the earlier changes it kept with the ones named.
+#[derive(Debug, Clone)]
+pub struct Kept {
+    pub entry: PlanLogEntry,
+    /// The summaries of earlier changes to the same fields, kept too.
+    pub also: Vec<String>,
+}
+
 /// Keeps (accepts) the agent changes `ids` as a person: one log line that
 /// releases them, so the room they held for undo is free again. The canvas
 /// does not change, and each stays undoable while it is among the newest
-/// lines.
+/// lines. Earlier agent changes still held under them on the same fields
+/// are kept too: the person accepted the newer content, and a kept change
+/// rotating out must not leave an older one to release the person's words.
 ///
 /// # Errors
 ///
 /// Fails when the canvas is gone, a change is not in the log or holds
 /// nothing of a person's that is still kept for undo, or the log cannot be
 /// written.
-pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
+pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Kept> {
     if ids.is_empty() {
         return Err(CoreError::Invalid("Name the changes to keep.".into()));
     }
@@ -332,9 +347,12 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogE
             picked.push(entry);
         }
     }
-    let summary = match picked.as_slice() {
-        [one] => format!("Kept: {}", one.summary),
-        many => format!("Kept {} agent changes", many.len()),
+    // The person accepted the newer content, so the changes it sits on go too.
+    let also = beneath(&all, &picked, &released);
+    let summary = match (picked.as_slice(), also.as_slice()) {
+        ([one], []) => format!("Kept: {}", one.summary),
+        ([one], [under]) => format!("Kept: {}, and the earlier {}", one.summary, under.summary),
+        (many, under) => format!("Kept {} agent changes", many.len() + under.len()),
     };
     let entry = PlanLogEntry {
         id: log::new_id("c"),
@@ -345,15 +363,20 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogE
         mark: ChangeMark::Keep,
         ops: Vec::new(),
         undoes: Vec::new(),
-        keeps: picked.iter().map(|e| e.id.clone()).collect(),
+        keeps: picked.iter().chain(&also).map(|e| e.id.clone()).collect(),
         trimmed: false,
     };
     log::append(project_dir, id, &entry)?;
-    Ok(entry)
+    Ok(Kept {
+        also: also.iter().map(|e| e.summary.clone()).collect(),
+        entry,
+    })
 }
 
 #[cfg(test)]
 mod keep_tests;
+#[cfg(test)]
+mod redo_tests;
 #[cfg(test)]
 mod release_tests;
 #[cfg(test)]

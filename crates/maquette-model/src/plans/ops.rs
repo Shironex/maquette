@@ -76,7 +76,7 @@ fn merge_node(current: &mut PlanNode, before: &PlanNode, after: &PlanNode, merge
             }
         )*};
     }
-    field!(x, y, width, title, text, image, url, asset, direction);
+    field!(kind, x, y, width, title, text, image, url, asset, direction);
     // Whether a person wrote in it follows the content: it changes only
     // when every field the operation changes did, and is never a reason to
     // call the operation held.

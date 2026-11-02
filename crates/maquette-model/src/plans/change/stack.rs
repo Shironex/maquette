@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use super::super::PlanNode;
-use super::super::log::PlanLogEntry;
+use super::super::log::{PlanLogEntry, is_keeper};
 use super::super::ops::PlanOp;
 
 /// Stands for every field of a node or link: added, removed or a link.
@@ -75,4 +75,27 @@ pub(super) fn on_top<'a>(
             && !picked.contains(later.id.as_str())
             && overlap(&mine, &touched(later))
     })
+}
+
+/// The earlier changes still held under `picked` on the same fields, and
+/// those under them: keeping the newer content keeps what it sits on.
+pub(super) fn beneath<'a>(
+    all: &'a [PlanLogEntry],
+    picked: &[&'a PlanLogEntry],
+    released: &BTreeSet<String>,
+) -> Vec<&'a PlanLogEntry> {
+    let mut found: Vec<&PlanLogEntry> = Vec::new();
+    let mut open: Vec<&PlanLogEntry> = picked.to_vec();
+    while let Some(top) = open.pop() {
+        let at = all.iter().position(|e| e.id == top.id).unwrap_or(0);
+        let mine = touched(top);
+        for earlier in &all[..at] {
+            let seen = picked.iter().chain(&found).any(|e| e.id == earlier.id);
+            if !seen && is_keeper(earlier, released) && overlap(&mine, &touched(earlier)) {
+                found.push(earlier);
+                open.push(earlier);
+            }
+        }
+    }
+    found
 }

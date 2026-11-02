@@ -226,6 +226,9 @@ pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<
     let before = keep::stamp(&file);
     let (mut line, cut) = line_of(entry)?;
     line.push('\n');
+    // The line's own bytes, counted as a read of the log counts them: the
+    // break that closes a torn line before it belongs to that line.
+    let own = line.len();
     if !ends_whole(&file)? {
         line.insert(0, '\n');
     }
@@ -238,7 +241,7 @@ pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<
         .write_all(line.as_bytes())
         .map_err(|e| CoreError::io(&file, e))?;
     drop(handle);
-    if keep::noted(&file, entry, !cut, line.len(), before)? > LOG_MAX_BYTES {
+    if keep::noted(&file, entry, !cut, own, line.len(), before)? > LOG_MAX_BYTES {
         let trimmed = trim(&file);
         keep::forget(&file);
         trimmed?;
@@ -358,7 +361,7 @@ pub fn lines(project_dir: &Path, id: &str, limit: usize) -> CoreResult<Vec<PlanL
             PlanLogLine {
                 keepable,
                 kept,
-                undoable: !gone && !e.trimmed && !e.ops.is_empty(),
+                undoable: !gone && !e.trimmed && !e.ops.is_empty() && e.undoes.is_empty(),
                 undone: gone,
                 id: e.id,
                 at: e.at,

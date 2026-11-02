@@ -149,15 +149,17 @@ pub(super) fn held_after(file: &Path, entry: &PlanLogEntry, len: usize) -> CoreR
     })
 }
 
-/// Takes in a line just appended (`len` bytes with its line break; a
-/// keeper unless its operations were dropped) when the index described the
-/// file as it was `before`, else reads the file again. Answers the bytes of
+/// Takes in a line just appended (`len` bytes with its line break, after
+/// `written` bytes went to the file; a keeper unless its operations were
+/// dropped) when the index described the file as it was `before`, else
+/// reads the file again. Answers the bytes of
 /// the lines that are not keepers, which decide when the log rotates.
 pub(super) fn noted(
     file: &Path,
     entry: &PlanLogEntry,
     keeper: bool,
     len: usize,
+    written: usize,
     before: Stamp,
 ) -> CoreResult<u64> {
     let mut all = INDEX.lock().unwrap_or_else(PoisonError::into_inner);
@@ -167,7 +169,7 @@ pub(super) fn noted(
     match all.get_mut(file) {
         // Only our own line landed since the index was right: anything else
         // (another app appending meanwhile) reads the file again.
-        Some(index) if index.stamp == before && now.0 == before.0 + bytes(len) => {
+        Some(index) if index.stamp == before && now.0 == before.0 + bytes(written) => {
             for id in releases(entry) {
                 if let Some(size) = index.keepers.remove(id) {
                     index.rest += size;
