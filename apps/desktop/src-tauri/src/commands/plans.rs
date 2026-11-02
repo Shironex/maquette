@@ -87,8 +87,19 @@ pub fn plan_log(
     )?)
 }
 
+/// What an undo did: the canvas as the file now holds it, and whether it
+/// changed anything (everything it would undo may have changed since).
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanUndone {
+    pub doc: PlanDoc,
+    pub changed: bool,
+    /// Nodes kept because someone edited or linked them since.
+    pub kept: u32,
+}
+
 /// Undoes log lines (an agent's run, or one change) as a person; a field
-/// changed since stays. Returns what the file now holds.
+/// changed since stays.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_undo(
@@ -96,9 +107,28 @@ pub fn plan_undo(
     project: String,
     id: String,
     changes: Vec<String>,
-) -> CommandResult<PlanDoc> {
+) -> CommandResult<PlanUndone> {
     let dir = project_dir(&session, &project)?;
-    Ok(plans::undo(&dir, &id, &changes, None, None)?.doc)
+    let done = plans::undo(&dir, &id, &changes, None, None)?;
+    Ok(PlanUndone {
+        changed: done.entry.as_ref().is_some_and(|e| !e.ops.is_empty()),
+        kept: done.skipped,
+        doc: done.doc,
+    })
+}
+
+/// Keeps (accepts) agent changes as a person: frees the room the log kept
+/// to undo them. The canvas does not change.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_keep(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    changes: Vec<String>,
+) -> CommandResult<()> {
+    plans::keep(&project_dir(&session, &project)?, &id, &changes)?;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -281,6 +311,7 @@ mod tests {
             asset: None,
             direction: None,
             by: None,
+            person_wrote: false,
         }
     }
 

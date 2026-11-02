@@ -122,6 +122,7 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
         asset: None,
         direction: None,
         by: None,
+        person_wrote: false,
     };
     plans::change(&moon, "hero-ideas", &Writer::PERSON, |_| {
         Ok(vec![PlanOp::AddNode { node: porch }])
@@ -211,6 +212,7 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
     let undone = call(&client, "undo_run", canvas_args(json!({ "run": "r-1" }))).await;
     assert_eq!(undone["undone"], 2);
     assert_eq!(undone["kept"], json!(0));
+    assert_eq!(undone["nothingChanged"], json!(false));
     let after = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
     let nodes = after["nodes"].as_array().expect("nodes");
     assert_eq!(nodes.len(), 1, "{after}");
