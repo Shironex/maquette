@@ -61,7 +61,7 @@ fn write_and_rename(tmp: &Path, path: &Path, bytes: &[u8]) -> io::Result<()> {
 /// `fs::rename`, tried a few more times on Windows while the target is
 /// held open: a sync tool, a virus scanner or the search indexer reading
 /// the old file makes the replace fail with "access denied" for a moment.
-fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
+pub fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
     const WAITS_MS: [u64; 5] = [20, 50, 100, 200, 400];
     let mut result = fs::rename(from, to);
     for wait in WAITS_MS {

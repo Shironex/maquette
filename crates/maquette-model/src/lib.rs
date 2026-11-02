@@ -2,16 +2,18 @@
 //! `project.json` and the files next to it. The workspace config and its
 //! lock, projects and their assets (with removing and restoring them), the
 //! scene layout, an asset's refs, the timeline, the settings types the
-//! layers above read, what the inbox and the provider sends share, and the
+//! layers above read, what the inbox and the provider sends share, the
 //! stored part of `prepare.json`, `built.json`, `materials.json`,
-//! `avatar.json` and `ship.json`. Nothing here talks to a network service
-//! or runs Blender; it uses only the maquette-base and maquette-glb crates.
+//! `avatar.json` and `ship.json`, and the planning canvases in `plans/`.
+//! Nothing here talks to a network service or runs Blender; it uses only
+//! the maquette-base and maquette-glb crates.
 
 pub mod assets;
 pub mod avatar;
 pub mod built;
 pub mod layout;
 pub mod materials;
+pub mod plans;
 pub mod prepare;
 pub mod project;
 pub mod refs;
@@ -26,7 +28,7 @@ pub use maquette_base::{error, fs, json};
 
 /// One `register` per model module, in this order: each adds the IPC types
 /// it owns.
-const REGISTRIES: [fn(specta::Types) -> specta::Types; 11] = [
+const REGISTRIES: [fn(specta::Types) -> specta::Types; 12] = [
     settings::register,
     sends::register,
     workspace::register,
@@ -38,6 +40,7 @@ const REGISTRIES: [fn(specta::Types) -> specta::Types; 11] = [
     built::register,
     materials::register,
     avatar::register,
+    plans::register,
 ];
 
 /// Registers this crate's IPC types with the shell's TypeScript export;
@@ -68,6 +71,8 @@ mod tests {
             "SceneAvatars",
             "AvatarDefaults",
             "ProviderSettings",
+            "PlanFile",
+            "PlanSummary",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }

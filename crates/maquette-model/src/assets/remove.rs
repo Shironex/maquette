@@ -34,7 +34,7 @@ mod trash;
 mod tests;
 
 pub use restore::{AssetRestored, restore};
-pub use trash::{TRASH_DIR, TrashEntry, list_trash};
+pub use trash::{TRASH_DIR, TrashEntry, list_trash, project_trash};
 
 /// The most assets one remove takes.
 pub const MAX_REMOVE: usize = 50;

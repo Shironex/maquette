@@ -29,6 +29,7 @@
     "layout": "model",
     "refs": "model",
     "timeline": "model",
+    "plans": "model",
     "settings": "model",
     "sends": "model",
     "prepare": "model",

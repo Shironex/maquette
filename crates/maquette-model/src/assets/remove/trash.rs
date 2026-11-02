@@ -66,12 +66,8 @@ fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
-/// `<workspace>/trash/<project>`.
-pub(super) fn project_trash(
-    root: &Path,
-    layout: &FolderLayout,
-    project: &str,
-) -> CoreResult<PathBuf> {
+/// `<workspace>/trash/<project>`, where removed assets and canvases go.
+pub fn project_trash(root: &Path, layout: &FolderLayout, project: &str) -> CoreResult<PathBuf> {
     if [&layout.projects, &layout.inbox, &layout.cache]
         .iter()
         .any(|f| f.as_str() == TRASH_DIR)
