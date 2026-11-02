@@ -984,10 +984,13 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   `maquette_core::plan_links` reads them live each time the canvas asks (`plan_links`): an asset's
   name, kind, stage, thumbnail, newest version, numbers and Inbox models to check, and a
   direction's images, picks and running Lab jobs. An id that names nothing reads as gone, which
-  the node shows as not found; the file is never touched. The web side reads again when the
-  canvas opens, its links change, the project or Inbox changes, the window comes back, and every
-  few seconds while a linked Lab round runs (`state/use-plan-links-store.ts`); `state/plan-links.ts`
-  turns a read into the node's status and next step (Inspector, Inbox, Lab or Board).
+  the node shows as not found; the file is never touched. The Inbox (which checks every model in
+  it) is read only when the canvas links an asset, and a direction counts as running only while
+  one of its images is being made, not while jobs are queued, held or waiting. The web side reads
+  again when the canvas opens, its links change, the window comes back, every few seconds while a
+  linked direction runs, and once after the project or Inbox settles from a burst of changes
+  (`state/use-plan-links-store.ts`); `state/plan-links.ts` turns a read into the node's status and
+  next step (Inspector, Inbox, Lab or Board).
 
 - **Writes.** `files.rs` validates (`check.rs`: fields by kind, limits, paths safe on Windows),
   sorts nodes and edges by id and writes atomically under one lock, reading the file first; `edited`
