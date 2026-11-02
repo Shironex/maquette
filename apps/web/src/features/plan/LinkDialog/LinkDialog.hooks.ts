@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import { trimText } from '@/state/plan-text';
 import { webAddress } from '@/state/plans';
 
 /** The address and title of a new link node; Add hands them back once the address reads. */
@@ -19,13 +20,13 @@ export function useLinkDialog(onAdd: (url: string, title: string) => void) {
     field,
     canAdd: address !== null,
     note:
-      touched && url.trim() && !address
+      touched && trimText(url) && !address
         ? { tone: 'warning' as const, text: 'Type a web address, such as example.com/article.' }
         : undefined,
     touch: () => setTouched(true),
     submit: () => {
       setTouched(true);
-      if (address) onAdd(address, title.trim());
+      if (address) onAdd(address, trimText(title));
     },
   };
 }

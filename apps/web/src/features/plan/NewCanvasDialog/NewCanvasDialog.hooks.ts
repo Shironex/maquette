@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import { trimText } from '@/state/plan-text';
 import { usePlansStore } from '@/state/use-plans-store';
 
 /** The new canvas's name, focused on open; Create makes the canvas and opens it. */
@@ -10,7 +11,7 @@ export function useNewCanvasDialog(onClose: () => void) {
   useEffect(() => {
     document.getElementById(field)?.focus();
   }, [field]);
-  const trimmed = name.trim();
+  const trimmed = trimText(name);
   const submit = async () => {
     if (!trimmed || busy) return;
     setBusy(true);

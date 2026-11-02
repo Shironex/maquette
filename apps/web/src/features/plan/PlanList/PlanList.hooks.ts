@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { PlanSummary } from '@/ipc/client';
 import { useNow } from '@/lib/useNow';
+import { trimText } from '@/state/plan-text';
 import { byEdited, findPlans } from '@/state/plans';
 import { usePlansStore } from '@/state/use-plans-store';
 
@@ -43,7 +44,7 @@ export function usePlanList(list: readonly PlanSummary[]) {
     commitRename: async () => {
       if (!renaming) return;
       const plan = list.find(p => p.id === renaming.id);
-      const name = renaming.name.trim();
+      const name = trimText(renaming.name);
       if (!plan || !name || name === plan.name) {
         setRenaming(null);
         return;
