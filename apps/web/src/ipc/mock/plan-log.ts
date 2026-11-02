@@ -149,7 +149,7 @@ export function createMockLogs() {
           summary: e.summary,
           mark: e.mark,
           undone: undone.has(e.id),
-          undoable: !undone.has(e.id) && e.ops.length > 0,
+          undoable: !undone.has(e.id) && e.ops.length > 0 && !e.undoes.length,
         }));
     },
     drop: (project: unknown, id: unknown) => logs.delete(`${String(project)}/${String(id)}`),

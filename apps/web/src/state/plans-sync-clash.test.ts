@@ -187,6 +187,34 @@ describe('freeing what the log keeps for undo', () => {
     expect(lines[0]?.summary).toMatch(/^Nothing to undo, already changed/);
   });
 
+  it('says when a Keep also kept an earlier change under it', async () => {
+    const store = await openPlans();
+    await plans().openCanvas('combat-ideas');
+    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas' });
+    await usePlanLogStore.getState().load('frostveil', 'combat-ideas');
+    const edit = usePlanLogStore.getState().lines[0];
+    vi.spyOn(commands, 'planKeep').mockResolvedValue({ also: ['Edited note: Frost veil'] });
+    expect(await usePlanLogStore.getState().keep([edit!.id])).toBe(true);
+    const notice = useAppStore.getState().notice;
+    expect(notice?.title).toBe('Also kept the earlier change');
+    expect(notice?.detail).toContain('Edited note: Frost veil');
+  });
+
+  it('refuses to undo an undo and offers no Undo on it', async () => {
+    await openPlans();
+    await plans().openCanvas('combat-ideas');
+    plans().onNodesChange([{ type: 'remove', id: 'n-05' }]);
+    await plans().save();
+    await usePlanLogStore.getState().load('frostveil', 'combat-ideas');
+    const agent = usePlanLogStore.getState().lines.find(l => l.by === 'Research agent');
+    await usePlanLogStore.getState().undo([agent!.id]);
+    const undoLine = usePlanLogStore.getState().lines[0];
+    expect(undoLine?.mark).toBe('undo');
+    expect(undoLine?.undoable).toBe(false);
+    expect(await usePlanLogStore.getState().undo([undoLine!.id])).toBe(false);
+    expect(useAppStore.getState().notice?.detail).toMatch(/an undo can not be undone/);
+  });
+
   it('keeps an agent edit of the person note, which can then no longer be kept', async () => {
     const store = await openPlans();
     await plans().openCanvas('combat-ideas');

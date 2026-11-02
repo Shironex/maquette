@@ -110,7 +110,13 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
     const { project, open } = usePlansStore.getState();
     if (!project || !open || ids.length === 0) return false;
     try {
-      await commands.planKeep(project, open.id, ids);
+      const { also } = await commands.planKeep(project, open.id, ids);
+      if (also.length)
+        useAppStore.getState().notify({
+          status: 'info',
+          title: also.length === 1 ? 'Also kept the earlier change' : 'Also kept earlier changes',
+          detail: `It changed the same part of the node before, so keeping the newer one keeps it too: ${also.join('; ')}.`,
+        });
     } catch (error) {
       useAppStore.getState().notify({
         status: 'failed',

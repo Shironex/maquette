@@ -231,6 +231,8 @@ export function createPlanHandlers(
       const all = logs.entries(project, id);
       const undone = new Set(all.flatMap(e => e.undoes));
       const picked = all.filter(e => wanted.has(e.id));
+      if (picked.some(e => e.undoes.length))
+        fail('invalid', 'That change is an undo, and an undo can not be undone.');
       if (picked.length !== wanted.size || picked.some(e => undone.has(e.id) || !e.ops.length))
         fail('invalid', 'That change cannot be undone any more.');
       // Newest first, each carefully: a field changed since stays.
@@ -270,7 +272,7 @@ export function createPlanHandlers(
         ids.length === 1 ? logs.entries(project, id).find(e => e.id === ids[0]) : undefined;
       const summary = only ? `Kept: ${only.summary}` : `Kept ${ids.length} agent changes`;
       logs.append(project, id, { by: null, run: null, ops: [], summary, mark: 'keep', keeps: ids });
-      return null;
+      return { also: [] };
     },
     plan_watch: () => true,
     // Mock only, for the visual check: an agent's run and a change from another computer.

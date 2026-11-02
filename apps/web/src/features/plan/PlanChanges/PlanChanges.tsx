@@ -17,7 +17,7 @@ const MARK_ICON: Record<ChangeMark, IconName> = {
 };
 
 const KEEP_TIP =
-  'Accept this agent change: the log stops holding your earlier version for it, which frees room. It stays undoable while it is among the newest changes.';
+  'Accept this agent change: the log stops holding your earlier version for it, which frees room. Earlier agent changes to the same part of the node are kept with it. It stays undoable while it is among the newest changes.';
 
 const FILTERS: { value: LogFilter; label: string }[] = [
   { value: 'all', label: 'All' },

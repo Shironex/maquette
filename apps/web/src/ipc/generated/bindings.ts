@@ -368,9 +368,10 @@ export const commands = {
 	planUndo: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanUndone_Serialize>("plan_undo", { project, id, changes }),
 	/**
 	 *  Keeps (accepts) agent changes as a person: frees the room the log kept
-	 *  to undo them. The canvas does not change.
+	 *  to undo them, with the earlier changes they sit on. The canvas does not
+	 *  change.
 	 */
-	planKeep: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<null>("plan_keep", { project, id, changes }),
+	planKeep: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanKept>("plan_keep", { project, id, changes }),
 	/**
 	 *  Watches the project's `plans/` folder, if it is not watched yet, and
 	 *  sends `PlanChanged` for each canvas whose file or log changes. Answers
@@ -5382,6 +5383,14 @@ export type PlanImage = {
 	name: string,
 	/**  True when it was copied into `plans/images`. */
 	copied: boolean,
+};
+
+/**
+ *  What a Keep kept besides the changes named: the summaries of earlier
+ *  agent changes to the same fields, kept with them.
+ */
+export type PlanKept = {
+	also: string[],
 };
 
 /**  The live view of every asset and direction a canvas links. */
