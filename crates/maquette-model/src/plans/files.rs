@@ -12,8 +12,10 @@ use std::sync::{Mutex, MutexGuard};
 
 use serde::Serialize;
 
+use super::log::{self, PlanLogEntry};
+use super::summary::ChangeMark;
 use super::{
-    MAX_FILE_BYTES, PLAN_SUFFIX, PlanFile, PlanPreset, check_name, dir, images, load_file,
+    MAX_FILE_BYTES, PLAN_SUFFIX, PlanFile, PlanPreset, change, check_name, dir, images, load_file,
     normalized, path, trimmed, validate,
 };
 use crate::error::{CoreError, CoreResult};
@@ -55,7 +57,8 @@ pub struct PlanSummary {
 
 static WRITES: Mutex<()> = Mutex::new(());
 
-fn writing() -> MutexGuard<'static, ()> {
+/// The lock every canvas write in this process holds.
+pub(super) fn writing() -> MutexGuard<'static, ()> {
     WRITES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -63,7 +66,7 @@ fn writing() -> MutexGuard<'static, ()> {
 
 /// Writes a canvas file as `write_json` would, refused when the text would
 /// be over [`MAX_FILE_BYTES`], since such a file would not open again.
-fn write_plan(file: &Path, plan: &PlanFile) -> CoreResult<()> {
+pub(super) fn write_plan(file: &Path, plan: &PlanFile) -> CoreResult<()> {
     let mut text = serde_json::to_string_pretty(plan).map_err(|e| CoreError::json(file, e))?;
     text.push('\n');
     if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
@@ -83,7 +86,7 @@ fn file_of(id: &str) -> String {
     format!("{}/{id}{PLAN_SUFFIX}", super::PLANS_DIR)
 }
 
-fn doc(project_dir: &Path, id: &str, plan: PlanFile) -> PlanDoc {
+pub(super) fn doc(project_dir: &Path, id: &str, plan: PlanFile) -> PlanDoc {
     PlanDoc {
         id: id.to_string(),
         file: file_of(id),
@@ -186,6 +189,20 @@ fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
 ///
 /// Fails on a name [`check_name`] refuses or when the file cannot be written.
 pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<PlanDoc> {
+    create_by(project_dir, name, preset, None)
+}
+
+/// [`create`], noting who made it (an agent's name) in the change log.
+///
+/// # Errors
+///
+/// As [`create`].
+pub fn create_by(
+    project_dir: &Path,
+    name: &str,
+    preset: PlanPreset,
+    by: Option<&str>,
+) -> CoreResult<PlanDoc> {
     check_name(name)?;
     let _lock = writing();
     let id = free_id(project_dir, trimmed(name))?;
@@ -193,7 +210,28 @@ pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     let plan = PlanFile::new(name, preset);
     write_plan(&path(project_dir, &id)?, &plan)?;
+    let line = plain_entry(
+        by,
+        format!("Made the canvas {}", plan.name),
+        ChangeMark::Create,
+    );
+    change::note(project_dir, &id, &line);
     Ok(doc(project_dir, &id, plan))
+}
+
+/// A log line that changed no node: a canvas made or renamed.
+fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -> PlanLogEntry {
+    PlanLogEntry {
+        id: log::new_id("c"),
+        at: now_rfc3339(),
+        by: by.map(str::to_string),
+        run: None,
+        summary,
+        mark,
+        ops: Vec::new(),
+        undoes: Vec::new(),
+        trimmed: false,
+    }
 }
 
 /// Writes `plan` over the canvas `id`, normalised and then validated.
@@ -207,21 +245,11 @@ pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<
 /// Fails when the canvas is gone, the plan does not validate or the file
 /// cannot be written.
 pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc> {
-    let mut next = normalized(plan);
-    validate(&next)?;
+    validate(&normalized(plan))?;
     let _lock = writing();
-    let file = path(project_dir, id)?;
-    let current = load_file(&file)?;
-    next.name = current.name.clone();
-    next.created = current.created.clone();
-    next.preset = current.preset;
-    next.edited = current.edited.clone();
-    if next == current {
-        return Ok(doc(project_dir, id, current));
-    }
-    next.edited = now_rfc3339();
-    write_plan(&file, &next)?;
-    Ok(doc(project_dir, id, next))
+    let current = load_file(&path(project_dir, id)?)?;
+    let writer = change::Writer::PERSON;
+    Ok(change::commit(project_dir, id, current, plan, &writer, None)?.0)
 }
 
 /// Renames the canvas `id`. The file and its id stay, so links to it from
@@ -240,6 +268,8 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<PlanSummar
         plan.name = name.to_string();
         plan.edited = now_rfc3339();
         write_plan(&file, &plan)?;
+        let line = plain_entry(None, format!("Renamed to {name}"), ChangeMark::Rename);
+        change::note(project_dir, id, &line);
     }
     Ok(summary(id, &plan))
 }
@@ -263,6 +293,7 @@ pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<Stri
     let stamp: String = now_rfc3339().chars().filter(char::is_ascii_digit).collect();
     let to = to_dir.join(format!("{id}-{stamp}{PLAN_SUFFIX}"));
     move_file(&file, &to)?;
+    log::move_beside(project_dir, id, &to);
     Ok(to.display().to_string())
 }
 

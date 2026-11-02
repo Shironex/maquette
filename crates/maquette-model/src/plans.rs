@@ -51,14 +51,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
 
+pub mod agent;
+mod change;
 mod check;
 mod files;
 pub mod images;
+pub mod log;
 pub mod migrate;
+pub mod ops;
+mod place;
+pub mod summary;
 pub mod text;
 
+pub use change::{Changed, Writer, change, undo};
 pub use check::{check_name, is_link_id, is_project_relative, validate};
-pub use files::{PlanDoc, PlanSummary, create, get, list, remove, rename, save};
+pub use files::{PlanDoc, PlanSummary, create, create_by, get, list, remove, rename, save};
 pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";
@@ -324,6 +331,9 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<PlanDoc>()
         .register::<PlanSummary>()
         .register::<images::PlanImage>()
+        .register::<ops::PlanOp>()
+        .register::<log::PlanLogEntry>()
+        .register::<log::PlanLogLine>()
 }
 
 #[cfg(test)]
