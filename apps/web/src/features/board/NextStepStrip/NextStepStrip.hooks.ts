@@ -36,6 +36,7 @@ export function useNextStepStrip() {
   const inbox = inboxSnapshot?.items.length ?? 0;
   const openImport = useGameStore(s => s.openImport);
   const jobs = useProvidersStore(s => s.jobs);
+  const jobsRead = useProvidersStore(s => s.jobsReadFor === project?.id);
   const openPanel = useProvidersStore(s => s.openPanel);
   const openBatch = useProvidersStore(s => s.openBatch);
   const openRefs = useRefsStore(s => s.open);
@@ -71,6 +72,7 @@ export function useNextStepStrip() {
     tools.checkedAt !== null &&
     pipeline !== null &&
     !running &&
+    jobsRead &&
     inboxSnapshot !== null;
   const projectId = project?.id;
   useEffect(() => {

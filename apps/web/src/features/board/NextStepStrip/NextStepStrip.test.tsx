@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useFirstRunTips } from '@/state/use-first-run-tips';
 import { useInboxStore } from '@/state/use-inbox-store';
@@ -22,7 +23,7 @@ afterEach(() => {
   window.localStorage.removeItem('maquette.board.nextStepDismissed.other');
   useInboxStore.setState({ snapshot: null });
   usePipelineStore.setState({ view: null });
-  useProvidersStore.setState({ openPanel, jobs: [] });
+  useProvidersStore.setState({ openPanel, jobs: [], jobsReadFor: null });
   useSettingsTarget.setState({ asked: null });
   useAppStore.setState({ view: 'board', tools: initialTools });
   vi.restoreAllMocks();
@@ -111,6 +112,7 @@ describe('the Next step strip', () => {
         })
       );
     usePipelineStore.setState({ view: { project: 'frostveil', runs: [] } as never });
+    useProvidersStore.setState({ jobsReadFor: 'frostveil' });
     inbox(0);
     blender('missing');
     render(<NextStepStrip />);
@@ -119,6 +121,28 @@ describe('the Next step strip', () => {
     blender('found');
     blender('missing');
     expect(screen.getByRole('region', { name: 'Next step' })).toHaveTextContent('Blender');
+  });
+
+  it('holds the dismissal until the provider jobs are read, and after a failed read', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify([{ key: 'send:a0' }]));
+    await withAssets(['refs', 'refs']);
+    const tools = useAppStore.getState().tools;
+    usePipelineStore.setState({ view: { project: 'frostveil', runs: [] } as never });
+    inbox(0);
+    useProvidersStore.setState({ jobsReadFor: null, project: 'frostveil' });
+    act(() => useAppStore.setState({ tools: { ...tools, checking: false, checkedAt: 1 } }));
+    // Without the jobs both cards look unsent, which is not what was dismissed.
+    render(<NextStepStrip />);
+    expect(window.localStorage.getItem(KEY)).toContain('send:a0');
+    const read = vi.spyOn(commands, 'providerJobs').mockRejectedValueOnce(new Error('no'));
+    await act(() => useProvidersStore.getState().load('frostveil'));
+    expect(useProvidersStore.getState().jobsReadFor).toBeNull();
+    expect(window.localStorage.getItem(KEY)).toContain('send:a0');
+    read.mockResolvedValueOnce([{ asset: 'a1', state: 'running' }] as never);
+    await act(() => useProvidersStore.getState().load('frostveil'));
+    expect(useProvidersStore.getState().jobsReadFor).toBe('frostveil');
+    expect(window.localStorage.getItem(KEY)).toContain('send:a0');
+    expect(screen.queryByRole('region', { name: 'Next step' })).toBeNull();
   });
 
   it('holds the dismissal while a check is running', async () => {
