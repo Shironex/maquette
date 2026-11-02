@@ -4,7 +4,9 @@ import { usePlansStore } from '@/state/use-plans-store';
 
 /**
  * The open project's canvases, read when the project changes; the open
- * canvas saves when the view goes away.
+ * canvas saves when the view goes away. An open canvas shows even while
+ * the project changes, so a failed save on the way out can still be
+ * answered on it.
  */
 export function usePlanView() {
   const project = useAppStore(s => s.workspace?.project ?? null);
@@ -25,7 +27,7 @@ export function usePlanView() {
     project,
     list: current ? list : null,
     listError: current ? listError : null,
-    open: current ? open : null,
+    open,
     opening,
     openError,
     retry: () => (projectId ? void loadList(projectId) : undefined),

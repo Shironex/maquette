@@ -3,11 +3,13 @@ import type { PlanFile, PlanSummary } from '@/ipc/client';
 import {
   byEdited,
   contentLine,
+  coord,
   findPlans,
   flowEdgesOf,
   flowNodesOf,
   freeSpot,
   hostOf,
+  LIMITS,
   newEdge,
   newId,
   newNode,
@@ -118,6 +120,16 @@ describe('canvas files and React Flow', () => {
     expect(
       newEdge({ source: 'a', target: 'a', sourceHandle: null, targetHandle: null }, 5)
     ).toBeNull();
+  });
+
+  it('keeps positions and text inside what the file allows', () => {
+    const far = newNode('note', { x: 5e6, y: -5e6 }, { text: 'x'.repeat(LIMITS.text + 5) }, 1);
+    expect(far).toMatchObject({ x: LIMITS.coord, y: -LIMITS.coord });
+    expect(far.text).toHaveLength(LIMITS.text);
+    const file = plan();
+    const moved = flowNodesOf(file).map(n => ({ ...n, position: { x: -9e9, y: 2.4 } }));
+    expect(planOf(file, moved, []).nodes[0]).toMatchObject({ x: -LIMITS.coord, y: 2 });
+    expect(coord(1_000_000.4)).toBe(1_000_000);
   });
 
   it('puts a new node where it covers no other', () => {

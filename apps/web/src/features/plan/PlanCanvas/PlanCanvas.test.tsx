@@ -1,13 +1,17 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactFlowProvider } from '@xyflow/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
 import { usePlansStore } from '@/state/use-plans-store';
 import { clearMocks, fakeFlowLayout, openPlans } from '@/test/open-plan';
 import PlanCanvas from './PlanCanvas';
 
 beforeAll(fakeFlowLayout);
-afterEach(clearMocks);
+afterEach(() => {
+  vi.restoreAllMocks();
+  clearMocks();
+});
 
 const renderCanvas = async (id: string) => {
   await openPlans();
@@ -52,6 +56,23 @@ describe('PlanCanvas', () => {
     await vi.waitFor(() =>
       expect(usePlansStore.getState().nodes.map(n => n.data.node.kind)).toEqual(['link', 'image'])
     );
+  });
+
+  it('stays open and asks when the save on the way back fails', async () => {
+    await renderCanvas('combat-ideas');
+    vi.spyOn(commands, 'planSave')
+      .mockRejectedValueOnce({ code: 'io', message: 'The file is locked.' })
+      .mockRejectedValueOnce({ code: 'io', message: 'Still locked.' });
+    usePlansStore.getState().addNode('note', { x: 900, y: 900 });
+    await userEvent.click(screen.getByRole('button', { name: 'Plan, back to all canvases' }));
+    const dialog = await screen.findByRole('dialog', { name: 'The canvas was not saved' });
+    expect(dialog).toHaveTextContent('The file is locked.');
+    expect(screen.getByRole('main', { name: 'Combat ideas canvas' })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Try again' }));
+    const again = await screen.findByRole('dialog', { name: 'The canvas was not saved' });
+    await userEvent.click(within(again).getByRole('button', { name: 'Leave without saving' }));
+    await vi.waitFor(() => expect(usePlansStore.getState().open).toBeNull());
+    expect(usePlansStore.getState().list?.find(p => p.id === 'combat-ideas')?.nodes).toBe(6);
   });
 
   it('goes back to the list, saving first', async () => {

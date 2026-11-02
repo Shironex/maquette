@@ -12,6 +12,13 @@ export type PlanNodeData = { node: PlanNode };
 export type FlowNode = Node<PlanNodeData, NodeKind>;
 export type FlowEdge = Edge<{ edge: PlanEdge }>;
 
+/** The core's limits (crates/maquette-model/src/plans.rs), kept here so normal use never meets them. */
+export const LIMITS = { title: 300, text: 20_000, coord: 1_000_000 } as const;
+
+/** A position in whole pixels inside the range the file allows. */
+export const coord = (value: number) =>
+  Math.min(LIMITS.coord, Math.max(-LIMITS.coord, Math.round(value)));
+
 /** How wide each kind draws when the file keeps no width. */
 export const DEFAULT_WIDTH: Record<NodeKind, number> = { note: 220, image: 240, link: 260 };
 
@@ -111,8 +118,8 @@ export function planOf(base: PlanFile, nodes: FlowNode[], edges: FlowEdge[]): Pl
     ...base,
     nodes: nodes.map(n => ({
       ...n.data.node,
-      x: Math.round(n.position.x),
-      y: Math.round(n.position.y),
+      x: coord(n.position.x),
+      y: coord(n.position.y),
     })),
     edges: edges.map(e => ({
       ...(e.data?.edge ?? {
@@ -157,11 +164,11 @@ export function newNode(
   return {
     id: newId('n', nowMs),
     kind,
-    x: Math.round(at.x),
-    y: Math.round(at.y),
+    x: coord(at.x),
+    y: coord(at.y),
     width: null,
-    title: fields.title ?? '',
-    text: fields.text ?? '',
+    title: (fields.title ?? '').slice(0, LIMITS.title),
+    text: (fields.text ?? '').slice(0, LIMITS.text),
     image: fields.image ?? null,
     url: fields.url ?? null,
     by: null,

@@ -159,6 +159,8 @@ function checkPlan(plan: PlanFile) {
       (!node.image || node.image.startsWith('/') || node.image.includes('..'))
     )
       fail('invalid', `The picture node ${node.id} needs a picture in the project.`);
+    if (node.text.length > 20_000 || Math.abs(node.x) > 1_000_000 || Math.abs(node.y) > 1_000_000)
+      fail('invalid', `The node ${node.id} is over the canvas limits.`);
     if (node.kind === 'link' && !/^https?:\/\/\S+$/.test(node.url ?? ''))
       fail('invalid', `The link node ${node.id} needs an http or https address.`);
   }
@@ -243,7 +245,8 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
       checkPlan(next);
       const saved: PlanFile = {
         ...next,
-        name: next.name.trim(),
+        // Only Rename changes the name, as in the core.
+        name: current.name,
         created: current.created,
         preset: current.preset,
         edited: clock.now().toISOString(),

@@ -9,6 +9,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import { Button, cn, Icon, Kbd, TopBar, type IconName } from '@maquette/ui';
+import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import type { NodeKind } from '@/ipc/client';
 import { LinkDialog } from '../LinkDialog';
 import { PlanNodeCard } from '../PlanNodeCard';
@@ -141,16 +142,16 @@ export default function PlanCanvas() {
           {tools}
         </div>
         <div role="group" aria-label="Zoom" className="plan-zoom">
-          <button type="button" aria-label="Zoom in" onClick={v.zoomIn}>
+          <button type="button" aria-label="Zoom in" onClick={v.zoom.in}>
             <Icon name="plus" size={15} />
           </button>
-          <button type="button" aria-label="Zoom out" onClick={v.zoomOut}>
+          <button type="button" aria-label="Zoom out" onClick={v.zoom.out}>
             <Icon name="minus" size={15} />
           </button>
-          <button type="button" aria-label="Fit the canvas in view" onClick={v.fit}>
+          <button type="button" aria-label="Fit the canvas in view" onClick={v.zoom.fit}>
             <Icon name="frame-corners" size={15} />
           </button>
-          <span className="pct">{v.zoomPercent}</span>
+          <span className="pct">{v.zoom.percent}</span>
         </div>
         {v.nodes.length === 0 ? (
           <section aria-label="This canvas is empty" className="plan-empty">
@@ -176,6 +177,25 @@ export default function PlanCanvas() {
         ) : null}
       </main>
       {v.linking ? <LinkDialog onAdd={v.addLink} onClose={v.closeLink} /> : null}
+      {v.leave.asking ? (
+        <ChoiceDialog
+          title="The canvas was not saved"
+          onDismiss={v.leave.stay}
+          choices={[
+            { label: 'Leave without saving', variant: 'danger', onClick: v.leave.anyway },
+            { label: 'Stay', onClick: v.leave.stay },
+            { label: 'Try again', variant: 'primary', onClick: v.leave.retry },
+          ]}
+        >
+          <p>
+            {file} does not have your latest edits. {v.leave.error}
+          </p>
+          <p className="mt-2">
+            Stay to keep editing, try saving again, or leave and drop the edits made since the last
+            save.
+          </p>
+        </ChoiceDialog>
+      ) : null}
     </>
   );
 }

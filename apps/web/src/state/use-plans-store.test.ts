@@ -6,6 +6,7 @@ import { SAVE_DELAY, usePlansStore } from './use-plans-store';
 beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   clearMocks();
 });
 
@@ -88,5 +89,107 @@ describe('the plans store', () => {
     usePlansStore.getState().addNode('note', { x: 0, y: 0 });
     expect(await usePlansStore.getState().save()).toBe(false);
     expect(usePlansStore.getState().saveError).toBe('Disk full');
+  });
+});
+
+describe('leaving a canvas', () => {
+  const edit = (text: string) => usePlansStore.getState().updateNode('n-01', { text });
+  const savedText = () =>
+    usePlansStore.getState().open?.plan.nodes.find(n => n.id === 'n-01')?.text;
+
+  it('keeps the canvas open when the save on the way out fails, and asks', async () => {
+    await openPlans();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    const save = vi
+      .spyOn(commands, 'planSave')
+      .mockRejectedValueOnce({ code: 'io', message: 'The file is locked' });
+    edit('Kept even when the disk says no');
+    expect(await usePlansStore.getState().close()).toBe(false);
+    let s = usePlansStore.getState();
+    expect(s.open?.id).toBe('combat-ideas');
+    expect(s.leaving).toEqual({ to: 'list' });
+    expect(s.dirty).toBe(true);
+    expect(s.nodes.find(n => n.id === 'n-01')?.data.node.text).toBe(
+      'Kept even when the disk says no'
+    );
+
+    // Try again saves the edit and then goes back to the list.
+    await usePlansStore.getState().retryLeave();
+    s = usePlansStore.getState();
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(s.open).toBeNull();
+    expect(s.leaving).toBeNull();
+    expect(s.list?.find(p => p.id === 'combat-ideas')).toBeDefined();
+  });
+
+  it('leaves without saving only when asked to', async () => {
+    await openPlans();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    vi.spyOn(commands, 'planSave').mockRejectedValue({ code: 'io', message: 'Gone' });
+    edit('Dropped on purpose');
+    expect(await usePlansStore.getState().close()).toBe(false);
+    usePlansStore.getState().stay();
+    expect(usePlansStore.getState().open?.id).toBe('combat-ideas');
+    expect(await usePlansStore.getState().close()).toBe(false);
+    await usePlansStore.getState().leaveAnyway();
+    expect(usePlansStore.getState().open).toBeNull();
+    expect(usePlansStore.getState().dirty).toBe(false);
+  });
+
+  it('waits for a save on its way and then saves the edits made during it', async () => {
+    await openPlans();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    const real = commands.planSave.bind(commands);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>(done => (release = done));
+    const save = vi.spyOn(commands, 'planSave').mockImplementationOnce(async (...args) => {
+      await held;
+      return real(...args);
+    });
+    edit('First');
+    const first = usePlansStore.getState().save();
+    edit('Second, while the first saves');
+    const closing = usePlansStore.getState().close();
+    release();
+    expect(await first).toBe(true);
+    expect(await closing).toBe(true);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]?.[2].nodes.find(n => n.id === 'n-01')?.text).toBe(
+      'Second, while the first saves'
+    );
+    expect(usePlansStore.getState().open).toBeNull();
+  });
+
+  it('saves pending edits before another project, and asks when that fails', async () => {
+    await openPlans();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    const save = vi.spyOn(commands, 'planSave');
+    edit('Before the switch');
+    await usePlansStore.getState().loadList('moon-island');
+    expect(save).toHaveBeenCalledOnce();
+    expect(usePlansStore.getState().project).toBe('moon-island');
+
+    await usePlansStore.getState().loadList('frostveil');
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    expect(savedText()).toBe('Before the switch');
+    save.mockRejectedValueOnce({ code: 'io', message: 'Locked' });
+    edit('Not lost');
+    await usePlansStore.getState().loadList('moon-island');
+    const s = usePlansStore.getState();
+    expect(s.project).toBe('frostveil');
+    expect(s.leaving).toEqual({ to: 'project', project: 'moon-island' });
+    await usePlansStore.getState().retryLeave();
+    expect(usePlansStore.getState().project).toBe('moon-island');
+  });
+
+  it('saves everything for quitting, or says why not', async () => {
+    await openPlans();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    edit('For the quit');
+    expect(await usePlansStore.getState().saveForQuit()).toBeNull();
+    expect(savedText()).toBe('For the quit');
+    vi.spyOn(commands, 'planSave').mockRejectedValueOnce({ code: 'io', message: 'Disk full' });
+    edit('Not saved');
+    expect(await usePlansStore.getState().saveForQuit()).toBe('Disk full');
   });
 });

@@ -1,7 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { cn, Icon, IconButton, type IconName } from '@maquette/ui';
 import type { NodeKind } from '@/ipc/client';
-import { hostOf, type FlowNode } from '@/state/plans';
+import { hostOf, LIMITS, type FlowNode } from '@/state/plans';
 import { usePlanNodeCard } from './PlanNodeCard.hooks';
 
 const KIND: Record<NodeKind, { label: string; icon: IconName }> = {
@@ -31,6 +31,7 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
       aria-label={label}
       autoFocus
       rows={rows}
+      maxLength={what === 'text' ? LIMITS.text : LIMITS.title}
       value={v.value}
       onChange={e => v.setValue(e.target.value)}
       onBlur={v.commit}

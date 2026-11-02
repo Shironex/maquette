@@ -25,6 +25,10 @@ export function usePlanCanvas() {
   const addNode = usePlansStore(s => s.addNode);
   const addPicture = usePlansStore(s => s.addPicture);
   const close = usePlansStore(s => s.close);
+  const leaving = usePlansStore(s => s.leaving);
+  const retryLeave = usePlansStore(s => s.retryLeave);
+  const leaveAnyway = usePlansStore(s => s.leaveAnyway);
+  const stay = usePlansStore(s => s.stay);
   const flow = useReactFlow();
   const { zoom } = useViewport();
   const frame = useRef<HTMLDivElement>(null);
@@ -83,12 +87,22 @@ export function usePlanCanvas() {
       const at = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
       addNode('note', { x: at.x - 20, y: at.y - 20 });
     },
-    zoomPercent: `${Math.round(zoom * 100)}%`,
-    zoomIn: () => void flow.zoomIn({ duration: 150 }),
-    zoomOut: () => void flow.zoomOut({ duration: 150 }),
-    fit: () => void flow.fitView({ duration: 200, padding: 0.2 }),
+    zoom: {
+      percent: `${Math.round(zoom * 100)}%`,
+      in: () => void flow.zoomIn({ duration: 150 }),
+      out: () => void flow.zoomOut({ duration: 150 }),
+      fit: () => void flow.fitView({ duration: 200, padding: 0.2 }),
+    },
     back: () => void close(),
     saveLine: saving ? 'saving' : saveError ? 'not saved, edit again to retry' : 'saved',
     saveFailed: Boolean(saveError) && !saving,
+    /** A save failed on the way out: the question and its answers. */
+    leave: {
+      asking: leaving !== null,
+      error: saveError,
+      retry: () => void retryLeave(),
+      anyway: () => void leaveAnyway(),
+      stay,
+    },
   };
 }

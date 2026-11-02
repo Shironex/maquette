@@ -2,6 +2,10 @@
  * The Plan view's state: the project's canvases, the one open and its
  * nodes and edges as React Flow holds them. Every change that alters the
  * file saves it half a second later; selecting and measuring do not.
+ * Leaving a canvas (Back, another canvas, another project, quitting) waits
+ * for a save on its way and saves the latest edits first. When that save
+ * fails the canvas stays open and `leaving` asks whether to try again or
+ * leave without saving; nothing is dropped without that answer.
  */
 import { applyEdgeChanges, applyNodeChanges, type Connection } from '@xyflow/react';
 import type { EdgeChange, NodeChange } from '@xyflow/react';
@@ -18,6 +22,7 @@ import {
   flowEdgesOf,
   flowNodeOf,
   flowNodesOf,
+  LIMITS,
   newEdge,
   newNode,
   nodeLabel,
@@ -31,6 +36,10 @@ import { useAppStore } from './use-app-store';
 
 /** How long after the last change the canvas saves, in milliseconds. */
 export const SAVE_DELAY = 500;
+
+/** Where the person was going when a save failed on the way out. */
+export type Leave =
+  { to: 'list' } | { to: 'canvas'; id: string } | { to: 'project'; project: string };
 
 interface PlansStore {
   project: string | null;
@@ -46,6 +55,10 @@ interface PlansStore {
   images: Record<string, string>;
   saving: boolean;
   saveError: string | null;
+  /** The open canvas holds edits the file does not have yet. */
+  dirty: boolean;
+  /** A save failed on the way out; the canvas stays open until answered. */
+  leaving: Leave | null;
   /** A note just made, which opens for writing. */
   fresh: string | null;
   clearFresh: () => void;
@@ -55,8 +68,16 @@ interface PlansStore {
   rename: (id: string, name: string) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   openCanvas: (id: string) => Promise<void>;
-  /** Back to the list, saving first. */
-  close: () => Promise<void>;
+  /** Back to the list, saving first; false (and `leaving` set) when the save failed. */
+  close: () => Promise<boolean>;
+  /** After a failed save on the way out: save again and go on when it works. */
+  retryLeave: () => Promise<void>;
+  /** After a failed save on the way out: drop the unsaved edits and go on. */
+  leaveAnyway: () => Promise<void>;
+  /** After a failed save on the way out: stay on the canvas. */
+  stay: () => void;
+  /** Saves every edit for quitting; why it could not, or null. */
+  saveForQuit: () => Promise<string | null>;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
@@ -70,9 +91,13 @@ interface PlansStore {
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined;
+/** The save on its way, so the next one waits for it instead of racing it. */
+let inflight: Promise<boolean> | null = null;
 
 function withFields(flow: FlowNode, fields: NodeFields): FlowNode {
   const node = { ...flow.data.node, ...fields };
+  node.title = node.title.slice(0, LIMITS.title);
+  node.text = node.text.slice(0, LIMITS.text);
   return { ...flow, ariaLabel: nodeLabel(node), data: { node } };
 }
 
@@ -84,12 +109,41 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     const { open, nodes, edges } = get();
     return open ? planOf(open.plan, nodes, edges) : null;
   };
-  const changed = () => {
+  /** Whether the open canvas differs from its file. */
+  const pending = () => {
     const next = draft();
     const open = get().open;
-    if (!next || !open || samePlan(next, open.plan)) return;
+    return Boolean(next && open && !samePlan(next, open.plan));
+  };
+  const changed = () => {
+    const dirty = pending();
+    if (get().dirty !== dirty) set({ dirty });
+    if (!dirty) return;
     clearTimeout(timer);
     timer = setTimeout(() => void get().save(), SAVE_DELAY);
+  };
+  /** Saves until the file holds every edit; false when a save fails. */
+  const flush = async () => {
+    for (let round = 0; round < 5; round += 1) {
+      if (!(await get().save())) return false;
+      if (!pending()) return true;
+    }
+    return !pending();
+  };
+  const shut = () => {
+    clearTimeout(timer);
+    set({ open: null, nodes: [], edges: [], images: {}, dirty: false, saveError: null });
+  };
+  /** Leaves the open canvas for `leave` once it is saved; false and asks when it is not. */
+  const settle = async (leave: Leave) => {
+    if (!get().open || (await flush())) return true;
+    set({ leaving: leave });
+    return false;
+  };
+  const go = async (leave: Leave) => {
+    if (leave.to === 'list') await get().close();
+    else if (leave.to === 'canvas') await get().openCanvas(leave.id);
+    else await get().loadList(leave.project);
   };
   const take = (doc: PlanDoc) =>
     set({
@@ -99,6 +153,8 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       edges: flowEdgesOf(doc.plan),
       images: doc.images,
       saveError: null,
+      dirty: false,
+      leaving: null,
     });
   const putSummary = (summary: PlanSummary) =>
     set(s => ({
@@ -119,13 +175,17 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     images: {},
     saving: false,
     saveError: null,
+    dirty: false,
+    leaving: null,
     fresh: null,
     clearFresh: () => set({ fresh: null }),
 
     loadList: async project => {
       if (get().project !== project) {
-        clearTimeout(timer);
-        set({ project, list: null, open: null, nodes: [], edges: [], images: {} });
+        // The canvas of the project being left saves first, or stays open and asks.
+        if (!(await settle({ to: 'project', project }))) return;
+        shut();
+        set({ project, list: null });
       }
       set({ listError: null });
       try {
@@ -138,7 +198,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
     create: async name => {
       const project = get().project;
-      if (!project) return null;
+      if (!project || !(await settle({ to: 'list' }))) return null;
       try {
         const doc = await commands.planCreate(project, name);
         take(doc);
@@ -171,10 +231,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       if (!project) return false;
       try {
         await commands.planRemove(project, id);
-        if (get().open?.id === id) {
-          clearTimeout(timer);
-          set({ open: null, nodes: [], edges: [], images: {} });
-        }
+        if (get().open?.id === id) shut();
         set(s => ({ list: s.list?.filter(p => p.id !== id) ?? null }));
         return true;
       } catch (error) {
@@ -185,8 +242,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
     openCanvas: async id => {
       const project = get().project;
-      if (!project) return;
-      await get().save();
+      if (!project || !(await settle({ to: 'canvas', id }))) return;
       set({ opening: id, openError: null });
       try {
         const doc = await commands.planGet(project, id);
@@ -197,11 +253,31 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     },
 
     close: async () => {
-      await get().save();
+      if (!(await settle({ to: 'list' }))) return false;
       const project = get().project;
-      set({ open: null, nodes: [], edges: [], images: {}, openError: null });
+      shut();
+      set({ openError: null });
       if (project) await get().loadList(project);
+      return true;
     },
+
+    retryLeave: async () => {
+      const leave = get().leaving;
+      set({ leaving: null });
+      if (leave) await go(leave);
+    },
+
+    leaveAnyway: async () => {
+      const leave = get().leaving;
+      set({ leaving: null });
+      shut();
+      if (leave) await go(leave);
+    },
+
+    stay: () => set({ leaving: null }),
+
+    saveForQuit: async () =>
+      (await flush()) ? null : (get().saveError ?? 'The canvas was not saved'),
 
     onNodesChange: changes => {
       set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -272,30 +348,38 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
     save: async () => {
       clearTimeout(timer);
-      const { project, open, saving } = get();
+      // One save at a time: wait for the one on its way, then save what is newest.
+      while (inflight) await inflight;
+      const { project, open } = get();
       const next = draft();
-      if (!project || !open || !next || saving || samePlan(next, open.plan)) return true;
-      set({ saving: true });
-      try {
-        const doc = await commands.planSave(project, open.id, next);
-        if (get().open?.id !== open.id) {
-          set({ saving: false });
+      if (!project || !open || !next || samePlan(next, open.plan)) return true;
+      const run = (async () => {
+        set({ saving: true });
+        try {
+          const doc = await commands.planSave(project, open.id, next);
+          if (get().open?.id !== open.id) {
+            set({ saving: false });
+            return true;
+          }
+          set({
+            open: doc,
+            images: { ...get().images, ...doc.images },
+            saving: false,
+            saveError: null,
+          });
+          // Changes made while it saved go next.
+          changed();
           return true;
+        } catch (error) {
+          set({ saving: false, saveError: errorMessage(error), dirty: true });
+          notifyFailed('The canvas was not saved', error);
+          return false;
+        } finally {
+          inflight = null;
         }
-        set({
-          open: doc,
-          images: { ...get().images, ...doc.images },
-          saving: false,
-          saveError: null,
-        });
-        // Changes made while it saved go next.
-        changed();
-        return true;
-      } catch (error) {
-        set({ saving: false, saveError: errorMessage(error) });
-        notifyFailed('The canvas was not saved', error);
-        return false;
-      }
+      })();
+      inflight = run;
+      return run;
     },
   };
 });
