@@ -126,16 +126,27 @@ pub fn plan_open_link(
     node: String,
 ) -> CommandResult<()> {
     let doc = plans::get(&project_dir(&session, &project)?, &id)?;
-    let url = doc
-        .plan
-        .nodes
-        .iter()
-        .find(|n| n.id == node)
-        .and_then(|n| n.url.clone())
-        .ok_or_else(|| CoreError::NotFound(format!("the link {node}")).payload())?;
+    let url = link_url(&doc.plan, &node)?;
     crate::opener::open_url(&url).map_err(|_| {
         super::invalid("Only https pages open from a canvas. Copy the address to open it.")
     })
+}
+
+/// The address of the link node `node` as the saved file has it: only a
+/// link node's, and only an https one.
+fn link_url(plan: &plans::PlanFile, node: &str) -> CommandResult<String> {
+    let url = plan
+        .nodes
+        .iter()
+        .find(|n| n.id == node && n.kind == plans::NodeKind::Link)
+        .and_then(|n| n.url.clone())
+        .ok_or_else(|| CoreError::NotFound(format!("the link {node}")).payload())?;
+    if !url.starts_with("https://") {
+        return Err(super::invalid(
+            "Only https pages open from a canvas. Copy the address to open it.",
+        ));
+    }
+    Ok(url)
 }
 
 #[cfg(test)]
@@ -173,5 +184,47 @@ mod tests {
         assert!(Path::new(&moved).starts_with(root.join("trash")));
         assert!(plans::list(&pdir).expect("list").is_empty());
         assert!(project_dir(&session, "nowhere").is_err());
+    }
+
+    fn node(id: &str, kind: plans::NodeKind, url: Option<&str>) -> plans::PlanNode {
+        plans::PlanNode {
+            id: id.into(),
+            kind,
+            x: 0,
+            y: 0,
+            width: None,
+            title: String::new(),
+            text: String::new(),
+            image: (kind == plans::NodeKind::Image).then(|| "concepts/a.png".to_string()),
+            url: url.map(str::to_string),
+            by: None,
+        }
+    }
+
+    #[test]
+    fn only_a_link_nodes_https_address_opens() {
+        let mut plan = plans::PlanFile::new("Links", PlanPreset::Brainstorm);
+        plan.nodes = vec![
+            node(
+                "n-1",
+                plans::NodeKind::Link,
+                Some("https://example.com/a,b/select"),
+            ),
+            node("n-2", plans::NodeKind::Link, Some("http://example.com")),
+            node("n-3", plans::NodeKind::Note, None),
+            node("n-4", plans::NodeKind::Image, None),
+        ];
+        plans::validate(&plan).expect("valid");
+        assert_eq!(
+            link_url(&plan, "n-1").expect("link"),
+            "https://example.com/a,b/select"
+        );
+        assert!(link_url(&plan, "n-2").is_err(), "http stays copy only");
+        assert!(link_url(&plan, "n-3").is_err(), "a note has no address");
+        assert!(link_url(&plan, "n-4").is_err(), "a picture has no address");
+        assert!(link_url(&plan, "n-9").is_err(), "a missing node");
+        // A note carrying an address is refused when the file is read.
+        plan.nodes[2].url = Some("https://example.com".into());
+        assert!(plans::validate(&plan).is_err());
     }
 }
