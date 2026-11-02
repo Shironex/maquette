@@ -3,6 +3,9 @@ import type { PlanSummary } from '@/ipc/client';
 import { useNow } from '@/lib/useNow';
 import { trimText } from '@/state/plan-text';
 import { byEdited, findPlans } from '@/state/plans';
+import { CAMERA_PLAN_ID } from '@/state/plan-camera';
+import { useAppStore } from '@/state/use-app-store';
+import { usePlanCameraStore } from '@/state/use-plan-camera-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
 /** How many canvases the Recent row shows. */
@@ -15,6 +18,9 @@ export const RECENT = 4;
 export function usePlanList(list: readonly PlanSummary[]) {
   const openCanvas = usePlansStore(s => s.openCanvas);
   const rename = usePlansStore(s => s.rename);
+  const project = usePlansStore(s => s.project);
+  const website = useAppStore(s => s.workspace?.project?.target !== 'game');
+  const openCamera = usePlanCameraStore(s => s.open);
   const [query, setQuery] = useState('');
   const [making, setMaking] = useState(false);
   const [removing, setRemoving] = useState<PlanSummary | null>(null);
@@ -22,11 +28,15 @@ export function usePlanList(list: readonly PlanSummary[]) {
   const now = useNow(30_000);
   const found = useMemo(() => byEdited(findPlans(list, query)), [list, query]);
   const recent = useMemo(
-    () => (query.trim() ? [] : byEdited(list.filter(p => !p.problem)).slice(0, RECENT)),
+    () =>
+      query.trim() ? [] : byEdited(list.filter(p => !p.problem && !p.camera)).slice(0, RECENT),
     [list, query]
   );
   return {
     now,
+    /** A website project's built in camera plan, pinned first; made from layout.json on first open. */
+    camera: website ? (list.find(p => p.id === CAMERA_PLAN_ID) ?? ('new' as const)) : null,
+    openCamera: () => (project ? void openCamera(project) : undefined),
     query,
     setQuery,
     found,
@@ -51,6 +61,7 @@ export function usePlanList(list: readonly PlanSummary[]) {
       }
       if (await rename(renaming.id, name)) setRenaming(null);
     },
-    open: (id: string) => void openCanvas(id),
+    open: (id: string) =>
+      id === CAMERA_PLAN_ID && project ? void openCamera(project) : void openCanvas(id),
   };
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNow } from '@/lib/useNow';
 import { runsOf, whenOf, type LogFilter, type LogRun } from '@/state/plan-log';
+import { usePlanCameraStore } from '@/state/use-plan-camera-store';
 import { usePlanLogStore } from '@/state/use-plan-log-store';
 
 /** A minute is fine for "12:40" and "Yesterday". */
@@ -19,6 +20,7 @@ export function usePlanChanges() {
   const setPanel = usePlanLogStore(s => s.setPanel);
   const undoLines = usePlanLogStore(s => s.undo);
   const keepLines = usePlanLogStore(s => s.keep);
+  const undoApply = usePlanCameraStore(s => s.undoApply);
   const now = useNow(CLOCK_MS);
   const runs = useMemo(() => runsOf(lines, filter), [lines, filter]);
   const [folded, setFolded] = useState<Record<string, boolean>>({});
@@ -33,7 +35,11 @@ export function usePlanChanges() {
     when: (at: string) => whenOf(at, new Date(now)),
     isOpen,
     toggle: (run: LogRun) => setFolded(f => ({ ...f, [run.key]: isOpen(run) })),
-    undo: (ids: string[]) => void undoLines(ids),
+    // An Apply's undo puts the old layout.json back, through its own command.
+    undo: (ids: string[]) => {
+      const apply = ids.length === 1 && lines.find(l => l.id === ids[0])?.mark === 'apply';
+      void (apply ? undoApply(ids[0]!) : undoLines(ids));
+    },
     keep: (ids: string[]) => void keepLines(ids),
     close: () => setPanel(false),
   };

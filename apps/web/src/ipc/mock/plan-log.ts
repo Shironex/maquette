@@ -40,6 +40,7 @@ const FIELDS = [
   'url',
   'asset',
   'direction',
+  'stop',
 ] as const;
 
 /** `node:id:field` or `link:id:*` for each part `op` changed, as the core's undo order reads them. */
@@ -47,6 +48,7 @@ const partsOf = (op: PlanOp): string[] => {
   if (op.op === 'set-node')
     return FIELDS.filter(f => op.before[f] !== op.after[f]).map(f => `node:${op.after.id}:${f}`);
   if (op.op === 'add-node' || op.op === 'remove-node') return [`node:${op.node.id}:*`];
+  if (op.op === 'set-camera') return ['camera::*'];
   return [`link:${op.op === 'set-edge' ? op.after.id : op.edge.id}:*`];
 };
 
@@ -82,6 +84,7 @@ function needsOf(all: MockLogEntry[], ids: string[]): KeepNeed[] {
   }
   return found.map(e => ({
     id: e.id,
+    at: e.at,
     summary: e.summary,
     parts: [
       ...new Set(e.ops.flatMap(partsOf).map(p => p.split(':')[2]!.replace('*', 'whole node'))),
@@ -95,6 +98,7 @@ const KIND_NAME: Record<PlanNode['kind'], string> = {
   link: 'link',
   asset: 'asset',
   direction: 'Lab direction',
+  stop: 'camera stop',
 };
 
 /** `text` cut to `max` characters at the end of a word, with an ellipsis, as the core's summaries are. */

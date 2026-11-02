@@ -421,3 +421,43 @@
   background: var(--bg-hover);
   color: var(--text-dim);
 }
+
+/* The camera plan's line by line change to layout.json. */
+.plan-diff {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-app);
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 17px;
+}
+
+.plan-diff-line {
+  display: flex;
+  gap: 8px;
+  padding: 1px 10px;
+  color: var(--text-dim);
+}
+
+.plan-diff-line.is-add {
+  background: var(--sage-soft);
+  color: var(--text);
+}
+
+.plan-diff-line.is-remove {
+  background: var(--danger-soft);
+  color: var(--text);
+}
+
+.plan-diff-note {
+  flex: none;
+  font-family: var(--font-sans);
+  color: var(--text-mute);
+}
+
+.plan-side[hidden] {
+  display: none;
+}

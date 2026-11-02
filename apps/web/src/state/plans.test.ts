@@ -77,6 +77,8 @@ const summary = (id: string, name: string, edited: string): PlanSummary => ({
   preset: 'brainstorm',
   nodes: 3,
   edges: 0,
+  stops: 0,
+  camera: false,
   images: 1,
   links: 0,
   assets: 0,

@@ -3,6 +3,7 @@ import { useReactFlow, useViewport, type ReactFlowInstance } from '@xyflow/react
 import type { NodeKind } from '@/ipc/client';
 import { clock } from '@/lib/clock';
 import { typing } from '@/lib/typing';
+import { CAMERA_PLAN_ID } from '@/state/plan-camera';
 import { anyRunning, assetView, directionView, linkedIds, type LinkPick } from '@/state/plan-links';
 import { unseenCount, whenOf } from '@/state/plan-log';
 import {
@@ -290,6 +291,7 @@ export function usePlanCanvas() {
   const frame = useRef<HTMLDivElement>(null);
   const [linking, setLinking] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [cameraPanel, setCameraPanel] = useState(true);
   const named = useNamedNodes(nodes);
   useLiveLinks();
   const history = useCanvasHistory(flow, frame);
@@ -332,6 +334,8 @@ export function usePlanCanvas() {
 
   return {
     open,
+    /** The camera plan, with its panel open or folded. */
+    camera: open?.id === CAMERA_PLAN_ID ? { panel: cameraPanel, setPanel: setCameraPanel } : null,
     history,
     nodes: named,
     edges,

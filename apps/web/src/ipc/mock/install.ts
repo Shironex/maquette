@@ -243,6 +243,7 @@ const handle = createBackend({
     else if (event.name === 'thumbnail') void events.thumbnailReady.emit(event.payload);
     else if (event.name === 'plan')
       void events.planChanged.emit({ project: event.project, id: event.id });
+    else if (event.name === 'layout') void events.layoutChanged.emit({ project: event.project });
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });

@@ -14,6 +14,7 @@ import { applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import { create } from 'zustand';
 import { commands, errorMessage, type PlanDoc, type PlanSummary } from '@/ipc/client';
 import { clock } from '@/lib/clock';
+import { healed } from './plan-camera';
 import { EMPTY_HISTORY } from './plan-history';
 import { flowEdgesOf, flowNodeOf, flowNodesOf, newEdge, newNode, withFields } from './plans';
 import {
@@ -210,7 +211,16 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     },
 
     onNodesChange: changes => {
-      set({ nodes: applyNodeChanges(changes, get().nodes) });
+      const { nodes, edges } = get();
+      const removed = changes.flatMap(c =>
+        c.type === 'remove' && nodes.some(n => n.id === c.id && n.data.node.stop) ? [c.id] : []
+      );
+      set({ nodes: applyNodeChanges(changes, nodes) });
+      // A stop taken out of a line joins the stops before and after it.
+      if (removed.length) {
+        const left = edges.filter(e => !removed.includes(e.source) && !removed.includes(e.target));
+        set({ edges: healed(edges, left, removed, clock.nowMs()) });
+      }
       // A drag records one undo step when it ends.
       changed(!changes.some(c => c.type === 'position' && c.dragging));
     },
@@ -221,7 +231,10 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     },
 
     onConnect: connection => {
-      const edge = newEdge(connection, clock.nowMs());
+      const stop = (id: string | null) => get().nodes.some(n => n.id === id && n.data.node.stop);
+      // One stop to another leads to it: the tour order.
+      const leads = stop(connection.source) && stop(connection.target);
+      const edge = newEdge(connection, clock.nowMs(), leads ? 'leads-to' : 'relates');
       if (!edge) return;
       const duplicate = get().edges.some(
         e =>
@@ -242,6 +255,11 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       });
       changed();
       return node.id;
+    },
+
+    replaceFlow: (nodes, edges) => {
+      set({ nodes, edges });
+      changed();
     },
 
     updateNode: (id, fields) => {

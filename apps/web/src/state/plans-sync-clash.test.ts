@@ -198,7 +198,13 @@ describe('freeing what the log keeps for undo', () => {
     expect(await usePlanLogStore.getState().keep([newer!.id])).toBe(false);
     expect(usePlanLogStore.getState().keepAsk?.needs.map(n => n.id)).toEqual([older!.id]);
     // The core refuses a short list too.
-    await expect(commands.planKeep('frostveil', 'combat-ideas', [newer!.id])).rejects.toBeTruthy();
+    await expect(
+      commands.planKeep('frostveil', 'combat-ideas', [newer!.id], [])
+    ).rejects.toBeTruthy();
+    // An id the list never named is refused as well.
+    await expect(
+      commands.planKeep('frostveil', 'combat-ideas', [newer!.id], [older!.id, 'c-elsewhere'])
+    ).rejects.toMatchObject({ message: expect.stringMatching(/Review again/) as unknown });
     usePlanLogStore.getState().cancelKeep();
     expect(usePlanLogStore.getState().lines.some(l => l.kept)).toBe(false);
     await usePlanLogStore.getState().keep([newer!.id]);

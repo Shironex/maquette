@@ -21,7 +21,9 @@ import { clock } from '@/lib/clock';
 import { applyOps, diffPlans, invertOps } from '@/state/plan-ops';
 import { trimText } from '@/state/plan-text';
 import { fail, type Args, type BackendOptions } from './backend-options';
+import { createCameraHandlers } from './create-camera-handlers';
 import { createPlanLinks, type PlanLinkDeps } from './create-plan-links';
+import type { createFakeLayout } from './layout';
 import { GENERATED_POOL } from './lab-fixtures';
 import { demoCanvases, demoLog, note, type Canvases } from './plan-fixtures';
 import { createMockLogs, summaryOf } from './plan-log';
@@ -114,6 +116,8 @@ export function createPlanHandlers(
     plans: string | null;
     /** Tells the view a canvas's file or log changed, as the watcher does. */
     emit?: BackendOptions['emit'];
+    /** The mock layout.json the camera plan is built from and applied to. */
+    layout?: ReturnType<typeof createFakeLayout>;
   }
 ) {
   const byProject = new Map<string, Canvases>();
@@ -155,6 +159,8 @@ export function createPlanHandlers(
     images: plan.nodes.filter(n => n.kind === 'image').length,
     links: plan.nodes.filter(n => n.kind === 'link').length,
     assets: plan.nodes.filter(n => n.kind === 'asset').length,
+    stops: plan.nodes.filter(n => n.kind === 'stop').length,
+    camera: Boolean(plan.camera),
     edited: plan.edited,
     problem: null,
   });
@@ -186,6 +192,15 @@ export function createPlanHandlers(
 
   return {
     ...createPlanLinks(deps),
+    ...createCameraHandlers({
+      get: (project, id) => canvases(project).get(id),
+      put: (project, id, plan) => void canvases(project).set(id, plan),
+      doc,
+      logs,
+      layout: deps.layout,
+      emit: deps.emit,
+      projectDir,
+    }),
     plan_list: ({ project }: Args) =>
       sortById([...canvases(project)].map(([id, plan]) => summary(id, plan))),
     plan_get: ({ project, id }: Args) => doc(project, String(id), existing(project, id)),
@@ -257,9 +272,17 @@ export function createPlanHandlers(
         : doc(project, String(id), current);
       return { doc: saved, changed, kept: 0 };
     },
-    plan_keep: ({ project, id, changes }: Args) => {
+    plan_keep: ({ project, id, changes, confirmed }: Args) => {
       existing(project, id);
-      const ids = changes as string[];
+      const clicked = changes as string[];
+      const seen = [...((confirmed as string[] | undefined) ?? [])].sort();
+      const listed = logs
+        .needs(project, id, clicked)
+        .map(n => n.id)
+        .sort();
+      if (seen.join() !== listed.join())
+        fail('invalid', 'The list changed since you saw it, so nothing was kept. Review again.');
+      const ids = [...clicked, ...seen];
       const keepable = new Set(
         logs
           .lines(project, id, 1000)

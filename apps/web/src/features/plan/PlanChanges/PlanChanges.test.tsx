@@ -66,7 +66,9 @@ describe('PlanChanges', () => {
     show([]);
     expect(screen.getByText(/No changes yet/)).toBeInTheDocument();
     // The footer says plainly what can stop being undoable, and when.
-    expect(screen.getByText(/stays undoable until you undo it/)).toHaveTextContent(/over 256 KB/);
+    expect(screen.getByText(/stays undoable until you undo it/)).toHaveTextContent(
+      /among the newest in the log/
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Close Changes' }));
     expect(usePlanLogStore.getState().panel).toBe(false);
     usePlanLogStore.setState({ error: 'Locked' });
