@@ -114,13 +114,12 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
     let (jobs, _, path) = one_job(root.path());
     assert_eq!(saved_ids(&path), ["lantern-1"]);
 
-    // The save stops right after its change and waits for close to finish,
-    // or gives up waiting when close cannot finish until the save does.
+    // The save parks right after its change until the test lets it go.
     let (changed_tx, changed) = mpsc::channel();
-    let (closed, closed_rx) = mpsc::channel::<()>();
+    let (release, release_rx) = mpsc::channel::<()>();
     *jobs.shared.before_save.lock().expect("hook") = Some(Box::new(move || {
         changed_tx.send(()).expect("changed");
-        let _ = closed_rx.recv_timeout(Duration::from_millis(300));
+        release_rx.recv().expect("released");
     }));
     let saving = {
         let shared = Arc::clone(&jobs.shared);
@@ -132,9 +131,27 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
         })
     };
     changed.recv().expect("the save changed the job");
-    jobs.close();
-    let _ = closed.send(());
+
+    // close() runs on another thread while the save is parked.
+    let (started_tx, started) = mpsc::channel();
+    let (done_tx, done) = mpsc::channel();
+    let closing = {
+        let jobs = jobs.clone();
+        std::thread::spawn(move || {
+            started_tx.send(()).expect("started");
+            jobs.close();
+            done_tx.send(()).expect("done");
+        })
+    };
+    started.recv().expect("close started");
+    let finished_early = done.recv_timeout(Duration::from_millis(200)).is_ok();
+    release.send(()).expect("release");
     saving.join().expect("save thread").expect("saved");
+    closing.join().expect("close thread");
+    assert!(
+        !finished_early,
+        "close() finished while a save was between its change and its write"
+    );
 
     assert_eq!(
         saved_ids(&path),
