@@ -34,6 +34,10 @@ import type { GetPlans, PlansStore, SetPlans } from './plans-store.types';
 export const SAVE_DELAY = 500;
 
 export const SAVE_FAILED = 'The canvas was not saved';
+/** Why unsaved edits stay unsaved when another canvas took the open one's id. */
+export const REPLACED =
+  'This canvas was replaced on disk since it was opened, so your edits were not saved. Open it again from the Plan list; copy anything you need first.';
+
 /** Why nothing saves while the outside change waits for its answer. */
 export const ANSWER_FIRST = 'The canvas changed outside';
 export const ANSWER_FIRST_DETAIL =
@@ -190,7 +194,7 @@ export function createSync(set: SetPlans, get: GetPlans) {
         const run = (async () => {
           set({ saving: true });
           try {
-            const saved = await commands.planApply(project, open.id, ops);
+            const saved = await commands.planApply(project, open.id, open.plan.created, ops);
             const now = get().open;
             if (now?.id !== open.id) {
               set({ saving: false });
@@ -244,6 +248,12 @@ export function createSync(set: SetPlans, get: GetPlans) {
         const base = get().open;
         const local = draft();
         if (base?.id !== doc.id || !local) return;
+        if (doc.plan.created !== base.plan.created && !samePlan(local, base.plan)) {
+          // Another canvas took this id (one moved aside for the camera plan): never merge into it.
+          clearTimeout(timer);
+          set({ saveError: REPLACED, dirty: true });
+          return;
+        }
         if (samePlan(doc.plan, base.plan)) {
           // The file matches the base again: a pending clash names a version the file does not hold.
           if (get().outside) {

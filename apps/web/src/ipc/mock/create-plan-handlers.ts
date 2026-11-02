@@ -229,8 +229,13 @@ export function createPlanHandlers(
       });
       return doc(project, id, plan);
     },
-    plan_apply: ({ project, id, ops }: Args) => {
+    plan_apply: ({ project, id, created, ops }: Args) => {
       const current = existing(project, id);
+      if (created !== current.created)
+        fail(
+          'invalid',
+          'This canvas was replaced on disk since it was opened, so your edits were not saved. Open it again from the Plan list; copy anything you need first.'
+        );
       if (deps.plans === 'locked')
         fail('io', 'The canvas file is in use by another program, so it could not be written.');
       return write(project, String(id), applyOps(current, ops as PlanOp[], 'mine').plan, null);

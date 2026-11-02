@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { clearMocks, openPlans } from '@/test/open-plan';
-import { ANSWER_FIRST, RELOAD_RETRY_MS } from './plans-sync';
+import { ANSWER_FIRST, RELOAD_RETRY_MS, REPLACED } from './plans-sync';
 import { useAppStore } from './use-app-store';
 import { NOTHING_TO_UNDO, usePlanLogStore } from './use-plan-log-store';
 import { SAVE_DELAY, usePlansStore } from './use-plans-store';
@@ -242,5 +242,32 @@ describe('freeing what the log keeps for undo', () => {
     const after = usePlanLogStore.getState().lines;
     expect(after[0]?.mark).toBe('keep');
     expect(after.find(l => l.id === edit!.id)).toMatchObject({ kept: true, keepable: false });
+  });
+});
+
+describe('when another canvas takes the open one id', () => {
+  it('never merges unsaved edits into it, and a save is refused', async () => {
+    await openPlans();
+    await plans().openCanvas('combat-ideas');
+    plans().updateNode('n-01', { text: 'Mine' });
+    const real = await commands.planGet('frostveil', 'combat-ideas');
+    // The file on this id is now another canvas, made at another time.
+    vi.spyOn(commands, 'planGet').mockResolvedValue({
+      ...real,
+      plan: { ...real.plan, created: '2030-01-01T00:00:00Z', nodes: [] },
+    });
+    await plans().reload();
+    expect(plans().saveError).toBe(REPLACED);
+    expect(plans().outside).toBeNull();
+    expect(flowNode('n-01')?.data.node.text).toBe('Mine');
+    expect(plans().open?.plan.created).toBe(real.plan.created);
+  });
+
+  it('the save itself is refused when the file was made at another time', async () => {
+    await openPlans();
+    await plans().openCanvas('combat-ideas');
+    await expect(
+      commands.planApply('frostveil', 'combat-ideas', '2030-01-01T00:00:00Z', [])
+    ).rejects.toMatchObject({ message: expect.stringMatching(/replaced on disk/) });
   });
 });

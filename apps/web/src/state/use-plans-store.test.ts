@@ -49,7 +49,7 @@ describe('the plans store', () => {
       ]);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY + 50);
     expect(save).toHaveBeenCalledTimes(1);
-    const sent = save.mock.calls[0]?.[2];
+    const sent = save.mock.calls[0]?.[3];
     // Only the moved node goes, as an operation.
     expect(sent).toHaveLength(1);
     expect(sentNode(sent, 'n-01')?.x).toBe(90);
@@ -175,7 +175,7 @@ describe('leaving a canvas', () => {
     expect(await first).toBe(true);
     expect(await closing).toBe(true);
     expect(save).toHaveBeenCalledTimes(2);
-    expect(sentNode(save.mock.calls[1]?.[2], 'n-01')?.text).toBe('Second, while the first saves');
+    expect(sentNode(save.mock.calls[1]?.[3], 'n-01')?.text).toBe('Second, while the first saves');
     expect(usePlansStore.getState().open).toBeNull();
   });
 
@@ -259,8 +259,8 @@ describe('saves that settle', () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
     const real = commands.planApply.bind(commands);
-    vi.spyOn(commands, 'planApply').mockImplementationOnce(async (project, id, ops) => {
-      const doc = await real(project, id, ops);
+    vi.spyOn(commands, 'planApply').mockImplementationOnce(async (project, id, created, ops) => {
+      const doc = await real(project, id, created, ops);
       return { ...doc, plan: { ...doc.plan, nodes: doc.plan.nodes.filter(n => n.id !== 'n-06') } };
     });
     usePlansStore.getState().updateNode('n-01', { text: 'Changed' });
@@ -275,8 +275,8 @@ describe('saves that settle', () => {
     const real = commands.planApply.bind(commands);
     let release: () => void = () => undefined;
     const held = new Promise<void>(done => (release = done));
-    vi.spyOn(commands, 'planApply').mockImplementationOnce(async (project, id, ops) => {
-      const doc = await real(project, id, ops);
+    vi.spyOn(commands, 'planApply').mockImplementationOnce(async (project, id, created, ops) => {
+      const doc = await real(project, id, created, ops);
       await held;
       return { ...doc, plan: { ...doc.plan, name: 'Boss arena' } };
     });
