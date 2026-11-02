@@ -20,7 +20,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use super::Spend;
+use super::{Spend, SpendSource};
 use crate::error::{CoreError, CoreResult};
 
 pub const DECISIONS_FILE: &str = "approvals.jsonl";
@@ -239,26 +239,63 @@ pub fn parse(text: &str) -> Vec<DecisionRecord> {
         .collect()
 }
 
-/// The decision on job `job` of `project` made at or before `before_ms`, the
-/// latest one when there are several. Job ids come back once finished jobs
-/// are cleared, so an answer after the moment asked about is another send's.
-pub fn for_job<'a>(
+/// What a send to 3D's approval is called in a record.
+pub const SEND_KIND: &str = "send-to-3d";
+
+/// The answer to the send-to-3D approval of job `job` of `project` made
+/// after `after_ms` and at or before `before_ms`, the latest when there are
+/// several. Job ids come back once finished jobs are cleared or trimmed, so
+/// the window must start where this use of the id did. The one place both
+/// the ledger and get_provider_job match a send to its answer.
+pub fn send_answer<'a>(
     decisions: &'a [DecisionRecord],
     project: &str,
     job: &str,
+    after_ms: f64,
     before_ms: f64,
 ) -> Option<&'a DecisionRecord> {
     decisions
         .iter()
-        .filter(|d| d.covers(project, job) && d.at_ms <= before_ms)
+        .filter(|d| d.kind == SEND_KIND && d.covers(project, job))
+        .filter(|d| d.at_ms > after_ms && d.at_ms <= before_ms)
         .max_by(|a, b| a.at_ms.total_cmp(&b.at_ms))
 }
 
-/// Gives each spend the decision that let it go: a send reaches the
-/// provider (its first ledger line) only after it was approved.
+/// Gives each API send an agent asked for the approval that let it go: an
+/// approved answer made after the id's previous spend and before this one
+/// reached the provider. A send started in the app, or one whose only
+/// answer is a no or another use of the id, gets none.
 pub fn attach(spends: &mut [Spend], decisions: &[DecisionRecord]) {
-    for spend in spends {
-        spend.decision = for_job(decisions, &spend.project, &spend.job, spend.sent_at_ms).cloned();
+    let starts: Vec<(f64, &str, &str)> = spends
+        .iter()
+        .map(|s| (s.sent_at_ms, s.project.as_str(), s.job.as_str()))
+        .collect();
+    let found: Vec<Option<DecisionRecord>> = spends
+        .iter()
+        .map(|spend| {
+            if !spend.via_agent || spend.source != SpendSource::Api {
+                return None;
+            }
+            let after = starts
+                .iter()
+                .filter(|(at, project, job)| {
+                    *project == spend.project && *job == spend.job && *at < spend.sent_at_ms
+                })
+                .map(|(at, _, _)| *at)
+                .fold(f64::NEG_INFINITY, f64::max);
+            send_answer(
+                decisions,
+                &spend.project,
+                &spend.job,
+                after,
+                spend.sent_at_ms,
+            )
+            .filter(|d| d.decision == Decision::Approved)
+            .cloned()
+        })
+        .collect();
+    for (spend, decision) in spends.iter_mut().zip(found) {
+        spend.decision = decision;
     }
 }
 

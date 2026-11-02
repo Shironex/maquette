@@ -204,8 +204,12 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
 /// A job with who answered its approval (`null` for a send started in the
 /// app, or one still waiting), for get_provider_job.
 fn with_decision(mut out: Value, job: &ProviderJob, decided: &[DecisionRecord]) -> Value {
-    let found = decisions::for_job(decided, &job.project, &job.id, f64::MAX)
-        .filter(|d| d.at_ms >= job.created_at_ms);
+    let found = job
+        .via_agent
+        .then(|| {
+            decisions::send_answer(decided, &job.project, &job.id, job.created_at_ms, f64::MAX)
+        })
+        .flatten();
     out["decision"] = found.map_or(Value::Null, to_value);
     out
 }

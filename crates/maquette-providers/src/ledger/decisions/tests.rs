@@ -131,10 +131,10 @@ fn a_batch_decision_covers_each_of_its_jobs() {
     let mut batch = approved("lantern-1", NOW, DecisionSource::FloatingCard);
     batch.jobs = vec!["lantern-1".into(), "cup-1".into()];
     let all = vec![batch];
-    assert!(for_job(&all, "moon-island", "cup-1", NOW + 1.0).is_some());
-    assert!(for_job(&all, "other", "cup-1", NOW + 1.0).is_none());
+    assert!(send_answer(&all, "moon-island", "cup-1", 0.0, NOW + 1.0).is_some());
+    assert!(send_answer(&all, "other", "cup-1", 0.0, NOW + 1.0).is_none());
     assert!(
-        for_job(&all, "moon-island", "cup-1", NOW - 1.0).is_none(),
+        send_answer(&all, "moon-island", "cup-1", 0.0, NOW - 1.0).is_none(),
         "made later"
     );
 }
@@ -155,4 +155,81 @@ fn only_the_app_cards_count_as_card_sources() {
     ] {
         assert!(!other.is_card(), "{other:?}");
     }
+}
+
+fn denied(job: &str, at_ms: f64) -> DecisionRecord {
+    DecisionRecord {
+        decision: Decision::Denied,
+        ..approved(job, at_ms, DecisionSource::FloatingCard)
+    }
+}
+
+#[test]
+fn a_job_id_used_again_from_the_app_shows_no_old_agent_approval() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    // An agent's send, approved and spent; then the finished jobs were
+    // cleared and the app's own send took the same id.
+    append(
+        root,
+        &approved("lantern-1", NOW - 100_000.0, DecisionSource::FloatingCard),
+    )
+    .expect("old yes");
+    ledger::append(root, &sent("lantern-1", NOW - 90_000.0, "t-1")).expect("old send");
+    let mut own = sent("lantern-1", NOW, "t-2");
+    own.via_agent = false;
+    ledger::append(root, &own).expect("own send");
+    let spends = ledger::read(root).expect("read").spends;
+    let mine = spends
+        .iter()
+        .find(|s| s.task.as_deref() == Some("t-2"))
+        .expect("own");
+    assert_eq!(
+        mine.decision, None,
+        "the app's send was never an agent's approval"
+    );
+}
+
+#[test]
+fn an_agent_send_reusing_an_id_takes_no_answer_from_before_its_last_spend() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    append(
+        root,
+        &approved("lantern-1", NOW - 100_000.0, DecisionSource::AgentsPanel),
+    )
+    .expect("old yes");
+    ledger::append(root, &sent("lantern-1", NOW - 90_000.0, "t-1")).expect("old send");
+    // A later agent send with the same id, with no answer of its own on record.
+    ledger::append(root, &sent("lantern-1", NOW, "t-2")).expect("new send");
+    let spends = ledger::read(root).expect("read").spends;
+    let later = spends
+        .iter()
+        .find(|s| s.task.as_deref() == Some("t-2"))
+        .expect("later");
+    assert_eq!(later.decision, None);
+}
+
+#[test]
+fn a_denied_or_other_kind_of_answer_never_attaches_to_a_spend() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    append(root, &denied("lantern-1", NOW - 50_000.0)).expect("old no");
+    let mut ship = approved("lantern-1", NOW - 40_000.0, DecisionSource::ShipView);
+    ship.kind = "ship".into();
+    append(root, &ship).expect("other kind");
+    ledger::append(root, &sent("lantern-1", NOW, "t-1")).expect("send");
+    let spends = ledger::read(root).expect("read").spends;
+    assert_eq!(spends[0].decision, None);
+}
+
+#[test]
+fn a_job_reads_only_the_answers_made_since_it_was_created() {
+    let all = vec![
+        denied("lantern-1", NOW - 50_000.0),
+        approved("lantern-1", NOW + 10_000.0, DecisionSource::FloatingCard),
+    ];
+    let found = send_answer(&all, "moon-island", "lantern-1", NOW, f64::MAX).expect("its own");
+    assert_eq!(found.decision, Decision::Approved);
+    assert!(send_answer(&all, "moon-island", "lantern-1", NOW + 20_000.0, f64::MAX).is_none());
 }
