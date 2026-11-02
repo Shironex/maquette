@@ -24,6 +24,8 @@ const DOCS_RE = new RegExp(DOCS);
 const WHOLE_GATE = [
   // Vitest (state/bridge-shim.test.ts) and the mock bundle read the Rust crate's shim.
   'crates/maquette-preview/src/frame/shim.js',
+  // Vitest (state/plan-text.test.ts) keeps the view's trim set equal to this one.
+  'crates/maquette-model/src/plans/text.rs',
   // The site's copy and docs read the app's version; so do the release scripts.
   'apps/desktop/src-tauri/tauri.conf.json',
   // Written by the Rust tests; the script tests and the meta lint read it.
