@@ -368,9 +368,11 @@ export const commands = {
 	planUndo: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanDoc>("plan_undo", { project, id, changes }),
 	/**
 	 *  Watches the project's `plans/` folder, if it is not watched yet, and
-	 *  sends `PlanChanged` for each canvas whose file or log changes.
+	 *  sends `PlanChanged` for each canvas whose file or log changes. Answers
+	 *  false when the project has no `plans/` folder yet (no canvas): the
+	 *  view asks again once it has one, so watching never makes the folder.
 	 */
-	planWatch: (project: string) => __TAURI_INVOKE<null>("plan_watch", { project }),
+	planWatch: (project: string) => __TAURI_INVOKE<boolean>("plan_watch", { project }),
 	planRename: (project: string, id: string, name: string) => __TAURI_INVOKE<PlanSummary>("plan_rename", { project, id, name }),
 	/**  Moves the canvas file into the workspace trash; returns where it went. */
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),

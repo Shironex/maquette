@@ -5,6 +5,7 @@
 //! The view itself tells its own writes apart (the file then holds what it
 //! sent), so they never reload in a loop.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -39,7 +40,9 @@ pub fn canvas_of(path: &Path) -> Option<String> {
 }
 
 /// Watches the project's `plans/` folder, if it is not watched yet, and
-/// sends `PlanChanged` for each canvas whose file or log changes.
+/// sends `PlanChanged` for each canvas whose file or log changes. Answers
+/// false when the project has no `plans/` folder yet (no canvas): the
+/// view asks again once it has one, so watching never makes the folder.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_watch(
@@ -47,7 +50,7 @@ pub fn plan_watch(
     session: State<'_, Session>,
     watching: State<'_, PlanWatch>,
     project: String,
-) -> CommandResult<()> {
+) -> CommandResult<bool> {
     let (root, config) = session.workspace()?;
     maquette_core::project::load(&root, &config.layout, &project)?;
     let dir = plans::dir(&maquette_core::project::dir(
@@ -55,6 +58,9 @@ pub fn plan_watch(
         &config.layout,
         &project,
     )?);
+    if !dir.is_dir() {
+        return Ok(false);
+    }
     let mut folders = watching
         .0
         .lock()
@@ -62,7 +68,7 @@ pub fn plan_watch(
     if let Some(at) = folders.iter().position(|(d, _)| *d == dir) {
         let kept = folders.remove(at);
         folders.push(kept);
-        return Ok(());
+        return Ok(true);
     }
     let watcher = watch::watch_where(
         &dir,
@@ -70,8 +76,8 @@ pub fn plan_watch(
         "plans",
         |p| canvas_of(p).is_some(),
         move |paths| {
-            let mut ids: Vec<String> = paths.iter().filter_map(|p| canvas_of(p)).collect();
-            ids.dedup();
+            // A canvas file and its log changing together reload once.
+            let ids: BTreeSet<String> = paths.iter().filter_map(|p| canvas_of(p)).collect();
             for id in ids {
                 let event = PlanChanged {
                     project: project.clone(),
@@ -87,7 +93,7 @@ pub fn plan_watch(
     if folders.len() > MAX_FOLDERS {
         folders.remove(0);
     }
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(test)]

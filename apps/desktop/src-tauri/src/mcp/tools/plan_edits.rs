@@ -3,7 +3,8 @@
 //! only what it made, tidy its own nodes and undo its own changes. Every
 //! write carries the agent's name as `by`, goes through the same checks,
 //! lock and size cap as the app's saves, lands in the change log and tells
-//! an open canvas to reload, which keeps a person's unsaved edits.
+//! an open canvas to reload, which keeps a person's unsaved edits. Agent
+//! names are labels, not accounts; only a person's work is protected.
 
 use maquette_core::plans::agent::{self, Agent, Done, NewLink, NewNode, NodeEdit};
 use maquette_core::plans::{self, EdgeKind, NodeKind};
@@ -251,7 +252,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Edit or move nodes on a planning canvas: title, text, url, x, y or width; only the fields given change. Any node may be edited, a person's too; the change log keeps what it said before, so it can be undone. If the person edits the same field before saving, their value wins.",
+        description = "Edit or move nodes on a planning canvas: title, text, url, x, y or width; only the fields given change. Any node may be edited, a person's too; the change log keeps what it said before, so it can be undone. If the person edits the same field before saving, their value wins. A call whose undo record would pass 256 KB is refused with nothing written (send fewer nodes), and so are edits to a person's nodes once agents' changes to them not undone yet hold 4 MB.",
         annotations(idempotent_hint = true)
     )]
     async fn update_nodes(
@@ -288,7 +289,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Remove nodes and links you added to a planning canvas (by is your name). A node goes with its links. A person's node or link, or another agent's, is refused with why: agents never delete a person's work; ask the person instead. Ids no longer on the canvas are noted, not refused.",
+        description = "Remove nodes and links added under your agent name (by). A node goes with its links. A person's node or link is always refused with why: agents never delete a person's work; ask the person instead. Agent names are labels, not accounts: a node made under another name is refused too, but that is a courtesy, not a protection. Ids no longer on the canvas are noted, not refused.",
         annotations(destructive_hint = true, idempotent_hint = true)
     )]
     async fn remove_nodes(
@@ -337,7 +338,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Undo your own changes on a planning canvas: a whole run, or change ids from get_changes. Undone carefully: a field someone changed since stays as they left it, and a node a person edited since is kept (counted in kept). Someone else's change is refused.",
+        description = "Undo changes made under your agent name on a planning canvas: a whole run, or change ids from get_changes (at most 100). Undone carefully: a field someone changed since stays as they left it, and a node a person edited or linked since is kept with their links (counted in kept). A person's change, or one under another agent name, is refused; agent names are labels, so only the person's work is protected.",
         annotations(idempotent_hint = false)
     )]
     async fn undo_run(
@@ -361,9 +362,17 @@ impl McpTools {
             if ids.is_empty() {
                 return Err("Nothing of yours to undo: give a run with changes not undone yet, or change ids.".into());
             }
+            if ids.len() > plans::agent::MAX_PER_CALL {
+                return Err(format!(
+                    "{} changes is more than one call undoes ({}). Undo them in smaller groups by id.",
+                    ids.len(),
+                    plans::agent::MAX_PER_CALL
+                )
+                .into());
+            }
             let done = plans::undo(dir, canvas, &ids, Some(&name), Some(&name))?;
             Ok(json!({
-                "undone": ids,
+                "undone": ids.len(),
                 "change": done.entry.map(|e| e.id),
                 "kept": done.skipped,
             }))

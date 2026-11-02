@@ -209,7 +209,7 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
     assert_eq!(person_lines["changes"].as_array().expect("lines").len(), 1);
 
     let undone = call(&client, "undo_run", canvas_args(json!({ "run": "r-1" }))).await;
-    assert_eq!(ids(&undone["undone"]).len(), 2);
+    assert_eq!(undone["undone"], 2);
     assert_eq!(undone["kept"], json!(0));
     let after = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
     let nodes = after["nodes"].as_array().expect("nodes");
@@ -220,6 +220,43 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
     );
     let again = call_error(&client, "undo_run", canvas_args(json!({ "run": "r-1" }))).await;
     assert!(again.contains("Nothing of yours"), "{again}");
+
+    // A person links their note to an agent's node: undoing the run keeps both.
+    let second = call(
+        &client,
+        "add_nodes",
+        canvas_args(json!({ "run": "r-2", "nodes": [{ "text": "Fireflies over the bay" }] })),
+    )
+    .await;
+    let firefly = ids(&second["added"]).remove(0);
+    plans::change(&moon, "hero-ideas", &Writer::PERSON, |_| {
+        Ok(vec![PlanOp::AddEdge {
+            edge: plans::PlanEdge {
+                id: "e-person".into(),
+                from: "n-porch".into(),
+                to: firefly.clone(),
+                from_side: None,
+                to_side: None,
+                kind: plans::EdgeKind::Relates,
+                label: None,
+                by: None,
+            },
+        }])
+    })
+    .expect("person link");
+    let kept = call(&client, "undo_run", canvas_args(json!({ "run": "r-2" }))).await;
+    assert_eq!(kept["kept"], json!(1), "{kept}");
+    let after = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(
+        after["nodes"].as_array().expect("nodes").len(),
+        2,
+        "{after}"
+    );
+    let links = after["links"].as_array().expect("links");
+    assert!(
+        links.iter().any(|l| l["id"] == json!("e-person")),
+        "{after}"
+    );
 
     let missing = call_error(
         &client,
