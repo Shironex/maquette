@@ -33,18 +33,19 @@
 //! paths: one from inside the project is linked where it is, one from
 //! elsewhere is copied into `plans/images/` first ([`images`]).
 
-use std::collections::BTreeSet;
 use std::fs;
-use std::io;
+use std::io::{self, Read as _};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
 
+mod check;
 mod files;
 pub mod images;
 
+pub use check::{check_name, is_project_relative, validate};
 pub use files::{PlanDoc, PlanSummary, create, get, list, remove, rename, save};
 
 pub const PLANS_DIR: &str = "plans";
@@ -54,6 +55,13 @@ pub const NAME_MAX_CHARS: usize = 120;
 pub const TITLE_MAX_CHARS: usize = 300;
 pub const TEXT_MAX_CHARS: usize = 20_000;
 pub const URL_MAX_CHARS: usize = 2_048;
+/// A picture's project relative path.
+pub const IMAGE_PATH_MAX_CHARS: usize = 1_024;
+/// Who made a node or edge: an agent's name.
+pub const BY_MAX_CHARS: usize = 64;
+/// The biggest canvas file read. A canvas at every limit is far under it; a
+/// bigger file (a broken sync, a wrong file) lists as broken unread.
+pub const MAX_FILE_BYTES: u64 = 8 * 1024 * 1024;
 pub const ID_MAX_CHARS: usize = 64;
 pub const MAX_NODES: usize = 2_000;
 pub const MAX_EDGES: usize = 4_000;
@@ -176,9 +184,11 @@ pub fn dir(project_dir: &Path) -> PathBuf {
 }
 
 /// True for an id a canvas file may have: lower case ASCII letters, digits
-/// and single dashes, as [`crate::project::folder_slug`] makes them.
+/// and dashes, as [`crate::project::folder_slug`] makes them, and never a
+/// name Windows keeps for a device (`con`, `nul`, `com1`).
 pub fn is_plan_id(id: &str) -> bool {
     !id.is_empty()
+        && !crate::project::is_windows_reserved(id)
         && id.len() <= ID_MAX_CHARS
         && id
             .chars()
@@ -199,15 +209,22 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
 ///
 /// # Errors
 ///
-/// Fails when the file is missing or unreadable, comes from a newer
-/// Maquette or holds values [`validate`] refuses.
+/// Fails when the file is missing, unreadable or over [`MAX_FILE_BYTES`]
+/// (checked before reading), comes from a newer Maquette or holds values
+/// [`validate`] refuses.
 pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
-    let text = match fs::read_to_string(file) {
+    let text = match read_capped(file) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
             return Err(CoreError::NotFound(format!(
                 "the canvas file {}",
                 file.display()
+            )));
+        }
+        Err(err) if err.kind() == io::ErrorKind::FileTooLarge => {
+            return Err(CoreError::Invalid(format!(
+                "The canvas file is over {} MB, too big to be a canvas.",
+                MAX_FILE_BYTES / (1024 * 1024)
             )));
         }
         Err(err) => return Err(CoreError::io(file, err)),
@@ -225,6 +242,21 @@ pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
     let plan: PlanFile = serde_json::from_value(value).map_err(|e| CoreError::json(file, e))?;
     validate(&plan)?;
     Ok(plan)
+}
+
+/// The file's text, refused unread when its size is over [`MAX_FILE_BYTES`].
+/// The read stops at the cap too, for a file that grows meanwhile.
+fn read_capped(file: &Path) -> io::Result<String> {
+    let handle = fs::File::open(file)?;
+    if handle.metadata()?.len() > MAX_FILE_BYTES {
+        return Err(io::ErrorKind::FileTooLarge.into());
+    }
+    let mut text = String::new();
+    handle.take(MAX_FILE_BYTES + 1).read_to_string(&mut text)?;
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
+        return Err(io::ErrorKind::FileTooLarge.into());
+    }
+    Ok(text)
 }
 
 /// The canvas as it is written: the current version, trimmed text, and
@@ -260,152 +292,6 @@ pub fn normalized(plan: &PlanFile) -> PlanFile {
         edges,
         ..plan.clone()
     }
-}
-
-fn invalid<T>(message: String) -> CoreResult<T> {
-    Err(CoreError::Invalid(message))
-}
-
-fn is_item_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= ID_MAX_CHARS
-        && id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-}
-
-/// Checks a canvas name: one line, not blank, not too long.
-pub fn check_name(name: &str) -> CoreResult<()> {
-    let name = name.trim();
-    if name.is_empty() {
-        return invalid("Give the canvas a name.".into());
-    }
-    if name.chars().count() > NAME_MAX_CHARS {
-        return invalid(format!(
-            "Keep the canvas name under {NAME_MAX_CHARS} characters."
-        ));
-    }
-    if name.chars().any(char::is_control) {
-        return invalid("Keep the canvas name on one line.".into());
-    }
-    Ok(())
-}
-
-/// A project relative picture path: `/` separators, no `..`, not absolute.
-pub fn is_project_relative(path: &str) -> bool {
-    !path.is_empty()
-        && !path.starts_with('/')
-        && !path.contains('\\')
-        && !path.contains(':')
-        && path
-            .split('/')
-            .all(|part| !part.is_empty() && part != "." && part != "..")
-}
-
-fn is_web_address(url: &str) -> bool {
-    let url = url.trim();
-    (url.starts_with("https://") || url.starts_with("http://"))
-        && url.len() > "https://".len()
-        && !url.chars().any(|c| c.is_whitespace() || c.is_control())
-}
-
-fn check_node(node: &PlanNode) -> CoreResult<()> {
-    let id = &node.id;
-    if !is_item_id(id) {
-        return invalid(format!("The node id {id} is not a plain id."));
-    }
-    let within = |v: i32| v.unsigned_abs() <= MAX_COORD.unsigned_abs();
-    if !within(node.x) || !within(node.y) {
-        return invalid(format!("The node {id} sits too far out on the canvas."));
-    }
-    if let Some(w) = node.width
-        && !(MIN_WIDTH..=MAX_WIDTH).contains(&w)
-    {
-        return invalid(format!(
-            "The node {id} must be {MIN_WIDTH} to {MAX_WIDTH} pixels wide."
-        ));
-    }
-    if node.title.chars().count() > TITLE_MAX_CHARS {
-        return invalid(format!(
-            "The node {id} has a title over {TITLE_MAX_CHARS} characters."
-        ));
-    }
-    if node.text.chars().count() > TEXT_MAX_CHARS {
-        return invalid(format!(
-            "The node {id} holds over {TEXT_MAX_CHARS} characters."
-        ));
-    }
-    match node.kind {
-        NodeKind::Image => match node.image.as_deref() {
-            Some(path) if is_project_relative(path) => {}
-            _ => {
-                return invalid(format!(
-                    "The picture node {id} needs a picture in the project."
-                ));
-            }
-        },
-        NodeKind::Link => match node.url.as_deref() {
-            Some(url) if url.len() <= URL_MAX_CHARS && is_web_address(url) => {}
-            _ => {
-                return invalid(format!(
-                    "The link node {id} needs an http or https address."
-                ));
-            }
-        },
-        NodeKind::Note => {}
-    }
-    Ok(())
-}
-
-/// Checks a whole canvas: its name, the limits, every node, and edges that
-/// join two nodes it has.
-///
-/// # Errors
-///
-/// [`CoreError::Invalid`] saying what to fix.
-pub fn validate(plan: &PlanFile) -> CoreResult<()> {
-    check_name(&plan.name)?;
-    if plan.nodes.len() > MAX_NODES {
-        return invalid(format!("A canvas holds at most {MAX_NODES} nodes."));
-    }
-    if plan.edges.len() > MAX_EDGES {
-        return invalid(format!(
-            "A canvas holds at most {MAX_EDGES} links between nodes."
-        ));
-    }
-    let mut ids = BTreeSet::new();
-    for node in &plan.nodes {
-        check_node(node)?;
-        if !ids.insert(node.id.as_str()) {
-            return invalid(format!("Two nodes share the id {}.", node.id));
-        }
-    }
-    let mut edge_ids = BTreeSet::new();
-    for edge in &plan.edges {
-        if !is_item_id(&edge.id) || !edge_ids.insert(edge.id.as_str()) {
-            return invalid(format!(
-                "The edge id {} is not a plain, unique id.",
-                edge.id
-            ));
-        }
-        if !ids.contains(edge.from.as_str()) || !ids.contains(edge.to.as_str()) {
-            return invalid(format!(
-                "The edge {} joins a node the canvas does not have.",
-                edge.id
-            ));
-        }
-        if edge
-            .label
-            .as_ref()
-            .is_some_and(|l| l.chars().count() > TITLE_MAX_CHARS)
-        {
-            return invalid(format!(
-                "The edge {} has a label that is too long.",
-                edge.id
-            ));
-        }
-    }
-    Ok(())
 }
 
 pub fn register(types: specta::Types) -> specta::Types {

@@ -41,7 +41,8 @@ fn extension_of(path: &Path) -> Option<String> {
         .filter(|e| IMAGE_EXTENSIONS.contains(&e.as_str()))
 }
 
-/// `path` relative to `root` with `/` separators, when it is inside it.
+/// `path` relative to `root` with `/` separators, when it is inside it and
+/// a canvas may keep that path (else the picture is copied in instead).
 fn relative_inside(root: &Path, path: &Path) -> Option<String> {
     let rel = path.strip_prefix(root).ok()?;
     let parts: Vec<String> = rel
@@ -49,7 +50,8 @@ fn relative_inside(root: &Path, path: &Path) -> Option<String> {
         .map(|c| c.as_os_str().to_string_lossy().to_string())
         .collect();
     let joined = parts.join("/");
-    is_project_relative(&joined).then_some(joined)
+    (joined.chars().count() <= super::IMAGE_PATH_MAX_CHARS && is_project_relative(&joined))
+        .then_some(joined)
 }
 
 /// Readies the picture at `source` for a canvas in `project_dir`.

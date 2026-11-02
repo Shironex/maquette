@@ -269,3 +269,145 @@ fn a_picture_inside_the_project_is_linked_and_one_outside_is_copied_once() {
             .join(Path::new(&copied.path).file_name().expect("file name"))
     );
 }
+
+#[test]
+fn picture_paths_and_ids_refuse_what_breaks_on_some_system() {
+    for bad in [
+        "//host/share/a.png",
+        r"\\?\C:\x.png",
+        "C:x.png",
+        "con",
+        "concepts/con.png",
+        "concepts/NUL/a.png",
+        "concepts/a.png.",
+        "concepts/a.png ",
+        "concepts /a.png",
+        ".../a.png",
+        "concepts/../a.png",
+        "/abs/a.png",
+        "",
+    ] {
+        assert!(!is_project_relative(bad), "{bad:?} must be refused");
+    }
+    assert!(is_project_relative("concepts/__pool/veil-gate.webp"));
+    assert!(is_project_relative("plans/images/console-1a2b3c4d.png"));
+    for bad in ["con", "nul", "com1", "lpt9", "aux", "", "-a", "a-", "A"] {
+        assert!(!is_plan_id(bad), "{bad:?} must not be a canvas id");
+    }
+    assert!(is_plan_id("con-1"));
+    assert!(path(Path::new("/p"), "nul").is_err());
+}
+
+#[test]
+fn each_kind_keeps_only_its_own_fields() {
+    let mut plan = PlanFile::new("Kinds", PlanPreset::Brainstorm);
+    let picture = |path: &str| PlanNode {
+        kind: NodeKind::Image,
+        image: Some(path.into()),
+        ..note("n-1", 0, 0)
+    };
+    plan.nodes = vec![picture("concepts/a.PNG")];
+    validate(&plan).expect("a picture");
+    for (node, why) in [
+        (
+            picture("concepts/a.svg"),
+            "a kind of picture the canvas does not copy",
+        ),
+        (
+            picture(&format!("{}.png", "a/".repeat(600))),
+            "a path too long",
+        ),
+        (
+            PlanNode {
+                url: Some("https://a.example".into()),
+                ..picture("a.png")
+            },
+            "an address on a picture",
+        ),
+        (
+            PlanNode {
+                image: Some("a.png".into()),
+                ..note("n-1", 0, 0)
+            },
+            "a picture on a note",
+        ),
+        (
+            PlanNode {
+                url: Some("https://a.example".into()),
+                ..note("n-1", 0, 0)
+            },
+            "an address on a note",
+        ),
+        (
+            PlanNode {
+                by: Some("x".repeat(BY_MAX_CHARS + 1)),
+                ..note("n-1", 0, 0)
+            },
+            "a long by",
+        ),
+        (
+            PlanNode {
+                by: Some("agent\nname".into()),
+                ..note("n-1", 0, 0)
+            },
+            "a by on two lines",
+        ),
+    ] {
+        plan.nodes = vec![node];
+        assert!(validate(&plan).is_err(), "{why} must be refused");
+    }
+    plan.nodes = vec![note("n-1", 0, 0), note("n-2", 0, 0)];
+    plan.edges = vec![PlanEdge {
+        by: Some("y".repeat(BY_MAX_CHARS + 1)),
+        ..edge("e-1", "n-1", "n-2")
+    }];
+    assert!(
+        validate(&plan).is_err(),
+        "an edge's long by must be refused"
+    );
+}
+
+#[test]
+fn an_oversize_file_lists_as_broken_without_being_read() {
+    let p = project();
+    let made = create(&p.root, "Huge", PlanPreset::Brainstorm).expect("create");
+    let file = path(&p.root, &made.id).expect("path");
+    let handle = fs::OpenOptions::new()
+        .write(true)
+        .open(&file)
+        .expect("open");
+    handle.set_len(MAX_FILE_BYTES + 1).expect("grow");
+    drop(handle);
+    let listed = list(&p.root).expect("list");
+    assert_eq!(listed.len(), 1);
+    assert!(
+        listed[0]
+            .problem
+            .as_deref()
+            .is_some_and(|m| m.contains("too big"))
+    );
+    assert!(get(&p.root, &made.id).is_err());
+    remove(&p.root, &p.trash, &made.id).expect("a broken canvas can still be removed");
+}
+
+#[test]
+fn a_rename_never_undoes_a_save_that_lands_beside_it() {
+    let p = project();
+    let made = create(&p.root, "Race", PlanPreset::Brainstorm).expect("create");
+    let root = p.root.clone();
+    let id = made.id.clone();
+    let saver = std::thread::spawn(move || {
+        let mut plan = get(&root, &id).expect("get").plan;
+        for n in 0..40 {
+            plan.nodes.push(note(&format!("n-{n:03}"), n, 0));
+            plan = save(&root, &id, &plan).expect("save").plan;
+        }
+    });
+    for n in 0..40 {
+        rename(&p.root, &made.id, &format!("Race {n}")).expect("rename");
+    }
+    saver.join().expect("saver");
+    let last = get(&p.root, &made.id).expect("get").plan;
+    assert_eq!(last.nodes.len(), 40, "every save is kept");
+    assert_eq!(last.name, "Race 39");
+}

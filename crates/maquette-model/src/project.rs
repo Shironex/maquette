@@ -26,7 +26,7 @@ pub use maquette_base::clock::now_rfc3339;
 pub use maquette_base::clock::rfc3339_utc;
 pub use register::register;
 pub use repos::SiteRepoState;
-pub use slug::{folder_slug, latin_slug, slugify, windows_safe};
+pub use slug::{folder_slug, is_windows_reserved, latin_slug, slugify, windows_safe};
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PROJECT_VERSION: u32 = 1;

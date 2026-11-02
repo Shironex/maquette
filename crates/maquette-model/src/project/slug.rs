@@ -23,6 +23,15 @@ pub fn folder_slug(name: &str) -> String {
     windows_safe(slugify(name))
 }
 
+/// True when Windows keeps `name` for a device (`con`, `NUL`, `com1.txt`):
+/// any case, with or without an extension.
+pub fn is_windows_reserved(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or(name).trim_end();
+    WINDOWS_RESERVED
+        .iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+}
+
 /// `slug`, moved off a name Windows reserves.
 pub fn windows_safe(slug: String) -> String {
     if WINDOWS_RESERVED.contains(&slug.as_str()) {
