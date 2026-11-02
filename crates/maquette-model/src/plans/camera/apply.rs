@@ -199,15 +199,42 @@ pub(super) fn write_person(
 }
 
 /// Puts the layout kept in `file` back as `layout.json`, only while
-/// `layout.json` is still the one whose key is `after`.
-fn put_back(project_dir: &Path, file: &Path, after: &str, changed: &str) -> CoreResult<()> {
-    layout::update(project_dir, |current| {
+/// `layout.json` is still the one whose key is `after`. Answers with the
+/// layout it replaced (seen under the layout lock) and the one it wrote.
+fn put_back(
+    project_dir: &Path,
+    file: &Path,
+    after: &str,
+    changed: &str,
+) -> CoreResult<(SceneLayout, SceneLayout)> {
+    let mut replaced = None;
+    let written = layout::update(project_dir, |current| {
         if layout_key(current) != after {
             return Err(CoreError::Invalid(changed.into()));
         }
         let text = fs::read_to_string(file).map_err(|e| CoreError::io(file, e))?;
-        crate::json::from_json_with_defaults::<SceneLayout>(&text)
-            .map_err(|e| CoreError::json(file, e))
+        let kept = crate::json::from_json_with_defaults::<SceneLayout>(&text)
+            .map_err(|e| CoreError::json(file, e))?;
+        replaced = Some(current.clone());
+        Ok(kept)
+    })?;
+    let replaced = replaced.ok_or_else(|| CoreError::Invalid(changed.into()))?;
+    Ok((replaced, written))
+}
+
+/// Writes `replaced` back as `layout.json` after an undo that could not be
+/// logged, only while `layout.json` is still `written` (the undo's own
+/// write); the check and the write share the layout lock, so a newer
+/// layout from another writer is never written over.
+fn roll_back(project_dir: &Path, written: &SceneLayout, replaced: &SceneLayout) -> CoreResult<()> {
+    let key = layout_key(written);
+    layout::update(project_dir, |current| {
+        if layout_key(current) != key {
+            return Err(CoreError::Invalid(
+                "layout.json changed after the undo, so it was left as it is now.".into(),
+            ));
+        }
+        Ok(replaced.clone())
     })
     .map(|_| ())
 }
@@ -320,7 +347,7 @@ pub fn apply(
     commit_person(project_dir, id, &plan, ready).map_err(|err| {
         let changed = "layout.json changed again while the Apply was being written.";
         match put_back(project_dir, &kept, &layout_key(&written), changed) {
-            Ok(()) => {
+            Ok(_) => {
                 let _ = fs::remove_file(&kept);
                 CoreError::Invalid(format!(
                     "The Apply could not be logged, so layout.json was put back as it was: {err}"
@@ -370,23 +397,16 @@ pub fn undo_apply(
     let mut based = plan.clone();
     based.camera = back.camera;
     let ready = prepare_person(project_dir, id, &plan, &based, line)?;
-    let applied_layout = layout::load(project_dir)?;
-    put_back(
+    let (replaced, written) = put_back(
         project_dir,
         &file,
         &applied.after,
         "layout.json changed since this Apply, so it was not put back: an undo would lose those changes. Change the stops by hand, or apply the plan again.",
     )?;
-    let restored = layout_key(&layout::load(project_dir)?);
+    // Nothing that can fail sits between putting the layout back and logging it.
     commit_person(project_dir, id, &plan, ready).inspect_err(|_| {
         // The undo could not be logged: layout.json goes back to what the Apply wrote.
-        let again = layout::update(project_dir, |current| {
-            if layout_key(current) != restored {
-                return Err(CoreError::Invalid("layout.json changed meanwhile".into()));
-            }
-            Ok(applied_layout.clone())
-        });
-        if let Err(back) = again {
+        if let Err(back) = roll_back(project_dir, &written, &replaced) {
             tracing::warn!("layout.json could not be put back after a failed undo: {back}");
         }
     })

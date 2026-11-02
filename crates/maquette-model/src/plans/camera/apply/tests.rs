@@ -282,3 +282,36 @@ fn a_person_change_whose_undo_line_would_be_cut_is_refused_with_nothing_written(
     );
     assert_eq!(fs::read_to_string(&file).expect("plan"), before);
 }
+
+#[test]
+fn a_failed_undo_never_rolls_back_over_a_newer_layout() {
+    let s = site(&["porch", "schedule", "moon"]);
+    plan_line(&s.root, &["porch", "moon", "schedule"]);
+    let shown = review(&s.root, CAMERA_PLAN_ID).expect("review");
+    let (_, entry) =
+        apply(&s.root, CAMERA_PLAN_ID, &shown.layout_key, &shown.plan_key).expect("apply");
+    let applied = entry.applied.expect("applied");
+    let file = history_file(&s.root, &applied.history).expect("kept");
+    // The undo puts the old layout back...
+    let (replaced, written) = put_back(&s.root, &file, &applied.after, "changed").expect("back");
+    assert_eq!(layout_key(&replaced), applied.after);
+    // ...another writer lands before its log line fails...
+    layout::update(&s.root, |l| {
+        let mut next = l.clone();
+        next.desk = Some(layout::Desk { size: [2.0, 2.0] });
+        Ok(next)
+    })
+    .expect("other writer");
+    // ...and the rollback leaves their layout alone.
+    assert!(roll_back(&s.root, &written, &replaced).is_err());
+    let now = layout::load(&s.root).expect("layout");
+    assert_eq!(now.desk.map(|d| d.size), Some([2.0, 2.0]));
+
+    // With no other writer, the rollback puts the Apply's layout back.
+    let other = layout::load(&s.root).expect("layout");
+    assert!(roll_back(&s.root, &other, &replaced).is_ok());
+    assert_eq!(
+        layout_key(&layout::load(&s.root).expect("layout")),
+        applied.after
+    );
+}
