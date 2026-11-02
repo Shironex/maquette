@@ -3,6 +3,7 @@
 //! the change log. A person's edits, an agent's tools and an undo all come
 //! through [`change`], so neither side writes over the other.
 
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use super::files::{doc, write_plan, writing};
@@ -76,6 +77,32 @@ pub(super) fn note(project_dir: &Path, id: &str, entry: &PlanLogEntry) {
     }
 }
 
+/// Refuses an agent's write whose undo the log could not keep: a line over
+/// [`log::LINE_MAX_BYTES`], or a change to a person's content once the
+/// keepers would pass [`log::KEEP_MAX_BYTES`]. So a person's earlier text
+/// is never lost to trimming or rotation.
+fn keep_room(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<()> {
+    let len = log::line_len(entry)?;
+    if len > log::LINE_MAX_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "This change is too big to keep for undo ({} KB; the most is {} KB). Send it in smaller calls, a few nodes at a time.",
+            len / 1024,
+            log::LINE_MAX_BYTES / 1024
+        )));
+    }
+    if !log::is_keeper(entry, &BTreeSet::new()) {
+        return Ok(());
+    }
+    let held = log::keeper_bytes(&log::entries(project_dir, id)?);
+    if held + u64::try_from(len + 1).unwrap_or(u64::MAX) > log::KEEP_MAX_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "The change log already keeps {} MB of undo for agent changes to a person's nodes, the most it keeps. Ask the person to undo or review agent changes in the Changes panel; adding new nodes still works.",
+            log::KEEP_MAX_BYTES / 1024 / 1024
+        )));
+    }
+    Ok(())
+}
+
 /// Writes `next` over `current` (both the file's canvas) when it differs,
 /// keeping the name, `created` and preset, and logs what changed.
 pub(super) fn commit(
@@ -96,9 +123,12 @@ pub(super) fn commit(
         return Ok((doc(project_dir, id, current), None));
     }
     let done = ops::diff(&current, &next);
+    let entry = entry_of(writer, done, undoing);
+    if writer.by.is_some() {
+        keep_room(project_dir, id, &entry)?;
+    }
     next.edited = now_rfc3339();
     write_plan(&path(project_dir, id)?, &next)?;
-    let entry = entry_of(writer, done, undoing);
     note(project_dir, id, &entry);
     Ok((doc(project_dir, id, next), Some(entry)))
 }
@@ -185,7 +215,7 @@ pub fn undo(
                 && entry.by.as_deref() != Some(agent)
             {
                 return Err(CoreError::Invalid(format!(
-                    "The change {want} was made by {}, not {agent}. Agents undo only their own changes.",
+                    "The change {want} was made by {}, not {agent}. Agents undo only changes made under their own name.",
                     entry.by.as_deref().unwrap_or("a person")
                 )));
             }
@@ -208,5 +238,7 @@ pub fn undo(
     })
 }
 
+#[cfg(test)]
+mod keep_tests;
 #[cfg(test)]
 mod tests;

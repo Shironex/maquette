@@ -5,7 +5,9 @@
 //! like a person's save, and a person can undo it from the log.
 //!
 //! Agents never remove a person's node or link (`by` empty): that is
-//! refused with a reason, and the person decides.
+//! refused with a reason, and the person decides. An agent's name is a
+//! label it gives itself, not an account: one agent can write under
+//! another's name, so the only protection is the person's work.
 
 use std::collections::BTreeSet;
 use std::path::Path;

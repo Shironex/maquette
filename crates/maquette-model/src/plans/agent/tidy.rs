@@ -55,7 +55,7 @@ pub fn remove(
             };
             if !mine(node.by.as_ref()) {
                 return refuse(format!(
-                    "The node {want} was made by {}. Agents never remove a person's or another agent's nodes; ask the person to remove it.",
+                    "The node {want} was made by {}. Agents remove only nodes made under their own name, and never a person's; ask the person to remove it.",
                     whose(node.by.as_ref())
                 ));
             }

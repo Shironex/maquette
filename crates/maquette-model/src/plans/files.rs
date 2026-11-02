@@ -292,8 +292,16 @@ pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<Stri
     fs::create_dir_all(&to_dir).map_err(|e| CoreError::io(&to_dir, e))?;
     let stamp: String = now_rfc3339().chars().filter(char::is_ascii_digit).collect();
     let to = to_dir.join(format!("{id}-{stamp}{PLAN_SUFFIX}"));
-    move_file(&file, &to)?;
-    log::move_beside(project_dir, id, &to);
+    // The log first: one left behind would pass to a new canvas with this id.
+    let moved_log = log::move_beside(project_dir, id, &to)?;
+    if let Err(err) = move_file(&file, &to) {
+        if let Some(log_to) = moved_log
+            && let Ok(back) = log::path(project_dir, id)
+        {
+            let _ = maquette_base::fs::rename_retrying(&log_to, &back);
+        }
+        return Err(err);
+    }
     Ok(to.display().to_string())
 }
 

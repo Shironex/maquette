@@ -45,11 +45,27 @@ pub fn node_name(node: &PlanNode) -> String {
         .or_else(|| node.asset.clone())
         .or_else(|| node.direction.clone())
         .unwrap_or_else(|| format!("empty {}", kind_name(node.kind)));
-    if name.chars().count() > 60 {
-        name.chars().take(59).collect::<String>() + "..."
-    } else {
-        name
+    clip_words(&name, NAME_MAX)
+}
+
+/// The longest name a summary shows, in characters.
+const NAME_MAX: usize = 60;
+
+/// `text` cut to `max` characters at the end of a word, with an ellipsis;
+/// a single word longer than that is cut where it reaches the limit.
+fn clip_words(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
     }
+    let head: String = text.chars().take(max - 1).collect();
+    let cut = match head.rfind(char::is_whitespace) {
+        Some(at) if head[..at].chars().count() >= max / 3 => &head[..at],
+        _ => head.as_str(),
+    };
+    format!(
+        "{}\u{2026}",
+        cut.trim_end_matches(|c: char| c.is_whitespace() || c == ',' || c == '.')
+    )
 }
 
 #[derive(Default)]
@@ -167,4 +183,27 @@ pub fn summary(ops: &[PlanOp]) -> String {
         || "No change".to_string(),
         |first| first.to_uppercase().chain(chars).collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clip_words;
+
+    #[test]
+    fn long_names_end_at_a_word_with_an_ellipsis() {
+        let text = "Keep it under the porch roof so the lanterns read before the moon does";
+        let clipped = clip_words(text, 60);
+        assert_eq!(
+            clipped,
+            "Keep it under the porch roof so the lanterns read before\u{2026}"
+        );
+        assert!(clipped.chars().count() <= 60);
+        assert_eq!(clip_words("Short", 60), "Short");
+        let word = "a".repeat(80);
+        assert_eq!(clip_words(&word, 10).chars().count(), 10);
+        assert_eq!(
+            clip_words("Ünïcödé wörds hérè ãnd thêrè", 12),
+            "Ünïcödé\u{2026}"
+        );
+    }
 }

@@ -11,11 +11,23 @@
 //!
 //! `by` is null for a person. `ops` are the operations as written
 //! ([`super::ops`]), which is what an undo turns around; `undoes` names the
-//! lines an undo took back. The log keeps the newest lines under
-//! [`LOG_MAX_BYTES`]: past it the oldest go in one atomic rewrite. A line
-//! over [`LINE_MAX_BYTES`] keeps its summary but drops its operations
-//! (`trimmed`), so it can no longer be undone. Lines that do not read (a
-//! write cut short, a sync conflict) are skipped.
+//! lines an undo took back. Lines that do not read (a write cut short, a
+//! sync conflict) are skipped.
+//!
+//! What stays undoable, and for how long:
+//!
+//! - An agent's line that changed a person's node or link is the only
+//!   place the person's earlier text lives, so it is a keeper: rotation
+//!   never drops it while it is not undone. An agent write is refused when
+//!   its line would be over [`LINE_MAX_BYTES`] (split it into smaller
+//!   calls) or when it changes a person's content and the keepers would
+//!   pass [`KEEP_MAX_BYTES`] (the person undoes some agent changes first).
+//! - Every other line, a person's own edits and agents' changes to their
+//!   own nodes, stays undoable while it is among the newest lines: past
+//!   [`LOG_MAX_BYTES`] one atomic rewrite keeps the keepers and the newest
+//!   [`LOG_KEEP_BYTES`] of the rest. A person's own line over
+//!   [`LINE_MAX_BYTES`] keeps its summary but drops its operations
+//!   (`trimmed`); the canvas holds what it wrote.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -36,8 +48,15 @@ pub const LOG_SUFFIX: &str = ".log.jsonl";
 pub const LOG_MAX_BYTES: u64 = 1024 * 1024;
 /// What a rewrite keeps, so it happens rarely.
 pub const LOG_KEEP_BYTES: u64 = 512 * 1024;
-/// A longer line keeps only its summary.
-pub const LINE_MAX_BYTES: usize = 128 * 1024;
+/// The longest line. A person's longer line keeps only its summary; an
+/// agent's longer write is refused. Room for one node's longest text (20 000
+/// characters, up to 4 bytes each) before and after.
+pub const LINE_MAX_BYTES: usize = 256 * 1024;
+/// The most the keepers (agents' changes to a person's content not undone
+/// yet) may hold; past it agents cannot change a person's content.
+pub const KEEP_MAX_BYTES: u64 = 4 * 1024 * 1024;
+/// The most of the log that is read: the keepers and the rest together.
+const READ_MAX_BYTES: u64 = KEEP_MAX_BYTES + LOG_MAX_BYTES * 2;
 
 /// One write to a canvas.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -115,11 +134,48 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
         .join(format!("{id}{LOG_SUFFIX}")))
 }
 
+fn json(entry: &PlanLogEntry) -> CoreResult<String> {
+    serde_json::to_string(entry).map_err(|err| CoreError::Invalid(format!("A log line. {err}")))
+}
+
+/// How long `entry`'s line is, in bytes.
+///
+/// # Errors
+///
+/// Fails when it does not serialize.
+pub fn line_len(entry: &PlanLogEntry) -> CoreResult<usize> {
+    Ok(json(entry)?.len())
+}
+
+/// Whether `entry` is an agent's change to a person's node or link that is
+/// not undone: the only record of what the person had.
+pub fn is_keeper(entry: &PlanLogEntry, undone: &BTreeSet<String>) -> bool {
+    entry.by.is_some()
+        && !entry.trimmed
+        && !undone.contains(&entry.id)
+        && entry.ops.iter().any(|op| match op {
+            PlanOp::SetNode { before, .. } | PlanOp::RemoveNode { node: before } => {
+                before.by.is_none()
+            }
+            PlanOp::SetEdge { before, .. } | PlanOp::RemoveEdge { edge: before } => {
+                before.by.is_none()
+            }
+            PlanOp::AddNode { .. } | PlanOp::AddEdge { .. } => false,
+        })
+}
+
+/// How many bytes the keepers of `entries` hold.
+pub fn keeper_bytes(entries: &[PlanLogEntry]) -> u64 {
+    let undone = undone_ids(entries);
+    entries
+        .iter()
+        .filter(|e| is_keeper(e, &undone))
+        .map(|e| u64::try_from(line_len(e).unwrap_or(0) + 1).unwrap_or(u64::MAX))
+        .sum()
+}
+
 /// The JSON line of `entry`, its operations dropped when it is too long.
 fn line_of(entry: &PlanLogEntry) -> CoreResult<String> {
-    let json = |e: &PlanLogEntry| {
-        serde_json::to_string(e).map_err(|err| CoreError::Invalid(format!("A log line. {err}")))
-    };
     let line = json(entry)?;
     if line.len() <= LINE_MAX_BYTES {
         return Ok(line);
@@ -129,6 +185,28 @@ fn line_of(entry: &PlanLogEntry) -> CoreResult<String> {
         trimmed: true,
         ..entry.clone()
     })
+}
+
+/// Whether the file is missing, empty or ends with a line break, so the next
+/// line starts on its own (a write cut short leaves half a line).
+fn ends_whole(file: &Path) -> CoreResult<bool> {
+    let mut handle = match fs::File::open(file) {
+        Ok(handle) => handle,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(true),
+        Err(err) => return Err(CoreError::io(file, err)),
+    };
+    let len = handle.metadata().map_err(|e| CoreError::io(file, e))?.len();
+    if len == 0 {
+        return Ok(true);
+    }
+    handle
+        .seek(SeekFrom::Start(len - 1))
+        .map_err(|e| CoreError::io(file, e))?;
+    let mut last = [0u8; 1];
+    handle
+        .read_exact(&mut last)
+        .map_err(|e| CoreError::io(file, e))?;
+    Ok(last[0] == b'\n')
 }
 
 /// Appends `entry` in one write, then drops the oldest lines when the log
@@ -142,6 +220,9 @@ pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<
     let file = path(project_dir, id)?;
     let mut line = line_of(entry)?;
     line.push('\n');
+    if !ends_whole(&file)? {
+        line.insert(0, '\n');
+    }
     let mut handle = fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -161,17 +242,37 @@ pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<
     Ok(())
 }
 
-/// Keeps the newest whole lines that fit in [`LOG_KEEP_BYTES`].
+/// Once the other lines pass [`LOG_MAX_BYTES`], keeps every keeper
+/// ([`is_keeper`]) and the newest other lines that fit in
+/// [`LOG_KEEP_BYTES`]; lines that do not read go.
 fn trim(file: &Path) -> CoreResult<()> {
-    let text = read_tail(file, LOG_MAX_BYTES * 2)?;
+    let text = read_tail(file, READ_MAX_BYTES)?;
+    let parsed: Vec<(&str, PlanLogEntry)> = text
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok().map(|e| (l, e)))
+        .collect();
+    let all: Vec<PlanLogEntry> = parsed.iter().map(|(_, e)| e.clone()).collect();
+    let undone = undone_ids(&all);
+    let rest: u64 = parsed
+        .iter()
+        .filter(|(_, e)| !is_keeper(e, &undone))
+        .map(|(l, _)| u64::try_from(l.len() + 1).unwrap_or(u64::MAX))
+        .sum();
+    if rest <= LOG_MAX_BYTES {
+        // The keepers alone make the file long: nothing may go yet.
+        return Ok(());
+    }
     let mut kept: Vec<&str> = Vec::new();
     let mut size = 0u64;
-    for line in text.lines().rev().filter(|l| !l.trim().is_empty()) {
-        size += u64::try_from(line.len() + 1).unwrap_or(u64::MAX);
-        if size > LOG_KEEP_BYTES && !kept.is_empty() {
-            break;
+    for (line, entry) in parsed.iter().rev() {
+        if is_keeper(entry, &undone) {
+            kept.push(line);
+            continue;
         }
-        kept.push(line);
+        size += u64::try_from(line.len() + 1).unwrap_or(u64::MAX);
+        if size <= LOG_KEEP_BYTES || kept.is_empty() {
+            kept.push(line);
+        }
     }
     kept.reverse();
     let mut out = kept.join("\n");
@@ -214,7 +315,7 @@ fn read_tail(file: &Path, max: u64) -> CoreResult<String> {
 /// Fails when the log exists but cannot be read.
 pub fn entries(project_dir: &Path, id: &str) -> CoreResult<Vec<PlanLogEntry>> {
     let file = path(project_dir, id)?;
-    let text = read_tail(&file, LOG_MAX_BYTES * 2)?;
+    let text = read_tail(&file, READ_MAX_BYTES)?;
     Ok(text
         .lines()
         .filter_map(|line| serde_json::from_str::<PlanLogEntry>(line).ok())
@@ -257,20 +358,28 @@ pub fn lines(project_dir: &Path, id: &str, limit: usize) -> CoreResult<Vec<PlanL
         .collect())
 }
 
-/// Moves the log beside a canvas moved to the trash, as `to` with the log
-/// suffix. A canvas without a log moves alone.
-pub(super) fn move_beside(project_dir: &Path, id: &str, to_stem: &Path) {
-    let Ok(from) = path(project_dir, id) else {
-        return;
-    };
+/// Moves the canvas's log into the trash beside where the canvas goes
+/// (`to_stem` with the log suffix). A canvas without a log has nothing to
+/// move. Returns where it went, so a canvas move that fails can put it back.
+///
+/// # Errors
+///
+/// Fails when the log stays: a new canvas with the same id would inherit
+/// it, so the remove must not go on.
+pub(super) fn move_beside(
+    project_dir: &Path,
+    id: &str,
+    to_stem: &Path,
+) -> CoreResult<Option<PathBuf>> {
+    let from = path(project_dir, id)?;
     if !from.is_file() {
-        return;
+        return Ok(None);
     }
     let to = to_stem.with_extension("").with_extension("log.jsonl");
-    if maquette_base::fs::rename_retrying(&from, &to).is_err() {
-        let copied = fs::copy(&from, &to).is_ok();
-        if copied {
-            let _ = fs::remove_file(&from);
-        }
+    if maquette_base::fs::rename_retrying(&from, &to).is_ok() {
+        return Ok(Some(to));
     }
+    fs::copy(&from, &to).map_err(|e| CoreError::io(&from, e))?;
+    fs::remove_file(&from).map_err(|e| CoreError::io(&from, e))?;
+    Ok(Some(to))
 }

@@ -139,6 +139,16 @@ fn apply_one(plan: &mut PlanFile, op: &PlanOp, merge: Merge) -> bool {
         },
         PlanOp::RemoveNode { node } => match node_at(plan, &node.id) {
             Some(at) if merge == Merge::Careful && plan.nodes[at] != *node => false,
+            // Careful (an undo): a node someone else linked since stays, and so do their links.
+            Some(_)
+                if merge == Merge::Careful
+                    && plan
+                        .edges
+                        .iter()
+                        .any(|e| e.from == node.id || e.to == node.id) =>
+            {
+                false
+            }
             Some(at) => {
                 plan.nodes.remove(at);
                 plan.edges.retain(|e| e.from != node.id && e.to != node.id);
