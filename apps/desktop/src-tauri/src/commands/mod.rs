@@ -28,6 +28,7 @@ pub mod page;
 pub mod parts;
 pub mod paths;
 pub mod pipeline;
+pub mod plans;
 pub mod prepare;
 pub mod project;
 pub mod providers;
