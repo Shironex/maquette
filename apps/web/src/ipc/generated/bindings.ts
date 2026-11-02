@@ -2491,20 +2491,28 @@ export type CopiedAsset = {
 export type CreditNotation = "required" | "unnecessary";
 
 /**
- *  What the window tells about an answer it sends: where, how, and whether
- *  the page was in front. The app adds what the operating system says
- *  about the window.
+ *  Who answered, from where and how. Two kinds of word, kept apart:
+ *  `source`, `input`, `trusted`, `page_focused` and `page_visible` are what
+ *  the app's own page reported with its answer, so they are only as good as
+ *  that page; `window_focused`, `window_visible` and `window_minimized` are
+ *  read by the app from the operating system when the answer arrives, and
+ *  replace anything the page said about them.
  */
 export type DecidedBy = {
+	/**  Reported by the page for a card's answer; set by the app otherwise. */
 	source: DecisionSource,
+	/**  Reported by the page: what pressed the button. */
 	input?: DecisionInput | null,
-	/**  False when a script made the click, not a person's input. */
+	/**
+	 *  Reported by the page: the browser's `isTrusted` for the click, false
+	 *  when a script made it. True does not prove a person pressed it.
+	 */
 	trusted?: boolean | null,
-	/**  The page had the keyboard focus. */
+	/**  Reported by the page: it had the keyboard focus. */
 	pageFocused?: boolean | null,
-	/**  The page was visible (not a hidden tab or a minimised window). */
+	/**  Reported by the page: it was visible. */
 	pageVisible?: boolean | null,
-	/**  The operating system's word on the window. */
+	/**  Read from the operating system: the window had the focus. */
 	windowFocused?: boolean | null,
 	windowVisible?: boolean | null,
 	windowMinimized?: boolean | null,

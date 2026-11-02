@@ -65,7 +65,7 @@ describe('a spend row', () => {
     const who = screen.getByText('approved 14:02 in the floating card');
     expect(who).toHaveAttribute(
       'title',
-      expect.stringContaining('The Maquette window was not focused')
+      expect.stringContaining('The system reported the Maquette window was not focused')
     );
   });
 });

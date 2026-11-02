@@ -64,25 +64,43 @@ export function decisionText(record: DecisionRecord): string {
   return `${VERB[record.decision]} ${two(at.getHours())}:${two(at.getMinutes())} ${WHERE[record.by.source]}`;
 }
 
-/** What the window said about itself, in plain sentences. */
+/** What the operating system said about the window, in a plain sentence. */
 function windowLine(by: DecidedBy): string | null {
-  if (by.windowMinimized) return 'The Maquette window was minimised.';
-  if (by.windowVisible === false) return 'The Maquette window was hidden.';
-  if (by.windowFocused === false) return 'The Maquette window was not focused.';
-  if (by.windowFocused) return 'The Maquette window was focused.';
-  return null;
+  const state = by.windowMinimized
+    ? 'minimised'
+    : by.windowVisible === false
+      ? 'hidden'
+      : by.windowFocused === false
+        ? 'not focused'
+        : by.windowFocused
+          ? 'focused'
+          : null;
+  return state ? `The system reported the Maquette window was ${state}.` : null;
 }
 
-/** The whole record in a few sentences, for the row's tooltip. */
+/** What the app's own page said about the press, in a plain sentence. */
+function pressLine(by: DecidedBy): string | null {
+  const parts = [
+    by.input ? `a press ${INPUT[by.input]}` : null,
+    by.trusted === false ? 'the page reported it as made by a script' : null,
+  ].filter(Boolean);
+  if (!parts.length) return null;
+  const line = parts.join('; ');
+  return line.startsWith('a press')
+    ? `The page reported ${line}.`
+    : `${line[0]!.toUpperCase()}${line.slice(1)}.`;
+}
+
+/**
+ * The whole record in a few sentences, for the row's tooltip. What the page
+ * reports (the card, the input, a script's click) is the app's own word,
+ * kept apart from what the operating system reports about the window.
+ */
 export function decisionTitle(record: DecisionRecord): string {
   const { by } = record;
   const verb = VERB[record.decision];
   const at = new Date(record.atMs ?? 0).toLocaleString('en-GB');
   const after = Math.max(0, Math.round(((record.atMs ?? 0) - (record.requestedAtMs ?? 0)) / 1000));
-  const how = [
-    by.input ? INPUT[by.input] : null,
-    by.trusted === false ? 'by a script, not from a person' : null,
-  ].filter(Boolean);
-  const first = `${verb[0]!.toUpperCase()}${verb.slice(1)} ${at} ${WHERE[by.source]}, ${after} s after the agent asked${how.length ? `, ${how.join(', ')}` : ''}.`;
-  return [first, windowLine(by)].filter(Boolean).join(' ');
+  const first = `${verb[0]!.toUpperCase()}${verb.slice(1)} ${at} ${WHERE[by.source]}, ${after} s after the agent asked.`;
+  return [first, pressLine(by), windowLine(by)].filter(Boolean).join(' ');
 }

@@ -60,13 +60,14 @@ describe('who answered an approval', () => {
     const title = decisionTitle(record());
     expect(title).toContain('Approved');
     expect(title).toContain('22 s after the agent asked');
-    expect(title).toContain('with the mouse or trackpad');
-    expect(title).toContain('The Maquette window was not focused');
+    expect(title).toContain('The page reported a press with the mouse or trackpad');
+    expect(title).toContain('The system reported the Maquette window was not focused');
+    expect(title).not.toMatch(/by a person|trusted/i);
     expect(decisionTitle(record({ by: { source: 'floating-card', input: 'keyboard' } }))).toContain(
-      'with the keyboard'
+      'a press with the keyboard'
     );
     expect(
       decisionTitle(record({ by: { source: 'floating-card', input: 'pointer', trusted: false } }))
-    ).toContain('not from a person');
+    ).toContain('the page reported it as made by a script');
   });
 });

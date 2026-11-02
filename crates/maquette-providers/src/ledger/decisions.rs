@@ -92,25 +92,31 @@ pub enum DecisionInput {
     Keyboard,
 }
 
-/// What the window tells about an answer it sends: where, how, and whether
-/// the page was in front. The app adds what the operating system says
-/// about the window.
+/// Who answered, from where and how. Two kinds of word, kept apart:
+/// `source`, `input`, `trusted`, `page_focused` and `page_visible` are what
+/// the app's own page reported with its answer, so they are only as good as
+/// that page; `window_focused`, `window_visible` and `window_minimized` are
+/// read by the app from the operating system when the answer arrives, and
+/// replace anything the page said about them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DecidedBy {
+    /// Reported by the page for a card's answer; set by the app otherwise.
     pub source: DecisionSource,
+    /// Reported by the page: what pressed the button.
     #[serde(default)]
     pub input: Option<DecisionInput>,
-    /// False when a script made the click, not a person's input.
+    /// Reported by the page: the browser's `isTrusted` for the click, false
+    /// when a script made it. True does not prove a person pressed it.
     #[serde(default)]
     pub trusted: Option<bool>,
-    /// The page had the keyboard focus.
+    /// Reported by the page: it had the keyboard focus.
     #[serde(default)]
     pub page_focused: Option<bool>,
-    /// The page was visible (not a hidden tab or a minimised window).
+    /// Reported by the page: it was visible.
     #[serde(default)]
     pub page_visible: Option<bool>,
-    /// The operating system's word on the window.
+    /// Read from the operating system: the window had the focus.
     #[serde(default)]
     pub window_focused: Option<bool>,
     #[serde(default)]
