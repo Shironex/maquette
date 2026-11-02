@@ -377,7 +377,7 @@ export function createBackend({
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
-    ...createPlanHandlers({ root: () => root, plans: configured ? plans : null, live }),
+    ...createPlanHandlers({ root: () => root, plans: configured ? plans : null, live, emit }),
     ...holdPageStarts(page.handlers, agents),
     ...game.handlers,
     ...avatars.handlers,

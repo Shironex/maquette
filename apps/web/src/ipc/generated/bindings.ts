@@ -346,14 +346,44 @@ export const commands = {
 	 */
 	pathsSave: (project: string, paths: ScenePath[], tracks: { [key in string]: PathTrack }) => __TAURI_INVOKE<LayoutView>("paths_save", { project, paths, tracks }),
 	planList: (project: string) => __TAURI_INVOKE<PlanSummary[]>("plan_list", { project }),
-	planGet: (project: string, id: string) => __TAURI_INVOKE<PlanDoc>("plan_get", { project, id }),
+	planGet: (project: string, id: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_get", { project, id }),
 	/**
 	 *  Makes an empty canvas. Presets only set the starting content, which a
 	 *  later version fills in; every canvas starts blank for now.
 	 */
-	planCreate: (project: string, name: string) => __TAURI_INVOKE<PlanDoc>("plan_create", { project, name }),
-	/**  Writes the whole canvas, normalised; returns what the file now holds. */
-	planSave: (project: string, id: string, plan: PlanFile) => __TAURI_INVOKE<PlanDoc>("plan_save", { project, id, plan }),
+	planCreate: (project: string, name: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_create", { project, name }),
+	/**
+	 *  Writes a person's edits: the operations between the canvas the view
+	 *  last had from the file and what it shows now, laid over the file as it
+	 *  is, so an agent's write made meanwhile stays. Returns what the file now
+	 *  holds, which the view takes as its new base.
+	 */
+	planApply: (project: string, id: string, ops: PlanOp_Deserialize[]) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_apply", { project, id, ops }),
+	/**  The newest lines of the canvas's change log, newest first. */
+	planLog: (project: string, id: string, limit: number) => __TAURI_INVOKE<PlanLogLine[]>("plan_log", { project, id, limit }),
+	/**
+	 *  Undoes log lines (an agent's run, or one change) as a person; a field
+	 *  changed since stays.
+	 */
+	planUndo: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanUndone_Serialize>("plan_undo", { project, id, changes }),
+	/**
+	 *  Keeps (accepts) agent changes as a person: frees the room the log kept
+	 *  to undo them. The canvas does not change. Refused unless `changes`
+	 *  names every earlier change it sits on ([`plan_keep_needs`]).
+	 */
+	planKeep: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<null>("plan_keep", { project, id, changes }),
+	/**
+	 *  The earlier agent changes a Keep of `changes` must take along, for the
+	 *  person to confirm first; empty when the Keep can go as it is.
+	 */
+	planKeepNeeds: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<KeepNeed[]>("plan_keep_needs", { project, id, changes }),
+	/**
+	 *  Watches the project's `plans/` folder, if it is not watched yet, and
+	 *  sends `PlanChanged` for each canvas whose file or log changes. Answers
+	 *  false when the project has no `plans/` folder yet (no canvas): the
+	 *  view asks again once it has one, so watching never makes the folder.
+	 */
+	planWatch: (project: string) => __TAURI_INVOKE<boolean>("plan_watch", { project }),
 	planRename: (project: string, id: string, name: string) => __TAURI_INVOKE<PlanSummary>("plan_rename", { project, id, name }),
 	/**  Moves the canvas file into the workspace trash; returns where it went. */
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
@@ -839,6 +869,7 @@ export const events = {
 	pageServerChanged: makeEvent<PageServerChanged>("page-server-changed"),
 	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
+	planChanged: makeEvent<PlanChanged>("plan-changed"),
 	prepareChanged: makeEvent<PrepareChanged>("prepare-changed"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	projectCreated: makeEvent<ProjectCreated>("project-created"),
@@ -2137,6 +2168,15 @@ export type Chained = {
 	key: string,
 	approvedAt: string | null,
 };
+
+/**  What kind of change a log line is, for its mark in the Changes panel. */
+export type ChangeMark = "add" | "edit" | "move" | "remove" | 
+/**  Only links between nodes were drawn, changed or removed. */
+"link" | 
+/**  Several kinds at once. */
+"mixed" | "undo" | "rename" | "create" | 
+/**  A person kept (accepted) agent changes. */
+"keep";
 
 export type Check = {
 	id: string,
@@ -3727,6 +3767,14 @@ export type JointMoveState =
 /**  Waits for a person. No agent can answer it. */
 "asked" | "approved" | "declined";
 
+/**  An earlier change a Keep must take along, for the person to confirm. */
+export type KeepNeed = {
+	id: string,
+	summary: string,
+	/**  The parts it changed: field names, "whole node" or "link". */
+	parts: string[],
+};
+
 /**  What Settings shows for one key. */
 export type KeyStatus = {
 	service: ProviderId,
@@ -5238,6 +5286,17 @@ export type Placement = {
 	scale: number | null,
 };
 
+/**
+ *  A canvas file or its change log changed: an agent wrote it, another
+ *  window saved it or a sync tool brought it from another computer. The
+ *  open canvas reloads, keeping the person's unsaved edits.
+ */
+export type PlanChanged = {
+	project: string,
+	/**  The canvas id, its file name without `.plan.json`. */
+	id: string,
+};
+
 export type PlanClip = {
 	/**  `<file id>/<clip>`, which the request names it by. */
 	key: string,
@@ -5262,11 +5321,30 @@ export type PlanClip = {
  *  One canvas as the view gets it: its id, its file relative to the
  *  project, the canvas, and where each of its pictures is on this computer.
  */
-export type PlanDoc = {
+export type PlanDoc = PlanDoc_Serialize | PlanDoc_Deserialize;
+
+/**
+ *  One canvas as the view gets it: its id, its file relative to the
+ *  project, the canvas, and where each of its pictures is on this computer.
+ */
+export type PlanDoc_Deserialize = {
 	id: string,
 	/**  `plans/<id>.plan.json`. */
 	file: string,
-	plan: PlanFile,
+	plan: PlanFile_Deserialize,
+	/**  A picture's stored path to its absolute path here. */
+	images: { [key in string]: string },
+};
+
+/**
+ *  One canvas as the view gets it: its id, its file relative to the
+ *  project, the canvas, and where each of its pictures is on this computer.
+ */
+export type PlanDoc_Serialize = {
+	id: string,
+	/**  `plans/<id>.plan.json`. */
+	file: string,
+	plan: PlanFile_Serialize,
 	/**  A picture's stored path to its absolute path here. */
 	images: { [key in string]: string },
 };
@@ -5282,7 +5360,9 @@ export type PlanEdge = {
 	by: string | null,
 };
 
-export type PlanFile = {
+export type PlanFile = PlanFile_Serialize | PlanFile_Deserialize;
+
+export type PlanFile_Deserialize = {
 	version: number,
 	name: string,
 	preset: PlanPreset,
@@ -5290,7 +5370,19 @@ export type PlanFile = {
 	created: string,
 	/**  RFC 3339, the last save that changed something. */
 	edited: string,
-	nodes: PlanNode[],
+	nodes: PlanNode_Deserialize[],
+	edges: PlanEdge[],
+};
+
+export type PlanFile_Serialize = {
+	version: number,
+	name: string,
+	preset: PlanPreset,
+	/**  RFC 3339, when the canvas was made. */
+	created: string,
+	/**  RFC 3339, the last save that changed something. */
+	edited: string,
+	nodes: PlanNode_Serialize[],
 	edges: PlanEdge[],
 };
 
@@ -5312,7 +5404,76 @@ export type PlanLinks = {
 	directions: DirectionLink[],
 };
 
-export type PlanNode = {
+/**  One write to a canvas. */
+export type PlanLogEntry = PlanLogEntry_Serialize | PlanLogEntry_Deserialize;
+
+/**  One write to a canvas. */
+export type PlanLogEntry_Deserialize = {
+	id: string,
+	/**  RFC 3339. */
+	at: string,
+	/**  The agent's name; `None` for a person. */
+	by: string | null,
+	/**  An agent's run, grouping several calls. */
+	run: string | null,
+	summary: string,
+	mark: ChangeMark,
+	ops?: PlanOp_Deserialize[],
+	/**  The lines this one undid. */
+	undoes?: string[],
+	/**  The agent lines a person kept (accepted), which releases them. */
+	keeps?: string[],
+	/**  The operations were too big to keep. */
+	trimmed?: boolean,
+};
+
+/**  One write to a canvas. */
+export type PlanLogEntry_Serialize = {
+	id: string,
+	/**  RFC 3339. */
+	at: string,
+	/**  The agent's name; `None` for a person. */
+	by: string | null,
+	/**  An agent's run, grouping several calls. */
+	run: string | null,
+	summary: string,
+	mark: ChangeMark,
+	ops: PlanOp_Serialize[],
+	/**  The lines this one undid. */
+	undoes: string[],
+	/**  The agent lines a person kept (accepted), which releases them. */
+	keeps?: string[],
+	/**  The operations were too big to keep. */
+	trimmed: boolean,
+};
+
+/**  A log line as the Changes panel and agents read it: no operations. */
+export type PlanLogLine = {
+	id: string,
+	at: string,
+	by: string | null,
+	run: string | null,
+	summary: string,
+	mark: ChangeMark,
+	/**  A later line undid it. */
+	undone: boolean,
+	/**
+	 *  It can be undone: it changed nodes or edges, kept its operations
+	 *  and was not undone yet.
+	 */
+	undoable: boolean,
+	/**
+	 *  An agent's change to a person's content the log still keeps for
+	 *  undo: Keep accepts it and frees that room.
+	 */
+	keepable: boolean,
+	/**  A person kept (accepted) it. */
+	kept: boolean,
+};
+
+export type PlanNode = PlanNode_Serialize | PlanNode_Deserialize;
+
+export type PlanNode_Deserialize = {
 	id: string,
 	kind: NodeKind,
 	/**  The top left corner on the canvas, in whole pixels. */
@@ -5337,7 +5498,67 @@ export type PlanNode = {
 	direction: string | null,
 	/**  Who made it: `None` for a person, else the agent's name. */
 	by: string | null,
+	/**
+	 *  On an agent's node: a person wrote its content (kind, title, text,
+	 *  picture, address, asset or direction) last, so it counts as theirs:
+	 *  agents keep their edits to it undoable and never remove it. Set by the
+	 *  core on every write (a person's sets it, an agent's clears it), written
+	 *  only when true, so files without it read as false and stay version 2.
+	 */
+	personWrote?: boolean,
 };
+
+export type PlanNode_Serialize = {
+	id: string,
+	kind: NodeKind,
+	/**  The top left corner on the canvas, in whole pixels. */
+	x: number,
+	y: number,
+	/**  `None` keeps the kind's own width. */
+	width: number | null,
+	/**  A link's title or a picture's caption; a note may leave it empty. */
+	title: string,
+	/**  A note's text or a link's short note. */
+	text: string,
+	/**
+	 *  An image node's picture, relative to the project with `/` between
+	 *  folders.
+	 */
+	image: string | null,
+	/**  A link node's `http` or `https` address. */
+	url: string | null,
+	/**  An asset node's asset id. Nothing else about the asset is stored. */
+	asset: string | null,
+	/**  A Lab direction node's direction id, its folder under `concepts/`. */
+	direction: string | null,
+	/**  Who made it: `None` for a person, else the agent's name. */
+	by: string | null,
+	/**
+	 *  On an agent's node: a person wrote its content (kind, title, text,
+	 *  picture, address, asset or direction) last, so it counts as theirs:
+	 *  agents keep their edits to it undoable and never remove it. Set by the
+	 *  core on every write (a person's sets it, an agent's clears it), written
+	 *  only when true, so files without it read as false and stay version 2.
+	 */
+	personWrote?: boolean,
+};
+
+/**  One change to one node or edge. */
+export type PlanOp = PlanOp_Serialize | PlanOp_Deserialize;
+
+/**  One change to one node or edge. */
+export type PlanOp_Deserialize = ({ op: "add-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never } | 
+/**  The node as it was when removed. */
+({ op: "remove-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never } | 
+/**  Only the fields that differ between `before` and `after` change. */
+({ op: "set-node"; before: PlanNode_Deserialize; after: PlanNode_Deserialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never };
+
+/**  One change to one node or edge. */
+export type PlanOp_Serialize = ({ op: "add-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never } | 
+/**  The node as it was when removed. */
+({ op: "remove-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never } | 
+/**  Only the fields that differ between `before` and `after` change. */
+({ op: "set-node"; before: PlanNode_Serialize; after: PlanNode_Serialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never };
 
 /**
  *  What a canvas started from. Presets only set the starting content;
@@ -5362,6 +5583,34 @@ export type PlanSummary = {
 	edited: string,
 	/**  Why the file could not be read, for a canvas that only lists. */
 	problem: string | null,
+};
+
+/**
+ *  What an undo did: the canvas as the file now holds it, and whether it
+ *  changed anything (everything it would undo may have changed since).
+ */
+export type PlanUndone = PlanUndone_Serialize | PlanUndone_Deserialize;
+
+/**
+ *  What an undo did: the canvas as the file now holds it, and whether it
+ *  changed anything (everything it would undo may have changed since).
+ */
+export type PlanUndone_Deserialize = {
+	doc: PlanDoc_Deserialize,
+	changed: boolean,
+	/**  Nodes kept because someone edited or linked them since. */
+	kept: number,
+};
+
+/**
+ *  What an undo did: the canvas as the file now holds it, and whether it
+ *  changed anything (everything it would undo may have changed since).
+ */
+export type PlanUndone_Serialize = {
+	doc: PlanDoc_Serialize,
+	changed: boolean,
+	/**  Nodes kept because someone edited or linked them since. */
+	kept: number,
 };
 
 /**  One asset in the plan. */

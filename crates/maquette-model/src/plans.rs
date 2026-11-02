@@ -51,14 +51,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
 
+pub mod agent;
+mod change;
 mod check;
 mod files;
 pub mod images;
+pub mod log;
 pub mod migrate;
+pub mod ops;
+mod place;
+pub mod summary;
 pub mod text;
 
+pub use change::{Changed, KeepNeed, Writer, change, keep, keep_needs, undo};
 pub use check::{check_name, is_link_id, is_project_relative, validate};
-pub use files::{PlanDoc, PlanSummary, create, get, list, remove, rename, save};
+pub use files::{PlanDoc, PlanSummary, create, create_by, get, list, remove, rename, save};
 pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";
@@ -157,6 +164,13 @@ pub struct PlanNode {
     pub direction: Option<String>,
     /// Who made it: `None` for a person, else the agent's name.
     pub by: Option<String>,
+    /// On an agent's node: a person wrote its content (kind, title, text,
+    /// picture, address, asset or direction) last, so it counts as theirs:
+    /// agents keep their edits to it undoable and never remove it. Set by the
+    /// core on every write (a person's sets it, an agent's clears it), written
+    /// only when true, so files without it read as false and stay version 2.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub person_wrote: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -324,6 +338,9 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<PlanDoc>()
         .register::<PlanSummary>()
         .register::<images::PlanImage>()
+        .register::<ops::PlanOp>()
+        .register::<log::PlanLogEntry>()
+        .register::<log::PlanLogLine>()
 }
 
 #[cfg(test)]

@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use maquette_core::assets::remove::project_trash;
 use maquette_core::plan_links::{self, LinkFacts, PlanLinks};
-use maquette_core::plans::{self, PlanDoc, PlanFile, PlanPreset, PlanSummary, images::PlanImage};
+use maquette_core::plans::log::PlanLogLine;
+use maquette_core::plans::ops::PlanOp;
+use maquette_core::plans::{self, PlanDoc, PlanPreset, PlanSummary, Writer, images::PlanImage};
 use maquette_core::{CoreError, inbox, project};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt as _;
@@ -52,16 +54,99 @@ pub fn plan_create(
     Ok(plans::create(&dir, &name, PlanPreset::Brainstorm)?)
 }
 
-/// Writes the whole canvas, normalised; returns what the file now holds.
+/// Writes a person's edits: the operations between the canvas the view
+/// last had from the file and what it shows now, laid over the file as it
+/// is, so an agent's write made meanwhile stays. Returns what the file now
+/// holds, which the view takes as its new base.
 #[tauri::command(async)]
 #[specta::specta]
-pub fn plan_save(
+pub fn plan_apply(
     session: State<'_, Session>,
     project: String,
     id: String,
-    plan: PlanFile,
+    ops: Vec<PlanOp>,
 ) -> CommandResult<PlanDoc> {
-    Ok(plans::save(&project_dir(&session, &project)?, &id, &plan)?)
+    let dir = project_dir(&session, &project)?;
+    Ok(plans::change(&dir, &id, &Writer::PERSON, |_| Ok(ops))?.doc)
+}
+
+/// The newest lines of the canvas's change log, newest first.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_log(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    limit: u32,
+) -> CommandResult<Vec<PlanLogLine>> {
+    let limit = usize::try_from(limit.clamp(1, 500)).unwrap_or(200);
+    Ok(plans::log::lines(
+        &project_dir(&session, &project)?,
+        &id,
+        limit,
+    )?)
+}
+
+/// What an undo did: the canvas as the file now holds it, and whether it
+/// changed anything (everything it would undo may have changed since).
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanUndone {
+    pub doc: PlanDoc,
+    pub changed: bool,
+    /// Nodes kept because someone edited or linked them since.
+    pub kept: u32,
+}
+
+/// Undoes log lines (an agent's run, or one change) as a person; a field
+/// changed since stays.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_undo(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    changes: Vec<String>,
+) -> CommandResult<PlanUndone> {
+    let dir = project_dir(&session, &project)?;
+    let done = plans::undo(&dir, &id, &changes, None, None)?;
+    Ok(PlanUndone {
+        changed: done.entry.as_ref().is_some_and(|e| !e.ops.is_empty()),
+        kept: done.skipped,
+        doc: done.doc,
+    })
+}
+
+/// Keeps (accepts) agent changes as a person: frees the room the log kept
+/// to undo them. The canvas does not change. Refused unless `changes`
+/// names every earlier change it sits on ([`plan_keep_needs`]).
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_keep(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    changes: Vec<String>,
+) -> CommandResult<()> {
+    plans::keep(&project_dir(&session, &project)?, &id, &changes)?;
+    Ok(())
+}
+
+/// The earlier agent changes a Keep of `changes` must take along, for the
+/// person to confirm first; empty when the Keep can go as it is.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_keep_needs(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    changes: Vec<String>,
+) -> CommandResult<Vec<plans::KeepNeed>> {
+    Ok(plans::keep_needs(
+        &project_dir(&session, &project)?,
+        &id,
+        &changes,
+    )?)
 }
 
 #[tauri::command(async)]
@@ -244,6 +329,7 @@ mod tests {
             asset: None,
             direction: None,
             by: None,
+            person_wrote: false,
         }
     }
 

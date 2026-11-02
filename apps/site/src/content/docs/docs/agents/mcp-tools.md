@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 120 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 129 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 Every tool's description starts with its group in brackets: `[start]`, `[project]`, `[lab]`, `[refs]`, `[send]`, `[inbox]`, `[prepare]`, `[built]`, `[pipeline]`, `[game]`, `[library]`, `[animation]`, `[export]` and `[avatar-rig]`. Settings > Agents has a switch for the avatar and rig group: on by default, and off leaves its 7 tools out for the next agent that connects.
 
@@ -67,6 +67,9 @@ These look at the workspace and change nothing.
 | [`get_rig_doctor`](#get_rig_doctor)           | A rig doctor case: its sheets, defects, checks, progress and why it stopped                                                                                                                                                                                                                                                                                                                                        | Nothing | No       |
 | [`list_rig_doctors`](#list_rig_doctors)       | The rig doctor's cases, newest first                                                                                                                                                                                                                                                                                                                                                                               | Nothing | No       |
 | [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                                                                                                                                                                           | Nothing | No       |
+| [`list_canvases`](#list_canvases)             | A project's planning canvases: id, name, preset, node and link counts and when each last changed                                                                                                                                                                                                                                                                                                                   |
+| [`get_canvas`](#get_canvas)                   | A planning canvas: its nodes and the links between them, each node with who added it                                                                                                                                                                                                                                                                                                                               |
+| [`get_changes`](#get_changes)                 | A planning canvas's change log, newest first, with the change ids `undo_run` takes                                                                                                                                                                                                                                                                                                                                 |
 
 `preview_fixups` is read only too: it runs an asset's saved fix-ups headless on a copy and returns the numbers before and after each. It spends nothing.
 
@@ -134,6 +137,12 @@ These look at the workspace and change nothing.
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                                                                                        | Nothing | No       |
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                                                                                            | Nothing | No       |
 | [`get_retarget_review`](#get_retarget_review)         | A model's last retarget review and the library clips baked into it                                                                                                                                                                                                     | Nothing | No       |
+| [`create_canvas`](#create_canvas)                     | Makes an empty planning canvas in a project                                                                                                                                                                                                                            |
+| [`add_nodes`](#add_nodes)                             | Adds nodes and links to a planning canvas, placed beside a node, clear of the others                                                                                                                                                                                   |
+| [`update_nodes`](#update_nodes)                       | Edits or moves nodes on a planning canvas; only the fields given change                                                                                                                                                                                                |
+| [`remove_nodes`](#remove_nodes)                       | Removes nodes and links the agent added; a person's work is refused                                                                                                                                                                                                    |
+| [`layout_canvas`](#layout_canvas)                     | Moves the agent's own overlapping nodes to free spots                                                                                                                                                                                                                  |
+| [`undo_run`](#undo_run)                               | Undoes the agent's own changes on a planning canvas, a whole run or some changes                                                                                                                                                                                       |
 
 ## Spends credits, Codex usage or dollars, or needs approval
 
@@ -1155,3 +1164,240 @@ A case's state, model, refusals, defects by place, creature chains, before and a
 `read only`
 
 The cases, newest first: id, name, state, route, round, who started it and the version it landed as.
+
+### list_canvases
+
+`read only`
+
+Lists a project's planning canvases: the id every other canvas tool takes as `canvas`, the name, preset, node and link counts and when it last changed. A canvas file that cannot be read lists with its `problem`.
+
+| Argument  | Type   | Required | What            |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+
+```json
+{
+  "canvases": [
+    {
+      "id": "night-story",
+      "name": "Night story",
+      "preset": "story",
+      "nodes": 12,
+      "links": 9,
+      "edited": "2026-11-02T12:40:00.000Z"
+    }
+  ]
+}
+```
+
+### get_canvas
+
+`read only`
+
+Reads a canvas: each node's id, kind, title, text, `url`, picture path, linked asset (with its live name, stage and version count, or `gone`), Lab direction, `x`, `y`, `by` (the agent that added it, absent for a person) and `personWrote: true` on an agent's node a person wrote in (it is theirs now, and stays theirs), and the links between nodes (`from`, `to`, `kind` when it is not `relates`, `label`, `by`). Texts are cut at 120 characters unless `full`. Read it before `add_nodes` so new nodes go near the right one.
+
+| Argument  | Type     | Required | What                                                  |
+| --------- | -------- | -------- | ----------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                       |
+| `canvas`  | string   | yes      | The canvas id, as `list_canvases` returns it.         |
+| `full`    | boolean  | no       | Whole node texts instead of the first 120 characters. |
+| `nodes`   | string[] | no       | Only these node ids, with the links that touch them.  |
+
+```json
+{
+  "id": "night-story",
+  "name": "Night story",
+  "preset": "story",
+  "nodes": [
+    {
+      "id": "n-1",
+      "kind": "note",
+      "title": "Dusk",
+      "text": "The light turns violet over the ridge.",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "n-2",
+      "kind": "note",
+      "text": "Bells from the church.",
+      "x": 340,
+      "y": 0,
+      "by": "Research agent"
+    }
+  ],
+  "links": [{ "id": "e-1", "from": "n-1", "to": "n-2", "kind": "leads-to", "by": "Research agent" }]
+}
+```
+
+### get_changes
+
+`read only`
+
+Reads a canvas's change log, newest first. Every write by a person or an agent is logged: its id (what `undo_run` takes as `changes`), time, `by` (an agent's name, absent for a person), `run`, a one line summary and `undone` when it was taken back.
+
+| Argument  | Type   | Required | What                                                         |
+| --------- | ------ | -------- | ------------------------------------------------------------ |
+| `project` | string | yes      | The project id.                                              |
+| `canvas`  | string | yes      | The canvas id.                                               |
+| `limit`   | number | no       | The newest this many changes. 20 by default, 200 at most.    |
+| `since`   | string | no       | Only changes after this RFC 3339 time.                       |
+| `by`      | string | no       | Only changes by this agent name, or `person` for a person's. |
+
+```json
+{
+  "changes": [
+    {
+      "id": "c-mh2k1x9a001",
+      "at": "2026-11-02T12:40:00.000Z",
+      "by": "Research agent",
+      "run": "r-1240",
+      "summary": "Added 3 notes"
+    }
+  ]
+}
+```
+
+### create_canvas
+
+`writes files`
+
+Makes an empty planning canvas, as Plan > New canvas does. It writes one file, `plans/<id>.plan.json`, and answers with the id, which is made from the name.
+
+| Argument  | Type   | Required | What                                                                                                                |
+| --------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `project` | string | yes      | The project id.                                                                                                     |
+| `name`    | string | yes      | The canvas name, one line, up to 120 characters.                                                                    |
+| `preset`  | string | no       | `brainstorm` (the default), `story` or `mechanics`.                                                                 |
+| `agent`   | string | no       | Your name as people see it in the canvas and its log, such as `Research agent`. Defaults to your MCP client's name. |
+
+```json
+{ "project": "moon-island", "name": "Night story", "preset": "story" }
+```
+
+```json
+{ "id": "night-story", "file": "plans/night-story.plan.json" }
+```
+
+### add_nodes
+
+`writes files`
+
+Adds nodes (`note`, `image`, `link`, `asset` or `direction`) and links to a canvas. A node without `x` and `y` is placed in a column right of the `near` node (or right of everything), clear of the other nodes, never stacked. Everything is checked before anything is written. What it adds carries your name as `by`, shows in the canvas with a blue ring and lands in the change log, so a person can undo it. An open canvas reloads and keeps the person's unsaved edits.
+
+| Argument  | Type     | Required | What                                                                                                                                                                                                                                                      |
+| --------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                                                                                                                                                                                                           |
+| `canvas`  | string   | yes      | The canvas id.                                                                                                                                                                                                                                            |
+| `near`    | string   | no       | A node id the new nodes relate to. Left out, they go right of everything.                                                                                                                                                                                 |
+| `nodes`   | object[] | no       | Up to 100. Each has an optional `kind` (it follows the fields when left out), `title`, `text` (20000 characters at most), `url`, `image` (a path relative to the project), `asset`, `direction`, `x` and `y` (both or neither) and `width` (120 to 2000). |
+| `links`   | object[] | no       | Up to 100: `{ from, to, kind?, label? }`. `from` and `to` are node ids, or `$0`, `$1` for this call's nodes in order. `kind` is `relates` (the default), `leads-to` or `source`. A pair linked already is left out and noted.                             |
+| `agent`   | string   | no       | Your name as people see it. Defaults to your MCP client's name.                                                                                                                                                                                           |
+| `run`     | string   | no       | A run id you choose to group several calls, so a person can undo them together.                                                                                                                                                                           |
+
+```json
+{
+  "project": "moon-island",
+  "canvas": "night-story",
+  "near": "n-1",
+  "nodes": [
+    { "title": "Bells", "text": "Bells from the church." },
+    { "kind": "link", "title": "Reference", "url": "https://example.com/church" }
+  ],
+  "links": [{ "from": "n-1", "to": "$0", "kind": "leads-to" }],
+  "run": "r-1240"
+}
+```
+
+```json
+{ "added": ["n-7", "n-8"], "links": ["e-4"], "placed": 2, "change": "c-mh2k1x9a001" }
+```
+
+### update_nodes
+
+`writes files`
+
+Edits or moves nodes: only the fields given change. Any node may be edited, a person's too, because the change log keeps what it said before and the edit can be undone. When the person edits the same field before saving, they choose in the app which value stays. The log keeps a person's earlier version until your change is released (the person presses Undo or Keep in the Changes panel, or you call `undo_run`), so a call is refused, with nothing written, when its undo record would pass 256 KB (send fewer nodes) or when the agents' changes to a person's content not released yet already hold 4 MB (adding nodes still works, and `undo_run` is never refused for room).
+
+| Argument  | Type     | Required | What                                                      |
+| --------- | -------- | -------- | --------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                           |
+| `canvas`  | string   | yes      | The canvas id.                                            |
+| `nodes`   | object[] | yes      | Up to 100: `{ id, title?, text?, url?, x?, y?, width? }`. |
+| `agent`   | string   | no       | Your name as people see it.                               |
+| `run`     | string   | no       | A run id to group several calls.                          |
+
+```json
+{
+  "project": "moon-island",
+  "canvas": "night-story",
+  "nodes": [{ "id": "n-2", "text": "Bells from the church, far away." }]
+}
+```
+
+```json
+{ "updated": 1, "change": "c-mh2k1x9a002" }
+```
+
+### remove_nodes
+
+`writes files`
+
+Removes nodes and links you added. A node goes with its links. A person's node or link is refused with the reason, and so is a node of yours a person wrote in (`personWrote` in `get_canvas`) and a node that has a link someone else drew: agents never delete a person's work, so ask the person. Agent names are labels, not accounts: a node made under another agent's name is refused too, but any agent can pass any name, so that is a courtesy, not a protection. Ids no longer on the canvas are noted, not refused.
+
+| Argument  | Type     | Required | What                                                 |
+| --------- | -------- | -------- | ---------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                      |
+| `canvas`  | string   | yes      | The canvas id.                                       |
+| `nodes`   | string[] | no       | Node ids you added.                                  |
+| `links`   | string[] | no       | Link ids you drew.                                   |
+| `agent`   | string   | no       | Your name, a label. What carries it counts as yours. |
+| `run`     | string   | no       | A run id to group several calls.                     |
+
+```json
+{ "project": "moon-island", "canvas": "night-story", "nodes": ["n-8"] }
+```
+
+```json
+{ "left": 11, "change": "c-mh2k1x9a003" }
+```
+
+### layout_canvas
+
+`writes files`
+
+Tidies the nodes you added: each one that overlaps another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes never move. Answers with how many moved.
+
+| Argument  | Type     | Required | What                                                 |
+| --------- | -------- | -------- | ---------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                      |
+| `canvas`  | string   | yes      | The canvas id.                                       |
+| `nodes`   | string[] | no       | Only these of your node ids. Left out, all of yours. |
+| `agent`   | string   | no       | Your name.                                           |
+| `run`     | string   | no       | A run id to group several calls.                     |
+
+```json
+{ "moved": 2, "change": "c-mh2k1x9a004" }
+```
+
+### undo_run
+
+`writes files`
+
+Undoes your own changes on a canvas: a whole `run`, or change ids from `get_changes` or an edit tool's answer, at most 100 per call. It is careful: a field someone changed since stays as they left it, and a node a person edited or linked since is kept with their links and counted in `kept`. A person's change, or one made under another agent name, is refused; names are labels, so only the person's work is protected. The undo is itself a logged change, and it frees the room the log held for those changes. When everything was changed since, nothing changes (`nothingChanged: true`) but the changes count as undone. A change that a later agent change rewrote on top of (the same field of the same node, or the same node or link) is refused, with nothing written, until that later change is undone first; name both, or the run that holds both, to undo them together, newest first. An undo can not be undone itself: to put your change back, make it again. A change the person kept (Keep in the Changes panel) is theirs and is refused, a run holding one too: ask the person, who can undo it there. Answers with how many changes it undid.
+
+| Argument  | Type     | Required | What                                                           |
+| --------- | -------- | -------- | -------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                |
+| `canvas`  | string   | yes      | The canvas id.                                                 |
+| `run`     | string   | no       | Undo every change of yours in this run that is not undone yet. |
+| `changes` | string[] | no       | Or these change ids.                                           |
+| `agent`   | string   | no       | Your name. It must match the name the changes were made under. |
+
+```json
+{ "project": "moon-island", "canvas": "night-story", "run": "r-1240" }
+```
+
+```json
+{ "undone": 1, "change": "c-mh2k1x9a005", "kept": 0, "nothingChanged": false }
+```

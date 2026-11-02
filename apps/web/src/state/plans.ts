@@ -140,6 +140,31 @@ export function flowEdgesOf(plan: PlanFile): FlowEdge[] {
   return plan.edges.map(flowEdgeOf);
 }
 
+/**
+ * The flow for `plan` when the canvas changed under it (an outside write,
+ * an undo): nodes and edges it had keep their selection and measured size.
+ */
+export function flowFrom(
+  plan: PlanFile,
+  nodes: readonly FlowNode[],
+  edges: readonly FlowEdge[]
+): { nodes: FlowNode[]; edges: FlowEdge[] } {
+  const hadNode = new Map(nodes.map(n => [n.id, n]));
+  const hadEdge = new Map(edges.map(e => [e.id, e]));
+  return {
+    nodes: plan.nodes.map(node => {
+      const fresh = flowNodeOf(node);
+      const had = hadNode.get(node.id);
+      return had ? { ...fresh, selected: had.selected, measured: had.measured } : fresh;
+    }),
+    edges: plan.edges.map(edge => {
+      const fresh = flowEdgeOf(edge);
+      const had = hadEdge.get(edge.id);
+      return had ? { ...fresh, selected: had.selected } : fresh;
+    }),
+  };
+}
+
 /** A node's fields as the core writes them: a trimmed title and address. */
 export function normalNode(node: PlanNode): PlanNode {
   const url = node.url === null ? null : trimText(node.url);

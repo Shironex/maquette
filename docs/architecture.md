@@ -268,6 +268,11 @@ file, `scripts/check-skills.mjs` judges the skills by it, and the `tools-documen
 it. A new tool goes into its `tools/` file and the instructions; then commit the regenerated
 `tool-names.txt` and name the tool in the README and the docs page.
 
+`tools/plans.rs` and `tools/plan_edits.rs` hold the nine planning canvas tools. They go through
+`maquette_core::plans` (see Planning canvases), and each write ends in `Host::plan_changed`, which
+emits `PlanChanged` so an open canvas reloads and keeps the person's unsaved edits. Answers are short
+on purpose: ids, counts and one line per node, with `full` for whole texts.
+
 `tools/built.rs` adds, rebuilds and lists built assets through `commands/built.rs`, the same
 helpers the Board's commands use. Builds go through one `maquette_core::built::Builder` for the
 whole app, so a build an agent starts and one from the Board queue behind each other, and
@@ -997,15 +1002,120 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   only moves when the content changes, so a save with nothing new writes the same bytes. A save
   keeps the file's name (only Rename changes it) and is refused for a removed canvas. A file over
   8 MB lists as broken without being read.
+- **Changes, not snapshots.** A person's save, an agent's tool and an undo all go through
+  `plans::change` (`change.rs`): it takes the lock, reads the file as it is now, lays a list of
+  operations over it and writes the result with the same checks and size cap, then appends one line
+  to the change log. The operations (`ops.rs`) are by node and edge id: add, remove, or change fields
+  with the value before and after. `diff` finds the operations between two canvases, `apply` lays
+  them over a third field by field, and `invert` turns a list around, which is all an undo is. So
+  two writers never write over each other: each sends what it changed, and the other's work stays.
+  The web side's `plan_apply` (it replaced the whole canvas save) sends the operations between the
+  canvas the view last had from the file and what it shows, and returns what the file now holds.
+- **Agents.** `plans/agent.rs` is what the nine canvas tools call (`list_canvases`, `get_canvas`,
+  `get_changes` read; `create_canvas`, `add_nodes`, `update_nodes`, `remove_nodes`, `layout_canvas`
+  and `undo_run` write). Each write names the agent as `by` (the `agent` argument, else the MCP
+  client's name, one line, at most 64 characters) and may name a `run` to group calls. At most 100
+  nodes and links per call, and everything is checked before anything is written. An agent may add
+  anything and edit or move any node, a person's too, since the log keeps what it said before. It
+  never removes a person's node or link, an agent node a person wrote in, nor a node that has a
+  link someone else drew: each is refused with a reason. Whether a person wrote in a node is in the
+  file: an agent node whose content (kind, title, text, picture, address, asset or direction) a
+  person wrote carries `personWrote: true`. The core sets it when a person writes the content (a
+  move does not count) and no agent write clears it, so every agent change on top of the person's
+  words stays a keeper. It is written only when true, so files without it read as before and stay
+  version 2. An older app ignores it and drops it on its next save there; after that an agent may
+  remove that node, and its later changes to it are no longer keepers, so the person's words in it
+  can rotate out of the log. Agent names are labels, not accounts (any client can pass any name), so a
+  node under another agent's name is refused too as a courtesy, but the only protection is between
+  the person and agents. `place.rs` puts a node without `x` and
+  `y` in a column right of the `near` node (or right of everything), clear of every other node by a
+  gap, never stacked at 0, 0, with node sizes guessed as the view guesses them before a node has
+  drawn. `layout_canvas` moves only the agent's own nodes that overlap another, to a free spot beside
+  the node they link to. Nodes already clear and a person's nodes stay.
+- **Change log.** Each canvas has `plans/<id>.log.jsonl`, one JSON line per write (`log.rs`): id, time,
+  `by` (null for a person), `run`, a one line summary (`summary.rs`), the operations as written and the
+  lines an undo took back. It is only appended to, so a sync tool sends the new lines and the canvas
+  file stays small. An agent's line that changed a person's content (their node or link, or an agent
+  node with `personWrote`) is a keeper (`log/keep.rs`): it is the only place their earlier version
+  lives, so rotation never drops it until it is released. An undo releases what it names, the
+  person's or the agent's own `undo_run`, and writes its line even when everything was changed since
+  (no operations, "Nothing to undo, already changed", and the view says "Already changed, nothing to
+  undo"). An undo merges carefully, so a field a later agent change rewrote would stay as that
+  change left it while the undo released the only copy of the person's words: an undo is refused
+  while a later agent change, not undone, touches the same field of the same node (or the same node
+  or link as a whole) and is not part of the same undo ("Undo the later change first, or both
+  together"). A run with both lines undoes them newest first. An undo line can not be undone itself,
+  by the person or an agent ("an undo can not be undone"; the canvas's own Redo covers the person's
+  session edits, and the Changes panel offers no Undo on undo lines): a redo would write the agent's
+  words back with the person's only in lines that are not keepers. Undo lines therefore only ever
+  write back a value from after the change being undone, so they do not block it. Held fields can
+  then only be the person's own later writes, so releasing them loses nothing. A Keep must name
+  every earlier agent change still held under the changes it keeps: on the same fields of the same
+  node or link, and under those in turn, each on its own fields, so the chain can reach other nodes
+  through a change that touched several (`keep_needs`, `plan_keep_needs`). The core refuses a Keep
+  whose list leaves one out and names the missing ids; the app first shows "Keep the earlier changes
+  too?" listing each one's summary and the parts it changed, with Keep all or Cancel, and keeps
+  nothing the person did not confirm. So a kept change rotating out never leaves an older one whose
+  undo would release the person's words. A change the person kept is theirs: an agent's undo of it
+  (by id or in a run) is refused, and the person can still undo it from the Changes panel. Node and
+  link ids are keyed by kind when undo order compares them. A kind change round-trips through undo like every other field. The keeper sizes
+  count a line as a read of the log does, without the break that closes a torn line before it. The person's Keep and Keep run in the Changes panel (`plan_keep`) write a line with `keeps`
+  that releases them without changing the canvas. Undo and keep lines are never keepers. An agent
+  write is refused before anything is written when its line would pass 256 KiB (one node's longest
+  text, before and after, fits) or when it changes a person's content and the keepers, less what it
+  releases, would pass 4 MiB; an undo is never refused for room, and adding nodes still works. The
+  keepers' sizes and the other lines' total are indexed in memory per log, so an append neither
+  rereads the log for the budget nor to decide on rotation; the index is read again whenever the
+  file's size or time is not what the last write left, or the file grew by more than the line just
+  appended (another app appended meanwhile). Every
+  other line (a person's own edits, agents' changes to their own nodes) stays undoable while it is
+  among the newest: once those lines pass 1 MiB one atomic rewrite keeps every keeper and the newest
+  512 KiB of the rest. A person's own line over 256 KiB keeps its summary but drops its operations
+  (`trimmed`); the canvas holds what it wrote. The Changes panel's footer says the same. A line that
+  does not read (a write cut short, a sync conflict copy) is skipped, and the next line starts on its
+  own line. Removing a canvas moves its log to the trash first and the canvas after, putting the log
+  back if the canvas cannot move, so a new canvas with the same id never inherits an old log.
+- **Undo.** `plans::undo` inverts the operations of the lines named and lays them over the canvas as
+  it is now, carefully: a field changed since stays as it was left, and a node edited or linked since
+  is kept with its links and counted, so an undo never drops a link a person drew. An agent may undo only lines under its own name (`undo_run`, by `run` or by change ids, at most
+  100 per call);
+  a person's undo (`plan_undo`, the Changes panel's Undo and Undo run) may take back any. An undo is
+  itself a logged change. The view's own Mod+Z, Shift+Mod+Z and Mod+Y undo and redo a person's edits
+  in the open canvas (`state/plan-history.ts`, 100 edits deep) the same way, as inverted operations,
+  so an agent's write that landed in between is not undone with them.
+- **Watching.** `commands/plan_watch.rs` watches the project's `plans/` folder while a canvas is open
+  (`plan_watch`; one watcher per folder, shared by every window, the four newest folders stay; a
+  project with no `plans/` folder yet answers false and the view asks again once it has a canvas)
+  and emits `PlanChanged` once per canvas id after its file or log has been quiet for 250 ms, so a
+  write by an agent, another window or a sync from another computer reaches the view. MCP writes also
+  call `Host::plan_changed`, so the app does not wait for the watcher.
+- **Person, agent and outside edits.** `state/plans-sync.ts` keeps the canvas as the file last held
+  it (the base). A save sends the operations between the base and the flow; the answer becomes the
+  new base, with edits made while it saved laid over it again. Its own writes read back as the base,
+  so they never reload in a loop. When the file changes from outside and the person has no unsaved
+  edits, it simply shows. When they do, the two are merged by node id (`state/plan-ops.ts`): the
+  person's edits are laid over the new file, and only when both changed the same field of the same
+  node does the canvas ask Keep mine or Use theirs. Until the person answers nothing saves: not
+  autosave, leaving, quitting, renaming, opening a link (the link opens, unsaved) or an undo from
+  the log, since any save would choose Keep mine for them; each says to answer first. Escape or a click outside
+  closes the question without choosing; the top bar's save line then says to answer the clash and
+  an Answer clash button asks again. A reload
+  that a save overtook while it read the file reads again, and an outside change that lands mid
+  drag keeps where the drag started for undo. When the folder cannot be watched the view says so
+  and reads the canvas again each time the window comes to the front. An agent's
+  write shows a toast, the nodes an outside write added or edited carry an "added" or "edited"
+  badge, and an agent's nodes have a blue ring. The Changes panel (`features/plan/PlanChanges`,
+  `state/plan-log.ts`) groups the log into runs and filters All, Agents or Mine.
 - **Leaving.** The web store waits for a save on its way and saves the latest edits before Back,
   another canvas, another project or quitting. When that save fails the canvas stays open and asks:
   try again, stay, or leave without saving; that dialog is the only message, no notice repeats it.
 - **Pictures.** `images.rs` links a picture already inside the project by its relative path and
   copies one from elsewhere into `plans/images/<name>-<hash>.<ext>` once.
 - **Remove.** The file moves to `<workspace>/trash/<project>/plans/`; copied pictures stay.
-- **Edges.** The Tauri commands are in `commands/plans.rs`. The web state is
-  `apps/web/src/state/plans.ts` (file to React Flow and back) and `use-plans-store.ts` (saves a
-  moment after each change), the view is `features/plan` on `@xyflow/react`, and mock mode serves
+- **Edges.** The Tauri commands are in `commands/plans.rs` (`plan_apply`, `plan_log` and `plan_undo`
+  beside list, get, create, rename and remove). The web state is
+  `apps/web/src/state/plans.ts` (file to React Flow and back), `use-plans-store.ts` (saves a
+  moment after each change) and `plans-sync.ts`, the view is `features/plan` on `@xyflow/react`, and mock mode serves
   demo canvases with `?plans=demo`.
 
 ## About and updates

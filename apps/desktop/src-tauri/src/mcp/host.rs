@@ -28,7 +28,7 @@ use crate::commands::rig::RigJobs;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
     AvatarChanged, BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged,
-    PipelineChanged, PrepareChanged, ProjectChanged, ProjectCreated,
+    PipelineChanged, PlanChanged, PrepareChanged, ProjectChanged, ProjectCreated,
 };
 use crate::session::Session;
 
@@ -80,6 +80,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed a project's scene layout, so
     /// the Layout editor reloads it.
     fn layout_changed(&self, _project: &str) {}
+    /// Tells the windows that a tool wrote a planning canvas, so an open
+    /// canvas reloads it without waiting for the folder watch.
+    fn plan_changed(&self, _project: &str, _id: &str) {}
     /// Tells the windows that a tool changed a project's material tweaks,
     /// so the Inspector reloads them.
     fn materials_changed(&self, _project: &str) {}
@@ -162,6 +165,16 @@ impl Host for AppHost {
         self.0
             .try_state::<crate::commands::site::Preview>()
             .map(|p| Arc::clone(&p.inner().0))
+    }
+
+    fn plan_changed(&self, project: &str, id: &str) {
+        let event = PlanChanged {
+            project: project.to_string(),
+            id: id.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a canvas event");
+        }
     }
 
     fn project_changed(&self, project: &ProjectManifest) {

@@ -1,6 +1,6 @@
 ---
 title: Agent skills
-description: Five skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars and game export. Install them from the repo.
+description: Six skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars, game export and planning canvases. Install them from the repo.
 sidebar:
   label: Agent skills
 ---
@@ -16,6 +16,7 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 | `maquette-character-rig` | Take a rigged character from its rig check to a clean v2, through the rig doctor first: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                                         |
 | `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo, or write an export pack for another engine.                                      |
 | `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                                                                      |
+| `maquette-plan-canvas`   | Plan beside you on a canvas in the Plan view: read it and its change log, add notes and links near the right node under its own name, tidy them, and undo its own run.                                                                        |
 
 The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config), and the avatar skill the rest pose script Maquette itself runs. Everything else is instructions.
 
@@ -52,6 +53,12 @@ Ship always waits. The run stops at Approve and ship in the app, with the counts
 Prompt: "Normalise the duelist's rest pose for VRM and show me the pose sheets."
 
 A new rest pose changes how every clip plays, so nothing uses the normalised model until you say yes to the before and after sheets. The agent works on a copy and never changes skin weights on its own: a cape or hair that follows the arms is shown to you, with a proposed fix.
+
+### `maquette-plan-canvas`
+
+Prompt: "Read the combat ideas canvas and pin three references for the rune burst next to my note."
+
+Nothing here costs credits. The agent's nodes carry its name and land in the change log, so you see what it added (a toast and the Changes panel) and can undo any agent change, a whole run at once. It never removes your nodes or links, and its edits to your notes stay undoable until you undo or keep them. Agent names are labels the agent picks, so they tell you who did what, not who may: only your own work is protected from agents.
 
 ## Rules every skill keeps
 

@@ -17,6 +17,8 @@ a `next` list. No project to work in: `create_project` makes one and spends noth
 tools fail with `ECONNREFUSED`, the app is closed or its server is off: ask the person to open
 Maquette and turn the server on in Settings > Agents. An error names its `code`, and `fix` and
 `tryTool` when they help; `personOnly` means ask the person instead of trying again.
+A project's planning canvases hold the person's notes, links and plans: `list_canvases` lists them
+and `get_canvas` reads one, so read the canvas the person points at before you plan for them.
 
 ## Hard rules
 

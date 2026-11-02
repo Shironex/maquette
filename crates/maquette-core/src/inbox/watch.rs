@@ -1,6 +1,8 @@
 //! Watches the inbox folder for new or changed models. File system events
 //! come in bursts while a download or an export writes a file, so paths are
 //! debounced: a path is reported once it has been quiet for a while.
+//! [`watch_where`] watches any folder for the files a filter keeps; the
+//! planning canvases use it for `plans/`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -99,17 +101,35 @@ pub fn watch(
     quiet: Duration,
     on_change: impl Fn(Vec<PathBuf>) + Send + 'static,
 ) -> CoreResult<InboxWatcher> {
+    watch_where(dir, quiet, "inbox", is_model, on_change)
+}
+
+/// Watches `dir` (created if missing) and calls `on_change` with the paths
+/// `keep` accepts that changed, after they have been quiet for `quiet`.
+/// `name` names the watcher's thread and its messages.
+///
+/// # Errors
+///
+/// Fails when the folder cannot be created or watched.
+pub fn watch_where(
+    dir: &Path,
+    quiet: Duration,
+    name: &str,
+    keep: impl Fn(&Path) -> bool + Send + 'static,
+    on_change: impl Fn(Vec<PathBuf>) + Send + 'static,
+) -> CoreResult<InboxWatcher> {
     std::fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
     let (tx, rx) = mpsc::channel::<notify::Result<notify::Event>>();
     let mut watcher = notify::recommended_watcher(move |event| {
         let _ = tx.send(event);
     })
-    .map_err(|e| CoreError::Unavailable(format!("Could not watch the inbox. {e}")))?;
+    .map_err(|e| CoreError::Unavailable(format!("Could not watch the {name}. {e}")))?;
     watcher
         .watch(dir, RecursiveMode::NonRecursive)
         .map_err(|e| CoreError::Unavailable(format!("Could not watch {}. {e}", dir.display())))?;
+    let label = name.to_string();
     let thread = thread::Builder::new()
-        .name("inbox-watch".to_string())
+        .name(format!("{name}-watch"))
         .spawn(move || {
             let mut debouncer = Debouncer::new(quiet);
             loop {
@@ -121,11 +141,11 @@ pub fn watch(
                 match rx.recv_timeout(wait) {
                     Ok(Ok(event)) => {
                         let now = Instant::now();
-                        for path in event.paths.into_iter().filter(|p| is_model(p)) {
+                        for path in event.paths.into_iter().filter(|p| keep(p)) {
                             debouncer.push(path, now);
                         }
                     }
-                    Ok(Err(err)) => tracing::warn!(error = %err, "inbox watch error"),
+                    Ok(Err(err)) => tracing::warn!(error = %err, watch = %label, "watch error"),
                     Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
@@ -135,7 +155,7 @@ pub fn watch(
                 }
             }
         })
-        .map_err(|e| CoreError::Unavailable(format!("Could not start the inbox watcher. {e}")))?;
+        .map_err(|e| CoreError::Unavailable(format!("Could not start the {name} watcher. {e}")))?;
     Ok(InboxWatcher {
         watcher: Some(watcher),
         thread: Some(thread),

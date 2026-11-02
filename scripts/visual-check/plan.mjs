@@ -8,8 +8,14 @@
  * on Boss: Frost Warden, read live (ready, to check, no model, a file
  * missing, a removed asset and a picked Lab direction), the removed one up
  * close, the Asset picker and a linked asset added, and the same canvas at
- * the minimum size. Mock mode's `?plans=demo` serves them
- * (`?plans=locked`: the same, every save failing).
+ * the minimum size. Then the history: an agent's run landing on Combat
+ * ideas (its toast, the nodes it added and edited marked, the view panned
+ * to them), the Changes panel at full and minimum size, the confirm when a
+ * Keep would take earlier changes along, and the choice
+ * when an edit from another computer meets an unsaved edit to the same
+ * note. Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
+ * every save failing); the mock only commands `mock_plan_agent` and
+ * `mock_plan_outside` make the outside writes.
  */
 
 const SMALL = { width: 1120, height: 720 };
@@ -77,6 +83,67 @@ async function assetShots(open, shot) {
   await boss(small);
   await shot(small, 'plan-assets-small');
   await small.context().close();
+}
+
+/** Runs a mock only command, as an agent's or another computer's write. */
+const mock = (page, cmd, args) =>
+  page.evaluate(([c, a]) => window.__TAURI_INTERNALS__.invoke(c, a), [cmd, args]);
+
+const COMBAT = { project: 'frostveil', id: 'combat-ideas' };
+
+/** An agent's run, the Changes panel, and an outside edit meeting an unsaved one. */
+async function historyShots(open, shot) {
+  for (const [viewport, suffix] of [
+    [undefined, ''],
+    [SMALL, '-small'],
+  ]) {
+    const page = await plans(open, viewport);
+    await combat(page);
+    await mock(page, 'mock_plan_agent', COMBAT);
+    await page.getByText('Research agent changed the canvas').waitFor();
+    await page.waitForTimeout(700);
+    await shot(page, `plan-agent${suffix}`);
+    await page.getByRole('button', { name: /^Changes/ }).click();
+    await page.getByRole('complementary', { name: 'Changes' }).waitFor();
+    await page.waitForTimeout(300);
+    await shot(page, `plan-history${suffix}`);
+    // A second agent edit of a person note in the same run: Keep per change and Keep run.
+    await mock(page, 'mock_plan_agent', { ...COMBAT, edit: 'n-02' });
+    await page.getByRole('button', { name: 'Keep run' }).waitFor();
+    await page.waitForTimeout(300);
+    await shot(page, `plan-keep${suffix}`);
+    if (!suffix) {
+      // A third edit of the same note: keeping the newest asks to keep the one under it too.
+      await mock(page, 'mock_plan_agent', { ...COMBAT, edit: 'n-02' });
+      const keep = page.getByRole('button', { name: /^Keep: Edited note: Rune combos/ });
+      await keep.nth(1).waitFor();
+      await keep.first().click();
+      await page.getByRole('dialog', { name: 'Keep the earlier changes too?' }).waitFor();
+      await page.waitForTimeout(300);
+      await shot(page, 'plan-keep-confirm');
+    }
+    await page.context().close();
+  }
+
+  const page = await plans(open);
+  await combat(page);
+  await page.getByRole('group', { name: 'Note: Frost veil' }).dblclick();
+  await page.getByRole('textbox', { name: 'Note text' }).fill('Hold Shift to slow time.');
+  await page.keyboard.press('Control+Enter');
+  await mock(page, 'mock_plan_outside', {
+    ...COMBAT,
+    node: 'n-01',
+    text: 'Slow time while Dash is held, from the laptop.',
+  });
+  await page.getByRole('dialog', { name: 'The canvas changed outside' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'plan-outside');
+  // Escape closes the question without choosing: the top bar says so and asks again.
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Answer clash' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'plan-clash');
+  await page.context().close();
 }
 
 export async function planShots({ open, shot }) {
@@ -148,4 +215,5 @@ export async function planShots({ open, shot }) {
   await locked.context().close();
 
   await assetShots(open, shot);
+  await historyShots(open, shot);
 }

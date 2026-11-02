@@ -6,6 +6,7 @@
  * story and an empty Boss arena.
  */
 import type { InboxItem, PlanFile, PlanNode } from '../client';
+import type { MockLogEntry } from './plan-log';
 
 export type Canvases = Map<string, PlanFile>;
 
@@ -178,6 +179,47 @@ export function demoCanvases(): Canvases {
     ['opening-story', story],
     ['boss-arena', blank('Boss arena', '2026-10-31T12:00:00.000Z')],
   ]);
+}
+
+/** Combat ideas' change log: made, an agent's link a day ago, then the person's move. */
+export function demoLog(): Omit<MockLogEntry, 'id'>[] {
+  const combat = demoCombat();
+  const link = combat.nodes.find(n => n.id === 'n-05') as PlanNode;
+  const edgeTo = combat.edges.find(e => e.id === 'e-03');
+  const frost = combat.nodes.find(n => n.id === 'n-01') as PlanNode;
+  const base = { undoes: [] };
+  return [
+    {
+      ...base,
+      at: '2026-10-30T09:00:00.000Z',
+      by: null,
+      run: null,
+      summary: 'Made the canvas Combat ideas',
+      mark: 'create',
+      ops: [],
+    },
+    {
+      ...base,
+      at: '2026-11-01T16:20:00.000Z',
+      by: 'Research agent',
+      run: 'r-old',
+      summary: 'Added link: Lighting small scenes at night',
+      mark: 'add',
+      ops: [
+        { op: 'add-node', node: link },
+        ...(edgeTo ? [{ op: 'add-edge' as const, edge: edgeTo }] : []),
+      ],
+    },
+    {
+      ...base,
+      at: '2026-11-02T08:40:00.000Z',
+      by: null,
+      run: null,
+      summary: 'Moved 1 note',
+      mark: 'move',
+      ops: [{ op: 'set-node', before: { ...frost, y: 40 }, after: frost }],
+    },
+  ];
 }
 
 /** The Inbox's rune obelisk, attached to the Board's Rune obelisk, so its node has a model to check. */

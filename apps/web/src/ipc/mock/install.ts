@@ -241,6 +241,8 @@ const handle = createBackend({
     else if (event.name === 'rig') void events.rigChanged.emit({ record: event.payload });
     else if (event.name === 'render') void events.renderChanged.emit({ record: event.payload });
     else if (event.name === 'thumbnail') void events.thumbnailReady.emit(event.payload);
+    else if (event.name === 'plan')
+      void events.planChanged.emit({ project: event.project, id: event.id });
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });

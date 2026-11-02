@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactFlowProvider } from '@xyflow/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -9,9 +9,11 @@ import {
   RUNNING_REREAD_MS,
   usePlanLinksStore,
 } from '@/state/use-plan-links-store';
+import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
 import { clearMocks, fakeFlowLayout, openPlans } from '@/test/open-plan';
 import PlanCanvas from './PlanCanvas';
+import { READABLE_ZOOM, SAFE_INSET, reveal } from './PlanCanvas.hooks';
 
 beforeAll(fakeFlowLayout);
 afterEach(() => {
@@ -79,7 +81,7 @@ describe('PlanCanvas', () => {
 
   it('stays open and asks when the save on the way back fails', async () => {
     await renderCanvas('combat-ideas');
-    vi.spyOn(commands, 'planSave')
+    vi.spyOn(commands, 'planApply')
       .mockRejectedValueOnce({ code: 'io', message: 'The file is locked.' })
       .mockRejectedValueOnce({ code: 'io', message: 'Still locked.' });
     usePlansStore.getState().addNode('note', { x: 900, y: 900 });
@@ -156,5 +158,180 @@ describe('the live asset links', () => {
     window.dispatchEvent(new Event('focus'));
     await vi.advanceTimersByTimeAsync(RUNNING_REREAD_MS * 3);
     expect(calls()).toBe(settled + 3);
+  });
+});
+
+describe('PlanCanvas history', () => {
+  const COMBAT = { project: 'frostveil', id: 'combat-ideas' };
+  const open = async () => {
+    const store = await openPlans();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    await usePlanLogStore.getState().load('frostveil', 'combat-ideas');
+    render(
+      <ReactFlowProvider>
+        <PlanCanvas />
+      </ReactFlowProvider>
+    );
+    await screen.findByRole('main', { name: 'Combat ideas canvas' });
+    return store;
+  };
+  /** What the folder watcher sets off after a write from outside. */
+  const watcherSaw = async () => {
+    await usePlansStore.getState().reload();
+    await usePlanLogStore.getState().load('frostveil', 'combat-ideas');
+  };
+  const text = (id: string) =>
+    usePlansStore.getState().nodes.find(n => n.id === id)?.data.node.text;
+
+  it('undoes and redoes the person edits with the buttons and the keys', async () => {
+    await open();
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    expect(undo).toHaveAttribute('aria-disabled', 'true');
+    act(() => usePlansStore.getState().updateNode('n-01', { text: 'Edited' }));
+    await userEvent.click(undo);
+    expect(text('n-01')).toMatch(/^Slow time/);
+    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}');
+    expect(text('n-01')).toBe('Edited');
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(text('n-01')).toMatch(/^Slow time/);
+    await userEvent.keyboard('{Control>}y{/Control}');
+    expect(text('n-01')).toBe('Edited');
+    await userEvent.click(screen.getByRole('button', { name: 'Redo' }));
+    expect(text('n-01')).toBe('Edited');
+  });
+
+  it('shows an agent write with a toast and marks, and undoes its run', async () => {
+    const store = await open();
+    await new Promise(done => setTimeout(done, 5));
+    await act(async () => {
+      await store.mock('mock_plan_agent', COMBAT);
+      await watcherSaw();
+    });
+    expect(await screen.findByText('Research agent changed the canvas')).toBeInTheDocument();
+    expect(screen.getAllByText('added')).toHaveLength(3);
+    expect(screen.getByText('edited')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Changes, 1 new from agents' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Undo run' }));
+    await vi.waitFor(() =>
+      expect(usePlansStore.getState().nodes.map(n => n.id)).not.toContain('n-a1')
+    );
+    expect(text('n-06')).toBe('Does the veil read on a phone screen?');
+    expect(screen.queryByText('Research agent changed the canvas')).not.toBeInTheDocument();
+  });
+
+  it('opens the Changes panel in place of the toast', async () => {
+    const store = await open();
+    await new Promise(done => setTimeout(done, 5));
+    await act(async () => {
+      await store.mock('mock_plan_agent', COMBAT);
+      await watcherSaw();
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Show changes' }));
+    const panel = screen.getByRole('complementary', { name: 'Changes' });
+    // This run, and the one from yesterday.
+    expect(within(panel).getAllByRole('group', { name: 'Research agent, 1 change' })).toHaveLength(
+      2
+    );
+    expect(screen.queryByText('Research agent changed the canvas')).not.toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close Changes' }));
+    expect(screen.queryByRole('complementary', { name: 'Changes' })).not.toBeInTheDocument();
+  });
+
+  it('asks which side wins when an outside edit meets an unsaved one', async () => {
+    const store = await open();
+    act(() => usePlansStore.getState().updateNode('n-01', { text: 'Mine' }));
+    await act(async () => {
+      await store.mock('mock_plan_outside', { ...COMBAT, node: 'n-01', text: 'Theirs' });
+      await watcherSaw();
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'The canvas changed outside' });
+    expect(dialog).toHaveTextContent('One node or link changed on both sides.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Use theirs' }));
+    expect(text('n-01')).toBe('Theirs');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes the clash question on Escape without choosing, and reopens it from the top bar', async () => {
+    const store = await open();
+    act(() => usePlansStore.getState().updateNode('n-01', { text: 'Mine' }));
+    await act(async () => {
+      await store.mock('mock_plan_outside', { ...COMBAT, node: 'n-01', text: 'Theirs' });
+      await watcherSaw();
+    });
+    await screen.findByRole('dialog', { name: 'The canvas changed outside' });
+    const apply = vi.spyOn(commands, 'planApply');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(usePlansStore.getState().outside).not.toBeNull();
+    expect(text('n-01')).toBe('Mine');
+    expect(screen.getByRole('status')).toHaveTextContent('not saved, answer the clash');
+    expect(await usePlansStore.getState().save()).toBe(false);
+    expect(apply).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Answer clash' }));
+    const dialog = await screen.findByRole('dialog', { name: 'The canvas changed outside' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep mine' }));
+    expect(usePlansStore.getState().outside).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Answer clash' })).not.toBeInTheDocument();
+  });
+});
+
+describe('revealing the changed nodes', () => {
+  // A 1000 by 800 canvas: the safe part is 908 by 586 pixels.
+  const frame = {
+    current: {
+      getBoundingClientRect: () => ({ left: 0, top: 0, right: 1000, bottom: 800, width: 1000 }),
+    },
+  } as unknown as Parameters<typeof reveal>[1];
+  const fakeFlow = (
+    boxes: Record<string, { x: number; y: number; width: number; height: number }>
+  ) => {
+    const setCenter = vi.fn();
+    const fitView = vi.fn();
+    const flow = {
+      getNode: (id: string) => boxes[id],
+      getNodesBounds: (ids: string[]) => {
+        const all = ids.flatMap(id => boxes[id] ?? []);
+        const x = Math.min(...all.map(b => b.x));
+        const y = Math.min(...all.map(b => b.y));
+        return {
+          x,
+          y,
+          width: Math.max(...all.map(b => b.x + b.width)) - x,
+          height: Math.max(...all.map(b => b.y + b.height)) - y,
+        };
+      },
+      // Zoom 1, the view at the flow's origin.
+      flowToScreenPosition: (p: { x: number; y: number }) => p,
+      getZoom: () => 1,
+      setCenter,
+      fitView,
+    } as unknown as Parameters<typeof reveal>[0];
+    return { flow, setCenter, fitView };
+  };
+  const node = (x: number, y: number) => ({ x, y, width: 240, height: 120 });
+
+  it('zooms out as far as the controls stay readable to show them all', () => {
+    const { flow, setCenter, fitView } = fakeFlow({ a: node(2000, 100), b: node(2700, 100) });
+    reveal(flow, frame, ['a', 'b'], true);
+    expect(fitView).not.toHaveBeenCalled();
+    const [, , options] = setCenter.mock.calls[0] as [number, number, { zoom: number }];
+    expect(options.zoom).toBeCloseTo((1000 - SAFE_INSET.left - SAFE_INSET.right) / 940);
+    expect(options.zoom).toBeGreaterThanOrEqual(READABLE_ZOOM);
+  });
+
+  it('brings the first one into view when they are too far apart to read', () => {
+    const { flow, setCenter } = fakeFlow({ a: node(2000, 100), b: node(6000, 100) });
+    reveal(flow, frame, ['a', 'b'], true);
+    const [x, , options] = setCenter.mock.calls[0] as [number, number, { zoom: number }];
+    expect(options.zoom).toBe(1);
+    const shift = (SAFE_INSET.left - SAFE_INSET.right) / 2;
+    expect(x).toBe(2000 + 120 - shift);
+  });
+
+  it('leaves the view alone when they are in sight', () => {
+    const { flow, setCenter } = fakeFlow({ a: node(200, 200) });
+    reveal(flow, frame, ['a'], true);
+    expect(setCenter).not.toHaveBeenCalled();
   });
 });
