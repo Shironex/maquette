@@ -119,5 +119,7 @@ describe('quitting with material tweaks not applied', () => {
     expect(quitTitle(true, true)).toBe('Apply the presets and material tweaks?');
     expect(quitTitle(false, false, 2)).toBe('Quit before accepting the Inbox fix-ups?');
     expect(quitTitle(false, true, 2)).toBe('Apply the material tweaks?');
+    expect(quitTitle(false, false, 0, true)).toBe('Save the canvas before quitting?');
+    expect(quitTitle(true, false, 0, true)).toBe('Apply the compression presets?');
   });
 });

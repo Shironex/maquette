@@ -213,6 +213,7 @@ const handle = createBackend({
   parts: params.get('parts'),
   page: pageOption(params),
   timeline: params.get('timeline'),
+  plans: params.get('plans'),
   game: params.get('game'),
   previews: params.get('previews'),
   library: params.get('library'),

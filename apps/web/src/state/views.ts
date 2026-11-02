@@ -3,6 +3,7 @@ import type { ProjectTarget } from '@/ipc/client';
 
 export type ViewId =
   | 'board'
+  | 'plan'
   | 'inbox'
   | 'lab'
   | 'pipeline'
@@ -23,6 +24,7 @@ export interface ViewDef {
 
 export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'board', label: 'Board', icon: 'squares-four' },
+  { id: 'plan', label: 'Plan', icon: 'graph' },
   { id: 'inbox', label: 'Inbox', icon: 'tray' },
   { id: 'lab', label: 'Lab', icon: 'flask' },
   { id: 'pipeline', label: 'Pipeline', icon: 'flow-arrow' },

@@ -3,10 +3,39 @@
 const SLUG_MAX_CHARS: usize = 60;
 
 /// Names Windows keeps for devices, with or without an extension. A folder
-/// or file with one of them fails or misbehaves there.
-const WINDOWS_RESERVED: [&str; 22] = [
-    "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8",
-    "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+/// or file with one of them fails or misbehaves there. The superscript
+/// digits count too (`COM¹`), as do the console names.
+const WINDOWS_RESERVED: [&str; 30] = [
+    "con",
+    "prn",
+    "aux",
+    "nul",
+    "com1",
+    "com2",
+    "com3",
+    "com4",
+    "com5",
+    "com6",
+    "com7",
+    "com8",
+    "com9",
+    "lpt1",
+    "lpt2",
+    "lpt3",
+    "lpt4",
+    "lpt5",
+    "lpt6",
+    "lpt7",
+    "lpt8",
+    "lpt9",
+    "com\u{b9}",
+    "com\u{b2}",
+    "com\u{b3}",
+    "lpt\u{b9}",
+    "lpt\u{b2}",
+    "lpt\u{b3}",
+    "conin$",
+    "conout$",
 ];
 
 /// `"Moon Island"` becomes `"moon-island"`. Common accented Latin letters are
@@ -21,6 +50,15 @@ pub fn slugify(name: &str) -> String {
 /// `slugify(id) == id` is how an old `aux` is checked and it stays readable.
 pub fn folder_slug(name: &str) -> String {
     windows_safe(slugify(name))
+}
+
+/// True when Windows keeps `name` for a device (`con`, `NUL`, `com1.txt`):
+/// any case, with or without an extension.
+pub fn is_windows_reserved(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or(name).trim_end();
+    WINDOWS_RESERVED
+        .iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
 }
 
 /// `slug`, moved off a name Windows reserves.

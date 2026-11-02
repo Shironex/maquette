@@ -38,6 +38,7 @@ import { createSplitHandlers } from './create-split-handlers';
 import { createPageHandlers, holdPageStarts } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
+import { createPlanHandlers } from './create-plan-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { withoutPreviews } from './create-preview-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
@@ -79,6 +80,7 @@ export function createBackend({
   page: pageState = null,
   timeline = null,
   paths = null,
+  plans = null,
   game: gameState = null,
   previews = null,
   library: libraryState = null,
@@ -372,6 +374,7 @@ export function createBackend({
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
+    ...createPlanHandlers({ root: () => root, plans: configured ? plans : null }),
     ...holdPageStarts(page.handlers, agents),
     ...game.handlers,
     ...avatars.handlers,

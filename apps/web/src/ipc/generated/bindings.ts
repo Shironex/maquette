@@ -345,6 +345,37 @@ export const commands = {
 	 *  and explode tracks stay as they are. Returns the layout view.
 	 */
 	pathsSave: (project: string, paths: ScenePath[], tracks: { [key in string]: PathTrack }) => __TAURI_INVOKE<LayoutView>("paths_save", { project, paths, tracks }),
+	planList: (project: string) => __TAURI_INVOKE<PlanSummary[]>("plan_list", { project }),
+	planGet: (project: string, id: string) => __TAURI_INVOKE<PlanDoc>("plan_get", { project, id }),
+	/**
+	 *  Makes an empty canvas. Presets only set the starting content, which a
+	 *  later version fills in; every canvas starts blank for now.
+	 */
+	planCreate: (project: string, name: string) => __TAURI_INVOKE<PlanDoc>("plan_create", { project, name }),
+	/**  Writes the whole canvas, normalised; returns what the file now holds. */
+	planSave: (project: string, id: string, plan: PlanFile) => __TAURI_INVOKE<PlanDoc>("plan_save", { project, id, plan }),
+	planRename: (project: string, id: string, name: string) => __TAURI_INVOKE<PlanSummary>("plan_rename", { project, id, name }),
+	/**  Moves the canvas file into the workspace trash; returns where it went. */
+	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
+	/**
+	 *  Picks a picture for an image node, starting in the project folder. One
+	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
+	 */
+	planPickImage: (project: string) => __TAURI_INVOKE<{
+	/**  What the node stores: relative to the project, `/` between folders. */
+	path: string,
+	/**  Where it is on this computer. */
+	file: string,
+	/**  The file name without its extension, a first caption. */
+	name: string,
+	/**  True when it was copied into `plans/images`. */
+	copied: boolean,
+} | null>("plan_pick_image", { project }),
+	/**
+	 *  Opens a link node's page in the browser. The address is read from the
+	 *  saved canvas, never taken from the web view, and only `https` opens.
+	 */
+	planOpenLink: (project: string, id: string, node: string) => __TAURI_INVOKE<null>("plan_open_link", { project, id, node }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears
@@ -2749,6 +2780,14 @@ export type Easing = "linear" |
 /**  Cubic, slow at the end. */
 "ease-out" | "ease-in-out";
 
+export type EdgeKind = 
+/**  Two ideas belong together. */
+"relates" | 
+/**  The order of stops or beats. */
+"leads-to" | 
+/**  Where research came from. */
+"source";
+
 /**  What happens at the elbows when the arms are lifted. */
 export type Elbows = 
 /**  The whole arm turns at the shoulder; a bent elbow stays bent. */
@@ -4544,6 +4583,14 @@ export type NewProject_Serialize = {
 	game: NewGame_Serialize | null,
 };
 
+export type NodeKind = 
+/**  Plain text. */
+"note" | 
+/**  A picture inside the project, with an optional caption. */
+"image" | 
+/**  A web address with a title and a short note. */
+"link";
+
 /**  The script's `report.json`. */
 export type NormalizeReport = {
 	before?: PoseMeasures,
@@ -5135,6 +5182,100 @@ export type PlanClip = {
 	bytes: number | null,
 	status: ClipStatus,
 	matched: MatchedClip | null,
+};
+
+/**
+ *  One canvas as the view gets it: its id, its file relative to the
+ *  project, the canvas, and where each of its pictures is on this computer.
+ */
+export type PlanDoc = {
+	id: string,
+	/**  `plans/<id>.plan.json`. */
+	file: string,
+	plan: PlanFile,
+	/**  A picture's stored path to its absolute path here. */
+	images: { [key in string]: string },
+};
+
+export type PlanEdge = {
+	id: string,
+	from: string,
+	to: string,
+	fromSide: Side | null,
+	toSide: Side | null,
+	kind: EdgeKind,
+	label: string | null,
+	by: string | null,
+};
+
+export type PlanFile = {
+	version: number,
+	name: string,
+	preset: PlanPreset,
+	/**  RFC 3339, when the canvas was made. */
+	created: string,
+	/**  RFC 3339, the last save that changed something. */
+	edited: string,
+	nodes: PlanNode[],
+	edges: PlanEdge[],
+};
+
+/**  A picture ready for an image node. */
+export type PlanImage = {
+	/**  What the node stores: relative to the project, `/` between folders. */
+	path: string,
+	/**  Where it is on this computer. */
+	file: string,
+	/**  The file name without its extension, a first caption. */
+	name: string,
+	/**  True when it was copied into `plans/images`. */
+	copied: boolean,
+};
+
+export type PlanNode = {
+	id: string,
+	kind: NodeKind,
+	/**  The top left corner on the canvas, in whole pixels. */
+	x: number,
+	y: number,
+	/**  `None` keeps the kind's own width. */
+	width: number | null,
+	/**  A link's title or a picture's caption; a note may leave it empty. */
+	title: string,
+	/**  A note's text or a link's short note. */
+	text: string,
+	/**
+	 *  An image node's picture, relative to the project with `/` between
+	 *  folders.
+	 */
+	image: string | null,
+	/**  A link node's `http` or `https` address. */
+	url: string | null,
+	/**  Who made it: `None` for a person, else the agent's name. */
+	by: string | null,
+};
+
+/**
+ *  What a canvas started from. Presets only set the starting content;
+ *  every canvas holds every kind of node.
+ */
+export type PlanPreset = "brainstorm" | "story" | "mechanics";
+
+/**  A line in the list of a project's canvases. */
+export type PlanSummary = {
+	id: string,
+	file: string,
+	/**  The canvas name, or the file's id when it could not be read. */
+	name: string,
+	preset: PlanPreset | null,
+	nodes: number,
+	edges: number,
+	images: number,
+	links: number,
+	/**  RFC 3339; empty when the file could not be read. */
+	edited: string,
+	/**  Why the file could not be read, for a canvas that only lists. */
+	problem: string | null,
 };
 
 /**  One asset in the plan. */
@@ -6981,6 +7122,9 @@ export type ShipView_Serialize = {
 	plan: SiteShipPlan,
 	report: SizeReport,
 };
+
+/**  The side of a node an edge leaves or arrives at. */
+export type Side = "top" | "right" | "bottom" | "left";
 
 export type SideMember = {
 	model: string,

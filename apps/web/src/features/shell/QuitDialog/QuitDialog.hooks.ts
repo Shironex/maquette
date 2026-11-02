@@ -4,6 +4,7 @@ import { events } from '@/ipc/generated/bindings';
 import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
+import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { quitTitle, unappliedProjects, useQuitStore } from '@/state/use-quit-store';
 
@@ -15,7 +16,8 @@ export function useQuitGuard() {
   const presets = usePipelineStore(s => unappliedProjects(s.presetEdits).length > 0);
   const tweaks = useMaterialsStore(s => unappliedProjects(s.edits).length > 0);
   const drafts = usePrepareStore(s => Object.keys(s.drafts).length > 0);
-  const waiting = presets || tweaks || drafts;
+  const canvas = usePlansStore(s => s.dirty);
+  const waiting = presets || tweaks || drafts || canvas;
   const ask = useQuitStore(s => s.ask);
   useEffect(() => {
     void commands.quitSetUnapplied(waiting).catch(() => undefined);
@@ -38,10 +40,27 @@ export function useQuitDialog() {
   const presets = usePipelineStore(s => s.presetEdits);
   const tweaks = useMaterialsStore(s => s.edits);
   const drafts = usePrepareStore(s => Object.keys(s.drafts).length);
+  const canvas = usePlansStore(s => (s.dirty ? (s.open?.plan.name ?? null) : null));
   const projects = useAppStore(s => s.workspace?.projects);
   const names = unappliedProjects(presets, tweaks).map(
     id => projects?.find(p => p.id === id)?.name ?? id
   );
-  const title = quitTitle(Object.keys(presets).length > 0, Object.keys(tweaks).length > 0, drafts);
-  return { asking, applying, error, cancel, applyAndQuit, quitWithout, names, title, drafts };
+  const title = quitTitle(
+    Object.keys(presets).length > 0,
+    Object.keys(tweaks).length > 0,
+    drafts,
+    canvas !== null
+  );
+  return {
+    asking,
+    applying,
+    error,
+    cancel,
+    applyAndQuit,
+    quitWithout,
+    names,
+    title,
+    drafts,
+    canvas,
+  };
 }

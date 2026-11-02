@@ -1,11 +1,12 @@
 import { act, cleanup, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { mockIPC } from '@tauri-apps/api/mocks';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { events } from '@/ipc/generated/bindings';
 import { emptyLook } from '@/state/materials';
 import { useMaterialsStore } from '@/state/use-materials-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { useQuitStore } from '@/state/use-quit-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
@@ -19,6 +20,8 @@ afterEach(() => {
   useMaterialsStore.setState({ saved: {}, edits: {}, saving: false });
   usePrepareStore.setState({ drafts: {} });
   useQuitStore.setState({ asking: false, applying: false, error: null });
+  usePlansStore.setState(usePlansStore.getInitialState(), true);
+  vi.restoreAllMocks();
 });
 
 async function record() {
@@ -141,5 +144,19 @@ describe('the quit dialog', () => {
     expect(within(dialog).queryByRole('button', { name: 'Apply and quit' })).toBeNull();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Quit anyway' }));
     await waitFor(() => expect(calls.map(([c]) => c)).toContain('quit_now'));
+  });
+
+  it('saves a canvas with unsaved edits before quitting', async () => {
+    const calls = await record();
+    const open = { id: 'combat-ideas', plan: { name: 'Combat ideas' } };
+    usePlansStore.setState({ dirty: true, open: open as never });
+    const save = vi.spyOn(usePlansStore.getState(), 'saveForQuit').mockResolvedValue(null);
+    render(<QuitDialog />);
+    act(() => useQuitStore.getState().ask());
+    const dialog = await screen.findByRole('dialog', { name: 'Save the canvas before quitting?' });
+    expect(within(dialog).getByText(/The canvas Combat ideas has edits/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save and quit' }));
+    await waitFor(() => expect(calls.map(([c]) => c)).toContain('quit_now'));
+    expect(save).toHaveBeenCalledOnce();
   });
 });

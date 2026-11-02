@@ -43,6 +43,9 @@ const PipelineView = lazyAfterPaint(async () => ({
 const SettingsView = lazyAfterPaint(async () => ({
   default: (await import('@/features/settings/SettingsView')).SettingsView,
 }));
+const PlanView = lazyAfterPaint(async () => ({
+  default: (await import('@/features/plan/PlanView')).PlanView,
+}));
 const TimelineView = lazyAfterPaint(async () => ({
   default: (await import('@/features/timeline/TimelineView')).TimelineView,
 }));
@@ -57,6 +60,7 @@ const PRELOADS = [
   LabView.preload,
   AvatarView.preload,
   TimelineView.preload,
+  PlanView.preload,
   PagePreview.preload,
   PageView.preload,
   SettingsView.preload,
@@ -68,6 +72,8 @@ function viewFor(view: ViewId) {
   switch (view) {
     case 'board':
       return <BoardView />;
+    case 'plan':
+      return <PlanView />;
     case 'pipeline':
       return <PipelineView />;
     case 'inbox':
