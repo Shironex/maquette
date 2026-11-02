@@ -53,7 +53,7 @@ export default function BoardColumn({ stage, assets, boardEmpty, board }: BoardC
       {dropzone ? (
         <Dropzone
           title="Drop concept art"
-          hint="PNG, JPEG or WebP, any size"
+          hint="PNG, JPEG or WebP, up to 50 MB"
           icon="image"
           className="h-[176px]"
           active={over}
