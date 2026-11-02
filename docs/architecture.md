@@ -1049,11 +1049,16 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   session edits, and the Changes panel offers no Undo on undo lines): a redo would write the agent's
   words back with the person's only in lines that are not keepers. Undo lines therefore only ever
   write back a value from after the change being undone, so they do not block it. Held fields can
-  then only be the person's own later writes, so releasing them loses nothing. Keep on a change also
-  keeps the earlier agent changes still held under it on the same fields (the person accepted the
-  newer content, and the line says "and the earlier ..."; the app says "Also kept the earlier
-  change"), so a kept change rotating out never leaves an older one whose undo would release the
-  person's words. A kind change round-trips through undo like every other field. The keeper sizes
+  then only be the person's own later writes, so releasing them loses nothing. A Keep must name
+  every earlier agent change still held under the changes it keeps: on the same fields of the same
+  node or link, and under those in turn, each on its own fields, so the chain can reach other nodes
+  through a change that touched several (`keep_needs`, `plan_keep_needs`). The core refuses a Keep
+  whose list leaves one out and names the missing ids; the app first shows "Keep the earlier changes
+  too?" listing each one's summary and the parts it changed, with Keep all or Cancel, and keeps
+  nothing the person did not confirm. So a kept change rotating out never leaves an older one whose
+  undo would release the person's words. A change the person kept is theirs: an agent's undo of it
+  (by id or in a run) is refused, and the person can still undo it from the Changes panel. Node and
+  link ids are keyed by kind when undo order compares them. A kind change round-trips through undo like every other field. The keeper sizes
   count a line as a read of the log does, without the break that closes a torn line before it. The person's Keep and Keep run in the Changes panel (`plan_keep`) write a line with `keeps`
   that releases them without changing the canvas. Undo and keep lines are never keepers. An agent
   write is refused before anything is written when its line would pass 256 KiB (one node's longest

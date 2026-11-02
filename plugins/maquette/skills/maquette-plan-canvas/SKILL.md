@@ -72,5 +72,5 @@ a person edited or linked since is kept with their links (`kept` counts them). I
 many changes it undid; `nothingChanged: true` means everything was changed since, and the changes
 still count as undone. A change a later agent change rewrote on top of waits: undo the later one
 first, or name both (or their run) to undo them together. An undo can not be undone; make the
-change again instead. The person can undo or keep any agent
+change again instead. A change the person kept is theirs: `undo_run` refuses it, so ask them. The person can undo or keep any agent
 change from the Changes panel.
