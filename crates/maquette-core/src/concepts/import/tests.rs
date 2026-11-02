@@ -393,42 +393,86 @@ fn a_drop_over_the_total_limit_is_refused_and_says_the_limit() {
 }
 
 #[test]
-fn a_cut_off_image_with_a_good_header_is_refused() {
+fn an_image_is_judged_by_its_header_whatever_follows_or_is_missing() {
     let f = fixture();
-    let cut = f.drops.path().join("cut.png");
-    let bytes = crate::inbox::images::write_png(2, 3, &[90; 18]);
-    fs::write(&cut, &bytes[..bytes.len() - 6]).expect("write");
-    let text = f.import(&[cut]).expect_err("cut").to_string();
-    assert!(
-        text.contains("cut.png") && text.contains("cut off"),
-        "{text}"
-    );
+    let mut png = crate::inbox::images::write_png(2, 3, &[90; 18]);
+    let whole = png.len();
+    png.push(0);
+    let trailing = f.drops.path().join("trailing.png");
+    fs::write(&trailing, &png).expect("write");
+    assert!(f.import(&[trailing]).expect("png").added[0].ends_with(".png"));
 
-    let jpeg = f.drops.path().join("cut.jpg");
-    fs::write(&jpeg, [0xFF, 0xD8, 0xFF, 0xE0, 0, 4, 0, 0]).expect("write");
-    assert!(f.import(&[jpeg]).is_err());
+    // A Motion Photo: a phone's JPEG with an MP4 after its end marker.
+    let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE0, 0, 4, 0, 0, 0xFF, 0xD9];
+    jpeg.extend(vec![7; 1024 * 1024]);
+    let motion = f.drops.path().join("motion.jpg");
+    fs::write(&motion, jpeg).expect("write");
+    assert!(f.import(&[motion]).expect("jpeg").added[0].ends_with(".jpg"));
+
+    let cut = f.drops.path().join("cut.png");
+    fs::write(&cut, &png[..whole - 6]).expect("write");
+    assert!(f.import(&[cut]).expect("cut").added[0].ends_with(".png"));
 
     let webp = f.drops.path().join("cut.webp");
     let mut bytes = b"RIFF".to_vec();
     bytes.extend(100u32.to_le_bytes());
     bytes.extend(b"WEBPVP8 ");
     fs::write(&webp, bytes).expect("write");
-    assert!(f.import(&[webp]).is_err());
+    assert!(f.import(&[webp]).expect("webp").added[0].ends_with(".webp"));
 }
 
 #[test]
-fn a_whole_jpeg_and_webp_pass_the_ending_check() {
+fn a_failed_import_keeps_what_another_import_put_in_a_new_folder() {
     let f = fixture();
-    let jpeg = f.drops.path().join("whole.jpg");
-    fs::write(&jpeg, [0xFF, 0xD8, 0xFF, 0xE0, 0, 4, 0, 0, 0xFF, 0xD9]).expect("write");
-    assert!(f.import(&[jpeg]).expect("jpeg").added[0].ends_with(".jpg"));
-    let webp = f.drops.path().join("whole.webp");
-    let mut bytes = b"RIFF".to_vec();
-    bytes.extend(12u32.to_le_bytes());
-    bytes.extend(b"WEBPVP8 ");
-    bytes.extend(0u32.to_le_bytes());
-    fs::write(&webp, bytes).expect("write");
-    assert!(f.import(&[webp]).expect("webp").added[0].ends_with(".webp"));
+    let folder = f.dir.join("concepts/lantern");
+    fs::create_dir_all(&folder).expect("dir");
+    let added = vec![(1, "concepts/lantern/lantern_01.png".to_string())];
+    fs::write(f.dir.join(&added[0].1), b"mine").expect("mine");
+    fs::write(folder.join("lantern_02.png"), b"theirs").expect("theirs");
+    undo(&f.dir, "lantern", &added, true);
+    assert!(!f.dir.join(&added[0].1).exists());
+    assert!(folder.join("lantern_02.png").is_file());
+}
+
+#[test]
+fn a_failed_import_goes_on_when_one_file_is_already_gone() {
+    let f = fixture();
+    let folder = f.dir.join("concepts/lantern");
+    fs::create_dir_all(&folder).expect("dir");
+    let added = vec![
+        (1, "concepts/lantern/lantern_01.png".to_string()),
+        (2, "concepts/lantern/lantern_02.png".to_string()),
+    ];
+    fs::write(f.dir.join(&added[1].1), b"mine").expect("mine");
+    undo(&f.dir, "lantern", &added, false);
+    assert!(!folder.exists(), "the folder goes once it is empty");
+}
+
+#[test]
+fn a_failed_copy_leaves_no_partial_file() {
+    let f = fixture();
+    let to = f.dir.join("kept.png");
+    let missing = f.drops.path().join("gone.png");
+    assert!(copy_whole(&missing, &to).is_err());
+    assert_eq!(
+        fs::read_dir(&f.dir)
+            .expect("read")
+            .flatten()
+            .filter(|e| { e.file_name().to_string_lossy().contains("kept") })
+            .count(),
+        0
+    );
+    let from = f.image("there.png");
+    copy_whole(&from, &to).expect("copy");
+    assert_eq!(fs::read(&from).expect("from"), fs::read(&to).expect("to"));
+    assert_eq!(
+        fs::read_dir(&f.dir)
+            .expect("read")
+            .flatten()
+            .filter(|e| { e.file_name().to_string_lossy().contains("kept") })
+            .count(),
+        1
+    );
 }
 
 fn break_manifest(f: &Fixture) -> Vec<u8> {

@@ -9,7 +9,7 @@ The Board follows each asset through the stages: Concept, Refs, 3D model, Blende
 
 ## Bringing your own concept art
 
-Drop PNG, JPEG or WebP images on the Concept column, with or without cards in it, or click the drop zone on an empty Board. They become a Lab direction named after the first file, and a card of that name at Concept, so you star, pick and cut them in the Lab like generated images. Send picks to Refs asks what the asset is and moves that card up. Another drop with the same name adds to that direction and overwrites nothing. Maquette reads each file's first bytes, so the extension does not matter. A file that is not one of these images, looks cut off, or is over 50 MB stops the whole import before anything is copied, and the message names it. A drop takes up to 50 images and 512 MB.
+Drop PNG, JPEG or WebP images on the Concept column, with or without cards in it, or click the drop zone on an empty Board. They become a Lab direction named after the first file, and a card of that name at Concept, so you star, pick and cut them in the Lab like generated images. Send picks to Refs asks what the asset is and moves that card up. Another drop with the same name adds to that direction and overwrites nothing. Maquette reads each file's first bytes, so the extension does not matter. A file that is not one of these images or is over 50 MB stops the whole import before anything is copied, and the message names it. A damaged image still imports and shows as a broken tile. A drop takes up to 50 images and 512 MB.
 
 ## 3D quick view
 

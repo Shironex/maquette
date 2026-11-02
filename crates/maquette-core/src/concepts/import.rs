@@ -4,15 +4,15 @@
 //! a card of the same name at Concept, which a send then moves up.
 
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use super::picks::capitalised;
 use super::{
-    CONCEPTS_DIR, ConceptImage, Direction, RESERVED, direction_dir, direction_id, load_direction,
-    next_free_index, now_rfc3339, save_direction, write_lock,
+    CONCEPTS_DIR, ConceptImage, DIRECTION_FILE, Direction, RESERVED, direction_dir, direction_id,
+    load_direction, next_free_index, now_rfc3339, save_direction, write_lock,
 };
 use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
 use crate::error::{CoreError, CoreResult};
@@ -38,8 +38,8 @@ pub const MAX_IMAGE_BYTES: u64 = crate::built::MAX_FILE_BYTES;
 pub const MAX_IMAGES_PER_DROP: usize = 50;
 /// One drop, as for a model handed back by hand.
 pub const MAX_DROP_BYTES: u64 = 512 * 1024 * 1024;
-/// As far from either end as validating reads, however large the file.
-const CHECK_BYTES: u64 = 4096;
+/// As much of a file as telling its type reads.
+const HEADER_BYTES: u64 = 12;
 
 const MB: u64 = 1024 * 1024;
 
@@ -63,22 +63,10 @@ fn image_extension(head: &[u8]) -> Option<&'static str> {
     }
 }
 
-/// True when the file ends where its format says. There is no image decoder
-/// in this workspace, so damage in the middle only shows when it is opened.
-fn is_whole(extension: &str, head: &[u8], tail: &[u8], size: u64) -> bool {
-    match extension {
-        "png" => tail.len() >= 8 && &tail[tail.len() - 8..tail.len() - 4] == b"IEND",
-        // Some cameras pad after the end marker, so anywhere near the end will do.
-        "jpg" => tail.windows(2).any(|w| w == [0xFF, 0xD9]),
-        _ => head
-            .get(4..8)
-            .and_then(|b| b.try_into().ok())
-            .is_some_and(|b| u64::from(u32::from_le_bytes(b)) + 8 <= size),
-    }
-}
-
-/// The extension and size of a file an import may take. Reads both ends of
-/// a regular file within the limit, and nothing of anything else.
+/// The extension and size of a file an import may take. Reads the start of
+/// a regular file within the limit, and nothing of anything else. Only the
+/// header counts: valid images carry bytes after their end, like a phone's
+/// Motion Photo, and a damaged one shows as a broken tile.
 fn check_image(path: &Path) -> CoreResult<(&'static str, u64)> {
     let name = file_name(path);
     let meta = fs::metadata(path).map_err(|e| CoreError::io(path, e))?;
@@ -93,29 +81,16 @@ fn check_image(path: &Path) -> CoreResult<(&'static str, u64)> {
             MAX_IMAGE_BYTES / MB
         )));
     }
-    let mut file = fs::File::open(path).map_err(|e| CoreError::io(path, e))?;
-    let mut read = |from: u64, len: u64| -> CoreResult<Vec<u8>> {
-        file.seek(SeekFrom::Start(from))
-            .map_err(|e| CoreError::io(path, e))?;
-        let mut bytes = Vec::new();
-        (&mut file)
-            .take(len)
-            .read_to_end(&mut bytes)
-            .map_err(|e| CoreError::io(path, e))?;
-        Ok(bytes)
-    };
-    let head = read(0, CHECK_BYTES)?;
-    let tail = read(size.saturating_sub(CHECK_BYTES), CHECK_BYTES)?;
+    let file = fs::File::open(path).map_err(|e| CoreError::io(path, e))?;
+    let mut head = Vec::new();
+    file.take(HEADER_BYTES)
+        .read_to_end(&mut head)
+        .map_err(|e| CoreError::io(path, e))?;
     let Some(extension) = image_extension(&head) else {
         return Err(CoreError::Invalid(format!(
             "{name} is not a PNG, JPEG or WebP image."
         )));
     };
-    if !is_whole(extension, &head, &tail, size) {
-        return Err(CoreError::Invalid(format!(
-            "{name} looks cut off. Save or download it again."
-        )));
-    }
     Ok((extension, size))
 }
 
@@ -208,16 +183,19 @@ fn reserve_indexes(project_dir: &Path, id: &str, known_next: u32, count: u32) ->
 }
 
 /// Saves the direction with the new images in one write, making it when it
-/// is new. Until this runs the Lab knows nothing of them.
+/// is new, and says whether it did. Until this runs the Lab knows nothing of
+/// them.
 fn record(
     project_dir: &Path,
     id: &str,
     name: &str,
     added: &[(u32, String)],
-) -> CoreResult<Direction> {
+) -> CoreResult<(Direction, bool)> {
     let _guard = write_lock();
     let now = now_rfc3339();
-    let mut direction = load_direction(project_dir, id)?.unwrap_or_else(|| Direction {
+    let known = load_direction(project_dir, id)?;
+    let created = known.is_none();
+    let mut direction = known.unwrap_or_else(|| Direction {
         id: id.to_string(),
         name: name.to_string(),
         created_at: now.clone(),
@@ -245,33 +223,63 @@ fn record(
     direction.images.sort_by_key(|i| i.index);
     direction.updated_at = now;
     save_direction(project_dir, &direction)?;
-    Ok(direction)
+    Ok((direction, created))
+}
+
+/// Copies through a temp name, so a failed copy leaves no partial image.
+fn copy_whole(from: &Path, to: &Path) -> io::Result<u64> {
+    let mut temp = to.as_os_str().to_owned();
+    temp.push(".part");
+    let temp = PathBuf::from(temp);
+    let copied = fs::copy(from, &temp).and_then(|size| fs::rename(&temp, to).map(|()| size));
+    if copied.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    copied
 }
 
 /// Takes back what this import wrote after a later step failed: its files,
-/// its images in the direction, and the folder when the import made it.
-fn undo(project_dir: &Path, id: &str, added: &[(u32, String)], fresh: bool) {
-    let result = (|| -> CoreResult<()> {
-        let folder = direction_dir(project_dir, id)?;
-        if fresh {
-            return fs::remove_dir_all(&folder).map_err(|e| CoreError::io(&folder, e));
+/// its images in the direction, the direction if it `created` it and nothing
+/// else came to it, and the folder if that leaves it empty. Another import
+/// may be using the folder, so nothing else goes, and one failed step does
+/// not stop the rest.
+fn undo(project_dir: &Path, id: &str, added: &[(u32, String)], created: bool) {
+    let warn = |error: &dyn std::fmt::Display| {
+        tracing::warn!(%error, direction = id, "could not undo a failed image import");
+    };
+    let _guard = write_lock();
+    for (_, file) in added {
+        let path = project_dir.join(file);
+        if let Err(error) = fs::remove_file(&path)
+            && error.kind() != io::ErrorKind::NotFound
+        {
+            warn(&CoreError::io(&path, error));
         }
-        for (_, file) in added {
-            let path = project_dir.join(file);
-            fs::remove_file(&path).map_err(|e| CoreError::io(&path, e))?;
-        }
-        let _guard = write_lock();
-        if let Some(mut direction) = load_direction(project_dir, id)? {
+    }
+    let folder = match direction_dir(project_dir, id) {
+        Ok(folder) => folder,
+        Err(error) => return warn(&error),
+    };
+    match load_direction(project_dir, id) {
+        Ok(Some(mut direction)) => {
             direction
                 .images
                 .retain(|i| !added.iter().any(|(_, f)| *f == i.file));
-            save_direction(project_dir, &direction)?;
+            let saved = if created && direction.images.is_empty() {
+                let path = folder.join(DIRECTION_FILE);
+                fs::remove_file(&path).map_err(|e| CoreError::io(&path, e))
+            } else {
+                save_direction(project_dir, &direction)
+            };
+            if let Err(error) = saved {
+                warn(&error);
+            }
         }
-        Ok(())
-    })();
-    if let Err(error) = result {
-        tracing::warn!(%error, direction = id, "could not undo a failed image import");
+        Ok(None) => {}
+        Err(error) => warn(&error),
     }
+    // Only an empty folder goes; a folder with anything in it refuses.
+    let _ = fs::remove_dir(&folder);
 }
 
 /// The card called `name`: one already there stays as it is, and a new one
@@ -305,21 +313,23 @@ pub fn import_images(
     let name = free_name(&project_dir, &name_from(&paths[0]))?;
     let id = direction_id(&name);
     let folder = direction_dir(&project_dir, &id)?;
-    let known = load_direction(&project_dir, &id)?;
-    let fresh = known.is_none() && !folder.exists();
-    let known_next = known.as_ref().map_or(1, Direction::next_index);
+    let known_next = load_direction(&project_dir, &id)?
+        .as_ref()
+        .map_or(1, Direction::next_index);
     let start = reserve_indexes(&project_dir, &id, known_next, paths.len() as u32);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     let mut added = Vec::with_capacity(paths.len());
     for (index, (from, extension)) in (start..).zip(paths.iter().zip(extensions)) {
         let file = format!("{CONCEPTS_DIR}/{id}/{id}_{index:02}.{extension}");
-        if let Err(error) = fs::copy(from, project_dir.join(&file)) {
-            undo(&project_dir, &id, &added, fresh);
+        if let Err(error) = copy_whole(from, &project_dir.join(&file)) {
+            undo(&project_dir, &id, &added, false);
             return Err(CoreError::io(from, error));
         }
         added.push((index, file));
     }
-    let placed = record(&project_dir, &id, &name, &added).and_then(|direction| {
+    let mut created = false;
+    let placed = record(&project_dir, &id, &name, &added).and_then(|(direction, made)| {
+        created = made;
         let mut asset = None;
         let manifest = project::modify(workspace_root, layout, project_id, |manifest| {
             asset = Some(place_card(manifest, &direction.name, &added[0].1)?);
@@ -337,7 +347,7 @@ pub fn import_images(
             project: manifest,
         }),
         Err(error) => {
-            undo(&project_dir, &id, &added, fresh);
+            undo(&project_dir, &id, &added, created);
             Err(error)
         }
     }

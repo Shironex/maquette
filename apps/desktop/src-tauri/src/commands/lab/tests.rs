@@ -160,15 +160,21 @@ fn a_ref_with_no_extension_takes_the_one_its_header_says() {
 fn a_bad_ref_stops_the_whole_import_and_names_the_file() {
     let f = refs_fixture();
     let good = f.file("a", "good.png", &png(b"good"));
-    for (name, bytes, says) in [
-        ("fake.png", b"not a png".to_vec(), "fake.png"),
-        ("cut.png", b"\x89PNG\r\n\x1a\nno end".to_vec(), "cut.png"),
-    ] {
+    for (name, bytes, says) in [("fake.png", b"not a png".to_vec(), "fake.png")] {
         let bad = f.file("a", name, &bytes);
         let error = format!("{:?}", f.import(&[good.clone(), bad]).expect_err(name));
         assert!(error.contains(says), "{error}");
         assert!(f.on_disk().is_empty(), "{:?}", f.on_disk());
     }
+}
+
+#[test]
+fn a_real_image_with_bytes_after_its_end_is_a_ref() {
+    let f = refs_fixture();
+    let mut bytes = png(b"first");
+    bytes.push(0);
+    let trailing = f.file("a", "front.png", &bytes);
+    assert_eq!(f.import(&[trailing]).expect("png"), ["refs/front.png"]);
 }
 
 #[test]
