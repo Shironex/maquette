@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { commands } from '@/ipc/client';
+import { commands, type PlanOp } from '@/ipc/client';
 import { clearMocks, openPlans } from '@/test/open-plan';
 import { useAppStore } from './use-app-store';
 import { SAVE_DELAY, usePlansStore } from './use-plans-store';
 
 beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+
+/** The node `id` as a save's operations left it. */
+const sentNode = (ops: PlanOp[] | undefined, id: string) =>
+  ops
+    ?.flatMap(o => (o.op === 'set-node' ? [o.after] : o.op === 'add-node' ? [o.node] : []))
+    .find(n => n.id === id);
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -31,7 +37,7 @@ describe('the plans store', () => {
   it('saves a moment after a move, and not for a selection', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    const save = vi.spyOn(commands, 'planSave');
+    const save = vi.spyOn(commands, 'planApply');
     usePlansStore.getState().onNodesChange([{ type: 'select', id: 'n-01', selected: true }]);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY * 2);
     expect(save).not.toHaveBeenCalled();
@@ -44,7 +50,9 @@ describe('the plans store', () => {
     await vi.advanceTimersByTimeAsync(SAVE_DELAY + 50);
     expect(save).toHaveBeenCalledTimes(1);
     const sent = save.mock.calls[0]?.[2];
-    expect(sent?.nodes.find(n => n.id === 'n-01')?.x).toBe(90);
+    // Only the moved node goes, as an operation.
+    expect(sent).toHaveLength(1);
+    expect(sentNode(sent, 'n-01')?.x).toBe(90);
     expect(usePlansStore.getState().open?.plan.nodes.find(n => n.id === 'n-01')?.x).toBe(90);
   });
 
@@ -95,7 +103,7 @@ describe('the plans store', () => {
     ]);
 
     await usePlansStore.getState().openCanvas('combat-ideas');
-    vi.spyOn(commands, 'planSave').mockRejectedValueOnce({ code: 'io', message: 'Disk full' });
+    vi.spyOn(commands, 'planApply').mockRejectedValueOnce({ code: 'io', message: 'Disk full' });
     usePlansStore.getState().addNode('note', { x: 0, y: 0 });
     expect(await usePlansStore.getState().save()).toBe(false);
     expect(usePlansStore.getState().saveError).toBe('Disk full');
@@ -112,7 +120,7 @@ describe('leaving a canvas', () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
     const save = vi
-      .spyOn(commands, 'planSave')
+      .spyOn(commands, 'planApply')
       .mockRejectedValueOnce({ code: 'io', message: 'The file is locked' });
     edit('Kept even when the disk says no');
     expect(await usePlansStore.getState().close()).toBe(false);
@@ -138,7 +146,7 @@ describe('leaving a canvas', () => {
   it('leaves without saving only when asked to', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    vi.spyOn(commands, 'planSave').mockRejectedValue({ code: 'io', message: 'Gone' });
+    vi.spyOn(commands, 'planApply').mockRejectedValue({ code: 'io', message: 'Gone' });
     edit('Dropped on purpose');
     expect(await usePlansStore.getState().close()).toBe(false);
     usePlansStore.getState().stay();
@@ -152,10 +160,10 @@ describe('leaving a canvas', () => {
   it('waits for a save on its way and then saves the edits made during it', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    const real = commands.planSave.bind(commands);
+    const real = commands.planApply.bind(commands);
     let release: () => void = () => undefined;
     const held = new Promise<void>(done => (release = done));
-    const save = vi.spyOn(commands, 'planSave').mockImplementationOnce(async (...args) => {
+    const save = vi.spyOn(commands, 'planApply').mockImplementationOnce(async (...args) => {
       await held;
       return real(...args);
     });
@@ -167,16 +175,14 @@ describe('leaving a canvas', () => {
     expect(await first).toBe(true);
     expect(await closing).toBe(true);
     expect(save).toHaveBeenCalledTimes(2);
-    expect(save.mock.calls[1]?.[2].nodes.find(n => n.id === 'n-01')?.text).toBe(
-      'Second, while the first saves'
-    );
+    expect(sentNode(save.mock.calls[1]?.[2], 'n-01')?.text).toBe('Second, while the first saves');
     expect(usePlansStore.getState().open).toBeNull();
   });
 
   it('saves pending edits before another project, and asks when that fails', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    const save = vi.spyOn(commands, 'planSave');
+    const save = vi.spyOn(commands, 'planApply');
     edit('Before the switch');
     await usePlansStore.getState().loadList('moon-island');
     expect(save).toHaveBeenCalledOnce();
@@ -201,7 +207,7 @@ describe('leaving a canvas', () => {
     edit('For the quit');
     expect(await usePlansStore.getState().saveForQuit()).toBeNull();
     expect(savedText()).toBe('For the quit');
-    vi.spyOn(commands, 'planSave').mockRejectedValueOnce({ code: 'io', message: 'Disk full' });
+    vi.spyOn(commands, 'planApply').mockRejectedValueOnce({ code: 'io', message: 'Disk full' });
     edit('Not saved');
     expect(await usePlansStore.getState().saveForQuit()).toBe('Disk full');
   });
@@ -226,7 +232,7 @@ describe('saves that settle', () => {
       },
     };
     vi.spyOn(commands, 'planGet').mockResolvedValueOnce(loose);
-    const save = vi.spyOn(commands, 'planSave');
+    const save = vi.spyOn(commands, 'planApply');
     await usePlansStore.getState().openCanvas('combat-ideas');
     await vi.advanceTimersByTimeAsync(SAVE_DELAY * 6);
     expect(save.mock.calls.length).toBeLessThanOrEqual(1);
@@ -238,7 +244,7 @@ describe('saves that settle', () => {
   it('saves a picture captioned with spaces once', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    const save = vi.spyOn(commands, 'planSave');
+    const save = vi.spyOn(commands, 'planApply');
     usePlansStore
       .getState()
       .addNode('image', { x: 0, y: 900 }, { image: 'concepts/porch .png', title: 'porch ' });
@@ -252,9 +258,9 @@ describe('saves that settle', () => {
   it('shows the core canvas when the core changed what was sent', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    const real = commands.planSave.bind(commands);
-    vi.spyOn(commands, 'planSave').mockImplementationOnce(async (project, id, plan) => {
-      const doc = await real(project, id, plan);
+    const real = commands.planApply.bind(commands);
+    vi.spyOn(commands, 'planApply').mockImplementationOnce(async (project, id, ops) => {
+      const doc = await real(project, id, ops);
       return { ...doc, plan: { ...doc.plan, nodes: doc.plan.nodes.filter(n => n.id !== 'n-06') } };
     });
     usePlansStore.getState().updateNode('n-01', { text: 'Changed' });
@@ -266,11 +272,11 @@ describe('saves that settle', () => {
   it('keeps the new name when a save from before a rename answers after it', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('boss-arena');
-    const real = commands.planSave.bind(commands);
+    const real = commands.planApply.bind(commands);
     let release: () => void = () => undefined;
     const held = new Promise<void>(done => (release = done));
-    vi.spyOn(commands, 'planSave').mockImplementationOnce(async (project, id, plan) => {
-      const doc = await real(project, id, plan);
+    vi.spyOn(commands, 'planApply').mockImplementationOnce(async (project, id, ops) => {
+      const doc = await real(project, id, ops);
       await held;
       return { ...doc, plan: { ...doc.plan, name: 'Boss arena' } };
     });
@@ -292,7 +298,7 @@ describe('saves that settle', () => {
   it('goes back to the workspace project after a failed switch and Stay', async () => {
     await openPlans();
     await usePlansStore.getState().openCanvas('combat-ideas');
-    vi.spyOn(commands, 'planSave').mockRejectedValueOnce({ code: 'io', message: 'Locked' });
+    vi.spyOn(commands, 'planApply').mockRejectedValueOnce({ code: 'io', message: 'Locked' });
     usePlansStore.getState().updateNode('n-01', { text: 'Kept' });
     useAppStore.setState(s => ({
       workspace: s.workspace && {

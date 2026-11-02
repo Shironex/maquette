@@ -93,6 +93,7 @@ export interface BackendOptions {
       | { name: 'rig'; payload: RigRecord }
       | { name: 'render'; payload: RenderRecord }
       | { name: 'thumbnail'; payload: ThumbnailReady }
+      | { name: 'plan'; project: string; id: string }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;

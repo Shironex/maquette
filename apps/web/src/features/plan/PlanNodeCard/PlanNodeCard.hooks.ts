@@ -16,6 +16,8 @@ export function usePlanNodeCard(node: PlanNode) {
   const updateNode = usePlansStore(s => s.updateNode);
   const openLink = usePlansStore(s => s.openLink);
   const file = usePlansStore(s => (node.image ? (s.images[node.image] ?? null) : null));
+  // An outside write added or edited it since the canvas opened.
+  const mark = usePlansStore(s => s.marks[node.id] ?? null);
   // A linked asset or direction the last read found gone draws dashed.
   const gone = usePlanLinksStore(s =>
     node.asset
@@ -45,6 +47,7 @@ export function usePlanNodeCard(node: PlanNode) {
   };
   return {
     gone,
+    mark,
     src: fileUrl(file),
     editing,
     value,

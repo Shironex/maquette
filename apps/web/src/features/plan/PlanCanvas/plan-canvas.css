@@ -3,6 +3,13 @@
  * theme's tokens. Handles are round dots shown on hover and while linking;
  * the selected node takes the clay outline the Board uses.
  */
+:root {
+  /* Agents' writes: a cool blue next to the person's clay. */
+  --plan-agent: #9fb4d8;
+  --plan-agent-soft: rgba(159, 180, 216, 0.13);
+  --plan-agent-line: rgba(159, 180, 216, 0.55);
+}
+
 .plan-canvas,
 .plan-dots {
   --plan-dot: #36342f;
@@ -215,4 +222,195 @@
 .plan-canvas .react-flow__edge-text {
   fill: var(--text-dim);
   font: 500 11px var(--font-mono);
+}
+
+/* A node an agent made: the agent's ring. */
+.plan-node.is-agent {
+  border-color: var(--plan-agent-line);
+  box-shadow:
+    0 0 0 3px var(--plan-agent-soft),
+    0 4px 14px rgba(10, 9, 8, 0.3);
+}
+
+.plan-node.is-agent.is-selected {
+  border-color: var(--clay);
+  box-shadow:
+    0 0 0 1px var(--clay),
+    0 6px 20px rgba(10, 9, 8, 0.4);
+}
+
+/* What an outside write did to a node since the canvas opened. */
+.plan-badge {
+  position: absolute;
+  z-index: 2;
+  top: -11px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px 0 5px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid var(--plan-agent-line);
+  color: var(--plan-agent);
+  font: 500 11px/1 var(--font-sans);
+  white-space: nowrap;
+}
+
+.plan-agent-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  background: var(--plan-agent-soft);
+  color: var(--plan-agent);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.plan-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--plan-agent-soft);
+  color: var(--plan-agent);
+  font: 500 11px/1 var(--font-mono);
+}
+
+/* Bottom middle, between the zoom controls and the minimap, so it never covers nodes that just came. */
+.plan-toast {
+  position: absolute;
+  z-index: 6;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(540px, calc(100% - 440px));
+  padding: 8px 8px 8px 12px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--plan-agent-line);
+  box-shadow: var(--shadow-raised);
+  font-size: 12.5px;
+  line-height: 16px;
+}
+
+/* The Changes panel beside the canvas. */
+.plan-side {
+  width: 344px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--line);
+}
+
+.plan-side-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.plan-side-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+
+.plan-side-foot {
+  flex: none;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--text-mute);
+}
+
+.plan-run {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.plan-run.is-agent {
+  border-color: var(--plan-agent-line);
+}
+
+.plan-run-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 12px;
+}
+
+.plan-run-avatar {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--plan-agent-soft);
+  color: var(--plan-agent);
+}
+
+.plan-run-avatar.is-me {
+  background: var(--bg-hover);
+  color: var(--text-dim);
+}
+
+.plan-change {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px 6px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text);
+}
+
+.plan-change.is-undone > span:nth-child(2) {
+  color: var(--text-mute);
+  text-decoration: line-through;
+}
+
+.plan-change-mark {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+}
+
+.plan-change-mark.is-agent {
+  background: rgba(159, 180, 216, 0.2);
+  color: var(--plan-agent);
+}
+
+.plan-change-mark.is-me {
+  background: var(--bg-hover);
+  color: var(--text-dim);
 }

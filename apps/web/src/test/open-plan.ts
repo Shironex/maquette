@@ -3,8 +3,13 @@
  * browser, or none), loads Frostveil's list into the Plan store, and gives
  * React Flow the browser parts jsdom lacks.
  */
+import { mockIPC } from '@tauri-apps/api/mocks';
+import { commands } from '@/ipc/client';
+import { events } from '@/ipc/generated/bindings';
+import { createBackend } from '@/ipc/mock/backend';
+import { useAppStore } from '@/state/use-app-store';
+import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
-import { openMockWorkspace } from './mock-ipc';
 
 class FakeResizeObserver {
   constructor(private readonly callback: ResizeObserverCallback) {}
@@ -40,29 +45,38 @@ export function fakeFlowLayout() {
   }
 }
 
-/** `demo` gives Frostveil four canvases; anything else none. */
+/**
+ * `demo` gives Frostveil four canvases; anything else none. Plan events
+ * reach the listeners, as the folder watcher's would; the backend's
+ * handler comes back for the mock only commands (an agent's run, a change
+ * from another computer).
+ */
 export async function openPlans(plans: string | null = 'demo') {
   usePlansStore.setState(usePlansStore.getInitialState(), true);
-  await openMockWorkspace(
-    'configured',
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    plans ?? undefined
-  );
+  usePlanLogStore.getState().clear();
+  usePlanLogStore.setState({ panel: false, filter: 'all', dismissed: null });
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    conceptMs: 60_000,
+    plans: plans ?? undefined,
+    emit: event => {
+      if (event.name === 'plan')
+        void events.planChanged.emit({ project: event.project, id: event.id });
+    },
+  });
+  mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>), {
+    shouldMockEvents: true,
+  });
+  const boot = await commands.appBootstrap();
+  useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
   await usePlansStore.getState().loadList('frostveil');
-  return usePlansStore.getState();
+  return {
+    ...usePlansStore.getState(),
+    /** Runs a mock only command, such as `mock_plan_agent`. */
+    mock: (cmd: string, args: Record<string, unknown>) => handle(cmd, args),
+  };
 }
 
 export { clearMocks } from './mock-ipc';

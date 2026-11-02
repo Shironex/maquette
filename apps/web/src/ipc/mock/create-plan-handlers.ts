@@ -6,15 +6,59 @@
  * `?plans=` in the URL:
  * - `demo`: Frostveil's canvases (see plan-fixtures.ts), with asset and Lab
  *   direction nodes read live by `plan_links` (create-plan-links.ts).
+ * - `locked`: the same canvases, with every save failing.
  * - anything else: no canvases yet.
+ *
+ * Saves arrive as operations (`plan_apply`) and are laid over the canvas as
+ * the core lays them, each write logged for the Changes panel and undo
+ * (plan-log.ts). Two mock only commands serve the visual check:
+ * `mock_plan_agent` writes an agent's run into a canvas and
+ * `mock_plan_outside` changes a node's text as another computer's sync
+ * would; both tell the view as the folder watcher does.
  */
-import type { PlanDoc, PlanFile, PlanImage, PlanSummary } from '../client';
+import type { ChangeMark, PlanDoc, PlanFile, PlanImage, PlanOp, PlanSummary } from '../client';
 import { clock } from '@/lib/clock';
+import { applyOps, diffPlans, invertOps } from '@/state/plan-ops';
 import { trimText } from '@/state/plan-text';
-import { fail, type Args } from './backend-options';
+import { fail, type Args, type BackendOptions } from './backend-options';
 import { createPlanLinks, type PlanLinkDeps } from './create-plan-links';
 import { GENERATED_POOL } from './lab-fixtures';
-import { demoCanvases, type Canvases } from './plan-fixtures';
+import { demoCanvases, demoLog, note, type Canvases } from './plan-fixtures';
+import { createMockLogs, summaryOf } from './plan-log';
+
+/** The agent `mock_plan_agent` writes as. */
+const AGENT = 'Research agent';
+const AGENT_NOTES = [
+  { title: 'Dusk light that reads on phones', text: 'Keep the veil glow above 40% brightness.' },
+  { title: 'Stop 1 crops the vending machine', text: 'Frame the gate, not the street.' },
+  { title: 'Rune burst on the third hit', text: 'A short freeze frame sells it.' },
+];
+
+/** `plan` as the core writes it: name, created and preset kept, fields trimmed, ids sorted. */
+function stored(current: PlanFile, next: PlanFile): PlanFile {
+  return {
+    ...next,
+    // Only Rename changes the name, as in the core.
+    name: current.name,
+    created: current.created,
+    preset: current.preset,
+    edited: clock.now().toISOString(),
+    version: 2,
+    nodes: sortById(
+      next.nodes.map(n => ({
+        ...n,
+        title: trimText(n.title),
+        url: n.url === null ? null : trimText(n.url),
+      }))
+    ),
+    edges: sortById(
+      next.edges.map(e => ({
+        ...e,
+        label: e.label === null ? null : trimText(e.label) || null,
+      }))
+    ),
+  };
+}
 
 function slugOf(name: string): string {
   const slug = name
@@ -61,13 +105,24 @@ function checkPlan(plan: PlanFile) {
   }
 }
 
-const sortById = <T extends { id: string }>(items: T[]) =>
-  [...items].sort((a, b) => a.id.localeCompare(b.id));
+function sortById<T extends { id: string }>(items: T[]) {
+  return [...items].sort((a, b) => a.id.localeCompare(b.id));
+}
 
-export function createPlanHandlers(deps: PlanLinkDeps & { plans: string | null }) {
+export function createPlanHandlers(
+  deps: PlanLinkDeps & {
+    plans: string | null;
+    /** Tells the view a canvas's file or log changed, as the watcher does. */
+    emit?: BackendOptions['emit'];
+  }
+) {
   const byProject = new Map<string, Canvases>();
+  const logs = createMockLogs();
   // `locked` serves the demo canvases but every save fails, as a file another program holds would.
-  if (deps.plans === 'demo' || deps.plans === 'locked') byProject.set('frostveil', demoCanvases());
+  if (deps.plans === 'demo' || deps.plans === 'locked') {
+    byProject.set('frostveil', demoCanvases());
+    for (const entry of demoLog()) logs.append('frostveil', 'combat-ideas', entry);
+  }
   let picks = 0;
 
   const canvases = (project: unknown) => {
@@ -108,6 +163,26 @@ export function createPlanHandlers(deps: PlanLinkDeps & { plans: string | null }
     if (!plan) fail('not_found', `Not found: the canvas ${String(id)}`);
     return plan;
   };
+  /** Checks and writes `next` over the canvas, logs what changed and tells the view. */
+  const write = (
+    project: unknown,
+    id: string,
+    next: PlanFile,
+    by: string | null,
+    as?: { summary: string; mark: ChangeMark; undoes: string[] }
+  ) => {
+    const current = existing(project, id);
+    checkPlan(next);
+    const saved = stored(current, next);
+    const ops = diffPlans(current, saved);
+    canvases(project).set(id, saved);
+    if (ops.length) {
+      const run = by ? 'r-mock' : null;
+      logs.append(project, id, { by, run, ops, ...(as ?? summaryOf(ops)) });
+      deps.emit?.({ name: 'plan', project: String(project), id });
+    }
+    return doc(project, id, saved);
+  };
 
   return {
     ...createPlanLinks(deps),
@@ -131,39 +206,64 @@ export function createPlanHandlers(deps: PlanLinkDeps & { plans: string | null }
         edges: [],
       };
       all.set(id, plan);
+      logs.append(project, id, {
+        by: null,
+        run: null,
+        ops: [],
+        summary: `Made the canvas ${trimmed}`,
+        mark: 'create',
+      });
       return doc(project, id, plan);
     },
-    plan_save: ({ project, id, plan }: Args) => {
+    plan_apply: ({ project, id, ops }: Args) => {
       const current = existing(project, id);
-      const next = plan as PlanFile;
-      checkPlan(next);
       if (deps.plans === 'locked')
         fail('io', 'The canvas file is in use by another program, so it could not be written.');
-      const saved: PlanFile = {
-        ...next,
-        // Only Rename changes the name, as in the core.
-        name: current.name,
-        created: current.created,
-        preset: current.preset,
-        edited: clock.now().toISOString(),
-        // Trimmed as the core trims a save.
-        version: 2,
-        nodes: sortById(
-          next.nodes.map(n => ({
-            ...n,
-            title: trimText(n.title),
-            url: n.url === null ? null : trimText(n.url),
-          }))
-        ),
-        edges: sortById(
-          next.edges.map(e => ({
-            ...e,
-            label: e.label === null ? null : trimText(e.label) || null,
-          }))
-        ),
+      return write(project, String(id), applyOps(current, ops as PlanOp[], 'mine').plan, null);
+    },
+    plan_log: ({ project, id, limit }: Args) => {
+      existing(project, id);
+      return logs.lines(project, id, Number(limit ?? 200));
+    },
+    plan_undo: ({ project, id, changes }: Args) => {
+      const current = existing(project, id);
+      const wanted = new Set(changes as string[]);
+      const all = logs.entries(project, id);
+      const undone = new Set(all.flatMap(e => e.undoes));
+      const picked = all.filter(e => wanted.has(e.id));
+      if (picked.length !== wanted.size || picked.some(e => undone.has(e.id) || !e.ops.length))
+        fail('invalid', 'That change cannot be undone any more.');
+      // Newest first, each carefully: a field changed since stays.
+      const ops = [...picked].reverse().flatMap(e => invertOps(e.ops));
+      const next = applyOps(current, ops, 'careful').plan;
+      const only = picked.length === 1 ? picked[0] : undefined;
+      const summary = only ? `Undid: ${only.summary}` : `Undid ${picked.length} changes`;
+      return write(project, String(id), next, null, { summary, mark: 'undo', undoes: [...wanted] });
+    },
+    plan_watch: () => null,
+    // Mock only, for the visual check: an agent's run and a change from another computer.
+    mock_plan_agent: ({ project, id }: Args) => {
+      const current = existing(project, id);
+      const right = Math.max(...current.nodes.map(n => n.x + (n.width ?? 260)), 0) + 64;
+      const add = AGENT_NOTES.map((n, i) => ({
+        ...note(`n-a${i + 1}`, right, 60 + i * 170, n.text, n.title),
+        by: AGENT,
+      }));
+      const edited = current.nodes.map(n =>
+        n.id === 'n-06' ? { ...n, text: `${n.text} Keep it under the lantern line.` } : n
+      );
+      const next = { ...current, nodes: [...edited, ...add] };
+      return write(project, String(id), next, AGENT);
+    },
+    mock_plan_outside: ({ project, id, node, text }: Args) => {
+      const current = existing(project, id);
+      const next = {
+        ...current,
+        nodes: current.nodes.map(n => (n.id === node ? { ...n, text: String(text) } : n)),
       };
-      canvases(project).set(String(id), saved);
-      return doc(project, String(id), saved);
+      canvases(project).set(String(id), stored(current, next));
+      deps.emit?.({ name: 'plan', project: String(project), id: String(id) });
+      return null;
     },
     plan_rename: ({ project, id, name }: Args) => {
       const current = existing(project, id);
@@ -173,11 +273,19 @@ export function createPlanHandlers(deps: PlanLinkDeps & { plans: string | null }
         edited: clock.now().toISOString(),
       };
       canvases(project).set(String(id), renamed);
+      logs.append(project, id, {
+        by: null,
+        run: null,
+        ops: [],
+        summary: `Renamed to ${renamed.name}`,
+        mark: 'rename',
+      });
       return summary(String(id), renamed);
     },
     plan_remove: ({ project, id }: Args) => {
       existing(project, id);
       canvases(project).delete(String(id));
+      logs.drop(project, id);
       return `${deps.root() ?? ''}/trash/${String(project)}/plans/${String(id)}.plan.json`;
     },
     plan_pick_image: ({ project }: Args): PlanImage => {

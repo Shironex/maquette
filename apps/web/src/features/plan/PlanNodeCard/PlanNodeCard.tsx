@@ -47,6 +47,14 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
     />
   );
   const linked = isLinked(node.kind);
+  const badge = v.mark ? (
+    <span className="plan-badge">
+      <Icon name={v.mark === 'added' ? 'sparkle' : 'note-pencil'} size={12} />
+      {v.mark}
+      <span className="sr-only"> by {node.by ?? 'an outside change'}</span>
+    </span>
+  ) : null;
+  const agent = node.by !== null && 'is-agent';
   const handles = HANDLES.map(h => (
     <Handle
       key={h.id}
@@ -58,8 +66,11 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
   ));
   if (node.kind === 'asset' || node.kind === 'direction') {
     return (
-      <div className={cn('plan-node', v.gone && 'plan-node-gone', selected && 'is-selected')}>
+      <div
+        className={cn('plan-node', v.gone && 'plan-node-gone', agent, selected && 'is-selected')}
+      >
         {handles}
+        {badge}
         <LinkedBody node={node} />
       </div>
     );
@@ -70,6 +81,7 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
       className={cn(
         'plan-node',
         node.kind === 'note' && 'plan-node-note',
+        agent,
         selected && 'is-selected'
       )}
       onDoubleClick={e => {
@@ -78,12 +90,17 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
       }}
     >
       {handles}
+      {badge}
       <div className="flex items-center gap-1.5 px-2.5 pt-2 text-[10.5px] leading-[14px] font-medium tracking-[0.05em] text-fg-mute uppercase">
         <Icon name={kind.icon} size={12} />
         {kind.label}
         {node.kind === 'link' ? (
           <span className="ml-auto truncate font-mono text-[11px] tracking-normal normal-case">
             {hostOf(node.url)}
+          </span>
+        ) : node.by ? (
+          <span className="ml-auto truncate tracking-normal text-[var(--plan-agent)] normal-case">
+            {node.by}
           </span>
         ) : null}
       </div>
