@@ -236,12 +236,16 @@ fn each_direction_reads_its_images_picks_and_jobs() {
     write_direction(project, "porch", &[false, false]);
     write_direction(project, "lake", &[]);
     write_direction(project, "gate", &[false]);
+    write_direction(project, "held", &[false]);
     let manifest = manifest(Vec::new());
     let jobs = vec![
         job("gate", ConceptJobState::Running),
         job("gate", ConceptJobState::Queued),
         job("gate", ConceptJobState::Done),
         job("porch", ConceptJobState::Done),
+        job("held", ConceptJobState::RateLimited),
+        job("held", ConceptJobState::Queued),
+        job("held", ConceptJobState::Approval),
     ];
     let facts = LinkFacts {
         project_dir: project,
@@ -252,7 +256,9 @@ fn each_direction_reads_its_images_picks_and_jobs() {
     let links = read(
         &facts,
         &[],
-        &ids(&["kotatsu", "porch", "lake", "gate", "gone", "con/../x"]),
+        &ids(&[
+            "kotatsu", "porch", "lake", "gate", "gone", "con/../x", "held",
+        ]),
     );
     let states: Vec<DirectionLinkState> = links.directions.iter().map(|d| d.state).collect();
     assert_eq!(
@@ -264,7 +270,9 @@ fn each_direction_reads_its_images_picks_and_jobs() {
             DirectionLinkState::Running,
             DirectionLinkState::Gone,
             DirectionLinkState::Gone,
-        ]
+            DirectionLinkState::Pick,
+        ],
+        "only a job being made counts as running, not a held, queued or waiting one"
     );
     let kotatsu = &links.directions[0];
     assert_eq!((kotatsu.images, kotatsu.picked), (3, 1));
@@ -286,4 +294,6 @@ fn each_direction_reads_its_images_picks_and_jobs() {
     let gate = &links.directions[3];
     assert_eq!((gate.pending, gate.done), (2, 1));
     assert_eq!(links.directions[4].name, None);
+    let held = &links.directions[6];
+    assert_eq!((held.pending, held.done), (3, 0));
 }

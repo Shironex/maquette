@@ -94,6 +94,8 @@ function directionLink(view: LabView | null, dir: string, id: string): Direction
   const jobs = view?.jobs.filter(j => j.direction === id) ?? [];
   const finished = ['done', 'failed', 'cancelled'];
   const pending = jobs.filter(j => !finished.includes(j.state)).length;
+  // Only a job being made counts as running: held, queued or waiting ones do not.
+  const making = jobs.some(j => j.state === 'running');
   const picked = found.images.filter(i => i.picked).length;
   const cover =
     found.images.find(i => i.picked) ??
@@ -101,12 +103,12 @@ function directionLink(view: LabView | null, dir: string, id: string): Direction
     null;
   return {
     id,
-    state: pending > 0 ? 'running' : picked > 0 ? 'picked' : found.images.length ? 'pick' : 'empty',
+    state: making ? 'running' : picked > 0 ? 'picked' : found.images.length ? 'pick' : 'empty',
     name: found.name,
     images: found.images.length,
     picked,
     pending,
-    done: pending > 0 ? jobs.filter(j => j.state === 'done').length : 0,
+    done: making ? jobs.filter(j => j.state === 'done').length : 0,
     thumbnail: cover ? `${dir}/${cover.file}` : null,
   };
 }

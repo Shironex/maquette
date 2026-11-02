@@ -381,7 +381,7 @@ export const commands = {
 	 *  asset's name, picture, newest version and state (no model, a model to
 	 *  check in the Inbox, its file missing, ready, or gone from the Board),
 	 *  and each direction's images, picks and running jobs. Nothing of it is
-	 *  stored in the canvas.
+	 *  stored in the canvas. The Inbox is read only when assets are asked for.
 	 */
 	planLinks: (project: string, assets: string[], directions: string[]) => __TAURI_INVOKE<PlanLinks>("plan_links", { project, assets, directions }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
@@ -2752,7 +2752,10 @@ export type DirectionLinkState =
 "gone" | 
 /**  The direction has no images yet. */
 "empty" | 
-/**  Images for it are queued or being made. */
+/**
+ *  One of its images is being made right now. Queued, held or waiting
+ *  jobs do not count, so a round the usage limit holds is not polled.
+ */
 "running" | 
 /**  It has images and none is picked. */
 "pick" | 

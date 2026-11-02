@@ -60,7 +60,8 @@ pub enum DirectionLinkState {
     Gone,
     /// The direction has no images yet.
     Empty,
-    /// Images for it are queued or being made.
+    /// One of its images is being made right now. Queued, held or waiting
+    /// jobs do not count, so a round the usage limit holds is not polled.
     Running,
     /// It has images and none is picked.
     Pick,
@@ -237,6 +238,7 @@ fn live_direction(facts: &LinkFacts<'_>, direction: &Direction) -> DirectionLink
         .filter(|j| j.project == facts.manifest.id && j.direction == direction.id)
         .collect();
     let pending = count(jobs.iter().filter(|j| !j.state.is_finished()).count());
+    let making = jobs.iter().any(|j| j.state == ConceptJobState::Running);
     let done = count(
         jobs.iter()
             .filter(|j| j.state == ConceptJobState::Done)
@@ -244,7 +246,7 @@ fn live_direction(facts: &LinkFacts<'_>, direction: &Direction) -> DirectionLink
     );
     let picked = count(direction.images.iter().filter(|i| i.picked).count());
     let images = count(direction.images.len());
-    let state = if pending > 0 {
+    let state = if making {
         DirectionLinkState::Running
     } else if picked > 0 {
         DirectionLinkState::Picked
@@ -265,7 +267,7 @@ fn live_direction(facts: &LinkFacts<'_>, direction: &Direction) -> DirectionLink
         images,
         picked,
         pending,
-        done: if pending > 0 { done } else { 0 },
+        done: if making { done } else { 0 },
         thumbnail: cover.and_then(|i| present(facts.project_dir, &i.file)),
     }
 }

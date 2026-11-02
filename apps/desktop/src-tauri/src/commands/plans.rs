@@ -140,7 +140,7 @@ pub fn plan_open_link(
 /// asset's name, picture, newest version and state (no model, a model to
 /// check in the Inbox, its file missing, ready, or gone from the Board),
 /// and each direction's images, picks and running jobs. Nothing of it is
-/// stored in the canvas.
+/// stored in the canvas. The Inbox is read only when assets are asked for.
 #[tauri::command]
 #[specta::specta]
 pub async fn plan_links(
@@ -152,14 +152,18 @@ pub async fn plan_links(
     directions: Vec<String>,
 ) -> CommandResult<PlanLinks> {
     let (root, config) = session.workspace()?;
-    let manifest = project::load(&root, &config.layout, &project)?;
-    let dir = project::dir(&root, &config.layout, &project)?;
     let jobs = lab.0.jobs(Some(&project));
     let studio = studio.0.clone();
     blocking(move || {
-        let mut items = inbox::list(&root, &config)?;
-        studio.link_inbox(&mut items);
-        inbox::place(&root, &config, &mut items);
+        let manifest = project::load(&root, &config.layout, &project)?;
+        let dir = project::dir(&root, &config.layout, &project)?;
+        // Reading the Inbox checks every model in it, so only when an asset asks.
+        let mut items = Vec::new();
+        if !assets.is_empty() {
+            items = inbox::list(&root, &config)?;
+            studio.link_inbox(&mut items);
+            inbox::place(&root, &config, &mut items);
+        }
         let facts = LinkFacts {
             project_dir: &dir,
             manifest: &manifest,
