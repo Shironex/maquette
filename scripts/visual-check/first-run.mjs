@@ -7,7 +7,8 @@
  * the first run card on an empty website and game project. A website project
  * opens empty by switching to one of `?projects=many`; the Inbox's models then
  * keep the strip over the card, the least room the card ever gets, and
- * `&inbox=clear` shows it alone.
+ * `&inbox=clear` shows it alone. Last, an image dropped on the Concept column,
+ * on the Board and in the Lab right after.
  */
 
 const HD = { width: 1120, height: 720 };
@@ -110,8 +111,44 @@ async function cardShots({ open, shot }, { viewport, suffix }) {
   await firstRunCard(game, shot, `first-run-card-game${suffix}`);
 }
 
+/** A file dropped on the empty Concept column: the card, then the Lab right after, not reloaded. */
+async function dropShots({ open, shot }, { viewport, suffix }) {
+  const page = await open('&scenario=configured&projects=many&inbox=clear', '#/board', viewport);
+  await page.locator('[aria-haspopup=menu]').first().click();
+  await page.getByRole('menuitemradio', { name: /Starlit observatory/ }).click();
+  await page.getByRole('button', { name: 'Hide tips' }).click();
+  await page.getByRole('button', { name: /Drop concept art/ }).waitFor();
+  const files = await page.evaluateHandle(async () => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: 640, height: 480 });
+    const paint = canvas.getContext('2d');
+    paint.fillStyle = '#39406b';
+    paint.fillRect(0, 0, 640, 480);
+    paint.fillStyle = '#c9b8ff';
+    paint.fillRect(260, 120, 120, 280);
+    const blob = await new Promise(done => canvas.toBlob(done));
+    const data = new DataTransfer();
+    data.items.add(new File([blob], 'moon_gate.png', { type: 'image/png' }));
+    return data;
+  });
+  const column = page.getByRole('region', { name: /^Concept/ });
+  await column.dispatchEvent('drop', { dataTransfer: files });
+  await column.getByText('Moon gate').waitFor();
+  await page.waitForTimeout(300);
+  await page.mouse.move(0, 0);
+  await shot(page, `first-run-drop-board${suffix}`);
+  await page.getByRole('button', { name: 'Open Lab' }).click();
+  await page
+    .getByRole('button', { name: /Moon gate/ })
+    .first()
+    .waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, `first-run-drop-lab${suffix}`);
+  await page.context().close();
+}
+
 export async function firstRunShots({ open, shot }) {
   for (const size of SIZES) {
+    await dropShots({ open, shot }, size);
     await stripShots({ open, shot }, size);
     await settingsShots({ open, shot }, size);
     await onboardingShots({ open, shot }, size);

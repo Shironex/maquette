@@ -17,6 +17,10 @@ export async function refsShots({ open, shot }) {
   await sheet.getByText('Kept with the asset, never sent as views').waitFor();
   await board.waitForTimeout(300);
   await shot(board, 'refs-sheet');
+  await sheet.getByRole('button', { name: 'Add refs' }).click();
+  await board.getByRole('menuitem', { name: 'Choose from disk...' }).waitFor();
+  await shot(board, 'refs-sheet-add-menu');
+  await board.keyboard.press('Escape');
   await sheet.getByRole('button', { name: 'View of guardian_statues_crop.png: Other' }).click();
   await board.getByRole('menu', { name: 'View of guardian_statues_crop.png' }).waitFor();
   await shot(board, 'refs-sheet-chip-menu');
