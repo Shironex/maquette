@@ -15,7 +15,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::super::files::{doc, write_plan, writing};
+use super::super::check::is_project_relative;
+use super::super::files::{doc, plan_text, write_plan, writing};
 use super::super::log::{self, PlanLogEntry};
 use super::super::ops::{self, Merge};
 use super::super::summary::ChangeMark;
@@ -121,30 +122,25 @@ fn stale_review() -> CoreError {
     )
 }
 
-/// Writes the plan's base move and the person's log line for an Apply or
-/// its undo.
-fn note_plan(
-    project_dir: &Path,
-    id: &str,
-    current: &PlanFile,
-    base: Option<CameraBase>,
+/// A person's change checked and ready to write: the canvas, its text and
+/// its log line. Everything that can refuse it has run.
+pub(super) struct Ready {
+    plan: PlanFile,
+    text: String,
     entry: PlanLogEntry,
-) -> CoreResult<(PlanDoc, PlanLogEntry)> {
-    let mut next = current.clone();
-    next.camera = base;
-    write_person(project_dir, id, current, &next, entry)
 }
 
-/// Writes `next` over `current` (the file's canvas, read under the lock)
-/// as the person's change, its operations in `entry`. The caller holds the
-/// canvas lock.
-pub(super) fn write_person(
+/// Checks `next` over `current` (the file's canvas, read under the lock)
+/// as the person's change, its operations in `entry`, without writing:
+/// refused when the canvas would be invalid or too big, or the log line too
+/// long to keep its operations, since a line without them can not be undone.
+pub(super) fn prepare_person(
     project_dir: &Path,
     id: &str,
     current: &PlanFile,
     next: &PlanFile,
     entry: PlanLogEntry,
-) -> CoreResult<(PlanDoc, PlanLogEntry)> {
+) -> CoreResult<Ready> {
     let mut next = normalized(next);
     next.name.clone_from(&current.name);
     next.created.clone_from(&current.created);
@@ -152,10 +148,80 @@ pub(super) fn write_person(
     validate(&next)?;
     let mut entry = entry;
     entry.ops = ops::diff(current, &next);
+    let len = log::line_len(&entry)?;
+    if len > log::LINE_MAX_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "This change is too big to keep for undo ({} KB; the most is {} KB), so nothing was written. Change fewer stops at a time.",
+            len / 1024,
+            log::LINE_MAX_BYTES / 1024
+        )));
+    }
     next.edited = now_rfc3339();
-    write_plan(&path(project_dir, id)?, &next)?;
-    log::append(project_dir, id, &entry)?;
-    Ok((doc(project_dir, id, next), entry))
+    let text = plan_text(&path(project_dir, id)?, &next)?;
+    Ok(Ready {
+        plan: next,
+        text,
+        entry,
+    })
+}
+
+/// Writes a checked change and its log line. When the line can not be
+/// written, the canvas goes back to `current`, so the file never moves
+/// without its line. The caller holds the canvas lock.
+pub(super) fn commit_person(
+    project_dir: &Path,
+    id: &str,
+    current: &PlanFile,
+    ready: Ready,
+) -> CoreResult<(PlanDoc, PlanLogEntry)> {
+    let file = path(project_dir, id)?;
+    maquette_base::fs::write_atomic(&file, ready.text.as_bytes())
+        .map_err(|e| CoreError::io(&file, e))?;
+    if let Err(err) = log::append(project_dir, id, &ready.entry) {
+        if let Err(back) = write_plan(&file, current) {
+            tracing::warn!("the camera plan could not be put back after its log failed: {back}");
+        }
+        return Err(err);
+    }
+    Ok((doc(project_dir, id, ready.plan), ready.entry))
+}
+
+/// [`prepare_person`] then [`commit_person`].
+pub(super) fn write_person(
+    project_dir: &Path,
+    id: &str,
+    current: &PlanFile,
+    next: &PlanFile,
+    entry: PlanLogEntry,
+) -> CoreResult<(PlanDoc, PlanLogEntry)> {
+    let ready = prepare_person(project_dir, id, current, next, entry)?;
+    commit_person(project_dir, id, current, ready)
+}
+
+/// Puts the layout kept in `file` back as `layout.json`, only while
+/// `layout.json` is still the one whose key is `after`.
+fn put_back(project_dir: &Path, file: &Path, after: &str, changed: &str) -> CoreResult<()> {
+    layout::update(project_dir, |current| {
+        if layout_key(current) != after {
+            return Err(CoreError::Invalid(changed.into()));
+        }
+        let text = fs::read_to_string(file).map_err(|e| CoreError::io(file, e))?;
+        crate::json::from_json_with_defaults::<SceneLayout>(&text)
+            .map_err(|e| CoreError::json(file, e))
+    })
+    .map(|_| ())
+}
+
+/// The kept layout an Apply line names, refused unless it sits in
+/// `plans/history/` inside the project.
+fn history_file(project_dir: &Path, history: &str) -> CoreResult<std::path::PathBuf> {
+    let folder = format!("{PLANS_DIR}/{HISTORY_DIR}/");
+    if !is_project_relative(history) || !history.starts_with(&folder) {
+        return Err(CoreError::Invalid(format!(
+            "The Apply line names {history}, which is not a kept layout in {folder}, so nothing was put back."
+        )));
+    }
+    Ok(project_dir.join(history))
 }
 
 pub(super) fn person_line(
@@ -196,7 +262,8 @@ pub fn apply(
     let plan = load_file(&path(project_dir, id)?)?;
     let change_id = log::new_id("c");
     let history = format!("{PLANS_DIR}/{HISTORY_DIR}/{change_id}.layout.json");
-    let mut done: Option<(StopDiff, String, Vec<LayoutStop>)> = None;
+    let kept = project_dir.join(&history);
+    let mut ready: Option<Ready> = None;
     let written = layout::update(project_dir, |current| {
         if layout_key(current) != reviewed_layout {
             return Err(stale_review());
@@ -210,35 +277,60 @@ pub fn apply(
         if let Some(problem) = review.problems.first() {
             return Err(CoreError::Invalid(problem.clone()));
         }
-        let file = project_dir.join(&history);
-        if let Some(folder) = file.parent() {
-            fs::create_dir_all(folder).map_err(|e| CoreError::io(folder, e))?;
-        }
-        crate::json::write_json(&file, current)?;
         let mut next = current.clone();
         next.stops = stops;
         layout::prune_stops(&mut next);
-        done = Some((review.diff, layout_key(current), next.stops.clone()));
+        let applied = Applied {
+            history: history.clone(),
+            before: layout_key(current),
+            after: layout_key(&next),
+        };
+        let mut entry = person_line(
+            format!(
+                "Applied the camera plan to layout.json: {}",
+                review.diff.counts_line()
+            ),
+            ChangeMark::Apply,
+            Some(applied),
+        );
+        entry.id.clone_from(&change_id);
+        let mut based = plan.clone();
+        based.camera = Some(CameraBase {
+            stops: next.stops.clone(),
+        });
+        // Everything that can refuse the plan and its line runs before layout.json is written.
+        ready = Some(prepare_person(project_dir, id, &plan, &based, entry)?);
+        if let Some(folder) = kept.parent() {
+            fs::create_dir_all(folder).map_err(|e| CoreError::io(folder, e))?;
+        }
+        crate::json::write_json(&kept, current)?;
         Ok(next)
-    })?;
-    let Some((diff, before, stops)) = done else {
+    });
+    let written = match written {
+        Ok(written) => written,
+        Err(err) => {
+            // Nothing was applied: no copy of a layout that was never replaced stays behind.
+            let _ = fs::remove_file(&kept);
+            return Err(err);
+        }
+    };
+    let Some(ready) = ready else {
         return Err(stale_review());
     };
-    let applied = Applied {
-        history,
-        before,
-        after: layout_key(&written),
-    };
-    let mut entry = person_line(
-        format!(
-            "Applied the camera plan to layout.json: {}",
-            diff.counts_line()
-        ),
-        ChangeMark::Apply,
-        Some(applied),
-    );
-    entry.id = change_id;
-    note_plan(project_dir, id, &plan, Some(CameraBase { stops }), entry)
+    commit_person(project_dir, id, &plan, ready).map_err(|err| {
+        let changed = "layout.json changed again while the Apply was being written.";
+        match put_back(project_dir, &kept, &layout_key(&written), changed) {
+            Ok(()) => {
+                let _ = fs::remove_file(&kept);
+                CoreError::Invalid(format!(
+                    "The Apply could not be logged, so layout.json was put back as it was: {err}"
+                ))
+            }
+            Err(back) => CoreError::Invalid(format!(
+                "The Apply could not be logged ({err}) and layout.json could not be put back ({back}). The layout from before is kept at {history}."
+            )),
+        }
+    })
 }
 
 /// Undoes the Apply logged as `change`: puts back the `layout.json` it
@@ -271,22 +363,33 @@ pub fn undo_apply(
             "The Apply {change} was undone already."
         )));
     }
-    let file = project_dir.join(&applied.history);
-    layout::update(project_dir, |current| {
-        if layout_key(current) != applied.after {
-            return Err(CoreError::Invalid(
-                "layout.json changed since this Apply, so it was not put back: an undo would lose those changes. Change the stops by hand, or apply the plan again.".into(),
-            ));
-        }
-        let text = fs::read_to_string(&file).map_err(|e| CoreError::io(&file, e))?;
-        crate::json::from_json_with_defaults::<SceneLayout>(&text)
-            .map_err(|e| CoreError::json(&file, e))
-    })?;
+    let file = history_file(project_dir, &applied.history)?;
     let back = ops::apply(&plan, &ops::invert(&entry.ops), Merge::Careful).plan;
     let mut line = person_line(format!("Undid: {}", entry.summary), ChangeMark::Undo, None);
     line.undoes = vec![change.to_string()];
-    let base = back.camera.clone();
-    note_plan(project_dir, id, &plan, base, line)
+    let mut based = plan.clone();
+    based.camera = back.camera;
+    let ready = prepare_person(project_dir, id, &plan, &based, line)?;
+    let applied_layout = layout::load(project_dir)?;
+    put_back(
+        project_dir,
+        &file,
+        &applied.after,
+        "layout.json changed since this Apply, so it was not put back: an undo would lose those changes. Change the stops by hand, or apply the plan again.",
+    )?;
+    let restored = layout_key(&layout::load(project_dir)?);
+    commit_person(project_dir, id, &plan, ready).inspect_err(|_| {
+        // The undo could not be logged: layout.json goes back to what the Apply wrote.
+        let again = layout::update(project_dir, |current| {
+            if layout_key(current) != restored {
+                return Err(CoreError::Invalid("layout.json changed meanwhile".into()));
+            }
+            Ok(applied_layout.clone())
+        });
+        if let Err(back) = again {
+            tracing::warn!("layout.json could not be put back after a failed undo: {back}");
+        }
+    })
 }
 
 #[cfg(test)]

@@ -365,3 +365,33 @@ fn an_agent_proposes_its_own_line_and_never_touches_the_main_line_or_layout() {
         "{refused}"
     );
 }
+
+#[test]
+fn the_camera_plan_id_is_kept_for_the_built_in_plan() {
+    let s = site(&["porch", "moon"]);
+    // A canvas a person or agent names "Camera plan" never takes the id.
+    let named =
+        create(&s.root, "Camera plan", crate::plans::PlanPreset::Brainstorm).expect("create");
+    assert_eq!(named.id, "camera-plan-2");
+
+    // A file from before the id was kept: opening the camera plan moves it, with its log.
+    let old = PlanFile::new("Camera plan", crate::plans::PlanPreset::Story);
+    fs::write(
+        s.root.join("plans/camera-plan.plan.json"),
+        serde_json::to_string(&old).expect("json"),
+    )
+    .expect("old canvas");
+    fs::write(s.root.join("plans/camera-plan.log.jsonl"), "").expect("old log");
+    let made = ensure(&s.root, None).expect("camera plan");
+    assert!(made.plan.camera.is_some());
+    let moved = get(&s.root, "camera-plan-3").expect("moved canvas");
+    assert_eq!(moved.plan.preset, crate::plans::PlanPreset::Story);
+    let lines = crate::plans::log::lines(&s.root, "camera-plan-3", 5).expect("log");
+    assert!(
+        lines.iter().any(|l| l.summary.contains("make room")),
+        "{lines:?}"
+    );
+    // The camera plan's own log starts fresh.
+    let own = crate::plans::log::lines(&s.root, CAMERA_PLAN_ID, 5).expect("log");
+    assert!(own.iter().all(|l| !l.summary.contains("make room")));
+}

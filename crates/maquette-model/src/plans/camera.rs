@@ -353,12 +353,12 @@ pub fn ensure(project_dir: &Path, by: Option<&str>) -> CoreResult<PlanDoc> {
     let file = super::path(project_dir, CAMERA_PLAN_ID)?;
     if file.exists() {
         let plan = super::load_file(&file)?;
-        if plan.camera.is_none() {
-            return invalid(format!(
-                "plans/{CAMERA_PLAN_ID}.plan.json is not a camera plan. Rename that file to make room for it."
-            ));
+        if plan.camera.is_some() {
+            return Ok(doc(project_dir, CAMERA_PLAN_ID, plan));
         }
-        return Ok(doc(project_dir, CAMERA_PLAN_ID, plan));
+        // A canvas from before the id was kept for the camera plan: it moves, never blocks.
+        let moved = super::files::move_aside(project_dir, &plan)?;
+        tracing::info!("moved the canvas on the camera plan's id to {moved}");
     }
     let stops = layout::load(project_dir)?.stops;
     // The line mirrors layout.json, the person's, whoever opened it first.

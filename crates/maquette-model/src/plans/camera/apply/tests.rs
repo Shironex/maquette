@@ -216,3 +216,69 @@ fn an_agent_proposal_is_reviewed_but_never_the_line_apply_writes() {
         main.problems
     );
 }
+
+#[test]
+fn an_apply_whose_log_can_not_be_written_leaves_layout_json_as_it_was() {
+    let s = site(&["porch", "schedule", "moon"]);
+    plan_line(&s.root, &["porch", "moon", "schedule"]);
+    let before = fs::read_to_string(s.root.join(layout::LAYOUT_FILE)).expect("layout");
+    let plan_before = fs::read_to_string(s.root.join("plans/camera-plan.plan.json")).expect("plan");
+    let shown = review(&s.root, CAMERA_PLAN_ID).expect("review");
+    // The log is a folder now: appending its line fails after layout.json was written.
+    let log_file = s.root.join("plans/camera-plan.log.jsonl");
+    let _ = fs::remove_file(&log_file);
+    fs::create_dir_all(&log_file).expect("log in the way");
+
+    let refused =
+        apply(&s.root, CAMERA_PLAN_ID, &shown.layout_key, &shown.plan_key).expect_err("no log");
+    assert!(refused.to_string().contains("put back"), "{refused}");
+    let after = fs::read_to_string(s.root.join(layout::LAYOUT_FILE)).expect("layout");
+    assert_eq!(
+        layout_key(&serde_json::from_str::<SceneLayout>(&after).expect("json")),
+        layout_key(&serde_json::from_str::<SceneLayout>(&before).expect("json")),
+        "layout.json is as it was"
+    );
+    let plan_after = fs::read_to_string(s.root.join("plans/camera-plan.plan.json")).expect("plan");
+    assert_eq!(
+        serde_json::from_str::<PlanFile>(&plan_after)
+            .expect("plan")
+            .camera,
+        serde_json::from_str::<PlanFile>(&plan_before)
+            .expect("plan")
+            .camera,
+        "the plan's base did not move"
+    );
+    let kept = fs::read_dir(s.root.join("plans/history")).map_or(0, Iterator::count);
+    assert_eq!(kept, 0, "no history copy stays behind");
+}
+
+#[test]
+fn an_apply_line_naming_a_file_outside_plans_history_is_refused() {
+    let s = site(&["porch"]);
+    for bad in [
+        "../layout.json",
+        "/etc/passwd",
+        "plans/other.json",
+        "plans/history/../../x",
+    ] {
+        assert!(history_file(&s.root, bad).is_err(), "{bad}");
+    }
+    assert!(history_file(&s.root, "plans/history/c-1.layout.json").is_ok());
+}
+
+#[test]
+fn a_person_change_whose_undo_line_would_be_cut_is_refused_with_nothing_written() {
+    let s = site(&["porch", "moon"]);
+    let plan = ensure(&s.root, None).expect("plan").plan;
+    let file = s.root.join("plans/camera-plan.plan.json");
+    let before = fs::read_to_string(&file).expect("plan");
+    let mut next = plan.clone();
+    next.nodes[0].stop.as_mut().expect("stop").fov = 50.0;
+    let line = person_line("x".repeat(log::LINE_MAX_BYTES), ChangeMark::Rebase, None);
+    let refused = write_person(&s.root, CAMERA_PLAN_ID, &plan, &next, line).expect_err("too long");
+    assert!(
+        refused.to_string().contains("too big to keep for undo"),
+        "{refused}"
+    );
+    assert_eq!(fs::read_to_string(&file).expect("plan"), before);
+}

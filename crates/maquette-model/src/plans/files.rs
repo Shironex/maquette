@@ -68,9 +68,9 @@ pub(super) fn writing() -> MutexGuard<'static, ()> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-/// Writes a canvas file as `write_json` would, refused when the text would
-/// be over [`MAX_FILE_BYTES`], since such a file would not open again.
-pub(super) fn write_plan(file: &Path, plan: &PlanFile) -> CoreResult<()> {
+/// A canvas file's text as `write_json` would write it, refused when it
+/// would be over [`MAX_FILE_BYTES`], since such a file would not open again.
+pub(super) fn plan_text(file: &Path, plan: &PlanFile) -> CoreResult<String> {
     let mut text = serde_json::to_string_pretty(plan).map_err(|e| CoreError::json(file, e))?;
     text.push('\n');
     if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
@@ -79,6 +79,12 @@ pub(super) fn write_plan(file: &Path, plan: &PlanFile) -> CoreResult<()> {
             MAX_FILE_BYTES / (1024 * 1024)
         )));
     }
+    Ok(text)
+}
+
+/// Writes a canvas file, refused as [`plan_text`] refuses it.
+pub(super) fn write_plan(file: &Path, plan: &PlanFile) -> CoreResult<()> {
+    let text = plan_text(file, plan)?;
     maquette_base::fs::write_atomic(file, text.as_bytes()).map_err(|e| CoreError::io(file, e))
 }
 
@@ -173,7 +179,8 @@ pub fn get(project_dir: &Path, id: &str) -> CoreResult<PlanDoc> {
     Ok(doc(project_dir, id, plan))
 }
 
-/// A free id for a canvas called `name`: its slug, then `-2`, `-3` and on.
+/// A free id for a canvas called `name`: its slug, then `-2`, `-3` and on,
+/// never the camera plan's id, which only the built in plan takes.
 fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
     let base = latin_slug(name).map_or_else(|| "canvas".to_string(), windows_safe);
     for n in 1..10_000 {
@@ -182,7 +189,7 @@ fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
         } else {
             format!("{base}-{n}")
         };
-        if !path(project_dir, &id)?.exists() {
+        if id != super::camera::CAMERA_PLAN_ID && !path(project_dir, &id)?.exists() {
             return Ok(id);
         }
     }
@@ -225,6 +232,31 @@ pub fn create_by(
     );
     change::note(project_dir, &id, &line);
     Ok(doc(project_dir, &id, plan))
+}
+
+/// Moves a canvas that is not a camera plan off the camera plan's id (a
+/// file from before the id was kept for it) to a free id made from its
+/// name, with its change log, and notes the move there. The caller holds
+/// the canvas lock. Answers with the new id.
+pub(super) fn move_aside(project_dir: &Path, plan: &PlanFile) -> CoreResult<String> {
+    let id = super::camera::CAMERA_PLAN_ID;
+    let to = free_id(project_dir, &plan.name)?;
+    let log_from = log::path(project_dir, id)?;
+    if log_from.exists() {
+        let log_to = log::path(project_dir, &to)?;
+        maquette_base::fs::rename_retrying(&log_from, &log_to)
+            .map_err(|e| CoreError::io(&log_from, e))?;
+    }
+    let from = path(project_dir, id)?;
+    maquette_base::fs::rename_retrying(&from, &path(project_dir, &to)?)
+        .map_err(|e| CoreError::io(&from, e))?;
+    let line = plain_entry(
+        None,
+        format!("Moved from plans/{id}.plan.json to make room for the camera plan"),
+        ChangeMark::Rename,
+    );
+    change::note(project_dir, &to, &line);
+    Ok(to)
 }
 
 /// A log line that changed no node: a canvas made or renamed.
