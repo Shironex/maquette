@@ -356,9 +356,10 @@ export const commands = {
 	 *  Writes a person's edits: the operations between the canvas the view
 	 *  last had from the file and what it shows now, laid over the file as it
 	 *  is, so an agent's write made meanwhile stays. Returns what the file now
-	 *  holds, which the view takes as its new base.
+	 *  holds, which the view takes as its new base. `created` is the opened
+	 *  canvas's, so a save never lands on another canvas that took the id.
 	 */
-	planApply: (project: string, id: string, ops: PlanOp_Deserialize[]) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_apply", { project, id, ops }),
+	planApply: (project: string, id: string, created: string, ops: PlanOp_Deserialize[]) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_apply", { project, id, created, ops }),
 	/**  The newest lines of the canvas's change log, newest first. */
 	planLog: (project: string, id: string, limit: number) => __TAURI_INVOKE<PlanLogLine[]>("plan_log", { project, id, limit }),
 	/**

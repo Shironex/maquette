@@ -67,6 +67,7 @@ pub mod images;
 pub mod log;
 pub mod migrate;
 pub mod ops;
+mod person;
 mod place;
 pub mod summary;
 pub mod text;
@@ -74,6 +75,7 @@ pub mod text;
 pub use change::{Changed, KeepNeed, Writer, change, keep, keep_confirmed, keep_needs, undo};
 pub use check::{check_name, is_link_id, is_project_relative, validate};
 pub use files::{PlanDoc, PlanSummary, create, create_by, get, list, remove, rename, save};
+pub use person::apply_person;
 pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";

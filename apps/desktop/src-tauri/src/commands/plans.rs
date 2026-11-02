@@ -9,7 +9,7 @@ use maquette_core::assets::remove::project_trash;
 use maquette_core::plan_links::{self, LinkFacts, PlanLinks};
 use maquette_core::plans::log::PlanLogLine;
 use maquette_core::plans::ops::PlanOp;
-use maquette_core::plans::{self, PlanDoc, PlanPreset, PlanSummary, Writer, images::PlanImage};
+use maquette_core::plans::{self, PlanDoc, PlanPreset, PlanSummary, images::PlanImage};
 use maquette_core::{CoreError, inbox, project};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt as _;
@@ -57,17 +57,19 @@ pub fn plan_create(
 /// Writes a person's edits: the operations between the canvas the view
 /// last had from the file and what it shows now, laid over the file as it
 /// is, so an agent's write made meanwhile stays. Returns what the file now
-/// holds, which the view takes as its new base.
+/// holds, which the view takes as its new base. `created` is the opened
+/// canvas's, so a save never lands on another canvas that took the id.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_apply(
     session: State<'_, Session>,
     project: String,
     id: String,
+    created: String,
     ops: Vec<PlanOp>,
 ) -> CommandResult<PlanDoc> {
     let dir = project_dir(&session, &project)?;
-    Ok(plans::change(&dir, &id, &Writer::PERSON, |_| Ok(ops))?.doc)
+    Ok(plans::apply_person(&dir, &id, &created, ops)?.doc)
 }
 
 /// The newest lines of the canvas's change log, newest first.
