@@ -240,7 +240,7 @@ export function createPlanHandlers(
       const summary = only ? `Undid: ${only.summary}` : `Undid ${picked.length} changes`;
       return write(project, String(id), next, null, { summary, mark: 'undo', undoes: [...wanted] });
     },
-    plan_watch: () => null,
+    plan_watch: () => true,
     // Mock only, for the visual check: an agent's run and a change from another computer.
     mock_plan_agent: ({ project, id }: Args) => {
       const current = existing(project, id);

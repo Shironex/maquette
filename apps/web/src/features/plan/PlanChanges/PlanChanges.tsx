@@ -130,7 +130,10 @@ export default function PlanChanges() {
         )}
       </div>
       <p className="plan-side-foot">
-        Agents never remove your nodes. Every change can be undone, also after a restart.
+        Agents never remove your nodes or links. What an agent changed on your nodes stays undoable
+        until you undo it, also after a restart. Other changes stay undoable while they are among
+        the newest in the log (at least the last 512 KB); one edit over 256 KB keeps only its
+        summary.
       </p>
     </aside>
   );

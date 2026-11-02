@@ -1,9 +1,18 @@
-import { useEffect, useRef } from 'react';
-import { commands } from '@/ipc/client';
+import { useEffect, useRef, useState } from 'react';
+import { commands, errorMessage } from '@/ipc/client';
 import { events } from '@/ipc/generated/bindings';
 import { useAppStore } from '@/state/use-app-store';
 import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
+
+/** Reads the open canvas and its log again when `id` is the one open (null: whichever is), else the list. */
+function reread(project: string, id: string | null) {
+  const plans = usePlansStore.getState();
+  if (plans.open && (id === null || plans.open.id === id)) {
+    void plans.reload();
+    void usePlanLogStore.getState().load(project, plans.open.id);
+  } else if (!plans.open && !plans.opening) void plans.loadList(project);
+}
 
 /**
  * Keeps the Plan view in step with the project's `plans/` folder: the core
@@ -11,22 +20,46 @@ import { usePlansStore } from '@/state/use-plans-store';
  * computer) and says which canvas changed. The open canvas reads its file
  * and change log again (its own saves read back as the same canvas, so
  * nothing reloads in a loop); with no canvas open the list reads again.
+ * When the folder cannot be watched the person is told, and the canvas
+ * reads its file again whenever the window comes to the front.
  */
 export function usePlanWatch(projectId: string | null) {
   const openId = usePlansStore(s => s.open?.id ?? null);
+  // Asked again once the project has a canvas: the core does not make `plans/` just to watch it.
+  const hasCanvas = usePlansStore(s => Boolean(s.open) || (s.list?.length ?? 0) > 0);
+  const [unwatched, setUnwatched] = useState(false);
   useEffect(() => {
-    // Without the watch the canvas still works; it just does not see outside edits.
-    if (projectId) void commands.planWatch(projectId).catch(() => undefined);
-  }, [projectId]);
+    if (!projectId || !hasCanvas) return;
+    let live = true;
+    commands.planWatch(projectId).then(
+      () => live && setUnwatched(false),
+      (error: unknown) => {
+        if (!live) return;
+        setUnwatched(true);
+        useAppStore.getState().notify({
+          status: 'info',
+          title: 'Outside changes show when you come back',
+          detail: `The canvas folder is not watched (${errorMessage(error)}), so the canvas reads its file again each time the window comes to the front.`,
+        });
+      }
+    );
+    return () => {
+      live = false;
+    };
+  }, [projectId, hasCanvas]);
+  useEffect(() => {
+    if (!unwatched) return;
+    const onFocus = () => {
+      const { project, open } = usePlansStore.getState();
+      if (project) reread(project, open?.id ?? null);
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [unwatched]);
   useEffect(() => {
     const stop = events.planChanged.listen(e => {
       const { project, id } = e.payload;
-      const plans = usePlansStore.getState();
-      if (plans.project !== project) return;
-      if (plans.open?.id === id) {
-        void plans.reload();
-        void usePlanLogStore.getState().load(project, id);
-      } else if (!plans.open && !plans.opening) void plans.loadList(project);
+      if (usePlansStore.getState().project === project) reread(project, id);
     });
     // The listener may already be gone with the app (or a test's IPC mock).
     return () => void stop.then(fn => fn()).catch(() => undefined);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanLogLine } from '@/ipc/client';
+import { clipWords } from '@/ipc/mock/plan-log';
 import { freshAgentLine, runIds, runsOf, unseenCount, whenOf } from './plan-log';
 
 const line = (id: string, at: string, by: string | null, run: string | null = null, more = {}) =>
@@ -64,5 +65,14 @@ describe('the change log in runs', () => {
     expect(whenOf(new Date(2026, 10, 1, 9, 5).toISOString(), now)).toBe('Yesterday');
     expect(whenOf(new Date(2026, 9, 30, 9, 5).toISOString(), now)).toBe('Oct 30');
     expect(whenOf('not a time', now)).toBe('');
+  });
+});
+
+describe('a change summary', () => {
+  it('ends a long name at a word with an ellipsis, as the core does', () => {
+    const text = 'Keep it under the porch roof so the lanterns read before the moon does';
+    expect(clipWords(text)).toBe('Keep it under the porch roof so the lanterns read before\u2026');
+    expect(clipWords('Short')).toBe('Short');
+    expect([...clipWords('a'.repeat(80), 10)]).toHaveLength(10);
   });
 });

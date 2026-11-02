@@ -10,6 +10,7 @@ import { commands, errorMessage, type PlanLogLine } from '@/ipc/client';
 import { clock } from '@/lib/clock';
 import { freshAgentLine, type LogFilter } from './plan-log';
 import { useAppStore } from './use-app-store';
+import { answerFirst } from './plans-sync';
 import { usePlansStore } from './use-plans-store';
 
 /** How many log lines the panel reads. */
@@ -73,6 +74,8 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
     const plans = usePlansStore.getState();
     const { project, open } = plans;
     if (!project || !open || ids.length === 0) return false;
+    // Saving now would choose Keep mine for the person: the outside change is answered first.
+    if (plans.outside) return answerFirst();
     // The person's edits reach the file first, so the undo meets them there.
     if (!(await plans.save())) return false;
     try {

@@ -7,6 +7,8 @@
  * quitting) waits for a save on its way and saves the latest edits first.
  * When that save fails the canvas stays open and `leaving` asks whether to
  * try again or leave without saving; nothing is dropped without that answer.
+ * While an outside change waits for Keep mine or Use theirs, leaving,
+ * quitting and renaming wait for that answer too.
  */
 import { applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import { create } from 'zustand';
@@ -14,7 +16,14 @@ import { commands, errorMessage, type PlanDoc, type PlanSummary } from '@/ipc/cl
 import { clock } from '@/lib/clock';
 import { EMPTY_HISTORY } from './plan-history';
 import { flowEdgesOf, flowNodeOf, flowNodesOf, newEdge, newNode, withFields } from './plans';
-import { SAVE_FAILED, createSync, noteRename } from './plans-sync';
+import {
+  ANSWER_FIRST,
+  ANSWER_FIRST_DETAIL,
+  SAVE_FAILED,
+  answerFirst,
+  createSync,
+  noteRename,
+} from './plans-sync';
 import type { Leave, PlansStore } from './plans-store.types';
 import { useAppStore } from './use-app-store';
 
@@ -40,7 +49,10 @@ export const usePlansStore = create<PlansStore>((set, get) => {
   };
   /** Leaves the open canvas for `leave` once it is saved; false and asks when it is not. */
   const settle = async (leave: Leave) => {
-    if (!get().open || (await flush())) return true;
+    if (!get().open) return true;
+    // The outside change's dialog is up: leaving waits for its answer.
+    if (get().outside) return answerFirst();
+    if (await flush()) return true;
     set({ leaving: leave });
     return false;
   };
@@ -126,6 +138,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     rename: async (id, name) => {
       const project = get().project;
       if (!project) return false;
+      if (get().outside) return answerFirst();
       await get().save();
       try {
         const summary = await commands.planRename(project, id, name);
@@ -191,7 +204,10 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
     stay: () => set({ leaving: null }),
 
-    saveForQuit: async () => ((await flush()) ? null : (get().saveError ?? SAVE_FAILED)),
+    saveForQuit: async () => {
+      if (get().outside) return `${ANSWER_FIRST}. ${ANSWER_FIRST_DETAIL}`;
+      return (await flush()) ? null : (get().saveError ?? SAVE_FAILED);
+    },
 
     onNodesChange: changes => {
       set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -254,7 +270,8 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     openLink: async node => {
       const { project, open } = get();
       if (!project || !open) return;
-      await get().save();
+      // The link opens either way; the edits save once the outside change has its answer.
+      if (!get().outside) await get().save();
       try {
         await commands.planOpenLink(project, open.id, node);
       } catch (error) {

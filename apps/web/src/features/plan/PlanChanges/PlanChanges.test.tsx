@@ -62,6 +62,8 @@ describe('PlanChanges', () => {
   it('says when the log is empty or unreadable, and closes', async () => {
     show([]);
     expect(screen.getByText(/No changes yet/)).toBeInTheDocument();
+    // The footer says plainly what can stop being undoable, and when.
+    expect(screen.getByText(/stays undoable until you undo it/)).toHaveTextContent(/over 256 KB/);
     await userEvent.click(screen.getByRole('button', { name: 'Close Changes' }));
     expect(usePlanLogStore.getState().panel).toBe(false);
     usePlanLogStore.setState({ error: 'Locked' });

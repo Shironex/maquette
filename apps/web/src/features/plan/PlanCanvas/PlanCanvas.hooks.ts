@@ -35,7 +35,7 @@ export const ADD_KEYS: Record<string, AddKind> = { n: 'note', i: 'image', l: 'li
  * the bottom right. New nodes land in it, and the view pans to keep the
  * ones that just came inside it.
  */
-export const SAFE_INSET = { top: 64, right: 16, bottom: 150, left: 60 };
+export const SAFE_INSET = { top: 64, right: 32, bottom: 150, left: 60 };
 
 type Flow = ReactFlowInstance<FlowNode, FlowEdge>;
 
@@ -132,6 +132,16 @@ export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null
     }, 60);
     return () => clearTimeout(timer);
   }, [arrived, flow, frame, setArrived]);
+
+  // The Changes panel narrows the canvas: the nodes an outside write marked move back clear of its edge.
+  useEffect(() => {
+    if (!panel) return;
+    const timer = setTimeout(
+      () => reveal(flow, frame, Object.keys(usePlansStore.getState().marks)),
+      60
+    );
+    return () => clearTimeout(timer);
+  }, [panel, flow, frame]);
 
   const last = lines[0];
   const agent = last && last.by !== null ? last : null;

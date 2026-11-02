@@ -10,8 +10,10 @@
  * another window, a sync from another computer) is read again: when the
  * person has no unsaved edits it simply shows; when they do, their edits
  * are laid over it, and only when both changed the same thing does
- * `outside` ask which side wins (autosave waits until then). The app's own
- * writes read back as the base, so they never reload in a loop.
+ * `outside` ask which side wins. Until the person answers nothing saves:
+ * not autosave, leaving, quitting, renaming, opening a link or an undo
+ * from the log, since any save would choose Keep mine for them. The app's
+ * own writes read back as the base, so they never reload in a loop.
  */
 import {
   commands,
@@ -32,10 +34,16 @@ import type { GetPlans, PlansStore, SetPlans } from './plans-store.types';
 export const SAVE_DELAY = 500;
 
 export const SAVE_FAILED = 'The canvas was not saved';
+/** Why nothing saves while the outside change waits for its answer. */
+export const ANSWER_FIRST = 'The canvas changed outside';
+export const ANSWER_FIRST_DETAIL =
+  'Choose Keep mine or Use theirs first. Nothing saves until you answer.';
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 /** The save on its way, so the next one waits for it instead of racing it. */
 let inflight: Promise<boolean> | null = null;
+/** Counts saves started, so a reload knows one ran while it read the file. */
+let saves = 0;
 /** Counts renames, so a save answered after a rename keeps the new name. */
 let renames = 0;
 /** The flow's canvas at the last undo step, so the next edit records what changed since. */
@@ -51,6 +59,13 @@ const editedOutside = (before: PlanNode, after: PlanNode) =>
 
 const notifyFailed = (title: string, error: unknown) =>
   useAppStore.getState().notify({ status: 'failed', title, detail: errorMessage(error) });
+/** Says the outside change needs its answer before anything saves; false, for the path it stops. */
+export const answerFirst = () => {
+  useAppStore
+    .getState()
+    .notify({ status: 'info', title: ANSWER_FIRST, detail: ANSWER_FIRST_DETAIL });
+  return false;
+};
 
 export function createSync(set: SetPlans, get: GetPlans) {
   /** The canvas the flow shows, as the file would hold it. */
@@ -89,6 +104,7 @@ export function createSync(set: SetPlans, get: GetPlans) {
    * edited get their mark.
    */
   const adopt = (doc: PlanDoc, local: PlanFile, arrive = true) => {
+    const prev = draft();
     const { nodes, edges, images } = get();
     const had = new Map(nodes.map(n => [n.id, n.data.node]));
     const flow = flowFrom(local, nodes, edges);
@@ -110,7 +126,8 @@ export function createSync(set: SetPlans, get: GetPlans) {
       marks,
       ...(came.length ? { arrived: came } : {}),
     });
-    mark = local;
+    // The last undo step (a drag's start, too) takes in what changed, so the next step records only the person's edit.
+    mark = mark && prev ? applyOps(mark, diffPlans(prev, local), 'mine').plan : local;
   };
   /** Forgets the undo steps and timer, for a canvas opened or closed. */
   const reset = (plan: PlanFile | null) => {
@@ -154,6 +171,12 @@ export function createSync(set: SetPlans, get: GetPlans) {
         const { project, open } = get();
         const next = draft();
         if (!project || !open || !next || samePlan(next, open.plan)) return true;
+        // Saving now would choose Keep mine for the person: every path waits for their answer.
+        if (get().outside) {
+          if (!quiet) answerFirst();
+          return false;
+        }
+        saves += 1;
         const ops = diffPlans(open.plan, next);
         const sent = renames;
         const run = (async () => {
@@ -173,8 +196,6 @@ export function createSync(set: SetPlans, get: GetPlans) {
             if (samePlan(local, draft() ?? next)) set({ open: doc });
             else adopt(doc, local);
             set({ images: { ...get().images, ...doc.images }, saving: false, saveError: null });
-            // An answer that settles an outside change makes its question moot.
-            if (get().outside) set({ outside: null });
             changed(false);
             return true;
           } catch (error) {
@@ -191,16 +212,22 @@ export function createSync(set: SetPlans, get: GetPlans) {
 
       reload: async () => {
         // The app's own save first: its answer is the base the file is compared with.
-        while (inflight) await inflight;
-        const { project, open } = get();
-        if (!project || !open) return;
-        let doc: PlanDoc;
-        try {
-          doc = await commands.planGet(project, open.id);
-        } catch {
-          // Gone or unreadable for a moment (a sync mid write): the next change reads it again.
-          return;
+        let doc: PlanDoc | null = null;
+        // A save that ran while the file was read makes the read stale: read again after it.
+        for (let round = 0; round < 5 && !doc; round += 1) {
+          while (inflight) await inflight;
+          const { project, open } = get();
+          if (!project || !open) return;
+          const started = saves;
+          try {
+            doc = await commands.planGet(project, open.id);
+          } catch {
+            // Gone or unreadable for a moment (a sync mid write): the next change reads it again.
+            return;
+          }
+          if (started !== saves || inflight) doc = null;
         }
+        if (!doc) return;
         const base = get().open;
         const local = draft();
         if (base?.id !== doc.id || !local || samePlan(doc.plan, base.plan)) return;

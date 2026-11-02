@@ -121,6 +121,9 @@ export function applyOps(
       case 'remove-node': {
         const at = nodeAt(op.node.id);
         if (at < 0 || (merge === 'careful' && !deepEqual(nodes[at], op.node))) return false;
+        const linked = edges.some(e => e.from === op.node.id || e.to === op.node.id);
+        // Careful (an undo): a node someone linked since stays, and so do their links.
+        if (merge === 'careful' && linked) return false;
         nodes = nodes.filter(n => n.id !== op.node.id);
         edges = edges.filter(e => e.from !== op.node.id && e.to !== op.node.id);
         return true;

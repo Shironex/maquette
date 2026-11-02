@@ -31,6 +31,22 @@ describe('plan operations', () => {
     expect(back.plan.edges.map(e => e.id).sort()).toEqual(['e-01', 'e-02', 'e-03']);
   });
 
+  it('keeps a node someone linked since, and their link, when undoing carefully', () => {
+    const base = demoCombat();
+    const added = { ...base, nodes: [...base.nodes, note('n-09', 0, 600, 'Agent note')] };
+    const add = diffPlans(base, added);
+    const link = { ...base.edges[0]!, id: 'e-person', from: 'n-01', to: 'n-09' };
+    const linked = { ...added, edges: [...added.edges, link] };
+    const undone = applyOps(linked, invertOps(add), 'careful');
+    expect(undone.skipped).toBe(1);
+    expect(undone.plan.nodes.map(n => n.id)).toContain('n-09');
+    expect(undone.plan.edges.map(e => e.id)).toContain('e-person');
+    // Written as the person's own removal it goes, links and all.
+    expect(applyOps(linked, invertOps(add), 'mine').plan.edges.map(e => e.id)).not.toContain(
+      'e-person'
+    );
+  });
+
   it('leaves a field changed since alone when applied carefully', () => {
     const base = demoCombat();
     const mine = withNode(base, 'n-01', { text: 'Mine' });

@@ -27,7 +27,19 @@ const KIND_NAME: Record<PlanNode['kind'], string> = {
   direction: 'Lab direction',
 };
 
-const nameOf = (node: PlanNode) => node.title || node.text.split('\n')[0]?.slice(0, 48) || node.id;
+/** `text` cut to `max` characters at the end of a word, with an ellipsis, as the core's summaries are. */
+export function clipWords(text: string, max = 60): string {
+  const chars = [...text];
+  if (chars.length <= max) return text;
+  const head = chars.slice(0, max - 1).join('');
+  const at = head.search(/\s\S*$/);
+  const cut =
+    at >= 0 && [...head.slice(0, at)].length >= Math.floor(max / 3) ? head.slice(0, at) : head;
+  return `${cut.replace(/[\s,.]+$/, '')}\u2026`;
+}
+
+const nameOf = (node: PlanNode) =>
+  clipWords(node.title.trim() || node.text.trim().split('\n')[0]?.trim() || node.id);
 
 const counted = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
