@@ -187,8 +187,11 @@ impl ProviderJobs {
             job: job.clone(),
             chain: Chain::default(),
         };
+        #[cfg(test)]
+        self.shared.run_before_queue();
         let saving = self.shared.saving();
-        self.shared.still_open(&saving)?;
+        self.shared
+            .still_open(&saving, Some(workspace.generation))?;
         self.shared.jobs().push(Entry {
             stored: stored.clone(),
             stop: Arc::new(StopFlag::default()),

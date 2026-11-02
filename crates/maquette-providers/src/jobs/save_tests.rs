@@ -12,11 +12,13 @@ use serde_json::{Value, json};
 use super::tests::meshy_job;
 use super::worker::Run;
 use super::{JOBS_FILE, Options, ProviderJobs, update};
+use super::{Provider, SendRequest};
 use crate::error::CoreResult;
+use crate::presets::{PresetVariant, ProviderId};
 use crate::secrets::MemoryStore;
 use maquette_base::ports::TextureBake;
 use maquette_base::tools::Toolbox;
-use maquette_model::assets::AssetKind;
+use maquette_model::assets::{self, AssetKind, NewAsset, Stage};
 use maquette_model::project::{self, NewProject, ProjectTemplate};
 use maquette_model::sends::{InboxAim, InboxPort, SendPorts};
 use maquette_model::workspace::{self, WorkspaceConfig};
@@ -178,4 +180,62 @@ fn a_job_thread_of_a_closed_workspace_cannot_save_onto_the_next_one() {
     assert_ne!(job.message.as_deref(), Some("from the old workspace"));
     let saved = fs::read_to_string(&path).expect("read");
     assert!(!saved.contains("from the old workspace"), "{saved}");
+}
+
+/// Adds the asset `stone-lantern` with a front ref to `moon-island`.
+fn add_asset(root: &Path, config: &WorkspaceConfig) -> SendRequest {
+    let mut asset = String::new();
+    project::modify(root, &config.layout, "moon-island", |m| {
+        asset = assets::add(
+            m,
+            NewAsset {
+                name: "Stone lantern".into(),
+                kind: AssetKind::Prop,
+                stage: Stage::Refs,
+            },
+        )?
+        .id;
+        Ok(())
+    })
+    .expect("asset");
+    let refs = project::dir(root, &config.layout, "moon-island")
+        .expect("dir")
+        .join("refs");
+    fs::create_dir_all(&refs).expect("refs");
+    fs::write(refs.join("front.png"), b"\x89PNG\r\n\x1a\nfake").expect("image");
+    SendRequest {
+        project: "moon-island".to_string(),
+        asset,
+        provider: Provider::ByHand,
+        service: ProviderId::Tripo,
+        variant: PresetVariant::Prop,
+        images: vec!["refs/front.png".to_string()],
+        tripo: None,
+        meshy: None,
+        prompt: None,
+        redo_of: None,
+        studio: None,
+    }
+}
+
+#[test]
+fn a_send_read_before_a_switch_does_not_queue_in_the_next_workspace() {
+    let first = tempfile::tempdir().expect("dir");
+    let (jobs, config, _) = one_job(first.path());
+    let request = add_asset(first.path(), &config);
+    let second = tempfile::tempdir().expect("dir");
+    let (next, path) = workspace_with_job(second.path());
+    add_asset(second.path(), &next);
+
+    // The workspace switches after the send read the first one.
+    let switch = jobs.clone();
+    let root = second.path().to_path_buf();
+    *jobs.shared.before_queue.lock().expect("hook") = Some(Box::new(move || {
+        switch.open_workspace(&root, &next);
+    }));
+    let sent = jobs.send(&request, false, false);
+
+    assert!(sent.is_err(), "{sent:?}");
+    assert_eq!(saved_ids(&path), ["lantern-1"], "nothing new saved there");
+    assert_eq!(jobs.list(None).len(), 1, "nothing new queued there");
 }

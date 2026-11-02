@@ -75,7 +75,7 @@ impl ProviderJobs {
     /// Fails once the jobs have closed, writing nothing.
     pub fn clear_finished(&self, project: &str) -> CoreResult<()> {
         let saving = self.shared.saving();
-        self.shared.still_open(&saving)?;
+        self.shared.still_open(&saving, None)?;
         self.shared.jobs().retain(|e| {
             e.stored.job.project != project
                 || e.stored.job.state.is_active()
@@ -105,7 +105,11 @@ impl ProviderJobs {
         };
         let _one = self.shared.sending();
         let saving = self.shared.saving();
-        if self.shared.still_open(&saving).is_err() {
+        if self
+            .shared
+            .still_open(&saving, Some(workspace.generation))
+            .is_err()
+        {
             return 0;
         }
         let copied = {

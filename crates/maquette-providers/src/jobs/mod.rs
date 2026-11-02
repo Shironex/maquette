@@ -197,6 +197,10 @@ struct Shared {
     /// between a change and its write.
     #[cfg(test)]
     before_save: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+    /// Runs once as a send is about to queue its job, so a test can switch
+    /// the workspace after the send read it.
+    #[cfg(test)]
+    before_queue: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 impl Shared {
@@ -206,6 +210,19 @@ impl Shared {
 
     fn sending(&self) -> MutexGuard<'_, ()> {
         self.sending.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Runs the test hook set in `before_queue`, if any.
+    #[cfg(test)]
+    fn run_before_queue(&self) {
+        let hook = self
+            .before_queue
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take();
+        if let Some(hook) = hook {
+            hook();
+        }
     }
 
     /// Take before changing the job list in a way that gets saved, and
@@ -218,9 +235,21 @@ impl Shared {
 
     /// The open workspace, checked under `saving` just before a change
     /// that gets saved, so nothing is written once the jobs have closed.
-    fn still_open(&self, _saving: &Saving<'_>) -> CoreResult<Workspace> {
-        self.workspace()
-            .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))
+    /// With `read`, the generation of the workspace the caller read
+    /// earlier: a send prepared there is refused when another has opened
+    /// since, rather than queued in it.
+    fn still_open(&self, _saving: &Saving<'_>, read: Option<u64>) -> CoreResult<Workspace> {
+        let workspace = self
+            .workspace()
+            .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))?;
+        if read.is_some_and(|g| g != workspace.generation) {
+            return Err(CoreError::Unavailable(
+                "The workspace changed while this was being sent, so nothing was queued. \
+                 Send it again."
+                    .to_string(),
+            ));
+        }
+        Ok(workspace)
     }
 
     /// The open workspace's generation, `None` once the jobs have closed.
@@ -329,6 +358,8 @@ impl ProviderJobs {
                 ports,
                 #[cfg(test)]
                 before_save: Mutex::new(None),
+                #[cfg(test)]
+                before_queue: Mutex::new(None),
             }),
         }
     }
