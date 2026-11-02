@@ -664,3 +664,28 @@ fn a_new_direction_never_takes_a_name_windows_reserves() {
     assert_eq!(done.direction.id, "aux-1");
     assert_eq!(done.asset.id, "aux-1");
 }
+
+#[test]
+fn a_brief_used_again_finds_the_old_direction_of_that_name() {
+    let f = fixture();
+    for (id, name) in [("con", "Con"), ("project", "\u{96ea}")] {
+        fs::create_dir_all(f.dir.join("concepts").join(id)).expect("dir");
+        let old = Direction {
+            id: id.to_string(),
+            name: name.to_string(),
+            ..Direction::default()
+        };
+        save_direction(&f.dir, &old).expect("save");
+        let new = crate::concepts::NewConcepts {
+            project: f.id.clone(),
+            direction: name.into(),
+            prompt: "p".into(),
+            refs: vec![],
+            aspect: crate::concepts::Aspect::Square,
+            count: 1,
+            use_style: false,
+        };
+        let (direction, _) = crate::concepts::prepare(&f.dir, &new).expect("prepare");
+        assert_eq!(direction.id, id, "{name}");
+    }
+}

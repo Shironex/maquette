@@ -353,6 +353,16 @@ pub fn prepare(
     prepare_with(project_dir, new, None)
 }
 
+/// The folder of a direction already called `name`, which an older id rule
+/// may have put elsewhere (`con`, or `project` for a name in another script).
+fn existing_id(project_dir: &Path, name: &str) -> Option<String> {
+    let name = name.trim();
+    list_directions(project_dir)
+        .into_iter()
+        .find(|d| d.name.trim() == name)
+        .map(|d| d.id)
+}
+
 /// [`prepare`] for a batch that carries the style board at
 /// `style_revision`, which the direction records.
 pub(crate) fn prepare_with(
@@ -360,7 +370,8 @@ pub(crate) fn prepare_with(
     new: &NewConcepts,
     style_revision: Option<u32>,
 ) -> CoreResult<(Direction, Vec<(u32, String)>)> {
-    let id = direction_id(&new.direction);
+    let id =
+        existing_id(project_dir, &new.direction).unwrap_or_else(|| direction_id(&new.direction));
     let folder = direction_dir(project_dir, &id)?;
     let _guard = write_lock();
     let now = now_rfc3339();
