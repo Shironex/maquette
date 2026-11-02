@@ -23,7 +23,6 @@ import { trimText } from '@/state/plan-text';
 import { fail, type Args, type BackendOptions } from './backend-options';
 import { createCameraHandlers } from './create-camera-handlers';
 import { createPlanLinks, type PlanLinkDeps } from './create-plan-links';
-import type { createFakeLayout } from './layout';
 import { GENERATED_POOL } from './lab-fixtures';
 import { demoCanvases, demoLog, note, type Canvases } from './plan-fixtures';
 import { createMockLogs, summaryOf } from './plan-log';
@@ -116,8 +115,6 @@ export function createPlanHandlers(
     plans: string | null;
     /** Tells the view a canvas's file or log changed, as the watcher does. */
     emit?: BackendOptions['emit'];
-    /** The mock layout.json the camera plan is built from and applied to. */
-    layout?: ReturnType<typeof createFakeLayout>;
   }
 ) {
   const byProject = new Map<string, Canvases>();
@@ -197,7 +194,7 @@ export function createPlanHandlers(
       put: (project, id, plan) => void canvases(project).set(id, plan),
       doc,
       logs,
-      layout: deps.layout,
+      layout: deps.live.layout,
       emit: deps.emit,
       projectDir,
     }),

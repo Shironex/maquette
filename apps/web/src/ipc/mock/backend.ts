@@ -284,7 +284,7 @@ export function createBackend({
     pack: { pace, emit: payload => emit?.({ name: 'pack', payload }) },
     render: { state: renderState, emit: payload => emit?.({ name: 'render', payload }) },
   });
-  const live = { projects: () => projects, inbox: () => inbox, lab: lab.handlers };
+  const live = { projects: () => projects, inbox: () => inbox, lab: lab.handlers, layout };
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
     ...createCodexUsageHandlers({ state: codex, lab: lab.handlers }),
@@ -377,13 +377,7 @@ export function createBackend({
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
-    ...createPlanHandlers({
-      root: () => root,
-      plans: configured ? plans : null,
-      live,
-      emit,
-      layout,
-    }),
+    ...createPlanHandlers({ root: () => root, plans: configured ? plans : null, live, emit }),
     ...holdPageStarts(page.handlers, agents),
     ...game.handlers,
     ...avatars.handlers,
