@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 129 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 132 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 Every tool's description starts with its group in brackets: `[start]`, `[project]`, `[lab]`, `[refs]`, `[send]`, `[inbox]`, `[prepare]`, `[built]`, `[pipeline]`, `[game]`, `[library]`, `[animation]`, `[export]` and `[avatar-rig]`. Settings > Agents has a switch for the avatar and rig group: on by default, and off leaves its 7 tools out for the next agent that connects.
 
@@ -70,6 +70,8 @@ These look at the workspace and change nothing.
 | [`list_canvases`](#list_canvases)             | A project's planning canvases: id, name, preset, node and link counts and when each last changed                                                                                                                                                                                                                                                                                                                   |
 | [`get_canvas`](#get_canvas)                   | A planning canvas: its nodes and the links between them, each node with who added it                                                                                                                                                                                                                                                                                                                               |
 | [`get_changes`](#get_changes)                 | A planning canvas's change log, newest first, with the change ids `undo_run` takes                                                                                                                                                                                                                                                                                                                                 |
+| [`get_camera_plan`](#get_camera_plan)         | A website project's camera plan: the main line Apply would write, the agents' proposals and whether layout.json changed since                                                                                                                                                                                                                                                                                      |
+| [`get_apply_preview`](#get_apply_preview)     | What Apply would write to layout.json from the camera plan: every added, moved, removed and changed stop                                                                                                                                                                                                                                                                                                           |
 
 `preview_fixups` is read only too: it runs an asset's saved fix-ups headless on a copy and returns the numbers before and after each. It spends nothing.
 
@@ -143,6 +145,7 @@ These look at the workspace and change nothing.
 | [`remove_nodes`](#remove_nodes)                       | Removes nodes and links the agent added; a person's work is refused                                                                                                                                                                                                    |
 | [`layout_canvas`](#layout_canvas)                     | Moves the agent's own overlapping nodes to free spots                                                                                                                                                                                                                  |
 | [`undo_run`](#undo_run)                               | Undoes the agent's own changes on a planning canvas, a whole run or some changes                                                                                                                                                                                       |
+| [`propose_camera_plan`](#propose_camera_plan)         | Proposes a camera tour as the agent's own line beside the person's; never touches layout.json                                                                                                                                                                          |
 
 ## Spends credits, Codex usage or dollars, or needs approval
 
@@ -1317,15 +1320,15 @@ Adds nodes (`note`, `image`, `link`, `asset` or `direction`) and links to a canv
 
 `writes files`
 
-Edits or moves nodes: only the fields given change. Any node may be edited, a person's too, because the change log keeps what it said before and the edit can be undone. When the person edits the same field before saving, they choose in the app which value stays. The log keeps a person's earlier version until your change is released (the person presses Undo or Keep in the Changes panel, or you call `undo_run`), so a call is refused, with nothing written, when its undo record would pass 256 KB (send fewer nodes) or when the agents' changes to a person's content not released yet already hold 4 MB (adding nodes still works, and `undo_run` is never refused for room).
+Edits or moves nodes: only the fields given change. On the camera plan (canvas `camera-plan`), `stop` changes a stop node's camera settings; they stay in the plan until the person applies it. Any node may be edited, a person's too, because the change log keeps what it said before and the edit can be undone. When the person edits the same field before saving, they choose in the app which value stays. The log keeps a person's earlier version until your change is released (the person presses Undo or Keep in the Changes panel, or you call `undo_run`), so a call is refused, with nothing written, when its undo record would pass 256 KB (send fewer nodes) or when the agents' changes to a person's content not released yet already hold 4 MB (adding nodes still works, and `undo_run` is never refused for room).
 
-| Argument  | Type     | Required | What                                                      |
-| --------- | -------- | -------- | --------------------------------------------------------- |
-| `project` | string   | yes      | The project id.                                           |
-| `canvas`  | string   | yes      | The canvas id.                                            |
-| `nodes`   | object[] | yes      | Up to 100: `{ id, title?, text?, url?, x?, y?, width? }`. |
-| `agent`   | string   | no       | Your name as people see it.                               |
-| `run`     | string   | no       | A run id to group several calls.                          |
+| Argument  | Type     | Required | What                                                                                                              |
+| --------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                                                                   |
+| `canvas`  | string   | yes      | The canvas id.                                                                                                    |
+| `nodes`   | object[] | yes      | Up to 100: `{ id, title?, text?, url?, x?, y?, width?, stop? }`, `stop` as `{ name?, position?, target?, fov? }`. |
+| `agent`   | string   | no       | Your name as people see it.                                                                                       |
+| `run`     | string   | no       | A run id to group several calls.                                                                                  |
 
 ```json
 {
@@ -1400,4 +1403,96 @@ Undoes your own changes on a canvas: a whole `run`, or change ids from `get_chan
 
 ```json
 { "undone": 1, "change": "c-mh2k1x9a005", "kept": 0, "nothingChanged": false }
+```
+
+### get_camera_plan
+
+`read only`
+
+Reads a website project's camera plan, made from `layout.json` the first time it is opened. `main` is the line Apply would write, each stop as `{ node, id, name, position, target, fov }` in tour order; `lines` are the other lines, an agent's proposal with its `agent`, stops set aside without one. `stale: true` with `outside` (the counts) when `layout.json` changed since the plan was based on it: the person compares or rebases before Apply. `posters` lists the stops with a poster render. A game project has no camera plan and is refused.
+
+| Argument  | Type   | Required | What            |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+
+```json
+{ "project": "moon-island" }
+```
+
+```json
+{
+  "canvas": "camera-plan",
+  "main": [
+    {
+      "node": "n-s1",
+      "id": "porch",
+      "name": "Porch",
+      "position": [0, 1.6, 6],
+      "target": [0, 1, 0],
+      "fov": 35
+    }
+  ],
+  "lines": [],
+  "posters": ["porch"],
+  "apply": "Only the person applies a camera plan, with Apply in the app."
+}
+```
+
+### propose_camera_plan
+
+`writes files`
+
+Proposes a whole tour, the stops in order, as your own line of stop nodes below the person's main line on canvas `camera-plan`. A stop the plan or `layout.json` knows takes only the settings you give; a new stop needs `name`, `position` and `target`. Your earlier proposal under the same name is replaced, except stops a person wrote in or linked (`kept`). It never touches `layout.json` or the main line: the person can take the proposal's order in the app, then reviews the diff and presses Apply. No tool applies a camera plan. Answers with the new node ids, the change id (for `undo_run`) and `vsLayout`, how the proposal compares with `layout.json`.
+
+| Argument  | Type     | Required | What                                                               |
+| --------- | -------- | -------- | ------------------------------------------------------------------ |
+| `project` | string   | yes      | The project id.                                                    |
+| `stops`   | object[] | yes      | 1 to 24, in tour order: `{ id, name?, position?, target?, fov? }`. |
+| `agent`   | string   | no       | Your name as people see it, such as "Camera agent".                |
+| `run`     | string   | no       | A run id to group several calls.                                   |
+
+```json
+{
+  "project": "moon-island",
+  "agent": "Camera agent",
+  "stops": [{ "id": "porch" }, { "id": "moon" }, { "id": "bridge", "fov": 28 }]
+}
+```
+
+```json
+{
+  "nodes": ["n-p1", "n-p2", "n-p3"],
+  "change": "c-mh2k1x9a010",
+  "vsLayout": {
+    "counts": "0 stops added · 1 moved · 0 removed · 1 changed",
+    "stops": [
+      { "id": "moon", "from": 3, "to": 2, "moved": true },
+      { "id": "bridge", "from": 2, "to": 3, "changed": ["fov"] }
+    ]
+  },
+  "apply": "Only the person applies a camera plan, with Apply in the app."
+}
+```
+
+### get_apply_preview
+
+`read only`
+
+Reads what Apply would write to `layout.json` from the camera plan's main line now: `counts`, each stop that changes with its place before (`from`) and after (`to`) and the settings that change, `nodes` (the main line), `dropped` (triggers and timeline keys that go with a removed stop), `stale` and `problems` that block Apply. The person sees this same diff in the app before Apply, and an agent's `undo_run` on an Apply is refused: only the person undoes it, from the Changes panel.
+
+| Argument  | Type   | Required | What            |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+
+```json
+{ "project": "moon-island" }
+```
+
+```json
+{
+  "counts": "0 stops added · 0 moved · 0 removed · 1 changed",
+  "stops": [{ "id": "moon", "from": 3, "to": 3, "changed": ["fov"] }],
+  "nodes": ["n-s1", "n-s2", "n-s3"],
+  "apply": "Only the person applies a camera plan, with Apply in the app."
+}
 ```
