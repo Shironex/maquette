@@ -1062,7 +1062,9 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   person's edits are laid over the new file, and only when both changed the same field of the same
   node does the canvas ask Keep mine or Use theirs. Until the person answers nothing saves: not
   autosave, leaving, quitting, renaming, opening a link (the link opens, unsaved) or an undo from
-  the log, since any save would choose Keep mine for them; each says to answer first. A reload
+  the log, since any save would choose Keep mine for them; each says to answer first. Escape or a click outside
+  closes the question without choosing; the top bar's save line then says to answer the clash and
+  an Answer clash button asks again. A reload
   that a save overtook while it read the file reads again, and an outside change that lands mid
   drag keeps where the drag started for undo. When the folder cannot be watched the view says so
   and reads the canvas again each time the window comes to the front. An agent's
