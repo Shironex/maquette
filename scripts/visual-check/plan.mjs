@@ -4,8 +4,12 @@
  * question, Combat ideas open with notes, pictures, a link and edges, a
  * node selected and a note being written, the Add a link dialog, a new
  * empty canvas, the list and canvas at the minimum window size, and the
- * question asked when the save on the way back fails. Mock mode's
- * `?plans=demo` serves them (`?plans=locked`: the same, every save failing).
+ * question asked when the save on the way back fails. Then the asset links
+ * on Boss: Frost Warden, read live (ready, to check, no model, a file
+ * missing, a removed asset and a picked Lab direction), the removed one up
+ * close, the Asset picker and a linked asset added, and the same canvas at
+ * the minimum size. Mock mode's `?plans=demo` serves them
+ * (`?plans=locked`: the same, every save failing).
  */
 
 const SMALL = { width: 1120, height: 720 };
@@ -23,6 +27,56 @@ async function combat(page) {
   await page.getByRole('main', { name: 'Combat ideas canvas' }).waitFor();
   await page.getByRole('img', { name: 'Veil gate at night' }).waitFor();
   await page.waitForTimeout(600);
+}
+
+/** Opens Boss: Frost Warden and waits for the live read of its links. */
+async function boss(page) {
+  await page.getByRole('button', { name: 'Boss: Frost Warden', exact: true }).click();
+  await page.getByRole('main', { name: 'Boss: Frost Warden canvas' }).waitFor();
+  await page.getByRole('group', { name: 'Asset: Elsheria' }).waitFor();
+  await page.getByRole('group', { name: 'Asset: Asset not found' }).waitFor();
+  await page.waitForTimeout(600);
+}
+
+/** The asset links: live states, a removed asset, the picker and an added link. */
+async function assetShots(open, shot) {
+  const page = await plans(open);
+  await boss(page);
+  await shot(page, 'plan-assets');
+
+  const gone = page.getByRole('group', { name: 'Asset: Asset not found' });
+  await gone.click();
+  for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Zoom in' }).click();
+  await page.waitForTimeout(400);
+  const box = await gone.boundingBox();
+  const pane = await page.locator('.react-flow__pane').boundingBox();
+  // Bring the removed asset to the middle of the view.
+  await page.mouse.move(box.x + box.width / 2, box.y - 30);
+  await page.mouse.down();
+  await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2 - 60, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  await shot(page, 'plan-asset-missing');
+  await page.getByRole('button', { name: 'Fit the canvas in view' }).click();
+
+  await page.getByRole('button', { name: /^Asset/ }).click();
+  const picker = page.getByRole('dialog', { name: 'Link assets' });
+  await picker.waitFor();
+  await picker.getByText('Crystal lantern').click();
+  await picker.getByText('Veil gate kit').click();
+  await page.waitForTimeout(300);
+  await shot(page, 'plan-picker');
+  await picker.getByRole('button', { name: 'Add 2' }).click();
+  await page.getByRole('group', { name: 'Asset: Crystal lantern' }).waitFor();
+  await page.getByText('saved', { exact: false }).waitFor();
+  await page.waitForTimeout(600);
+  await shot(page, 'plan-asset-added');
+  await page.context().close();
+
+  const small = await plans(open, SMALL);
+  await boss(small);
+  await shot(small, 'plan-assets-small');
+  await small.context().close();
 }
 
 export async function planShots({ open, shot }) {
@@ -92,4 +146,6 @@ export async function planShots({ open, shot }) {
   await locked.waitForTimeout(300);
   await shot(locked, 'plan-unsaved');
   await locked.context().close();
+
+  await assetShots(open, shot);
 }

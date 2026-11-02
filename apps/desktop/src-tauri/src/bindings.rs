@@ -156,6 +156,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             plans::plan_remove,
             plans::plan_pick_image,
             plans::plan_open_link,
+            plans::plan_links,
             materials::materials_get,
             materials::materials_save,
             avatar::avatar_get,

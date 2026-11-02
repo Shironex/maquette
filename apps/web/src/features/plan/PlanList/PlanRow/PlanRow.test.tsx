@@ -13,6 +13,7 @@ const plan: PlanSummary = {
   edges: 1,
   images: 0,
   links: 0,
+  assets: 0,
   edited: '2026-10-31T09:00:00.000Z',
   problem: null,
 };

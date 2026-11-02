@@ -7,6 +7,7 @@
 import type { Connection, Edge, Node, XYPosition } from '@xyflow/react';
 import type { NodeKind, PlanEdge, PlanFile, PlanNode, PlanSummary, Side } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
+import { trimText } from './plan-text';
 
 export type PlanNodeData = { node: PlanNode };
 export type FlowNode = Node<PlanNodeData, NodeKind>;
@@ -20,7 +21,17 @@ export const coord = (value: number) =>
   Math.min(LIMITS.coord, Math.max(-LIMITS.coord, Math.round(value)));
 
 /** How wide each kind draws when the file keeps no width. */
-export const DEFAULT_WIDTH: Record<NodeKind, number> = { note: 220, image: 240, link: 260 };
+export const DEFAULT_WIDTH: Record<NodeKind, number> = {
+  note: 220,
+  image: 240,
+  link: 260,
+  asset: 248,
+  direction: 220,
+};
+
+/** Kinds that link something of the project and read its name live. */
+export const isLinked = (kind: NodeKind): kind is 'asset' | 'direction' =>
+  kind === 'asset' || kind === 'direction';
 
 /** The sides a node can be linked on; a handle's id is its side. */
 export const SIDES: readonly Side[] = ['top', 'right', 'bottom', 'left'];
@@ -35,11 +46,20 @@ export function newId(prefix: 'n' | 'e', nowMs: number, random = Math.random): s
   return `${prefix}-${nowMs.toString(36)}${noise}`;
 }
 
-const KIND_NAME: Record<NodeKind, string> = { note: 'Note', image: 'Picture', link: 'Link' };
+const KIND_NAME: Record<NodeKind, string> = {
+  note: 'Note',
+  image: 'Picture',
+  link: 'Link',
+  asset: 'Asset',
+  direction: 'Lab direction',
+};
 
-/** What a screen reader hears for a node: its kind and title. */
-export function nodeLabel(node: PlanNode): string {
-  return `${KIND_NAME[node.kind]}: ${nodeTitle(node)}`;
+/**
+ * What a screen reader hears for a node: its kind and title. An asset or
+ * direction node keeps no title, so its live `name` is passed in.
+ */
+export function nodeLabel(node: PlanNode, name?: string): string {
+  return `${KIND_NAME[node.kind]}: ${name ?? nodeTitle(node)}`;
 }
 
 export function flowNodeOf(node: PlanNode): FlowNode {
@@ -58,7 +78,13 @@ export function flowNodesOf(plan: PlanFile): FlowNode[] {
 }
 
 /** How tall a node is taken to be before it has drawn once. */
-const GUESS_HEIGHT: Record<NodeKind, number> = { note: 110, image: 250, link: 130 };
+const GUESS_HEIGHT: Record<NodeKind, number> = {
+  note: 110,
+  image: 250,
+  link: 130,
+  asset: 120,
+  direction: 190,
+};
 const GAP = 24;
 
 /**
@@ -104,6 +130,8 @@ export function flowEdgeOf(edge: PlanEdge): FlowEdge {
     sourceHandle: edge.fromSide,
     targetHandle: edge.toSide,
     label: edge.label ?? undefined,
+    labelBgPadding: [6, 3],
+    labelBgBorderRadius: 4,
     data: { edge },
   };
 }
@@ -114,12 +142,12 @@ export function flowEdgesOf(plan: PlanFile): FlowEdge[] {
 
 /** A node's fields as the core writes them: a trimmed title and address. */
 export function normalNode(node: PlanNode): PlanNode {
-  const url = node.url?.trim() ?? null;
-  return { ...node, title: node.title.trim(), url };
+  const url = node.url === null ? null : trimText(node.url);
+  return { ...node, title: trimText(node.title), url };
 }
 
 /** An edge label as the core writes it: trimmed, and none when empty. */
-const normalLabel = (label: string | null) => label?.trim() || null;
+const normalLabel = (label: string | null) => (label === null ? null : trimText(label) || null);
 
 /**
  * The canvas file the flow shows, positions in whole pixels and text
@@ -130,7 +158,7 @@ const normalLabel = (label: string | null) => label?.trim() || null;
 export function planOf(base: PlanFile, nodes: FlowNode[], edges: FlowEdge[]): PlanFile {
   return {
     ...base,
-    name: base.name.trim(),
+    name: trimText(base.name),
     nodes: nodes.map(n => ({
       ...normalNode(n.data.node),
       x: coord(n.position.x),
@@ -166,6 +194,10 @@ export interface NodeFields {
   text?: string;
   image?: string | null;
   url?: string | null;
+  /** An asset node's asset id. */
+  asset?: string | null;
+  /** A Lab direction node's direction id. */
+  direction?: string | null;
 }
 
 /** A new node of `kind` with its top left corner at `at`. */
@@ -181,12 +213,22 @@ export function newNode(
     x: coord(at.x),
     y: coord(at.y),
     width: null,
-    title: (fields.title ?? '').trim().slice(0, LIMITS.title),
+    title: trimText(fields.title ?? '').slice(0, LIMITS.title),
     text: (fields.text ?? '').slice(0, LIMITS.text),
     image: fields.image ?? null,
-    url: fields.url?.trim() ?? null,
+    url: fields.url ? trimText(fields.url) : null,
+    asset: fields.asset ?? null,
+    direction: fields.direction ?? null,
     by: null,
   };
+}
+
+/** A flow node with some of its fields changed, inside the limits. */
+export function withFields(flow: FlowNode, fields: NodeFields): FlowNode {
+  const node = { ...flow.data.node, ...fields };
+  node.title = node.title.slice(0, LIMITS.title);
+  node.text = node.text.slice(0, LIMITS.text);
+  return { ...flow, ariaLabel: nodeLabel(node), data: { node } };
 }
 
 /** A link between two nodes as a person draws it: they relate. */
@@ -211,7 +253,7 @@ export function newEdge(connection: Connection, nowMs: number): FlowEdge | null 
  * it has no scheme, `null` when it is not an http or https address.
  */
 export function webAddress(typed: string): string | null {
-  const text = typed.trim();
+  const text = trimText(typed);
   if (!text || /\s/.test(text)) return null;
   const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
   try {
@@ -233,13 +275,21 @@ export function hostOf(url: string | null): string {
   }
 }
 
+const UNTITLED: Record<NodeKind, string> = {
+  note: 'Empty note',
+  image: 'Picture',
+  link: 'Link',
+  asset: 'Linked asset',
+  direction: 'Lab direction',
+};
+
 /** A node's one line name, for the minimap, search and dialogs. */
 export function nodeTitle(node: PlanNode): string {
-  const title = node.title.trim();
+  const title = trimText(node.title);
   if (title) return title;
-  const first = node.text.trim().split('\n')[0] ?? '';
+  const first = trimText(node.text).split('\n')[0] ?? '';
   if (first) return first.length > 60 ? `${first.slice(0, 59)}...` : first;
-  return node.kind === 'note' ? 'Empty note' : node.kind === 'image' ? 'Picture' : 'Link';
+  return UNTITLED[node.kind];
 }
 
 /** The canvases edited last first, then by name. */
@@ -256,11 +306,12 @@ export function findPlans(plans: readonly PlanSummary[], query: string): PlanSum
   return plans.filter(p => p.name.toLowerCase().includes(q) || p.file.toLowerCase().includes(q));
 }
 
-/** "9 nodes · 3 pictures · 2 links", leaving out what a canvas has none of. */
+/** "9 nodes · 3 pictures · 2 links · 1 asset", leaving out what a canvas has none of. */
 export function contentLine(plan: PlanSummary): string {
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const parts = [count(plan.nodes, 'node', 'nodes')];
   if (plan.images) parts.push(count(plan.images, 'picture', 'pictures'));
   if (plan.links) parts.push(count(plan.links, 'link', 'links'));
+  if (plan.assets) parts.push(count(plan.assets, 'asset', 'assets'));
   return parts.join(' · ');
 }

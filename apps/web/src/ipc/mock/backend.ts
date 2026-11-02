@@ -39,6 +39,7 @@ import { createPageHandlers, holdPageStarts } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createPlanHandlers } from './create-plan-handlers';
+import { aimDemoInbox } from './plan-fixtures';
 import { createGameHandlers } from './create-game-handlers';
 import { withoutPreviews } from './create-preview-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
@@ -134,6 +135,7 @@ export function createBackend({
     listed,
     gameState === 'crypt' ? (projects.find(p => p.id === 'crypt-game') ?? null) : null
   );
+  if (plans === 'demo' || plans === 'locked') inbox = aimDemoInbox(inbox);
 
   const prepare = createPrepareHandlers({
     project: id => project(id),
@@ -282,6 +284,7 @@ export function createBackend({
     pack: { pace, emit: payload => emit?.({ name: 'pack', payload }) },
     render: { state: renderState, emit: payload => emit?.({ name: 'render', payload }) },
   });
+  const live = { projects: () => projects, inbox: () => inbox, lab: lab.handlers };
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
     ...createCodexUsageHandlers({ state: codex, lab: lab.handlers }),
@@ -374,7 +377,7 @@ export function createBackend({
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
-    ...createPlanHandlers({ root: () => root, plans: configured ? plans : null }),
+    ...createPlanHandlers({ root: () => root, plans: configured ? plans : null, live }),
     ...holdPageStarts(page.handlers, agents),
     ...game.handlers,
     ...avatars.handlers,

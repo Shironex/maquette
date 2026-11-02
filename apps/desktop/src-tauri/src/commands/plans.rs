@@ -1,16 +1,20 @@
 //! The Plan view: a project's planning canvases, one file each in its
 //! `plans/` folder. Listing, making, reading, saving, renaming and removing
-//! them, picking a picture for an image node and opening a link node's page.
+//! them, picking a picture for an image node, opening a link node's page and
+//! reading the assets and Lab directions a canvas links, live.
 
 use std::path::{Path, PathBuf};
 
 use maquette_core::assets::remove::project_trash;
+use maquette_core::plan_links::{self, LinkFacts, PlanLinks};
 use maquette_core::plans::{self, PlanDoc, PlanFile, PlanPreset, PlanSummary, images::PlanImage};
-use maquette_core::{CoreError, project};
+use maquette_core::{CoreError, inbox, project};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt as _;
 
-use super::CommandResult;
+use super::lab::Lab;
+use super::providers::Studio;
+use super::{CommandResult, blocking};
 use crate::session::Session;
 
 fn project_dir(session: &Session, project_id: &str) -> CommandResult<PathBuf> {
@@ -132,6 +136,46 @@ pub fn plan_open_link(
     })
 }
 
+/// What the asset and Lab direction nodes of a canvas show right now: each
+/// asset's name, picture, newest version and state (no model, a model to
+/// check in the Inbox, its file missing, ready, or gone from the Board),
+/// and each direction's images, picks and running jobs. Nothing of it is
+/// stored in the canvas. The Inbox is read only when assets are asked for.
+#[tauri::command]
+#[specta::specta]
+pub async fn plan_links(
+    session: State<'_, Session>,
+    lab: State<'_, Lab>,
+    studio: State<'_, Studio>,
+    project: String,
+    assets: Vec<String>,
+    directions: Vec<String>,
+) -> CommandResult<PlanLinks> {
+    let (root, config) = session.workspace()?;
+    let jobs = lab.0.jobs(Some(&project));
+    let studio = studio.0.clone();
+    blocking(move || {
+        let manifest = project::load(&root, &config.layout, &project)?;
+        let dir = project::dir(&root, &config.layout, &project)?;
+        // Reading the Inbox checks every model in it, so only when an asset asks.
+        let mut items = Vec::new();
+        if !assets.is_empty() {
+            items = inbox::list(&root, &config)?;
+            studio.link_inbox(&mut items);
+            inbox::place(&root, &config, &mut items);
+        }
+        let facts = LinkFacts {
+            project_dir: &dir,
+            manifest: &manifest,
+            inbox: &items,
+            jobs: &jobs,
+        };
+        Ok::<_, CoreError>(plan_links::read(&facts, &assets, &directions))
+    })
+    .await?
+    .map_err(Into::into)
+}
+
 /// The address of the link node `node` as the saved file has it: only a
 /// link node's, and only an https one.
 fn link_url(plan: &plans::PlanFile, node: &str) -> CommandResult<String> {
@@ -197,6 +241,8 @@ mod tests {
             text: String::new(),
             image: (kind == plans::NodeKind::Image).then(|| "concepts/a.png".to_string()),
             url: url.map(str::to_string),
+            asset: None,
+            direction: None,
             by: None,
         }
     }

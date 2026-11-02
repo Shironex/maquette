@@ -188,6 +188,28 @@ export const cases = [
     },
   },
   {
+    name: 'plan asset links',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('button', { name: 'Boss: Frost Warden', exact: true }).click();
+      await page.getByRole('group', { name: 'Asset: Asset not found' }).waitFor();
+    },
+  },
+  {
+    name: 'plan asset picker',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('button', { name: 'Boss: Frost Warden', exact: true }).click();
+      await page.getByRole('button', { name: /^Asset/ }).click();
+      await page
+        .getByRole('dialog', { name: 'Link assets' })
+        .getByText('Frozen lake arena')
+        .waitFor();
+    },
+  },
+  {
     name: 'inbox',
     query: CONFIGURED,
     hash: '#/inbox',

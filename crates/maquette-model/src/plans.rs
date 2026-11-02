@@ -7,7 +7,7 @@
 //!
 //! ```json
 //! {
-//!   "version": 1,
+//!   "version": 2,
 //!   "name": "Combat ideas",
 //!   "preset": "brainstorm",
 //!   "created": "2026-11-02T10:00:00.000Z",
@@ -15,10 +15,13 @@
 //!   "nodes": [
 //!     { "id": "n-1", "kind": "note", "x": 40, "y": 80, "width": null,
 //!       "title": "", "text": "Frost veil slows time", "image": null, "url": null,
-//!       "by": null },
+//!       "asset": null, "direction": null, "by": null },
 //!     { "id": "n-2", "kind": "image", "x": 320, "y": 80, "width": 240,
 //!       "title": "Porch at dusk", "text": "", "image": "plans/images/porch-1a2b3c4d.png",
-//!       "url": null, "by": null }
+//!       "url": null, "asset": null, "direction": null, "by": null },
+//!     { "id": "n-3", "kind": "asset", "x": 640, "y": 80, "width": null,
+//!       "title": "", "text": "", "image": null, "url": null,
+//!       "asset": "frost-warden", "direction": null, "by": null }
 //!   ],
 //!   "edges": [
 //!     { "id": "e-1", "from": "n-1", "to": "n-2", "fromSide": "right", "toSide": "left",
@@ -32,6 +35,13 @@
 //! an agent's writes will carry its name. Pictures are project relative
 //! paths: one from inside the project is linked where it is, one from
 //! elsewhere is copied into `plans/images/` first ([`images`]).
+//!
+//! An asset node keeps only the asset's id and a Lab direction node only
+//! the direction's folder name: their name, picture and state are read
+//! from the project each time they show, never copied into the file, so a
+//! canvas never goes stale and a removed asset only shows as gone. Files
+//! of an older version are brought up to this one as they are read
+//! ([`migrate`]) and written as this version only when a save changes them.
 
 use std::fs;
 use std::io::{self, Read as _};
@@ -44,13 +54,16 @@ use crate::error::{CoreError, CoreResult};
 mod check;
 mod files;
 pub mod images;
+pub mod migrate;
+pub mod text;
 
-pub use check::{check_name, is_project_relative, validate};
+pub use check::{check_name, is_link_id, is_project_relative, validate};
 pub use files::{PlanDoc, PlanSummary, create, get, list, remove, rename, save};
+pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";
 pub const PLAN_SUFFIX: &str = ".plan.json";
-pub const PLAN_VERSION: u32 = 1;
+pub const PLAN_VERSION: u32 = 2;
 pub const NAME_MAX_CHARS: usize = 120;
 pub const TITLE_MAX_CHARS: usize = 300;
 pub const TEXT_MAX_CHARS: usize = 20_000;
@@ -59,6 +72,8 @@ pub const URL_MAX_CHARS: usize = 2_048;
 pub const IMAGE_PATH_MAX_CHARS: usize = 1_024;
 /// Who made a node or edge: an agent's name.
 pub const BY_MAX_CHARS: usize = 64;
+/// The id of an asset or a Lab direction a node links.
+pub const LINK_ID_MAX_CHARS: usize = 128;
 /// The biggest canvas file read. A canvas at every limit is far under it; a
 /// bigger file (a broken sync, a wrong file) lists as broken unread.
 pub const MAX_FILE_BYTES: u64 = 8 * 1024 * 1024;
@@ -89,6 +104,11 @@ pub enum NodeKind {
     Image,
     /// A web address with a title and a short note.
     Link,
+    /// An asset of the project, by its id. Its name, picture and state are
+    /// read from the project each time.
+    Asset,
+    /// A direction in the project's Lab, by its folder name. Read live too.
+    Direction,
 }
 
 /// The side of a node an edge leaves or arrives at.
@@ -131,6 +151,10 @@ pub struct PlanNode {
     pub image: Option<String>,
     /// A link node's `http` or `https` address.
     pub url: Option<String>,
+    /// An asset node's asset id. Nothing else about the asset is stored.
+    pub asset: Option<String>,
+    /// A Lab direction node's direction id, its folder under `concepts/`.
+    pub direction: Option<String>,
     /// Who made it: `None` for a person, else the agent's name.
     pub by: Option<String>,
 }
@@ -168,7 +192,7 @@ impl PlanFile {
         let now = crate::project::now_rfc3339();
         Self {
             version: PLAN_VERSION,
-            name: name.trim().to_string(),
+            name: trimmed(name).to_string(),
             preset,
             created: now.clone(),
             edited: now,
@@ -212,7 +236,7 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
 ///
 /// Fails when the file is missing, unreadable or over [`MAX_FILE_BYTES`]
 /// (checked before reading), comes from a newer Maquette or holds values
-/// [`validate`] refuses.
+/// [`validate`] refuses once normalised.
 pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
     let text = match read_capped(file) {
         Ok(text) => text,
@@ -233,16 +257,13 @@ pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
     let value: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| CoreError::json(file, e))?;
     // The version first, so a newer file whose shape changed says so.
-    let version = value.get("version").and_then(serde_json::Value::as_u64);
-    if let Some(found) = version.filter(|v| *v > u64::from(PLAN_VERSION)) {
-        return Err(CoreError::UnsupportedVersion {
-            found: u32::try_from(found).unwrap_or(u32::MAX),
-            supported: PLAN_VERSION,
-        });
-    }
+    let value = migrate::to_current(value)?;
     let plan: PlanFile = serde_json::from_value(value).map_err(|e| CoreError::json(file, e))?;
+    // Checked as it would be written, so a title padded past the limit
+    // with spaces still opens.
+    let plan = normalized(&plan);
     validate(&plan)?;
-    Ok(normalized(&plan))
+    Ok(plan)
 }
 
 /// The file's text, refused unread when its size is over [`MAX_FILE_BYTES`].
@@ -262,15 +283,15 @@ fn read_capped(file: &Path) -> io::Result<String> {
 
 /// The canvas as it is written: the current version, trimmed name, node
 /// titles and addresses, empty edge labels as none, and nodes and edges
-/// sorted by id. The view does the same (`apps/web/src/state/plans.ts`,
+/// sorted by id. Trimming takes the [`text::TRIMMED`] set. The view does the same (`apps/web/src/state/plans.ts`,
 /// `planOf`), so a canvas it sends back unchanged is the canvas saved.
 pub fn normalized(plan: &PlanFile) -> PlanFile {
     let mut nodes: Vec<PlanNode> = plan
         .nodes
         .iter()
         .map(|n| PlanNode {
-            title: n.title.trim().to_string(),
-            url: n.url.as_ref().map(|u| u.trim().to_string()),
+            title: trimmed(&n.title).to_string(),
+            url: n.url.as_deref().map(|u| trimmed(u).to_string()),
             ..n.clone()
         })
         .collect();
@@ -282,7 +303,7 @@ pub fn normalized(plan: &PlanFile) -> PlanFile {
             label: e
                 .label
                 .as_ref()
-                .map(|l| l.trim().to_string())
+                .map(|l| trimmed(l).to_string())
                 .filter(|l| !l.is_empty()),
             ..e.clone()
         })
@@ -290,7 +311,7 @@ pub fn normalized(plan: &PlanFile) -> PlanFile {
     edges.sort_by(|a, b| a.id.cmp(&b.id));
     PlanFile {
         version: PLAN_VERSION,
-        name: plan.name.trim().to_string(),
+        name: trimmed(&plan.name).to_string(),
         nodes,
         edges,
         ..plan.clone()

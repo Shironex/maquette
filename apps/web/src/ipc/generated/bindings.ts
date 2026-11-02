@@ -376,6 +376,14 @@ export const commands = {
 	 *  saved canvas, never taken from the web view, and only `https` opens.
 	 */
 	planOpenLink: (project: string, id: string, node: string) => __TAURI_INVOKE<null>("plan_open_link", { project, id, node }),
+	/**
+	 *  What the asset and Lab direction nodes of a canvas show right now: each
+	 *  asset's name, picture, newest version and state (no model, a model to
+	 *  check in the Inbox, its file missing, ready, or gone from the Board),
+	 *  and each direction's images, picks and running jobs. Nothing of it is
+	 *  stored in the canvas. The Inbox is read only when assets are asked for.
+	 */
+	planLinks: (project: string, assets: string[], directions: string[]) => __TAURI_INVOKE<PlanLinks>("plan_links", { project, assets, directions }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears
@@ -1270,6 +1278,36 @@ export type AssetAnimations = {
 };
 
 export type AssetKind = "prop" | "character" | "scene";
+
+/**  An asset node's live view of its asset. */
+export type AssetLink = {
+	id: string,
+	state: AssetLinkState,
+	/**  The rest is `None` for a gone asset. */
+	name: string | null,
+	kind: AssetKind | null,
+	stage: Stage | null,
+	/**  The asset's picture on this computer, when the file is there. */
+	thumbnail: string | null,
+	/**  The newest version, and its file relative to the project. */
+	version: number | null,
+	file: string | null,
+	stats: ModelStats | null,
+	/**  Models in the Inbox made for this asset, waiting to be checked. */
+	checks: number,
+};
+
+export type AssetLinkState = 
+/**  No asset with this id in the project: removed, or from elsewhere. */
+"gone" | 
+/**  On the Board without a model yet. */
+"no-model" | 
+/**  A model for it waits in the Inbox to be checked. */
+"check" | 
+/**  Its newest version's file is not on disk. */
+"file-missing" | 
+/**  Its newest model is there. */
+"ready";
 
 /**
  *  Where a Board asset came from in the library: the entry id and the
@@ -2694,6 +2732,35 @@ export type Direction = {
 	 */
 	refsJob?: RefsJob | null,
 };
+
+/**  A Lab direction node's live view of its direction. */
+export type DirectionLink = {
+	id: string,
+	state: DirectionLinkState,
+	name: string | null,
+	images: number,
+	picked: number,
+	/**  Its images still on their way, and those of the same jobs done. */
+	pending: number,
+	done: number,
+	/**  The first picked image, else the newest, on this computer. */
+	thumbnail: string | null,
+};
+
+export type DirectionLinkState = 
+/**  No direction with this id in the Lab. */
+"gone" | 
+/**  The direction has no images yet. */
+"empty" | 
+/**
+ *  One of its images is being made right now. Queued, held or waiting
+ *  jobs do not count, so a round the usage limit holds is not polled.
+ */
+"running" | 
+/**  It has images and none is picked. */
+"pick" | 
+/**  At least one image is picked. */
+"picked";
 
 /**  Where a discarded model went. */
 export type Discarded = {
@@ -4589,7 +4656,14 @@ export type NodeKind =
 /**  A picture inside the project, with an optional caption. */
 "image" | 
 /**  A web address with a title and a short note. */
-"link";
+"link" | 
+/**
+ *  An asset of the project, by its id. Its name, picture and state are
+ *  read from the project each time.
+ */
+"asset" | 
+/**  A direction in the project's Lab, by its folder name. Read live too. */
+"direction";
 
 /**  The script's `report.json`. */
 export type NormalizeReport = {
@@ -5232,6 +5306,12 @@ export type PlanImage = {
 	copied: boolean,
 };
 
+/**  The live view of every asset and direction a canvas links. */
+export type PlanLinks = {
+	assets: AssetLink[],
+	directions: DirectionLink[],
+};
+
 export type PlanNode = {
 	id: string,
 	kind: NodeKind,
@@ -5251,6 +5331,10 @@ export type PlanNode = {
 	image: string | null,
 	/**  A link node's `http` or `https` address. */
 	url: string | null,
+	/**  An asset node's asset id. Nothing else about the asset is stored. */
+	asset: string | null,
+	/**  A Lab direction node's direction id, its folder under `concepts/`. */
+	direction: string | null,
 	/**  Who made it: `None` for a person, else the agent's name. */
 	by: string | null,
 };
@@ -5272,6 +5356,8 @@ export type PlanSummary = {
 	edges: number,
 	images: number,
 	links: number,
+	/**  Asset nodes, each linking an asset of the project. */
+	assets: number,
 	/**  RFC 3339; empty when the file could not be read. */
 	edited: string,
 	/**  Why the file could not be read, for a canvas that only lists. */

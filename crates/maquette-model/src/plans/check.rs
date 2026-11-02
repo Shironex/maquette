@@ -6,9 +6,9 @@ use std::collections::BTreeSet;
 
 use super::images::IMAGE_EXTENSIONS;
 use super::{
-    BY_MAX_CHARS, ID_MAX_CHARS, IMAGE_PATH_MAX_CHARS, MAX_COORD, MAX_EDGES, MAX_NODES, MAX_WIDTH,
-    MIN_WIDTH, NAME_MAX_CHARS, NodeKind, PlanFile, PlanNode, TEXT_MAX_CHARS, TITLE_MAX_CHARS,
-    URL_MAX_CHARS,
+    BY_MAX_CHARS, ID_MAX_CHARS, IMAGE_PATH_MAX_CHARS, LINK_ID_MAX_CHARS, MAX_COORD, MAX_EDGES,
+    MAX_NODES, MAX_WIDTH, MIN_WIDTH, NAME_MAX_CHARS, NodeKind, PlanFile, PlanNode, TEXT_MAX_CHARS,
+    TITLE_MAX_CHARS, URL_MAX_CHARS,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::project::is_windows_reserved;
@@ -25,13 +25,24 @@ fn is_item_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
+/// True for the id of an asset or Lab direction a node may link: ASCII
+/// letters, digits, dashes and underscores, as asset ids and direction
+/// folders are made, so it can never name a path.
+pub fn is_link_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= LINK_ID_MAX_CHARS
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 /// Checks a canvas name: one line, not blank, not too long.
 ///
 /// # Errors
 ///
 /// [`CoreError::Invalid`] saying what to fix.
 pub fn check_name(name: &str) -> CoreResult<()> {
-    let name = name.trim();
+    let name = super::trimmed(name);
     if name.is_empty() {
         return invalid("Give the canvas a name.".into());
     }
@@ -81,7 +92,7 @@ fn is_picture_path(path: &str) -> bool {
 }
 
 fn is_web_address(url: &str) -> bool {
-    let url = url.trim();
+    let url = super::trimmed(url);
     url.len() <= URL_MAX_CHARS
         && (url.starts_with("https://") || url.starts_with("http://"))
         && url.len() > "https://".len()
@@ -100,27 +111,73 @@ fn check_by(by: Option<&str>, what: &str) -> CoreResult<()> {
     }
 }
 
-/// The picture and address fields by kind: an image needs a picture and no
-/// address, a link an address and no picture, a note neither.
+/// The picture, address and link fields by kind: an image needs a picture,
+/// a link an address, an asset node an asset id and a Lab direction node a
+/// direction id, and each kind holds only its own. Asset and direction
+/// nodes keep no title or text: their names are read from the project.
 fn check_kind(node: &PlanNode) -> CoreResult<()> {
     let id = &node.id;
     let (image, url) = (node.image.as_deref(), node.url.as_deref());
+    let (asset, direction) = (node.asset.as_deref(), node.direction.as_deref());
     match node.kind {
-        NodeKind::Image if !image.is_some_and(is_picture_path) => invalid(format!(
-            "The picture node {id} needs a picture in the project ({}).",
-            IMAGE_EXTENSIONS.join(", ")
-        )),
-        NodeKind::Link if !url.is_some_and(is_web_address) => invalid(format!(
-            "The link node {id} needs an http or https address."
-        )),
-        NodeKind::Note | NodeKind::Link if image.is_some() => {
-            invalid(format!("Only a picture node holds a picture ({id})."))
+        NodeKind::Image if !image.is_some_and(is_picture_path) => {
+            return invalid(format!(
+                "The picture node {id} needs a picture in the project ({}).",
+                IMAGE_EXTENSIONS.join(", ")
+            ));
         }
-        NodeKind::Note | NodeKind::Image if url.is_some() => {
-            invalid(format!("Only a link node holds an address ({id})."))
+        NodeKind::Link if !url.is_some_and(is_web_address) => {
+            return invalid(format!(
+                "The link node {id} needs an http or https address."
+            ));
         }
-        _ => Ok(()),
+        NodeKind::Asset if !asset.is_some_and(is_link_id) => {
+            return invalid(format!(
+                "The asset node {id} needs the id of an asset in the project."
+            ));
+        }
+        NodeKind::Direction if !direction.is_some_and(is_link_id) => {
+            return invalid(format!(
+                "The Lab direction node {id} needs the id of a direction in the Lab."
+            ));
+        }
+        _ => {}
     }
+    let owned = [
+        (
+            image.is_some(),
+            NodeKind::Image,
+            "a picture node holds a picture",
+        ),
+        (
+            url.is_some(),
+            NodeKind::Link,
+            "a link node holds an address",
+        ),
+        (
+            asset.is_some(),
+            NodeKind::Asset,
+            "an asset node holds an asset",
+        ),
+        (
+            direction.is_some(),
+            NodeKind::Direction,
+            "a Lab direction node holds a direction",
+        ),
+    ];
+    if let Some((_, _, rule)) = owned
+        .iter()
+        .find(|(present, owner, _)| *present && node.kind != *owner)
+    {
+        return invalid(format!("Only {rule} ({id})."));
+    }
+    let linked = matches!(node.kind, NodeKind::Asset | NodeKind::Direction);
+    if linked && !(node.title.is_empty() && node.text.is_empty()) {
+        return invalid(format!(
+            "The node {id} reads its name from the project, so it keeps no title or text."
+        ));
+    }
+    Ok(())
 }
 
 fn check_node(node: &PlanNode) -> CoreResult<()> {

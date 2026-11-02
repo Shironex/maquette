@@ -4,132 +4,17 @@
  * that still exists, pictures inside the project, http and https links).
  *
  * `?plans=` in the URL:
- * - `demo`: Frostveil has three canvases; Combat ideas holds notes, two Lab
- *   pictures, a link and the edges between them.
+ * - `demo`: Frostveil's canvases (see plan-fixtures.ts), with asset and Lab
+ *   direction nodes read live by `plan_links` (create-plan-links.ts).
  * - anything else: no canvases yet.
  */
-import type { PlanDoc, PlanFile, PlanImage, PlanNode, PlanSummary } from '../client';
+import type { PlanDoc, PlanFile, PlanImage, PlanSummary } from '../client';
 import { clock } from '@/lib/clock';
+import { trimText } from '@/state/plan-text';
 import { fail, type Args } from './backend-options';
+import { createPlanLinks, type PlanLinkDeps } from './create-plan-links';
 import { GENERATED_POOL } from './lab-fixtures';
-
-type Canvases = Map<string, PlanFile>;
-
-const at = (iso: string) => iso;
-
-const note = (id: string, x: number, y: number, text: string, title = ''): PlanNode => ({
-  id,
-  kind: 'note',
-  x,
-  y,
-  width: null,
-  title,
-  text,
-  image: null,
-  url: null,
-  by: null,
-});
-
-/** Combat ideas: the canvas the demo opens on. */
-export function demoCombat(): PlanFile {
-  return {
-    version: 1,
-    name: 'Combat ideas',
-    preset: 'brainstorm',
-    created: at('2026-10-30T09:00:00.000Z'),
-    edited: at('2026-11-02T08:40:00.000Z'),
-    nodes: [
-      note(
-        'n-01',
-        60,
-        80,
-        'Slow time around you for a moment. Hold Shift, the same key as Dash.',
-        'Frost veil'
-      ),
-      note(
-        'n-02',
-        60,
-        300,
-        'Every third hit leaves a rune. Three runes in a row burst.',
-        'Rune combos'
-      ),
-      {
-        ...note('n-03', 380, 40, '', 'Veil gate at night'),
-        kind: 'image',
-        width: 260,
-        image: 'concepts/__pool/veil-gate-kit-b.webp',
-      },
-      {
-        ...note('n-04', 380, 330, '', 'Frozen lake arena'),
-        kind: 'image',
-        image: 'concepts/__pool/frozen-lake-d.webp',
-      },
-      {
-        ...note(
-          'n-05',
-          720,
-          120,
-          'Warm key, cool fill, glow under a third of the frame.',
-          'Lighting small scenes at night'
-        ),
-        kind: 'link',
-        url: 'https://example.com/lighting-small-scenes',
-      },
-      note('n-06', 720, 330, 'Does the veil read on a phone screen?'),
-    ],
-    edges: [
-      {
-        id: 'e-01',
-        from: 'n-01',
-        to: 'n-03',
-        fromSide: 'right',
-        toSide: 'left',
-        kind: 'relates',
-        label: null,
-        by: null,
-      },
-      {
-        id: 'e-02',
-        from: 'n-02',
-        to: 'n-04',
-        fromSide: 'right',
-        toSide: 'left',
-        kind: 'relates',
-        label: null,
-        by: null,
-      },
-      {
-        id: 'e-03',
-        from: 'n-03',
-        to: 'n-05',
-        fromSide: 'right',
-        toSide: 'left',
-        kind: 'source',
-        label: null,
-        by: null,
-      },
-    ],
-  };
-}
-
-function demoCanvases(): Canvases {
-  const blank = (name: string, edited: string): PlanFile => ({
-    version: 1,
-    name,
-    preset: 'brainstorm',
-    created: edited,
-    edited,
-    nodes: [],
-    edges: [],
-  });
-  const story = blank('Opening story', '2026-10-26T18:00:00.000Z');
-  story.nodes = [note('n-01', 0, 0, 'The Warden wakes and the gate shuts.', 'Beat 1')];
-  return new Map([
-    ['combat-ideas', demoCombat()],
-    ['opening-story', story],
-    ['boss-arena', blank('Boss arena', '2026-10-31T12:00:00.000Z')],
-  ]);
-}
+import { demoCanvases, type Canvases } from './plan-fixtures';
 
 function slugOf(name: string): string {
   const slug = name
@@ -144,7 +29,7 @@ function slugOf(name: string): string {
 }
 
 function checkName(name: string) {
-  const trimmed = name.trim();
+  const trimmed = trimText(name);
   if (!trimmed) fail('invalid', 'Give the canvas a name.');
   if (trimmed.length > 120) fail('invalid', 'Keep the canvas name under 120 characters.');
   return trimmed;
@@ -163,6 +48,12 @@ function checkPlan(plan: PlanFile) {
       fail('invalid', `The node ${node.id} is over the canvas limits.`);
     if (node.kind === 'link' && !/^https?:\/\/\S+$/.test(node.url ?? ''))
       fail('invalid', `The link node ${node.id} needs an http or https address.`);
+    if (node.kind === 'asset' && !/^[A-Za-z0-9_-]{1,128}$/.test(node.asset ?? ''))
+      fail('invalid', `The asset node ${node.id} needs the id of an asset in the project.`);
+    if (node.kind === 'direction' && !/^[A-Za-z0-9_-]{1,128}$/.test(node.direction ?? ''))
+      fail('invalid', `The Lab direction node ${node.id} needs the id of a direction in the Lab.`);
+    if ((node.asset && node.kind !== 'asset') || (node.direction && node.kind !== 'direction'))
+      fail('invalid', `Only an asset or Lab direction node links one (${node.id}).`);
   }
   for (const edge of plan.edges) {
     if (!ids.has(edge.from) || !ids.has(edge.to))
@@ -173,7 +64,7 @@ function checkPlan(plan: PlanFile) {
 const sortById = <T extends { id: string }>(items: T[]) =>
   [...items].sort((a, b) => a.id.localeCompare(b.id));
 
-export function createPlanHandlers(deps: { root: () => string | null; plans: string | null }) {
+export function createPlanHandlers(deps: PlanLinkDeps & { plans: string | null }) {
   const byProject = new Map<string, Canvases>();
   // `locked` serves the demo canvases but every save fails, as a file another program holds would.
   if (deps.plans === 'demo' || deps.plans === 'locked') byProject.set('frostveil', demoCanvases());
@@ -208,6 +99,7 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
     edges: plan.edges.length,
     images: plan.nodes.filter(n => n.kind === 'image').length,
     links: plan.nodes.filter(n => n.kind === 'link').length,
+    assets: plan.nodes.filter(n => n.kind === 'asset').length,
     edited: plan.edited,
     problem: null,
   });
@@ -218,6 +110,7 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
   };
 
   return {
+    ...createPlanLinks(deps),
     plan_list: ({ project }: Args) =>
       sortById([...canvases(project)].map(([id, plan]) => summary(id, plan))),
     plan_get: ({ project, id }: Args) => doc(project, String(id), existing(project, id)),
@@ -229,7 +122,7 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
       for (let n = 2; all.has(id); n += 1) id = `${base}-${n}`;
       const now = clock.now().toISOString();
       const plan: PlanFile = {
-        version: 1,
+        version: 2,
         name: trimmed,
         preset: 'brainstorm',
         created: now,
@@ -254,10 +147,20 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
         preset: current.preset,
         edited: clock.now().toISOString(),
         // Trimmed as the core trims a save.
+        version: 2,
         nodes: sortById(
-          next.nodes.map(n => ({ ...n, title: n.title.trim(), url: n.url?.trim() ?? null }))
+          next.nodes.map(n => ({
+            ...n,
+            title: trimText(n.title),
+            url: n.url === null ? null : trimText(n.url),
+          }))
         ),
-        edges: sortById(next.edges.map(e => ({ ...e, label: e.label?.trim() || null }))),
+        edges: sortById(
+          next.edges.map(e => ({
+            ...e,
+            label: e.label === null ? null : trimText(e.label) || null,
+          }))
+        ),
       };
       canvases(project).set(String(id), saved);
       return doc(project, String(id), saved);

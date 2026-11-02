@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { fileUrl } from '@/ipc/files';
 import type { PlanNode } from '@/ipc/client';
+import { usePlanLinksStore } from '@/state/use-plan-links-store';
+import { trimText } from '@/state/plan-text';
 import { usePlansStore } from '@/state/use-plans-store';
 
 /** Which text a node is editing: a note's text, or a picture's or link's title. */
@@ -14,6 +16,14 @@ export function usePlanNodeCard(node: PlanNode) {
   const updateNode = usePlansStore(s => s.updateNode);
   const openLink = usePlansStore(s => s.openLink);
   const file = usePlansStore(s => (node.image ? (s.images[node.image] ?? null) : null));
+  // A linked asset or direction the last read found gone draws dashed.
+  const gone = usePlanLinksStore(s =>
+    node.asset
+      ? s.assets[node.asset]?.state === 'gone'
+      : node.direction
+        ? s.directions[node.direction]?.state === 'gone'
+        : false
+  );
   // A note just made opens for writing.
   const [editing, setEditing] = useState<Editing>(() =>
     usePlansStore.getState().fresh === node.id ? 'text' : null
@@ -29,11 +39,12 @@ export function usePlanNodeCard(node: PlanNode) {
   }, [node.id]);
   const commit = () => {
     if (editing === 'text' && value !== node.text) updateNode(node.id, { text: value });
-    if (editing === 'title' && value.trim() !== node.title)
-      updateNode(node.id, { title: value.trim() });
+    if (editing === 'title' && trimText(value) !== node.title)
+      updateNode(node.id, { title: trimText(value) });
     setEditing(null);
   };
   return {
+    gone,
     src: fileUrl(file),
     editing,
     value,

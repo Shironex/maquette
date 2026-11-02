@@ -1,12 +1,84 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import type { NodeKind } from '@/ipc/client';
 import { typing } from '@/lib/typing';
-import { DEFAULT_WIDTH, freeSpot } from '@/state/plans';
+import { anyRunning, assetView, directionView, linkedIds, type LinkPick } from '@/state/plan-links';
+import { DEFAULT_WIDTH, freeSpot, isLinked, nodeLabel, type FlowNode } from '@/state/plans';
+import { useAppStore } from '@/state/use-app-store';
+import { useInboxStore } from '@/state/use-inbox-store';
+import {
+  CHANGE_REREAD_MS,
+  RUNNING_REREAD_MS,
+  usePlanLinksStore,
+} from '@/state/use-plan-links-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
+/** What the bar adds; an asset or Lab direction comes from the Asset picker. */
+export type AddKind = 'note' | 'image' | 'link' | 'asset';
+
 /** Keys that add a node while the canvas is open. */
-export const ADD_KEYS: Record<string, NodeKind> = { n: 'note', i: 'image', l: 'link' };
+export const ADD_KEYS: Record<string, AddKind> = { n: 'note', i: 'image', l: 'link', a: 'asset' };
+
+/**
+ * The live read of what the canvas links: again when it opens, when its
+ * links change, when the window comes back, every few seconds while a
+ * linked Lab round is being made, and once things settle after the
+ * project or the Inbox changes (they change on every job event, so those
+ * reads wait `CHANGE_REREAD_MS` for the last one). Leaving the canvas
+ * forgets the read.
+ */
+export function useLiveLinks() {
+  const project = usePlansStore(s => s.project);
+  const openId = usePlansStore(s => s.open?.id ?? null);
+  const nodes = usePlansStore(s => s.nodes);
+  const manifest = useAppStore(s => s.workspace?.project ?? null);
+  const inbox = useInboxStore(s => s.snapshot);
+  const refresh = usePlanLinksStore(s => s.refresh);
+  const clear = usePlanLinksStore(s => s.clear);
+  const running = usePlanLinksStore(s => anyRunning(s.directions));
+  const key = JSON.stringify(linkedIds(nodes.map(n => n.data.node)));
+  const read = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!project || !openId) return;
+    const now = () => void refresh(project, JSON.parse(key) as ReturnType<typeof linkedIds>);
+    read.current = now;
+    now();
+    window.addEventListener('focus', now);
+    const timer = running ? setInterval(now, RUNNING_REREAD_MS) : undefined;
+    return () => {
+      read.current = null;
+      window.removeEventListener('focus', now);
+      clearInterval(timer);
+    };
+  }, [project, openId, key, running, refresh]);
+  const seen = useRef({ manifest, inbox });
+  useEffect(() => {
+    if (seen.current.manifest === manifest && seen.current.inbox === inbox) return;
+    seen.current = { manifest, inbox };
+    const timer = setTimeout(() => read.current?.(), CHANGE_REREAD_MS);
+    return () => clearTimeout(timer);
+  }, [manifest, inbox]);
+  useEffect(() => clear, [clear]);
+}
+
+/** The flow's nodes with an asset or direction node named by its live read, for screen readers. */
+export function useNamedNodes(nodes: FlowNode[]): FlowNode[] {
+  const assets = usePlanLinksStore(s => s.assets);
+  const directions = usePlanLinksStore(s => s.directions);
+  return useMemo(
+    () =>
+      nodes.map(n => {
+        const node = n.data.node;
+        if (!isLinked(node.kind)) return n;
+        const view =
+          node.kind === 'asset'
+            ? assetView(assets[node.asset ?? ''])
+            : directionView(directions[node.direction ?? '']);
+        return { ...n, ariaLabel: nodeLabel(node, view.name) };
+      }),
+    [nodes, assets, directions]
+  );
+}
 
 /**
  * The open canvas: its nodes and edges from the store, where a new node
@@ -33,6 +105,9 @@ export function usePlanCanvas() {
   const { zoom } = useViewport();
   const frame = useRef<HTMLDivElement>(null);
   const [linking, setLinking] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const named = useNamedNodes(nodes);
+  useLiveLinks();
 
   const middle = (kind: NodeKind) => {
     const box = frame.current?.getBoundingClientRect();
@@ -42,9 +117,10 @@ export function usePlanCanvas() {
     const want = { x: centre.x - DEFAULT_WIDTH[kind] / 2, y: centre.y - 60 };
     return freeSpot(usePlansStore.getState().nodes, want, kind);
   };
-  const add = (kind: NodeKind) => {
+  const add = (kind: AddKind) => {
     if (kind === 'note') addNode('note', middle('note'));
     else if (kind === 'image') void addPicture(middle('image'));
+    else if (kind === 'asset') setPicking(true);
     else setLinking(true);
   };
   const addRef = useRef(add);
@@ -67,7 +143,7 @@ export function usePlanCanvas() {
 
   return {
     open,
-    nodes,
+    nodes: named,
     edges,
     onNodesChange,
     onEdgesChange,
@@ -76,6 +152,17 @@ export function usePlanCanvas() {
     add,
     linking,
     closeLink: () => setLinking(false),
+    /** The Asset picker: what the canvas links already, and adding what was picked. */
+    picker: {
+      open: picking,
+      linked: linkedIds(nodes.map(n => n.data.node)),
+      close: () => setPicking(false),
+      /** Each picked asset or direction lands near the middle, clear of the others. */
+      add: (picked: LinkPick[]) => {
+        setPicking(false);
+        for (const { kind, id } of picked) addNode(kind, middle(kind), { [kind]: id });
+      },
+    },
     addLink: (url: string, title: string) => {
       setLinking(false);
       addNode('link', middle('link'), { url, title });

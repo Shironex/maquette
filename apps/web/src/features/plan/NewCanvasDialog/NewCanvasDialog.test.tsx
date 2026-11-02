@@ -20,12 +20,22 @@ describe('NewCanvasDialog', () => {
     expect(usePlansStore.getState().open?.plan.name).toBe('Warden fight');
   });
 
+  it('counts a name made only of white space the core trims as blank', async () => {
+    await openPlans();
+    const onClose = vi.fn();
+    render(<NewCanvasDialog onClose={onClose} />);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), '\u0085\uFEFF{Enter}');
+    expect(screen.getByRole('button', { name: 'Create' })).toHaveAttribute('aria-disabled', 'true');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(usePlansStore.getState().list).toHaveLength(4);
+  });
+
   it('closes on Cancel without making anything', async () => {
     await openPlans();
     const onClose = vi.fn();
     render(<NewCanvasDialog onClose={onClose} />);
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledOnce();
-    expect(usePlansStore.getState().list).toHaveLength(3);
+    expect(usePlansStore.getState().list).toHaveLength(4);
   });
 });

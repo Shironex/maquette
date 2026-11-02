@@ -14,7 +14,7 @@ use serde::Serialize;
 
 use super::{
     MAX_FILE_BYTES, PLAN_SUFFIX, PlanFile, PlanPreset, check_name, dir, images, load_file,
-    normalized, path, validate,
+    normalized, path, trimmed, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::project::{latin_slug, now_rfc3339, windows_safe};
@@ -45,6 +45,8 @@ pub struct PlanSummary {
     pub edges: u32,
     pub images: u32,
     pub links: u32,
+    /// Asset nodes, each linking an asset of the project.
+    pub assets: u32,
     /// RFC 3339; empty when the file could not be read.
     pub edited: String,
     /// Why the file could not be read, for a canvas that only lists.
@@ -101,6 +103,7 @@ fn summary(id: &str, plan: &PlanFile) -> PlanSummary {
         edges: count(plan.edges.len()),
         images: of(super::NodeKind::Image),
         links: of(super::NodeKind::Link),
+        assets: of(super::NodeKind::Asset),
         edited: plan.edited.clone(),
         problem: None,
     }
@@ -139,6 +142,7 @@ pub fn list(project_dir: &Path) -> CoreResult<Vec<PlanSummary>> {
                 edges: 0,
                 images: 0,
                 links: 0,
+                assets: 0,
                 edited: String::new(),
                 problem: Some(err.to_string()),
             },
@@ -184,7 +188,7 @@ fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
 pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<PlanDoc> {
     check_name(name)?;
     let _lock = writing();
-    let id = free_id(project_dir, name.trim())?;
+    let id = free_id(project_dir, trimmed(name))?;
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     let plan = PlanFile::new(name, preset);
@@ -192,8 +196,9 @@ pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<
     Ok(doc(project_dir, &id, plan))
 }
 
-/// Writes `plan` over the canvas `id`, normalised. `edited` moves only when
-/// something changed; the name, `created` and the preset stay as the file
+/// Writes `plan` over the canvas `id`, normalised and then validated.
+/// `edited` moves only when something changed, so a canvas of an older
+/// version opened and sent back unchanged keeps its file as it was; the name, `created` and the preset stay as the file
 /// has them (only [`rename`] changes the name), so a save sent before a
 /// rename never puts the old name back.
 ///
@@ -202,11 +207,11 @@ pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<
 /// Fails when the canvas is gone, the plan does not validate or the file
 /// cannot be written.
 pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc> {
-    validate(plan)?;
+    let mut next = normalized(plan);
+    validate(&next)?;
     let _lock = writing();
     let file = path(project_dir, id)?;
     let current = load_file(&file)?;
-    let mut next = normalized(plan);
     next.name = current.name.clone();
     next.created = current.created.clone();
     next.preset = current.preset;
@@ -230,7 +235,7 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<PlanSummar
     let _lock = writing();
     let file = path(project_dir, id)?;
     let mut plan = load_file(&file)?;
-    let name = name.trim();
+    let name = trimmed(name);
     if plan.name != name {
         plan.name = name.to_string();
         plan.edited = now_rfc3339();

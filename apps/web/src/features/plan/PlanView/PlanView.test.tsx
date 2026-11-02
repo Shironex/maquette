@@ -14,7 +14,7 @@ describe('PlanView', () => {
     await openPlans();
     render(<PlanView />);
     expect(await screen.findByRole('region', { name: 'All canvases' })).toBeInTheDocument();
-    expect(screen.getByText('3 canvases')).toBeInTheDocument();
+    expect(screen.getByText('4 canvases')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Combat ideas' }));
     expect(await screen.findByRole('main', { name: 'Combat ideas canvas' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Plan, back to all canvases' }));

@@ -22,12 +22,11 @@ import {
   flowEdgesOf,
   flowNodeOf,
   flowNodesOf,
-  LIMITS,
   newEdge,
   newNode,
-  nodeLabel,
   planOf,
   samePlan,
+  withFields,
   type FlowEdge,
   type FlowNode,
   type NodeFields,
@@ -86,8 +85,8 @@ interface PlansStore {
   /** Picks a picture and adds it at `at`; false when cancelled or refused. */
   addPicture: (at: { x: number; y: number }) => Promise<boolean>;
   openLink: (node: string) => Promise<void>;
-  /** Saves the open canvas now, when it changed. */
-  save: () => Promise<boolean>;
+  /** Saves the open canvas now when it changed; `quiet` for a failure a dialog asks about. */
+  save: (quiet?: boolean) => Promise<boolean>;
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -96,15 +95,15 @@ let inflight: Promise<boolean> | null = null;
 /** Counts renames, so a save answered after a rename keeps the new name. */
 let renames = 0;
 
-function withFields(flow: FlowNode, fields: NodeFields): FlowNode {
-  const node = { ...flow.data.node, ...fields };
-  node.title = node.title.slice(0, LIMITS.title);
-  node.text = node.text.slice(0, LIMITS.text);
-  return { ...flow, ariaLabel: nodeLabel(node), data: { node } };
-}
-
 const notifyFailed = (title: string, error: unknown) =>
   useAppStore.getState().notify({ status: 'failed', title, detail: errorMessage(error) });
+const SAVE_FAILED = 'The canvas was not saved';
+/** A dialog asks about the failed save, so a notice saying the same goes. */
+const dropSaveNotice = () => {
+  const app = useAppStore.getState();
+  if (app.notice?.title === SAVE_FAILED) app.dismissNotice();
+  return false;
+};
 
 export const usePlansStore = create<PlansStore>((set, get) => {
   const draft = () => {
@@ -124,10 +123,10 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     clearTimeout(timer);
     timer = setTimeout(() => void get().save(), SAVE_DELAY);
   };
-  /** Saves until the file holds every edit; false when a save fails. */
+  /** Saves until the file holds every edit; false when a save fails, which the caller asks about. */
   const flush = async () => {
     for (let round = 0; round < 5; round += 1) {
-      if (!(await get().save())) return false;
+      if (!(await get().save(true))) return dropSaveNotice();
       if (!pending()) return true;
     }
     return !pending();
@@ -280,8 +279,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
     stay: () => set({ leaving: null }),
 
-    saveForQuit: async () =>
-      (await flush()) ? null : (get().saveError ?? 'The canvas was not saved'),
+    saveForQuit: async () => ((await flush()) ? null : (get().saveError ?? SAVE_FAILED)),
 
     onNodesChange: changes => {
       set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -350,7 +348,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       }
     },
 
-    save: async () => {
+    save: async (quiet = false) => {
       clearTimeout(timer);
       // One save at a time: wait for the one on its way, then save what is newest.
       while (inflight) await inflight;
@@ -383,7 +381,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
           return true;
         } catch (error) {
           set({ saving: false, saveError: errorMessage(error), dirty: true });
-          notifyFailed('The canvas was not saved', error);
+          if (!quiet) notifyFailed(SAVE_FAILED, error);
           return false;
         } finally {
           inflight = null;
