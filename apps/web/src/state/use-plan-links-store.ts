@@ -2,7 +2,7 @@
  * The live read of the assets and Lab directions the open canvas links.
  * Nothing of it is in the canvas file: the canvas view asks again when it
  * opens, when its links change, when the project changes, when the window
- * comes back and, while a Lab round runs, every few seconds. A read that
+ * comes back and, while a Lab round is being made, every few seconds. A read that
  * answers after a newer one is dropped.
  */
 import { create } from 'zustand';
@@ -10,6 +10,9 @@ import { commands, errorMessage, type AssetLink, type DirectionLink } from '@/ip
 
 /** How often the canvas reads again while a linked Lab round runs, in milliseconds. */
 export const RUNNING_REREAD_MS = 3_000;
+
+/** How long the canvas waits after the project or the Inbox changes before it reads again. */
+export const CHANGE_REREAD_MS = 500;
 
 export interface LinkIds {
   assets: readonly string[];

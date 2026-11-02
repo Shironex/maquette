@@ -6,7 +6,11 @@ import { anyRunning, assetView, directionView, linkedIds, type LinkPick } from '
 import { DEFAULT_WIDTH, freeSpot, isLinked, nodeLabel, type FlowNode } from '@/state/plans';
 import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
-import { RUNNING_REREAD_MS, usePlanLinksStore } from '@/state/use-plan-links-store';
+import {
+  CHANGE_REREAD_MS,
+  RUNNING_REREAD_MS,
+  usePlanLinksStore,
+} from '@/state/use-plan-links-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
 /** What the bar adds; an asset or Lab direction comes from the Asset picker. */
@@ -17,8 +21,11 @@ export const ADD_KEYS: Record<string, AddKind> = { n: 'note', i: 'image', l: 'li
 
 /**
  * The live read of what the canvas links: again when it opens, when its
- * links or the project change, when the Inbox changes, when the window
- * comes back, and every few seconds while a linked Lab round runs.
+ * links change, when the window comes back, every few seconds while a
+ * linked Lab round is being made, and once things settle after the
+ * project or the Inbox changes (they change on every job event, so those
+ * reads wait `CHANGE_REREAD_MS` for the last one). Leaving the canvas
+ * forgets the read.
  */
 export function useLiveLinks() {
   const project = usePlansStore(s => s.project);
@@ -27,19 +34,31 @@ export function useLiveLinks() {
   const manifest = useAppStore(s => s.workspace?.project ?? null);
   const inbox = useInboxStore(s => s.snapshot);
   const refresh = usePlanLinksStore(s => s.refresh);
+  const clear = usePlanLinksStore(s => s.clear);
   const running = usePlanLinksStore(s => anyRunning(s.directions));
   const key = JSON.stringify(linkedIds(nodes.map(n => n.data.node)));
+  const read = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!project || !openId) return;
-    const read = () => void refresh(project, JSON.parse(key) as ReturnType<typeof linkedIds>);
-    read();
-    window.addEventListener('focus', read);
-    const timer = running ? setInterval(read, RUNNING_REREAD_MS) : undefined;
+    const now = () => void refresh(project, JSON.parse(key) as ReturnType<typeof linkedIds>);
+    read.current = now;
+    now();
+    window.addEventListener('focus', now);
+    const timer = running ? setInterval(now, RUNNING_REREAD_MS) : undefined;
     return () => {
-      window.removeEventListener('focus', read);
+      read.current = null;
+      window.removeEventListener('focus', now);
       clearInterval(timer);
     };
-  }, [project, openId, key, manifest, inbox, running, refresh]);
+  }, [project, openId, key, running, refresh]);
+  const seen = useRef({ manifest, inbox });
+  useEffect(() => {
+    if (seen.current.manifest === manifest && seen.current.inbox === inbox) return;
+    seen.current = { manifest, inbox };
+    const timer = setTimeout(() => read.current?.(), CHANGE_REREAD_MS);
+    return () => clearTimeout(timer);
+  }, [manifest, inbox]);
+  useEffect(() => clear, [clear]);
 }
 
 /** The flow's nodes with an asset or direction node named by its live read, for screen readers. */
