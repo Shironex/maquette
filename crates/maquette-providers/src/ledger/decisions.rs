@@ -14,7 +14,7 @@
 //! skipped, and every line carries its version.
 
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write as _};
+use std::io::{self, Read as _, Seek as _, SeekFrom, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -211,6 +211,11 @@ pub fn append(root: &Path, record: &DecisionRecord) -> CoreResult<()> {
         .map_err(|e| CoreError::Invalid(format!("could not write a decision line: {e}")))?;
     text.push('\n');
     let _guard = WRITE.lock().unwrap_or_else(|p| p.into_inner());
+    // A line torn by a crash mid write gets its own line end first, so it
+    // costs only itself, never the answer written after it.
+    if ends_torn(&path) {
+        text.insert(0, '\n');
+    }
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -218,6 +223,15 @@ pub fn append(root: &Path, record: &DecisionRecord) -> CoreResult<()> {
         .map_err(|e| CoreError::io(&path, e))?;
     file.write_all(text.as_bytes())
         .map_err(|e| CoreError::io(&path, e))
+}
+
+/// True when the file has bytes and does not end with a line end.
+fn ends_torn(path: &Path) -> bool {
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let mut last = [0u8; 1];
+    file.seek(SeekFrom::End(-1)).is_ok() && file.read_exact(&mut last).is_ok() && last[0] != b'\n'
 }
 
 /// Every decision, oldest first. A missing file has none.

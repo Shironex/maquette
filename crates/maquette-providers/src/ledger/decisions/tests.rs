@@ -233,3 +233,12 @@ fn a_job_reads_only_the_answers_made_since_it_was_created() {
     assert_eq!(found.decision, Decision::Approved);
     assert!(send_answer(&all, "moon-island", "lantern-1", NOW + 20_000.0, f64::MAX).is_none());
 }
+
+#[test]
+fn a_torn_last_line_does_not_swallow_the_next_answer() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    fs::write(path(dir.path()), "{\"v\":1,\"atMs\":17").expect("torn write");
+    let next = approved("lantern-1", NOW, DecisionSource::FloatingCard);
+    append(dir.path(), &next).expect("append");
+    assert_eq!(read(dir.path()).expect("read"), vec![next]);
+}
