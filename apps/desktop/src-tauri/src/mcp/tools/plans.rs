@@ -78,12 +78,14 @@ pub(super) fn project_dir(
 /// The preset an agent names: `brainstorm` (also `blank`, or none),
 /// `story` or `mechanics`, else refused with the list.
 pub(super) fn preset_of(given: Option<&str>) -> Result<PlanPreset, ToolError> {
-    match given.map(str::trim) {
+    let named = given.map(|g| g.trim().to_ascii_lowercase());
+    match named.as_deref() {
         None | Some("blank" | "brainstorm") => Ok(PlanPreset::Brainstorm),
         Some("story") => Ok(PlanPreset::Story),
         Some("mechanics") => Ok(PlanPreset::Mechanics),
-        Some(other) => Err(ToolError::from(format!(
-            "{other} is not a preset. Use brainstorm (blank, the default), story or mechanics."
+        Some(_) => Err(ToolError::from(format!(
+            "{} is not a preset. Use brainstorm (blank, the default), story or mechanics.",
+            given.unwrap_or_default().trim()
         ))),
     }
 }
@@ -283,7 +285,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make a planning canvas in a project, as Plan > New canvas does; writes one file, plans/<id>.plan.json. preset sets only the start, every canvas holds every kind of node: brainstorm (blank, the default), story (starter notes for beats left to right joined in order, characters above and places below, worded for a game or a website by the project's target) or mechanics (a card per system with its verb, look and input, and a note on keeping them apart). The starter notes carry your name and are one change in the log with no run, so the person can undo them at once and you can undo_run them by the change id this answers with. Answers with its id, the preset, the node and link counts and change.",
+        description = "Make a planning canvas in a project, as Plan > New canvas does; writes one file, plans/<id>.plan.json. preset sets only the start, every canvas holds every kind of node: brainstorm (blank, the default), story (starter notes for beats left to right joined in order, characters above and places below, worded for a game or a website by the project's target) or mechanics (a card per system with its verb, look and input, and a note on keeping them apart). Preset names are not case sensitive. The starter notes carry your name and are one change in the log with no run, so the person can undo them at once and you can undo_run them by the change id this answers with. Answers with its id, the preset, the node and link counts and change.",
         annotations(idempotent_hint = false)
     )]
     async fn create_canvas(

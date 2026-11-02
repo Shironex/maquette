@@ -116,7 +116,7 @@ async fn an_agent_starts_canvases_from_presets() {
     let game = call(
         &client,
         "create_canvas",
-        json!({ "project": "frost-game", "name": "Act 1", "preset": "story", "agent": agent }),
+        json!({ "project": "frost-game", "name": "Act 1", "preset": "Story", "agent": agent }),
     )
     .await;
     let read = call(
