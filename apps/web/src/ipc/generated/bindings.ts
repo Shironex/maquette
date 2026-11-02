@@ -368,10 +368,15 @@ export const commands = {
 	planUndo: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanUndone_Serialize>("plan_undo", { project, id, changes }),
 	/**
 	 *  Keeps (accepts) agent changes as a person: frees the room the log kept
-	 *  to undo them, with the earlier changes they sit on. The canvas does not
-	 *  change.
+	 *  to undo them. The canvas does not change. Refused unless `changes`
+	 *  names every earlier change it sits on ([`plan_keep_needs`]).
 	 */
-	planKeep: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanKept>("plan_keep", { project, id, changes }),
+	planKeep: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<null>("plan_keep", { project, id, changes }),
+	/**
+	 *  The earlier agent changes a Keep of `changes` must take along, for the
+	 *  person to confirm first; empty when the Keep can go as it is.
+	 */
+	planKeepNeeds: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<KeepNeed[]>("plan_keep_needs", { project, id, changes }),
 	/**
 	 *  Watches the project's `plans/` folder, if it is not watched yet, and
 	 *  sends `PlanChanged` for each canvas whose file or log changes. Answers
@@ -3762,6 +3767,14 @@ export type JointMoveState =
 /**  Waits for a person. No agent can answer it. */
 "asked" | "approved" | "declined";
 
+/**  An earlier change a Keep must take along, for the person to confirm. */
+export type KeepNeed = {
+	id: string,
+	summary: string,
+	/**  The parts it changed: field names, "whole node" or "link". */
+	parts: string[],
+};
+
 /**  What Settings shows for one key. */
 export type KeyStatus = {
 	service: ProviderId,
@@ -5383,14 +5396,6 @@ export type PlanImage = {
 	name: string,
 	/**  True when it was copied into `plans/images`. */
 	copied: boolean,
-};
-
-/**
- *  What a Keep kept besides the changes named: the summaries of earlier
- *  agent changes to the same fields, kept with them.
- */
-export type PlanKept = {
-	also: string[],
 };
 
 /**  The live view of every asset and direction a canvas links. */

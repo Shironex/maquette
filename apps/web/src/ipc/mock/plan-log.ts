@@ -5,7 +5,7 @@
  * turns them around. Summaries follow the core's wording closely enough
  * for the panel (crates/maquette-model/src/plans/summary.rs).
  */
-import type { ChangeMark, PlanLogLine, PlanNode, PlanOp } from '../client';
+import type { ChangeMark, KeepNeed, PlanLogLine, PlanNode, PlanOp } from '../client';
 import { clock } from '@/lib/clock';
 
 export interface MockLogEntry {
@@ -28,6 +28,66 @@ const touchesPerson = (op: PlanOp) =>
     : op.op === 'set-edge' || op.op === 'remove-edge'
       ? (op.op === 'set-edge' ? op.before : op.edge).by === null
       : false;
+
+const FIELDS = [
+  'kind',
+  'x',
+  'y',
+  'width',
+  'title',
+  'text',
+  'image',
+  'url',
+  'asset',
+  'direction',
+] as const;
+
+/** `node:id:field` or `link:id:*` for each part `op` changed, as the core's undo order reads them. */
+const partsOf = (op: PlanOp): string[] => {
+  if (op.op === 'set-node')
+    return FIELDS.filter(f => op.before[f] !== op.after[f]).map(f => `node:${op.after.id}:${f}`);
+  if (op.op === 'add-node' || op.op === 'remove-node') return [`node:${op.node.id}:*`];
+  return [`link:${op.op === 'set-edge' ? op.after.id : op.edge.id}:*`];
+};
+
+const meets = (a: string[], b: string[]) =>
+  a.some(x =>
+    b.some(y => {
+      const [ka, ia, fa] = x.split(':');
+      const [kb, ib, fb] = y.split(':');
+      return ka === kb && ia === ib && (fa === fb || fa === '*' || fb === '*');
+    })
+  );
+
+/** The earlier held agent changes a Keep of `ids` must take along, as the core's `keep_needs`. */
+function needsOf(all: MockLogEntry[], ids: string[]): KeepNeed[] {
+  const released = new Set(all.flatMap(e => [...e.undoes, ...(e.keeps ?? [])]));
+  const held = (e: MockLogEntry) =>
+    e.by !== null &&
+    !e.undoes.length &&
+    !e.keeps?.length &&
+    !released.has(e.id) &&
+    e.ops.some(touchesPerson);
+  const found: MockLogEntry[] = [];
+  const open = all.filter(e => ids.includes(e.id));
+  for (let top = open.pop(); top; top = open.pop()) {
+    const mine = top.ops.flatMap(partsOf);
+    for (const earlier of all.slice(0, all.indexOf(top))) {
+      const seen = ids.includes(earlier.id) || found.includes(earlier);
+      if (!seen && held(earlier) && meets(mine, earlier.ops.flatMap(partsOf))) {
+        found.push(earlier);
+        open.push(earlier);
+      }
+    }
+  }
+  return found.map(e => ({
+    id: e.id,
+    summary: e.summary,
+    parts: [
+      ...new Set(e.ops.flatMap(partsOf).map(p => p.split(':')[2]!.replace('*', 'whole node'))),
+    ],
+  }));
+}
 
 const KIND_NAME: Record<PlanNode['kind'], string> = {
   note: 'note',
@@ -111,6 +171,7 @@ export function createMockLogs() {
   };
   return {
     entries: of,
+    needs: (project: unknown, id: unknown, ids: string[]) => needsOf(of(project, id), ids),
     append: (
       project: unknown,
       id: unknown,

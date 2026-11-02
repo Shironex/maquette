@@ -10,7 +10,8 @@
  * close, the Asset picker and a linked asset added, and the same canvas at
  * the minimum size. Then the history: an agent's run landing on Combat
  * ideas (its toast, the nodes it added and edited marked, the view panned
- * to them), the Changes panel at full and minimum size, and the choice
+ * to them), the Changes panel at full and minimum size, the confirm when a
+ * Keep would take earlier changes along, and the choice
  * when an edit from another computer meets an unsaved edit to the same
  * note. Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
  * every save failing); the mock only commands `mock_plan_agent` and
@@ -111,6 +112,16 @@ async function historyShots(open, shot) {
     await page.getByRole('button', { name: 'Keep run' }).waitFor();
     await page.waitForTimeout(300);
     await shot(page, `plan-keep${suffix}`);
+    if (!suffix) {
+      // A third edit of the same note: keeping the newest asks to keep the one under it too.
+      await mock(page, 'mock_plan_agent', { ...COMBAT, edit: 'n-02' });
+      const keep = page.getByRole('button', { name: /^Keep: Edited note: Rune combos/ });
+      await keep.nth(1).waitFor();
+      await keep.first().click();
+      await page.getByRole('dialog', { name: 'Keep the earlier changes too?' }).waitFor();
+      await page.waitForTimeout(300);
+      await shot(page, 'plan-keep-confirm');
+    }
     await page.context().close();
   }
 

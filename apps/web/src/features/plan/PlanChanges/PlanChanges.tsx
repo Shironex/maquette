@@ -1,6 +1,7 @@
 import { Button, cn, Icon, IconButton, SegmentedControl, type IconName } from '@maquette/ui';
 import type { ChangeMark } from '@/ipc/client';
 import type { LogFilter } from '@/state/plan-log';
+import { KeepConfirm } from '../KeepConfirm';
 import { usePlanChanges } from './PlanChanges.hooks';
 
 const MARK_ICON: Record<ChangeMark, IconName> = {
@@ -17,7 +18,7 @@ const MARK_ICON: Record<ChangeMark, IconName> = {
 };
 
 const KEEP_TIP =
-  'Accept this agent change: the log stops holding your earlier version for it, which frees room. Earlier agent changes to the same part of the node are kept with it. It stays undoable while it is among the newest changes.';
+  'Accept this agent change: the log stops holding your earlier version for it, which frees room. If earlier agent changes sit under it on the same parts, it asks to keep those too. It stays undoable while it is among the newest changes.';
 
 const FILTERS: { value: LogFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -170,6 +171,7 @@ export default function PlanChanges() {
         changes stay undoable while they are among the newest in the log (at least the last 512 KB);
         one edit over 256 KB keeps only its summary.
       </p>
+      <KeepConfirm />
     </aside>
   );
 }

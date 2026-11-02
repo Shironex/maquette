@@ -187,17 +187,27 @@ describe('freeing what the log keeps for undo', () => {
     expect(lines[0]?.summary).toMatch(/^Nothing to undo, already changed/);
   });
 
-  it('says when a Keep also kept an earlier change under it', async () => {
+  it('asks before a Keep takes an earlier change along, and keeps only what was confirmed', async () => {
     const store = await openPlans();
     await plans().openCanvas('combat-ideas');
-    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas' });
-    await usePlanLogStore.getState().load('frostveil', 'combat-ideas');
-    const edit = usePlanLogStore.getState().lines[0];
-    vi.spyOn(commands, 'planKeep').mockResolvedValue({ also: ['Edited note: Frost veil'] });
-    expect(await usePlanLogStore.getState().keep([edit!.id])).toBe(true);
-    const notice = useAppStore.getState().notice;
-    expect(notice?.title).toBe('Also kept the earlier change');
-    expect(notice?.detail).toContain('Edited note: Frost veil');
+    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas', edit: 'n-02' });
+    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas', edit: 'n-02' });
+    const log = usePlanLogStore.getState();
+    await log.load('frostveil', 'combat-ideas');
+    const [newer, older] = usePlanLogStore.getState().lines;
+    expect(await usePlanLogStore.getState().keep([newer!.id])).toBe(false);
+    expect(usePlanLogStore.getState().keepAsk?.needs.map(n => n.id)).toEqual([older!.id]);
+    // The core refuses a short list too.
+    await expect(commands.planKeep('frostveil', 'combat-ideas', [newer!.id])).rejects.toBeTruthy();
+    usePlanLogStore.getState().cancelKeep();
+    expect(usePlanLogStore.getState().lines.some(l => l.kept)).toBe(false);
+    await usePlanLogStore.getState().keep([newer!.id]);
+    expect(await usePlanLogStore.getState().keepAll()).toBe(true);
+    const kept = usePlanLogStore
+      .getState()
+      .lines.filter(l => l.kept)
+      .map(l => l.id);
+    expect(kept.sort()).toEqual([newer!.id, older!.id].sort());
   });
 
   it('refuses to undo an undo and offers no Undo on it', async () => {

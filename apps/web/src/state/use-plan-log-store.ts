@@ -6,7 +6,7 @@
  * canvas, so nothing unsaved is lost.
  */
 import { create } from 'zustand';
-import { commands, errorMessage, type PlanLogLine } from '@/ipc/client';
+import { commands, errorMessage, type KeepNeed, type PlanLogLine } from '@/ipc/client';
 import { clock } from '@/lib/clock';
 import { freshAgentLine, type LogFilter } from './plan-log';
 import { useAppStore } from './use-app-store';
@@ -35,8 +35,16 @@ interface PlanLogStore {
   undoing: boolean;
   load: (project: string, id: string) => Promise<void>;
   undo: (lines: string[]) => Promise<boolean>;
-  /** Keeps (accepts) agent changes: the log stops holding room to undo them. */
+  /**
+   * Keeps (accepts) agent changes: the log stops holding room to undo them.
+   * When earlier changes sit under them, it asks first (`keepAsk`).
+   */
   keep: (lines: string[]) => Promise<boolean>;
+  /** A Keep waiting for the person: the changes named and the earlier ones it needs too. */
+  keepAsk: { ids: string[]; needs: KeepNeed[] } | null;
+  /** Keeps the asked changes with every earlier one listed. */
+  keepAll: () => Promise<boolean>;
+  cancelKeep: () => void;
   setPanel: (open: boolean) => void;
   setFilter: (filter: LogFilter) => void;
   dismissToast: () => void;
@@ -54,7 +62,26 @@ const initial = {
   toast: null,
   dismissed: null,
   undoing: false,
+  keepAsk: null,
 };
+
+const notKept = (error: unknown) =>
+  useAppStore.getState().notify({
+    status: 'failed',
+    title: 'The change was not kept',
+    detail: errorMessage(error),
+  });
+
+/** Keeps exactly `ids`, which already name every change they sit on. */
+async function keepNamed(project: string, canvas: string, ids: string[]) {
+  try {
+    await commands.planKeep(project, canvas, ids);
+    return true;
+  } catch (error) {
+    notKept(error);
+    return false;
+  }
+}
 
 export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
   ...initial,
@@ -109,26 +136,37 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
   keep: async ids => {
     const { project, open } = usePlansStore.getState();
     if (!project || !open || ids.length === 0) return false;
+    let needs: KeepNeed[];
     try {
-      const { also } = await commands.planKeep(project, open.id, ids);
-      if (also.length)
-        useAppStore.getState().notify({
-          status: 'info',
-          title: also.length === 1 ? 'Also kept the earlier change' : 'Also kept earlier changes',
-          detail: `It changed the same part of the node before, so keeping the newer one keeps it too: ${also.join('; ')}.`,
-        });
+      needs = await commands.planKeepNeeds(project, open.id, ids);
     } catch (error) {
-      useAppStore.getState().notify({
-        status: 'failed',
-        title: 'The change was not kept',
-        detail: errorMessage(error),
-      });
+      notKept(error);
       return false;
     }
+    // Nothing is kept that the person did not see: earlier changes wait for a yes.
+    if (needs.length) {
+      set({ keepAsk: { ids, needs } });
+      return false;
+    }
+    if (!(await keepNamed(project, open.id, ids))) return false;
     set({ toast: null });
     await get().load(project, open.id);
     return true;
   },
+
+  keepAll: async () => {
+    const ask = get().keepAsk;
+    const { project, open } = usePlansStore.getState();
+    set({ keepAsk: null });
+    if (!ask || !project || !open) return false;
+    const ids = [...ask.ids, ...ask.needs.map(n => n.id)];
+    if (!(await keepNamed(project, open.id, ids))) return false;
+    set({ toast: null });
+    await get().load(project, open.id);
+    return true;
+  },
+
+  cancelKeep: () => set({ keepAsk: null }),
 
   setPanel: panel =>
     set(panel ? { panel, toast: null, seenAt: clock.now().toISOString() } : { panel }),
