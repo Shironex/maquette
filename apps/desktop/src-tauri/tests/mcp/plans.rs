@@ -304,6 +304,50 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
     let back = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
     assert_eq!(porch_text(&back), original, "{back}");
 
+    // An undo can not be undone, by the agent or the person: a redo would
+    // put the agent's words back with the person's only in plain lines.
+    let held =
+        || plans::log::keeper_bytes(&plans::log::entries(&moon, "hero-ideas").expect("entries"));
+    let undo_line = together["change"].as_str().expect("undo line").to_string();
+    let redo = call_error(
+        &client,
+        "undo_run",
+        canvas_args(json!({ "changes": [undo_line.clone()] })),
+    )
+    .await;
+    assert!(redo.contains("an undo can not be undone"), "{redo}");
+    for (run, text) in [("r-6", "x"), ("r-7", "y")] {
+        call(
+            &client,
+            "update_nodes",
+            canvas_args(json!({ "run": run, "nodes": [{ "id": "n-porch", "text": text }] })),
+        )
+        .await;
+    }
+    let newer = call(&client, "undo_run", canvas_args(json!({ "run": "r-7" }))).await;
+    let newer_undo = newer["change"].as_str().expect("undo line").to_string();
+    let hold = held();
+    let redo = call_error(
+        &client,
+        "undo_run",
+        canvas_args(json!({ "changes": [newer_undo.clone()] })),
+    )
+    .await;
+    assert!(redo.contains("an undo can not be undone"), "{redo}");
+    let refused = plans::undo(&moon, "hero-ideas", &[newer_undo], None, None)
+        .expect_err("the person's redo of it too");
+    assert!(
+        refused.to_string().contains("an undo can not be undone"),
+        "{refused}"
+    );
+    assert_eq!(held(), hold, "the hold is unchanged");
+    let now = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(porch_text(&now), json!("x"));
+    call(&client, "undo_run", canvas_args(json!({ "run": "r-6" }))).await;
+    let back = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(porch_text(&back), original, "{back}");
+    assert_eq!(held(), 0);
+
     let missing = call_error(
         &client,
         "get_canvas",
