@@ -160,12 +160,10 @@ fn a_ref_with_no_extension_takes_the_one_its_header_says() {
 fn a_bad_ref_stops_the_whole_import_and_names_the_file() {
     let f = refs_fixture();
     let good = f.file("a", "good.png", &png(b"good"));
-    for (name, bytes, says) in [("fake.png", b"not a png".to_vec(), "fake.png")] {
-        let bad = f.file("a", name, &bytes);
-        let error = format!("{:?}", f.import(&[good.clone(), bad]).expect_err(name));
-        assert!(error.contains(says), "{error}");
-        assert!(f.on_disk().is_empty(), "{:?}", f.on_disk());
-    }
+    let bad = f.file("a", "fake.png", b"not a png");
+    let error = format!("{:?}", f.import(&[good, bad]).expect_err("fake"));
+    assert!(error.contains("fake.png"), "{error}");
+    assert!(f.on_disk().is_empty(), "{:?}", f.on_disk());
 }
 
 #[test]
