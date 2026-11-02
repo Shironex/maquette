@@ -1409,7 +1409,7 @@ Undoes your own changes on a canvas: a whole `run`, or change ids from `get_chan
 
 `read only`
 
-Reads a website project's camera plan, made from `layout.json` the first time it is opened. `main` is the line Apply would write, each stop as `{ node, id, name, position, target, fov }` in tour order; `lines` are the other lines, an agent's proposal with its `agent`, stops set aside without one. `stale: true` with `outside` (the counts) when `layout.json` changed since the plan was based on it: the person compares or rebases before Apply. `posters` lists the stops with a poster render. A game project has no camera plan and is refused.
+Reads a website project's camera plan without writing anything. With no plan yet it answers the stops in `layout.json` (with `node: null`) and a `note`; the plan is made when the person opens it or by `propose_camera_plan`. `main` is the line Apply would write, each stop as `{ node, id, name, position, target, fov }` in tour order; `lines` are the other lines, an agent's proposal with its `agent`, stops set aside without one. `stale: true` with `outside` (the counts) when `layout.json` changed since the plan was based on it: the person compares or rebases before Apply. `posters` lists the stops with a poster render. A game project has no camera plan and is refused.
 
 | Argument  | Type   | Required | What            |
 | --------- | ------ | -------- | --------------- |
@@ -1478,7 +1478,7 @@ Proposes a whole tour, the stops in order, as your own line of stop nodes below 
 
 `read only`
 
-Reads what Apply would write to `layout.json` from the camera plan's main line now: `counts`, each stop that changes with its place before (`from`) and after (`to`) and the settings that change, `nodes` (the main line), `dropped` (triggers and timeline keys that go with a removed stop), `stale` and `problems` that block Apply. The person sees this same diff in the app before Apply, and an agent's `undo_run` on an Apply is refused: only the person undoes it, from the Changes panel.
+Reads what Apply would write to `layout.json` from the camera plan's main line now: `counts`, each stop that changes with its place before (`from`) and after (`to`) and the settings that change, `nodes` (the main line), `dropped` (triggers, timeline and path keys that go with a removed stop), `stale` and `problems` that block Apply. The person sees this same diff in the app before Apply, and an agent's `undo_run` on an Apply is refused: only the person undoes it, from the Changes panel.
 
 | Argument  | Type   | Required | What            |
 | --------- | ------ | -------- | --------------- |
