@@ -5,6 +5,7 @@ import type { NativeDropHandlers } from '@/lib/useNativeDrop';
 import { commands } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DRAG_TYPE } from '../constants';
 import { fakeBoardEnv, mockAsset } from '../fakeBoardEnv';
@@ -180,31 +181,72 @@ describe('BoardColumn', () => {
     );
   });
 
-  it('keeps the newer manifest when an older import answers last', async () => {
+  const answerFor = (name: string) => ({
+    direction: { name },
+    added: ['concepts/a.png'],
+    asset: {},
+    project: { ...useAppStore.getState().workspace!.project!, name },
+  });
+
+  it('reads the project once after the last import, whichever answers first', async () => {
     const project = useAppStore.getState().workspace!.project!;
-    const answer = (name: string) => ({
-      direction: { name },
-      added: ['concepts/a.png'],
-      asset: {},
-      project: { ...project, name },
+    let finishBig!: (value: unknown) => void;
+    const big = new Promise(resolve => {
+      finishBig = resolve;
     });
-    let finishOlder!: (value: unknown) => void;
-    const older = new Promise(resolve => {
-      finishOlder = resolve;
-    });
-    const spy = vi
+    const imports = vi
       .spyOn(commands, 'labImportConcepts')
-      .mockReturnValueOnce(older as never)
-      .mockResolvedValueOnce(answer('Newer') as never);
-    nativeDropOnConcept(['/art/one.png']);
-    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, ['/art/two.png'])));
-    await waitFor(() => expect(useAppStore.getState().workspace?.project?.name).toBe('Newer'));
-    finishOlder(answer('Older'));
-    await act(async () => {
-      await older;
+      .mockReturnValueOnce(big as never)
+      .mockResolvedValueOnce(answerFor('Small') as never);
+    const read = vi
+      .spyOn(commands, 'projectGet')
+      .mockResolvedValue({ ...project, name: 'Both' } as never);
+    nativeDropOnConcept(['/art/big.png']);
+    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, ['/art/small.png'])));
+    await waitFor(() => expect(imports).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(notice()?.title).toContain('Small'));
+    expect(read).not.toHaveBeenCalled();
+    finishBig(answerFor('Big'));
+    await waitFor(() => expect(useAppStore.getState().workspace?.project?.name).toBe('Both'));
+    expect(read).toHaveBeenCalledTimes(1);
+    imports.mockRestore();
+    read.mockRestore();
+  });
+
+  it('reads the project after a failed import too', async () => {
+    const project = useAppStore.getState().workspace!.project!;
+    const read = vi
+      .spyOn(commands, 'projectGet')
+      .mockResolvedValue({ ...project, name: 'Read' } as never);
+    nativeDropOnConcept(['/art/layers.psd']);
+    await waitFor(() => expect(useAppStore.getState().workspace?.project?.name).toBe('Read'));
+    read.mockRestore();
+  });
+
+  it('leaves the project now open alone when an import answers late', async () => {
+    await useLabStore.getState().load('frostveil');
+    let finish!: (value: unknown) => void;
+    const late = new Promise(resolve => {
+      finish = resolve;
     });
-    expect(useAppStore.getState().workspace?.project?.name).toBe('Newer');
-    spy.mockRestore();
+    const imports = vi.spyOn(commands, 'labImportConcepts').mockReturnValueOnce(late as never);
+    const read = vi.spyOn(commands, 'projectGet');
+    nativeDropOnConcept(['/art/one.png']);
+    await waitFor(() => expect(imports).toHaveBeenCalled());
+    await useProjectsStore.getState().switchTo('frost-cathedral');
+    await useLabStore.getState().load('frost-cathedral');
+    useLabStore.getState().setDraft({ prompt: 'Still typing' });
+    finish(answerFor('Late'));
+    await act(async () => {
+      await late;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(useLabStore.getState().view?.project).toBe('frost-cathedral');
+    expect(useLabStore.getState().draft.prompt).toBe('Still typing');
+    expect(useAppStore.getState().workspace?.project?.id).toBe('frost-cathedral');
+    expect(read).not.toHaveBeenCalled();
+    imports.mockRestore();
+    read.mockRestore();
   });
 
   it('leaves a native drop on a By hand card to that card', () => {

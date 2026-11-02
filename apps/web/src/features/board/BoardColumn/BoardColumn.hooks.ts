@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent, type RefObject } from 'react';
 import { useWindowedList } from '@maquette/ui';
-import { commands, errorMessage, type Stage } from '@/ipc/client';
+import { commands, errorMessage, type ProjectManifest, type Stage } from '@/ipc/client';
 import { mockDroppedFiles } from '@/lib/dropped-images';
 import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { useAppStore } from '@/state/use-app-store';
@@ -42,9 +42,34 @@ export function useColumnCards(count: number) {
   return { scrollRef, listRef, cards };
 }
 
-/** Numbers imports, so an older answer never replaces a newer manifest. */
-let importsAsked = 0;
-let importApplied = 0;
+/** Imports still running, per project: the last to settle reads the project. */
+const importsRunning = new Map<string, number>();
+
+/** Answers can come in any order, so only a read after the last one is sure to hold them all. */
+async function readAfterImports(
+  projectId: string,
+  stillOpen: () => boolean,
+  setProject: (project: ProjectManifest) => void,
+  notify: ReturnType<typeof useAppStore.getState>['notify']
+) {
+  const left = (importsRunning.get(projectId) ?? 1) - 1;
+  if (left > 0) {
+    importsRunning.set(projectId, left);
+    return;
+  }
+  importsRunning.delete(projectId);
+  if (!stillOpen()) return;
+  try {
+    const project = await commands.projectGet(projectId);
+    if (stillOpen()) setProject(project);
+  } catch (error) {
+    notify({
+      status: 'failed',
+      title: 'Could not read the project again',
+      detail: errorMessage(error),
+    });
+  }
+}
 
 /** Images someone already has become a Lab direction and a card at Concept. */
 export function useImportConcepts() {
@@ -54,16 +79,12 @@ export function useImportConcepts() {
   const notify = useAppStore(s => s.notify);
   const importImages = async (paths: readonly string[]) => {
     if (!projectId || paths.length === 0) return;
-    importsAsked += 1;
-    const asked = importsAsked;
+    const stillOpen = () => useAppStore.getState().workspace?.project?.id === projectId;
+    importsRunning.set(projectId, (importsRunning.get(projectId) ?? 0) + 1);
     try {
       // The core decides what is an image, by its header, and stops at the first that is not.
       const done = await commands.labImportConcepts(projectId, [...paths]);
-      if (asked > importApplied) {
-        importApplied = asked;
-        setProject(done.project);
-      }
-      void useLabStore.getState().load(projectId);
+      if (stillOpen()) void useLabStore.getState().load(projectId);
       const n = done.added.length;
       notify({
         status: 'done',
@@ -77,6 +98,8 @@ export function useImportConcepts() {
         title: 'Could not import those images',
         detail: errorMessage(error),
       });
+    } finally {
+      await readAfterImports(projectId, stillOpen, setProject, notify);
     }
   };
   const chooseImages = async () => {
