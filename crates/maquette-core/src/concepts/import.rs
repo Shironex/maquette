@@ -343,5 +343,9 @@ pub fn import_images(
     }
 }
 
+pub use refs::import_refs;
+
+mod refs;
+
 #[cfg(test)]
 mod tests;
