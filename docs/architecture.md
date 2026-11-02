@@ -1044,9 +1044,17 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   change left it while the undo released the only copy of the person's words: an undo is refused
   while a later agent change, not undone, touches the same field of the same node (or the same node
   or link as a whole) and is not part of the same undo ("Undo the later change first, or both
-  together"). A run with both lines undoes them newest first. Held fields can then only be the
-  person's own later writes, so releasing them loses nothing; a later change the person kept still
-  counts until rotation drops it. The person's Keep and Keep run in the Changes panel (`plan_keep`) write a line with `keeps`
+  together"). A run with both lines undoes them newest first. An undo line can not be undone itself,
+  by the person or an agent ("an undo can not be undone"; the canvas's own Redo covers the person's
+  session edits, and the Changes panel offers no Undo on undo lines): a redo would write the agent's
+  words back with the person's only in lines that are not keepers. Undo lines therefore only ever
+  write back a value from after the change being undone, so they do not block it. Held fields can
+  then only be the person's own later writes, so releasing them loses nothing. Keep on a change also
+  keeps the earlier agent changes still held under it on the same fields (the person accepted the
+  newer content, and the line says "and the earlier ..."; the app says "Also kept the earlier
+  change"), so a kept change rotating out never leaves an older one whose undo would release the
+  person's words. A kind change round-trips through undo like every other field. The keeper sizes
+  count a line as a read of the log does, without the break that closes a torn line before it. The person's Keep and Keep run in the Changes panel (`plan_keep`) write a line with `keeps`
   that releases them without changing the canvas. Undo and keep lines are never keepers. An agent
   write is refused before anything is written when its line would pass 256 KiB (one node's longest
   text, before and after, fits) or when it changes a person's content and the keepers, less what it
