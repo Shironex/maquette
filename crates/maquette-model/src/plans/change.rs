@@ -64,6 +64,7 @@ fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
         && a.url == b.url
         && a.asset == b.asset
         && a.direction == b.direction
+        && a.stop == b.stop
 }
 
 /// Marks agent nodes a person wrote in: a person's write to the content
@@ -94,6 +95,7 @@ fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, undoing: Option<Undoing>) -> 
         undoes,
         keeps: Vec::new(),
         trimmed: false,
+        applied: None,
     }
 }
 
@@ -261,6 +263,11 @@ pub fn undo(
                     "The change {want} is an undo, and an undo can not be undone. Redo your own edits with Redo on the canvas; an agent makes its change again instead."
                 )));
             }
+            if entry.applied.is_some() {
+                return Err(CoreError::Invalid(format!(
+                    "The change {want} applied the camera plan to layout.json. Only the person undoes an Apply, with Undo on that line in the Changes panel, which puts the old layout.json back while nothing changed it since."
+                )));
+            }
             if entry.trimmed || entry.ops.is_empty() {
                 return Err(CoreError::Invalid(format!(
                     "The change {want} can not be undone: it changed no nodes or was too big to keep."
@@ -384,6 +391,7 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogE
         undoes: Vec::new(),
         keeps: picked.iter().map(|e| e.id.clone()).collect(),
         trimmed: false,
+        applied: None,
     };
     log::append(project_dir, id, &entry)?;
     Ok(entry)

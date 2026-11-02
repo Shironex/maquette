@@ -273,6 +273,7 @@ impl McpTools {
                 x: c.x,
                 y: c.y,
                 width: c.width,
+                stop: None,
             })
             .collect();
         write(self, args.project, args.canvas, move |dir, canvas| {

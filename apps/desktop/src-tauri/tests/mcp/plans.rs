@@ -124,6 +124,7 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
         direction: None,
         by: None,
         person_wrote: false,
+        stop: None,
     };
     plans::change(&moon, "hero-ideas", &Writer::PERSON, |_| {
         Ok(vec![PlanOp::AddNode { node: porch }])

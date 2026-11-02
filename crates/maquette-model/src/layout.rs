@@ -258,7 +258,14 @@ fn check_placement(id: &str, p: &Placement) -> CoreResult<()> {
     Ok(())
 }
 
-fn check_stop(stop: &LayoutStop) -> CoreResult<()> {
+/// Checks one camera stop: a name, a slug id, finite numbers within reach, a
+/// target away from the camera, a field of view between 1 and 170 degrees
+/// and no model listed twice.
+///
+/// # Errors
+///
+/// Returns the problem as a sentence for the person or agent.
+pub fn check_stop(stop: &LayoutStop) -> CoreResult<()> {
     let name = stop.name.trim();
     if name.is_empty() {
         return Err(invalid("Give every camera stop a name."));

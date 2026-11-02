@@ -10,6 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::camera::CameraBase;
 use super::{PlanEdge, PlanFile, PlanNode};
 
 /// One change to one node or edge.
@@ -37,6 +38,12 @@ pub enum PlanOp {
     SetEdge {
         before: PlanEdge,
         after: PlanEdge,
+    },
+    /// The camera plan's base: the `layout.json` stops it was built,
+    /// rebased or applied from. Only a person's rebase or Apply writes it.
+    SetCamera {
+        before: Option<CameraBase>,
+        after: Option<CameraBase>,
     },
 }
 
@@ -76,7 +83,9 @@ fn merge_node(current: &mut PlanNode, before: &PlanNode, after: &PlanNode, merge
             }
         )*};
     }
-    field!(kind, x, y, width, title, text, image, url, asset, direction);
+    field!(
+        kind, x, y, width, title, text, image, url, asset, direction, stop
+    );
     // Whether a person wrote in it follows the content: it changes only
     // when every field the operation changes did, and is never a reason to
     // call the operation held.
@@ -207,6 +216,13 @@ fn apply_one(plan: &mut PlanFile, op: &PlanOp, merge: Merge) -> bool {
             ),
             None => false,
         },
+        PlanOp::SetCamera { before, after } => {
+            if merge == Merge::Careful && plan.camera != *before {
+                return false;
+            }
+            plan.camera.clone_from(after);
+            true
+        }
     }
 }
 
@@ -247,6 +263,12 @@ pub fn diff(from: &PlanFile, to: &PlanFile) -> Vec<PlanOp> {
             Some(_) => {}
         }
     }
+    if from.camera != to.camera {
+        ops.push(PlanOp::SetCamera {
+            before: from.camera.clone(),
+            after: to.camera.clone(),
+        });
+    }
     ops
 }
 
@@ -264,6 +286,10 @@ pub fn invert(ops: &[PlanOp]) -> Vec<PlanOp> {
             PlanOp::AddEdge { edge } => PlanOp::RemoveEdge { edge },
             PlanOp::RemoveEdge { edge } => PlanOp::AddEdge { edge },
             PlanOp::SetEdge { before, after } => PlanOp::SetEdge {
+                before: after,
+                after: before,
+            },
+            PlanOp::SetCamera { before, after } => PlanOp::SetCamera {
                 before: after,
                 after: before,
             },

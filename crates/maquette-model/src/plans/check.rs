@@ -141,6 +141,10 @@ fn check_kind(node: &PlanNode) -> CoreResult<()> {
                 "The Lab direction node {id} needs the id of a direction in the Lab."
             ));
         }
+        NodeKind::Stop => match &node.stop {
+            None => return invalid(format!("The stop node {id} needs its camera stop.")),
+            Some(stop) => crate::layout::check_stop(stop)?,
+        },
         _ => {}
     }
     let owned = [
@@ -164,6 +168,11 @@ fn check_kind(node: &PlanNode) -> CoreResult<()> {
             NodeKind::Direction,
             "a Lab direction node holds a direction",
         ),
+        (
+            node.stop.is_some(),
+            NodeKind::Stop,
+            "a stop node holds a camera stop",
+        ),
     ];
     if let Some((_, _, rule)) = owned
         .iter()
@@ -175,6 +184,11 @@ fn check_kind(node: &PlanNode) -> CoreResult<()> {
     if linked && !(node.title.is_empty() && node.text.is_empty()) {
         return invalid(format!(
             "The node {id} reads its name from the project, so it keeps no title or text."
+        ));
+    }
+    if node.kind == NodeKind::Stop && !node.title.is_empty() {
+        return invalid(format!(
+            "The stop node {id} keeps its name in its camera stop, not in a title."
         ));
     }
     Ok(())
@@ -233,6 +247,7 @@ pub fn validate(plan: &PlanFile) -> CoreResult<()> {
             return invalid(format!("Two nodes share the id {}.", node.id));
         }
     }
+    super::camera::check_plan(plan)?;
     let mut edge_ids = BTreeSet::new();
     for edge in &plan.edges {
         let id = &edge.id;

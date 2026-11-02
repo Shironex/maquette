@@ -30,6 +30,7 @@ fn indexed(root: &Path, id: &str) -> u64 {
         undoes: Vec::new(),
         keeps: Vec::new(),
         trimmed: false,
+        applied: None,
     };
     log::held_after(root, id, &plain, 0).expect("held")
 }

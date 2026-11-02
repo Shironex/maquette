@@ -30,7 +30,7 @@ impl Rect {
 /// How wide a node draws when the file keeps no width.
 pub(super) fn default_width(kind: NodeKind) -> i32 {
     match kind {
-        NodeKind::Note | NodeKind::Direction => 220,
+        NodeKind::Note | NodeKind::Direction | NodeKind::Stop => 220,
         NodeKind::Image => 240,
         NodeKind::Link => 260,
         NodeKind::Asset => 248,
@@ -55,6 +55,7 @@ fn guess_height(node: &PlanNode, width: i32) -> i32 {
         NodeKind::Link => 130,
         NodeKind::Asset => 120,
         NodeKind::Direction => 190,
+        NodeKind::Stop => 230,
     }
 }
 
@@ -145,6 +146,7 @@ mod tests {
             direction: None,
             by: None,
             person_wrote: false,
+            stop: None,
         };
         assert_eq!(rect_of(&node).h, 110);
         node.text = "word ".repeat(200);

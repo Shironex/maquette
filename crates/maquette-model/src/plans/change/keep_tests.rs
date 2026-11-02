@@ -41,6 +41,7 @@ pub(super) fn note(id: &str, text: &str) -> PlanNode {
         direction: None,
         by: None,
         person_wrote: false,
+        stop: None,
     }
 }
 
@@ -69,6 +70,7 @@ pub(super) fn rewrite(id: &str, text: String) -> NodeEdit {
         x: None,
         y: None,
         width: None,
+        stop: None,
     }
 }
 

@@ -49,6 +49,10 @@ pub struct PlanSummary {
     pub links: u32,
     /// Asset nodes, each linking an asset of the project.
     pub assets: u32,
+    /// Camera stop nodes.
+    pub stops: u32,
+    /// The built in camera plan of a website project.
+    pub camera: bool,
     /// RFC 3339; empty when the file could not be read.
     pub edited: String,
     /// Why the file could not be read, for a canvas that only lists.
@@ -107,6 +111,8 @@ fn summary(id: &str, plan: &PlanFile) -> PlanSummary {
         images: of(super::NodeKind::Image),
         links: of(super::NodeKind::Link),
         assets: of(super::NodeKind::Asset),
+        stops: of(super::NodeKind::Stop),
+        camera: plan.camera.is_some(),
         edited: plan.edited.clone(),
         problem: None,
     }
@@ -146,6 +152,8 @@ pub fn list(project_dir: &Path) -> CoreResult<Vec<PlanSummary>> {
                 images: 0,
                 links: 0,
                 assets: 0,
+                stops: 0,
+                camera: id == super::camera::CAMERA_PLAN_ID,
                 edited: String::new(),
                 problem: Some(err.to_string()),
             },
@@ -220,7 +228,7 @@ pub fn create_by(
 }
 
 /// A log line that changed no node: a canvas made or renamed.
-fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -> PlanLogEntry {
+pub(super) fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -> PlanLogEntry {
     PlanLogEntry {
         id: log::new_id("c"),
         at: now_rfc3339(),
@@ -231,6 +239,7 @@ fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -> PlanLogEn
         ops: Vec::new(),
         undoes: Vec::new(),
         trimmed: false,
+        applied: None,
         keeps: Vec::new(),
     }
 }
@@ -250,7 +259,12 @@ pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc
     let _lock = writing();
     let current = load_file(&path(project_dir, id)?)?;
     let writer = change::Writer::PERSON;
-    Ok(change::commit(project_dir, id, current, plan, &writer, None)?.0)
+    // The camera base moves only with a rebase or an Apply.
+    let plan = PlanFile {
+        camera: current.camera.clone(),
+        ..plan.clone()
+    };
+    Ok(change::commit(project_dir, id, current, &plan, &writer, None)?.0)
 }
 
 /// Renames the canvas `id`. The file and its id stay, so links to it from
@@ -288,6 +302,11 @@ pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<Stri
     let file = path(project_dir, id)?;
     if !file.is_file() {
         return Err(CoreError::NotFound(format!("the canvas {id}")));
+    }
+    if load_file(&file).is_ok_and(|plan| plan.camera.is_some()) {
+        return Err(CoreError::Invalid(
+            "The camera plan is built in and stays. To begin it again, use Start over from layout.json on the canvas.".into(),
+        ));
     }
     let to_dir = trash_dir.join(super::PLANS_DIR);
     fs::create_dir_all(&to_dir).map_err(|e| CoreError::io(&to_dir, e))?;
