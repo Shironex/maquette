@@ -163,6 +163,31 @@ export const cases = [
     ready: openQueue,
   },
   {
+    name: 'plan list',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    ready: page => page.getByRole('region', { name: 'All canvases' }).waitFor(),
+  },
+  {
+    name: 'plan canvas',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await page.getByRole('group', { name: 'Note: Frost veil' }).waitFor();
+    },
+  },
+  {
+    name: 'plan link dialog',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await page.getByRole('button', { name: /^Link/ }).click();
+      await page.getByRole('dialog', { name: 'Add a link' }).waitFor();
+    },
+  },
+  {
     name: 'inbox',
     query: CONFIGURED,
     hash: '#/inbox',

@@ -34,7 +34,8 @@
  * sends. The built set covers built assets on the Board (a stale and a
  * current card, a rebuild, the card menu) and Add built asset. The motion
  * set (scripts/visual-check/motion.mjs) covers the Motion view, the timeline
- * set (scripts/visual-check/timeline.mjs) the Timeline view, the paths set
+ * set (scripts/visual-check/timeline.mjs) the Timeline view, the plan set
+ * (scripts/visual-check/plan.mjs) the Plan view's canvases, the paths set
  * (scripts/visual-check/paths.mjs) the Inspector's Paths editor and the page
  * set (scripts/visual-check/page.mjs) the Page view and the game set
  * (scripts/visual-check/game.mjs) game projects and the library set
@@ -72,7 +73,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=minsize, ONLY=firstrun or ONLY=size
+ * ONLY=timeline, ONLY=plan, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=minsize, ONLY=firstrun or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -106,6 +107,7 @@ import { refsShots } from './visual-check/refs.mjs';
 import { styleShots } from './visual-check/style.mjs';
 import { syncShots } from './visual-check/sync.mjs';
 import { timelineShots } from './visual-check/timeline.mjs';
+import { planShots } from './visual-check/plan.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const outDir = resolve(process.env.OUT_DIR ?? resolve(root, '.visual'));
@@ -1097,6 +1099,8 @@ try {
   if (!only || only === 'motion') await motionShots({ open, shot });
   await settle();
   if (!only || only === 'timeline') await timelineShots({ open, shot });
+  await settle();
+  if (!only || only === 'plan') await planShots({ open, shot });
   await settle();
   if (!only || only === 'paths') await pathsShots({ open, shot });
   await settle();
