@@ -1,4 +1,5 @@
-//! An undo can not be undone, Keep takes the earlier changes it sits on,
+//! An undo can not be undone, Keep names the earlier changes it sits on,
+//! an agent can not undo a kept change,
 //! a kind change round-trips and the index counts a line as a read does.
 
 use std::io::Write as _;
@@ -9,7 +10,7 @@ use super::super::ops::{self, Merge, PlanOp};
 use super::super::summary::ChangeMark;
 use super::super::{NodeKind, get};
 use super::keep_tests::{RESEARCH, canvas, rewrite, text_of};
-use super::{keep, undo};
+use super::{keep, keep_needs, undo};
 
 fn held(root: &Path, id: &str) -> u64 {
     log::keeper_bytes(&log::entries(root, id).expect("entries"))
@@ -86,19 +87,22 @@ fn a_redo_can_not_open_the_way_to_release_an_older_change() {
 }
 
 #[test]
-fn keeping_a_newer_change_keeps_the_older_ones_it_sits_on() {
+fn a_keep_names_the_older_changes_it_sits_on_or_is_refused() {
     let (_dir, root, id) = canvas(&["orig".to_string(), "other".to_string()]);
     let first = agent_edit(&root, &id, "n-0", "a");
     let second = agent_edit(&root, &id, "n-0", "b");
     let elsewhere = agent_edit(&root, &id, "n-1", "c");
-    let kept = keep(&root, &id, std::slice::from_ref(&second)).expect("keep");
-    assert_eq!(kept.entry.keeps, vec![second.clone(), first.clone()]);
-    assert_eq!(kept.also.len(), 1);
-    assert!(
-        kept.entry.summary.contains("and the earlier"),
-        "{}",
-        kept.entry.summary
-    );
+    let needs = keep_needs(&root, &id, std::slice::from_ref(&second)).expect("needs");
+    assert_eq!(needs.len(), 1);
+    assert_eq!(needs[0].id, first);
+    assert_eq!(needs[0].parts, vec!["text".to_string()]);
+    // A short list keeps nothing.
+    let before = held(&root, &id);
+    let short = keep(&root, &id, std::slice::from_ref(&second)).expect_err("short");
+    assert!(short.to_string().contains(&first), "{short}");
+    assert_eq!(held(&root, &id), before);
+    let kept = keep(&root, &id, &[second.clone(), first.clone()]).expect("keep both");
+    assert_eq!(kept.keeps, vec![second, first.clone()]);
     // Only the other node's change still holds room.
     let lines = log::lines(&root, &id, 50).expect("lines");
     let keepable: Vec<&str> = lines
@@ -107,10 +111,46 @@ fn keeping_a_newer_change_keeps_the_older_ones_it_sits_on() {
         .map(|l| l.id.as_str())
         .collect();
     assert_eq!(keepable, vec![elsewhere.as_str()]);
-    assert!(held(&root, &id) > 0);
-    // The kept newer change still stands on the older one for undo.
-    let waits = agent_undo(&root, &id, &first).expect_err("waits");
-    assert!(waits.contains("Undo the later change first"), "{waits}");
+    assert!(
+        keep_needs(&root, &id, std::slice::from_ref(&elsewhere))
+            .expect("needs")
+            .is_empty()
+    );
+}
+
+#[test]
+fn the_chain_a_keep_needs_crosses_nodes_through_a_change_to_both() {
+    let (_dir, root, id) = canvas(&["origM".to_string(), "origN".to_string()]);
+    let a0 = agent_edit(&root, &id, "n-0", "m0");
+    let a1 = super::super::agent::update(
+        &root,
+        &id,
+        &RESEARCH,
+        &[rewrite("n-1", "n1".into()), rewrite("n-0", "m1".into())],
+    )
+    .expect("both")
+    .changed
+    .entry
+    .expect("logged")
+    .id;
+    let a2 = agent_edit(&root, &id, "n-1", "n2");
+    let needs = keep_needs(&root, &id, std::slice::from_ref(&a2)).expect("needs");
+    let ids: Vec<&str> = needs.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, vec![a1.as_str(), a0.as_str()]);
+    let refused = keep(&root, &id, &[a2.clone(), a1.clone()]).expect_err("A0 not named");
+    assert!(refused.to_string().contains(&a0), "{refused}");
+}
+
+#[test]
+fn an_agent_can_not_undo_a_change_the_person_kept() {
+    let (_dir, root, id) = canvas(&["orig".to_string()]);
+    let first = agent_edit(&root, &id, "n-0", "a");
+    keep(&root, &id, std::slice::from_ref(&first)).expect("keep");
+    let refused = agent_undo(&root, &id, &first).expect_err("kept");
+    assert!(refused.contains("The person kept the change"), "{refused}");
+    assert_eq!(text_of(&root, &id, "n-0"), "a");
+    undo(&root, &id, std::slice::from_ref(&first), None, None).expect("the person can");
+    assert_eq!(text_of(&root, &id, "n-0"), "orig");
 }
 
 #[test]

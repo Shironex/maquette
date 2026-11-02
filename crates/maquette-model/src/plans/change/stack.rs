@@ -13,6 +13,16 @@ use super::super::ops::PlanOp;
 /// Stands for every field of a node or link: added, removed or a link.
 const WHOLE: &str = "*";
 
+/// What an id names: node and link ids are only unique among their own
+/// kind, so a key carries which one it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Of {
+    Node,
+    Link,
+}
+
+type Key<'a> = (Of, &'a str, &'static str);
+
 /// The fields of a node an operation changed.
 fn node_fields(before: &PlanNode, after: &PlanNode) -> Vec<&'static str> {
     let mut fields = Vec::new();
@@ -27,35 +37,53 @@ fn node_fields(before: &PlanNode, after: &PlanNode) -> Vec<&'static str> {
     fields
 }
 
-/// The node and link ids, with the fields, `entry`'s operations touch.
-fn touched(entry: &PlanLogEntry) -> BTreeSet<(&str, &'static str)> {
+/// The nodes and links, with the fields, `entry`'s operations touch.
+fn touched(entry: &PlanLogEntry) -> BTreeSet<Key<'_>> {
     let mut out = BTreeSet::new();
     for op in &entry.ops {
         match op {
             PlanOp::AddNode { node } | PlanOp::RemoveNode { node } => {
-                out.insert((node.id.as_str(), WHOLE));
+                out.insert((Of::Node, node.id.as_str(), WHOLE));
             }
             PlanOp::SetNode { before, after } => {
                 for field in node_fields(before, after) {
-                    out.insert((after.id.as_str(), field));
+                    out.insert((Of::Node, after.id.as_str(), field));
                 }
             }
             PlanOp::AddEdge { edge } | PlanOp::RemoveEdge { edge } => {
-                out.insert((edge.id.as_str(), WHOLE));
+                out.insert((Of::Link, edge.id.as_str(), WHOLE));
             }
             PlanOp::SetEdge { after, .. } => {
-                out.insert((after.id.as_str(), WHOLE));
+                out.insert((Of::Link, after.id.as_str(), WHOLE));
             }
         }
     }
     out
 }
 
-fn overlap(a: &BTreeSet<(&str, &str)>, b: &BTreeSet<(&str, &str)>) -> bool {
-    a.iter().any(|(id, field)| {
-        b.iter()
-            .any(|(other, f)| id == other && (field == f || *field == WHOLE || *f == WHOLE))
+fn overlap(a: &BTreeSet<Key<'_>>, b: &BTreeSet<Key<'_>>) -> bool {
+    a.iter().any(|(of, id, field)| {
+        b.iter().any(|(other_of, other, f)| {
+            of == other_of && id == other && (field == f || *field == WHOLE || *f == WHOLE)
+        })
     })
+}
+
+/// The parts of the canvas `entry` changed, for a person to read: "text",
+/// "title", or "whole node" and "link" for adds, removes and links.
+pub(super) fn parts(entry: &PlanLogEntry) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for (of, _, field) in touched(entry) {
+        let name = match (of, field) {
+            (Of::Node, WHOLE) => "whole node".to_string(),
+            (Of::Link, _) => "link".to_string(),
+            (Of::Node, f) => f.to_string(),
+        };
+        if !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    out
 }
 
 /// A later agent change, not undone and not part of this undo, that
@@ -78,7 +106,8 @@ pub(super) fn on_top<'a>(
 }
 
 /// The earlier changes still held under `picked` on the same fields, and
-/// those under them: keeping the newer content keeps what it sits on.
+/// those under them (each on its own fields, so the chain can reach other
+/// nodes): a Keep of `picked` asks the person to keep these too.
 pub(super) fn beneath<'a>(
     all: &'a [PlanLogEntry],
     picked: &[&'a PlanLogEntry],

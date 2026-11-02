@@ -240,6 +240,10 @@ pub fn undo(
     change_with(project_dir, id, &writer, |_| {
         let all = log::entries(project_dir, id)?;
         let undone = log::undone_ids(&all);
+        let kept: BTreeSet<&str> = all
+            .iter()
+            .flat_map(|e| e.keeps.iter().map(String::as_str))
+            .collect();
         let mut picked: Vec<(usize, &PlanLogEntry)> = Vec::new();
         for want in ids {
             let (at, entry) = all
@@ -260,6 +264,11 @@ pub fn undo(
             if entry.trimmed || entry.ops.is_empty() {
                 return Err(CoreError::Invalid(format!(
                     "The change {want} can not be undone: it changed no nodes or was too big to keep."
+                )));
+            }
+            if only_by.is_some() && kept.contains(want.as_str()) {
+                return Err(CoreError::Invalid(format!(
+                    "The person kept the change {want}, so it is theirs now: an agent can not undo it. Ask the person; they can undo it from the Changes panel."
                 )));
             }
             if let Some(agent) = only_by
@@ -304,27 +313,30 @@ pub fn undo(
     })
 }
 
-/// What a Keep wrote, and the earlier changes it kept with the ones named.
-#[derive(Debug, Clone)]
-pub struct Kept {
-    pub entry: PlanLogEntry,
-    /// The summaries of earlier changes to the same fields, kept too.
-    pub also: Vec<String>,
+/// An earlier change a Keep must take along, for the person to confirm.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct KeepNeed {
+    pub id: String,
+    pub summary: String,
+    /// The parts it changed: field names, "whole node" or "link".
+    pub parts: Vec<String>,
 }
 
 /// Keeps (accepts) the agent changes `ids` as a person: one log line that
 /// releases them, so the room they held for undo is free again. The canvas
 /// does not change, and each stays undoable while it is among the newest
 /// lines. Earlier agent changes still held under them on the same fields
-/// are kept too: the person accepted the newer content, and a kept change
-/// rotating out must not leave an older one to release the person's words.
+/// ([`keep_needs`]) must be named too: a kept change rotating out must not
+/// leave an older one whose undo would release the person's words, and
+/// nothing is kept that the person did not confirm.
 ///
 /// # Errors
 ///
 /// Fails when the canvas is gone, a change is not in the log or holds
 /// nothing of a person's that is still kept for undo, or the log cannot be
 /// written.
-pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Kept> {
+pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
     if ids.is_empty() {
         return Err(CoreError::Invalid("Name the changes to keep.".into()));
     }
@@ -347,12 +359,19 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Kept> {
             picked.push(entry);
         }
     }
-    // The person accepted the newer content, so the changes it sits on go too.
-    let also = beneath(&all, &picked, &released);
-    let summary = match (picked.as_slice(), also.as_slice()) {
-        ([one], []) => format!("Kept: {}", one.summary),
-        ([one], [under]) => format!("Kept: {}, and the earlier {}", one.summary, under.summary),
-        (many, under) => format!("Kept {} agent changes", many.len() + under.len()),
+    let missing: Vec<&str> = beneath(&all, &picked, &released)
+        .iter()
+        .map(|e| e.id.as_str())
+        .collect();
+    if !missing.is_empty() {
+        return Err(CoreError::Invalid(format!(
+            "Keeping these also needs the earlier changes {} kept: they sit under them on the same parts of the canvas. Name them too once the person confirmed.",
+            missing.join(", ")
+        )));
+    }
+    let summary = match picked.as_slice() {
+        [one] => format!("Kept: {}", one.summary),
+        many => format!("Kept {} agent changes", many.len()),
     };
     let entry = PlanLogEntry {
         id: log::new_id("c"),
@@ -363,14 +382,32 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Kept> {
         mark: ChangeMark::Keep,
         ops: Vec::new(),
         undoes: Vec::new(),
-        keeps: picked.iter().chain(&also).map(|e| e.id.clone()).collect(),
+        keeps: picked.iter().map(|e| e.id.clone()).collect(),
         trimmed: false,
     };
     log::append(project_dir, id, &entry)?;
-    Ok(Kept {
-        also: also.iter().map(|e| e.summary.clone()).collect(),
-        entry,
-    })
+    Ok(entry)
+}
+
+/// The earlier agent changes a Keep of `ids` must take along: still held,
+/// under them on the same fields (and under those). Empty when the Keep
+/// can go as it is.
+///
+/// # Errors
+///
+/// Fails when the log cannot be read.
+pub fn keep_needs(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Vec<KeepNeed>> {
+    let all = log::entries(project_dir, id)?;
+    let released = log::released_ids(&all);
+    let picked: Vec<&PlanLogEntry> = all.iter().filter(|e| ids.contains(&e.id)).collect();
+    Ok(beneath(&all, &picked, &released)
+        .into_iter()
+        .map(|e| KeepNeed {
+            id: e.id.clone(),
+            summary: e.summary.clone(),
+            parts: stack::parts(e),
+        })
+        .collect())
 }
 
 #[cfg(test)]

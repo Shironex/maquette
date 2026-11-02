@@ -61,9 +61,7 @@ fn keep_releases_an_agents_change_and_the_budget_returns_to_zero() {
     let two = agent_edit(&root, &id, "n-1", "Agent moon".into());
     assert!(held(&root, &id) > 0);
     assert_eq!(indexed(&root, &id), held(&root, &id));
-    let line = keep(&root, &id, &[one.clone(), two.clone()])
-        .expect("keep")
-        .entry;
+    let line = keep(&root, &id, &[one.clone(), two.clone()]).expect("keep");
     assert_eq!(line.mark, ChangeMark::Keep);
     assert_eq!(line.summary, "Kept 2 agent changes");
     assert_eq!(held(&root, &id), 0);
