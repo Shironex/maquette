@@ -58,6 +58,18 @@ describe('PlanCanvas', () => {
     );
   });
 
+  it('links an asset from the A key, keeping only its id', async () => {
+    await renderCanvas('boss-arena');
+    await userEvent.keyboard('a');
+    const picker = screen.getByRole('dialog', { name: 'Link assets' });
+    const board = within(picker).getByRole('region', { name: 'On the Board' });
+    await userEvent.click(within(board).getByRole('checkbox', { name: /^Elsheria/ }));
+    await userEvent.click(within(picker).getByRole('button', { name: 'Add' }));
+    expect(await screen.findByRole('group', { name: 'Asset: Elsheria' })).toBeInTheDocument();
+    const added = usePlansStore.getState().nodes[0]?.data.node;
+    expect(added).toMatchObject({ kind: 'asset', asset: 'elsheria', title: '', text: '' });
+  });
+
   it('stays open and asks when the save on the way back fails', async () => {
     await renderCanvas('combat-ideas');
     vi.spyOn(commands, 'planSave')

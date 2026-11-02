@@ -28,6 +28,9 @@ class FakeDomMatrix {
 export function fakeFlowLayout() {
   globalThis.ResizeObserver ??= FakeResizeObserver as unknown as typeof ResizeObserver;
   (globalThis as { DOMMatrixReadOnly?: unknown }).DOMMatrixReadOnly ??= FakeDomMatrix;
+  // Edge labels measure their text.
+  const svg = SVGElement.prototype as SVGElement & { getBBox?: () => DOMRect };
+  svg.getBBox ??= () => ({ x: 0, y: 0, width: 40, height: 14 }) as DOMRect;
   for (const [key, value] of [
     ['offsetWidth', 200],
     ['offsetHeight', 120],
@@ -37,7 +40,7 @@ export function fakeFlowLayout() {
   }
 }
 
-/** `demo` gives Frostveil three canvases; anything else none. */
+/** `demo` gives Frostveil four canvases; anything else none. */
 export async function openPlans(plans: string | null = 'demo') {
   usePlansStore.setState(usePlansStore.getInitialState(), true);
   await openMockWorkspace(

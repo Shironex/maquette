@@ -26,6 +26,6 @@ describe('NewCanvasDialog', () => {
     render(<NewCanvasDialog onClose={onClose} />);
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledOnce();
-    expect(usePlansStore.getState().list).toHaveLength(3);
+    expect(usePlansStore.getState().list).toHaveLength(4);
   });
 });

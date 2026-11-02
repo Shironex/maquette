@@ -10,14 +10,20 @@ import {
 } from '@xyflow/react';
 import { Button, cn, Icon, Kbd, TopBar, type IconName } from '@maquette/ui';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
-import type { NodeKind } from '@/ipc/client';
+import { AssetPicker } from '../AssetPicker';
 import { LinkDialog } from '../LinkDialog';
 import { PlanNodeCard } from '../PlanNodeCard';
-import { usePlanCanvas } from './PlanCanvas.hooks';
+import { usePlanCanvas, type AddKind } from './PlanCanvas.hooks';
 
-const NODE_TYPES: NodeTypes = { note: PlanNodeCard, image: PlanNodeCard, link: PlanNodeCard };
+const NODE_TYPES: NodeTypes = {
+  note: PlanNodeCard,
+  image: PlanNodeCard,
+  link: PlanNodeCard,
+  asset: PlanNodeCard,
+  direction: PlanNodeCard,
+};
 
-const TOOLS: { kind: NodeKind; label: string; icon: IconName; key: string; tip: string }[] = [
+const TOOLS: { kind: AddKind; label: string; icon: IconName; key: string; tip: string }[] = [
   {
     kind: 'note',
     label: 'Note',
@@ -33,6 +39,13 @@ const TOOLS: { kind: NodeKind; label: string; icon: IconName; key: string; tip: 
     tip: 'Adds a picture from the project or your disk',
   },
   { kind: 'link', label: 'Link', icon: 'link-simple', key: 'L', tip: 'Adds a web page' },
+  {
+    kind: 'asset',
+    label: 'Asset',
+    icon: 'cube',
+    key: 'A',
+    tip: 'Links an asset of the Board or a Lab direction',
+  },
 ];
 
 const PRESET_NAME = { brainstorm: 'Brainstorm', story: 'Story', mechanics: 'Game mechanics' };
@@ -158,12 +171,13 @@ export default function PlanCanvas() {
             <span className="grid size-14 place-items-center rounded-[16px] border border-line bg-raised text-fg-dim">
               <Icon name="graph" size={26} />
             </span>
-            <h2 className="text-panel-title">Add notes, pictures and links</h2>
+            <h2 className="text-panel-title">Add notes, pictures, links and assets</h2>
             <p className="max-w-[380px] text-fg-dim">
               This canvas is empty. It is saved as {file}, and kept saved as you go.
             </p>
             <ul className="flex flex-col gap-1.5 text-left text-fg-dim">
               <li>Double click anywhere to write a note</li>
+              <li>Bring in assets of the Board with Asset</li>
               <li>Drag from a node&apos;s edge to another node to link them</li>
               <li>Select a node or a link and press Delete to remove it</li>
             </ul>
@@ -177,6 +191,9 @@ export default function PlanCanvas() {
         ) : null}
       </main>
       {v.linking ? <LinkDialog onAdd={v.addLink} onClose={v.closeLink} /> : null}
+      {v.picker.open ? (
+        <AssetPicker linked={v.picker.linked} onAdd={v.picker.add} onClose={v.picker.close} />
+      ) : null}
       {v.leave.asking ? (
         <ChoiceDialog
           title="The canvas was not saved"

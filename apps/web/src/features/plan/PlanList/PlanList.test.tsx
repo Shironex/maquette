@@ -43,7 +43,11 @@ describe('PlanList', () => {
     expect(dialog).toHaveTextContent('moves into the workspace');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
     await vi.waitFor(() =>
-      expect(usePlansStore.getState().list?.map(p => p.id)).toEqual(['boss-arena', 'combat-ideas'])
+      expect(usePlansStore.getState().list?.map(p => p.id)).toEqual([
+        'boss-arena',
+        'boss-frost-warden',
+        'combat-ideas',
+      ])
     );
   });
 });

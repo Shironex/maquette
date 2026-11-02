@@ -180,3 +180,39 @@
   text-align: center;
   pointer-events: none;
 }
+
+/* An asset or Lab direction node: diamond handles, as the design's asset joins. */
+.plan-canvas .plan-handle.plan-handle-diamond {
+  border-radius: 2px;
+}
+
+.plan-canvas .plan-handle-diamond.react-flow__handle-top,
+.plan-canvas .plan-handle-diamond.react-flow__handle-left {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.plan-canvas .plan-handle-diamond.react-flow__handle-right {
+  transform: translate(50%, -50%) rotate(45deg);
+}
+
+.plan-canvas .plan-handle-diamond.react-flow__handle-bottom {
+  transform: translate(-50%, 50%) rotate(45deg);
+}
+
+/* Its asset or direction is no longer in the project: a quiet dashed card. */
+.plan-node.plan-node-gone {
+  border-style: dashed;
+  background: var(--bg-panel);
+  box-shadow: none;
+}
+
+/* Edge labels: React Flow's base styles leave the SVG text and its box black. */
+.plan-canvas .react-flow__edge-textbg {
+  fill: var(--bg-panel);
+  stroke: var(--line);
+}
+
+.plan-canvas .react-flow__edge-text {
+  fill: var(--text-dim);
+  font: 500 11px var(--font-mono);
+}

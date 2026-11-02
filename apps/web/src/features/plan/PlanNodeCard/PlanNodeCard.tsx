@@ -1,10 +1,11 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { cn, Icon, IconButton, type IconName } from '@maquette/ui';
 import type { NodeKind } from '@/ipc/client';
-import { hostOf, LIMITS, type FlowNode } from '@/state/plans';
+import { hostOf, isLinked, LIMITS, type FlowNode } from '@/state/plans';
+import { LinkedBody } from './LinkedBody';
 import { usePlanNodeCard } from './PlanNodeCard.hooks';
 
-const KIND: Record<NodeKind, { label: string; icon: IconName }> = {
+const KIND: Record<Exclude<NodeKind, 'asset' | 'direction'>, { label: string; icon: IconName }> = {
   note: { label: 'Note', icon: 'note-pencil' },
   image: { label: 'Image', icon: 'image' },
   link: { label: 'Link', icon: 'link-simple' },
@@ -19,13 +20,13 @@ const HANDLES = [
 
 /**
  * One node on a canvas, the same parts for every kind: the kind line, a
- * title, the body (text, picture or link) and a quiet footer, with a handle
- * on each side to link it to another node. A double click edits its text.
+ * title, the body (text, picture, link, or an asset or Lab direction read
+ * live) and a quiet footer, with a handle on each side to link it to
+ * another node. A double click edits a note's, picture's or link's text.
  */
 export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
   const { node } = data;
   const v = usePlanNodeCard(node);
-  const kind = KIND[node.kind];
   const field = (what: 'text' | 'title', label: string, rows: number) => (
     <textarea
       aria-label={label}
@@ -45,9 +46,25 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
       className="nodrag nowheel mx-2 mt-1 resize-none rounded-[6px] border border-line-strong bg-app px-2 py-1.5 text-[12.5px] leading-[17px] text-fg outline-none focus:border-clay"
     />
   );
+  const linked = isLinked(node.kind);
   const handles = HANDLES.map(h => (
-    <Handle key={h.id} id={h.id} type="source" position={h.position} className="plan-handle" />
+    <Handle
+      key={h.id}
+      id={h.id}
+      type="source"
+      position={h.position}
+      className={cn('plan-handle', linked && 'plan-handle-diamond')}
+    />
   ));
+  if (node.kind === 'asset' || node.kind === 'direction') {
+    return (
+      <div className={cn('plan-node', v.gone && 'plan-node-gone', selected && 'is-selected')}>
+        {handles}
+        <LinkedBody node={node} />
+      </div>
+    );
+  }
+  const kind = KIND[node.kind];
   return (
     <div
       className={cn(
