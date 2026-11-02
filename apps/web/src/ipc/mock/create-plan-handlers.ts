@@ -175,7 +175,8 @@ const sortById = <T extends { id: string }>(items: T[]) =>
 
 export function createPlanHandlers(deps: { root: () => string | null; plans: string | null }) {
   const byProject = new Map<string, Canvases>();
-  if (deps.plans === 'demo') byProject.set('frostveil', demoCanvases());
+  // `locked` serves the demo canvases but every save fails, as a file another program holds would.
+  if (deps.plans === 'demo' || deps.plans === 'locked') byProject.set('frostveil', demoCanvases());
   let picks = 0;
 
   const canvases = (project: unknown) => {
@@ -243,6 +244,8 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
       const current = existing(project, id);
       const next = plan as PlanFile;
       checkPlan(next);
+      if (deps.plans === 'locked')
+        fail('io', 'The canvas file is in use by another program, so it could not be written.');
       const saved: PlanFile = {
         ...next,
         // Only Rename changes the name, as in the core.
@@ -250,8 +253,11 @@ export function createPlanHandlers(deps: { root: () => string | null; plans: str
         created: current.created,
         preset: current.preset,
         edited: clock.now().toISOString(),
-        nodes: sortById(next.nodes),
-        edges: sortById(next.edges),
+        // Trimmed as the core trims a save.
+        nodes: sortById(
+          next.nodes.map(n => ({ ...n, title: n.title.trim(), url: n.url?.trim() ?? null }))
+        ),
+        edges: sortById(next.edges.map(e => ({ ...e, label: e.label?.trim() || null }))),
       };
       canvases(project).set(String(id), saved);
       return doc(project, String(id), saved);

@@ -93,6 +93,8 @@ interface PlansStore {
 let timer: ReturnType<typeof setTimeout> | undefined;
 /** The save on its way, so the next one waits for it instead of racing it. */
 let inflight: Promise<boolean> | null = null;
+/** Counts renames, so a save answered after a rename keeps the new name. */
+let renames = 0;
 
 function withFields(flow: FlowNode, fields: NodeFields): FlowNode {
   const node = { ...flow.data.node, ...fields };
@@ -217,6 +219,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       try {
         const summary = await commands.planRename(project, id, name);
         putSummary(summary);
+        renames += 1;
         const open = get().open;
         if (open?.id === id) set({ open: { ...open, plan: { ...open.plan, name: summary.name } } });
         return true;
@@ -254,7 +257,8 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
     close: async () => {
       if (!(await settle({ to: 'list' }))) return false;
-      const project = get().project;
+      // The workspace's project, which differs after a switch whose save failed and Stay.
+      const project = useAppStore.getState().workspace?.project?.id ?? get().project;
       shut();
       set({ openError: null });
       if (project) await get().loadList(project);
@@ -353,16 +357,23 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       const { project, open } = get();
       const next = draft();
       if (!project || !open || !next || samePlan(next, open.plan)) return true;
+      const sent = renames;
       const run = (async () => {
         set({ saving: true });
         try {
-          const doc = await commands.planSave(project, open.id, next);
-          if (get().open?.id !== open.id) {
+          const saved = await commands.planSave(project, open.id, next);
+          const now = get().open;
+          if (now?.id !== open.id) {
             set({ saving: false });
             return true;
           }
+          const name = sent === renames ? saved.plan.name : now.plan.name;
+          const doc = { ...saved, plan: { ...saved.plan, name } };
+          // The core wrote something other than what was sent and nothing changed since: show its canvas.
+          const rebuild = !samePlan(doc.plan, next) && samePlan(draft() ?? next, next);
           set({
             open: doc,
+            ...(rebuild ? { nodes: flowNodesOf(doc.plan), edges: flowEdgesOf(doc.plan) } : {}),
             images: { ...get().images, ...doc.images },
             saving: false,
             saveError: null,

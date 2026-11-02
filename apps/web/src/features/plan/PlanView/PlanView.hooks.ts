@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/state/use-app-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
@@ -15,12 +15,20 @@ export function usePlanView() {
   const list = usePlansStore(s => s.list);
   const listError = usePlansStore(s => s.listError);
   const open = usePlansStore(s => s.open);
+  const storeProject = usePlansStore(s => s.project);
   const opening = usePlansStore(s => s.opening);
   const openError = usePlansStore(s => s.openError);
-  const storeProject = usePlansStore(s => s.project);
+  const stale = Boolean(projectId) && storeProject !== projectId && !open;
+  // Reads the workspace project's canvases when it changes, and again when
+  // the store still holds another project's with nothing open (after a
+  // switch whose save failed, Stay, then Back), so the list never waits on
+  // a load nobody started.
+  const loaded = useRef<string | null>(null);
   useEffect(() => {
-    if (projectId) void loadList(projectId);
-  }, [projectId, loadList]);
+    if (!projectId || (!stale && loaded.current === projectId)) return;
+    loaded.current = projectId;
+    void loadList(projectId);
+  }, [projectId, stale, loadList]);
   useEffect(() => () => void usePlansStore.getState().save(), []);
   const current = storeProject === projectId;
   return {

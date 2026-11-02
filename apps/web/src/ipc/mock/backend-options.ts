@@ -59,7 +59,7 @@ export type Args = Record<string, unknown>;
  * `create-parts-handlers.ts`), `?page=` holds the Page view's dev server
  * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
  * (see `create-timeline-handlers.ts`), `?paths=` the Paths editor's paths
- * (see `create-paths-handlers.ts`), `?plans=demo` planning canvases (see
+ * (see `create-paths-handlers.ts`), `?plans=demo` planning canvases (`locked` for the same ones whose saves fail, see
  * `create-plan-handlers.ts`), `?game=` a game project (see
  * `create-game-handlers.ts`), `?library=demo` the library's entries (`scale` for 214 of them, see
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
@@ -124,7 +124,7 @@ export interface BackendOptions {
   timeline?: string | null;
   /** `demo` or `empty`: the Paths editor's paths (see create-paths-handlers.ts). */
   paths?: string | null;
-  /** `demo`: Frostveil's planning canvases (see create-plan-handlers.ts). */
+  /** `demo`: Frostveil's planning canvases; `locked`: the same, every save failing (see create-plan-handlers.ts). */
   plans?: string | null;
   /** `slow`: Render previews lands each picture a while after it is asked, as Blender does. */
   previews?: string | null;

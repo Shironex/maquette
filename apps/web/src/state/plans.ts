@@ -112,27 +112,41 @@ export function flowEdgesOf(plan: PlanFile): FlowEdge[] {
   return plan.edges.map(flowEdgeOf);
 }
 
-/** The canvas file the flow shows, positions in whole pixels. */
+/** A node's fields as the core writes them: a trimmed title and address. */
+export function normalNode(node: PlanNode): PlanNode {
+  const url = node.url?.trim() ?? null;
+  return { ...node, title: node.title.trim(), url };
+}
+
+/** An edge label as the core writes it: trimmed, and none when empty. */
+const normalLabel = (label: string | null) => label?.trim() || null;
+
+/**
+ * The canvas file the flow shows, positions in whole pixels and text
+ * normalised the way the core normalises a save (`normalized` in
+ * crates/maquette-model/src/plans.rs), so a canvas the core trimmed reads
+ * as saved and does not save again and again.
+ */
 export function planOf(base: PlanFile, nodes: FlowNode[], edges: FlowEdge[]): PlanFile {
   return {
     ...base,
+    name: base.name.trim(),
     nodes: nodes.map(n => ({
-      ...n.data.node,
+      ...normalNode(n.data.node),
       x: coord(n.position.x),
       y: coord(n.position.y),
     })),
-    edges: edges.map(e => ({
-      ...(e.data?.edge ?? {
-        id: e.id,
-        kind: 'relates' as const,
-        label: null,
-        by: null,
-      }),
-      from: e.source,
-      to: e.target,
-      fromSide: isSide(e.sourceHandle) ? e.sourceHandle : null,
-      toSide: isSide(e.targetHandle) ? e.targetHandle : null,
-    })),
+    edges: edges.map(e => {
+      const edge = e.data?.edge ?? { id: e.id, kind: 'relates' as const, label: null, by: null };
+      return {
+        ...edge,
+        label: normalLabel(edge.label),
+        from: e.source,
+        to: e.target,
+        fromSide: isSide(e.sourceHandle) ? e.sourceHandle : null,
+        toSide: isSide(e.targetHandle) ? e.targetHandle : null,
+      };
+    }),
   };
 }
 
@@ -167,10 +181,10 @@ export function newNode(
     x: coord(at.x),
     y: coord(at.y),
     width: null,
-    title: (fields.title ?? '').slice(0, LIMITS.title),
+    title: (fields.title ?? '').trim().slice(0, LIMITS.title),
     text: (fields.text ?? '').slice(0, LIMITS.text),
     image: fields.image ?? null,
-    url: fields.url ?? null,
+    url: fields.url?.trim() ?? null,
     by: null,
   };
 }
