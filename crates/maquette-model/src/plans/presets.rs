@@ -4,8 +4,9 @@
 //! holds every kind of node. Brainstorm starts blank.
 //!
 //! The view's mock backend keeps a copy of these words
-//! (`apps/web/src/ipc/mock/plan-presets.ts`); a test there checks each
-//! title and text is written here too.
+//! (`apps/web/src/ipc/mock/plan-presets.ts`). `presets/seeds.json` holds
+//! these seeds as data, kept equal to them by a test here, and the mock's
+//! test compares its seeds with it card for card.
 
 use super::log::new_id;
 use super::{EdgeKind, NodeKind, PlanEdge, PlanNode, PlanPreset, Side};

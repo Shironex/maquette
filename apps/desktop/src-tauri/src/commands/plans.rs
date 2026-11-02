@@ -54,13 +54,7 @@ pub fn plan_create(
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, &project)?;
     let dir = project::dir(&root, &config.layout, &project)?;
-    Ok(plans::create_seeded(
-        &dir,
-        &name,
-        preset,
-        manifest.target,
-        None,
-    )?)
+    Ok(plans::create_seeded(&dir, &name, preset, manifest.target, None)?.doc)
 }
 
 /// Writes a person's edits: the operations between the canvas the view

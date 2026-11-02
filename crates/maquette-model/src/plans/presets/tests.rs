@@ -124,8 +124,9 @@ fn an_agents_seed_carries_its_name() {
 fn a_seeded_canvas_is_one_undoable_first_line() {
     let dir = tempfile::tempdir().expect("temp dir");
     let root = dir.path();
-    let made =
+    let changed =
         create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None).expect("create");
+    let made = changed.doc;
     assert_eq!(made.plan.preset, PlanPreset::Story);
     assert_eq!(made.plan.nodes.len(), 8);
     assert_eq!(made.plan.edges.len(), 7);
@@ -138,6 +139,8 @@ fn a_seeded_canvas_is_one_undoable_first_line() {
 
     let lines = log::lines(root, &made.id, 10).expect("log");
     assert_eq!(lines.len(), 1);
+    let entry_id = changed.entry.expect("line").id;
+    assert_eq!(lines[0].id, entry_id, "the answer names the line to undo");
     assert_eq!(lines[0].mark, ChangeMark::Create);
     assert_eq!(
         lines[0].summary,
@@ -162,7 +165,8 @@ fn a_blank_canvas_logs_as_before_and_an_agent_names_itself() {
         ProjectTarget::Website,
         None,
     )
-    .expect("blank");
+    .expect("blank")
+    .doc;
     let line = &log::lines(root, &blank.id, 1).expect("log")[0];
     assert_eq!(line.summary, "Made the canvas Ideas");
     assert!(!line.undoable, "nothing to undo on a blank canvas");
@@ -174,7 +178,8 @@ fn a_blank_canvas_logs_as_before_and_an_agent_names_itself() {
         ProjectTarget::Game,
         Some("Design agent"),
     )
-    .expect("mechanics");
+    .expect("mechanics")
+    .doc;
     let line = &log::lines(root, &made.id, 1).expect("log")[0];
     assert_eq!(line.by.as_deref(), Some("Design agent"));
     assert_eq!(
@@ -186,5 +191,80 @@ fn a_blank_canvas_logs_as_before_and_an_agent_names_itself() {
             .nodes
             .iter()
             .all(|n| n.by.as_deref() == Some("Design agent"))
+    );
+}
+
+#[test]
+fn a_seed_whose_line_cannot_be_logged_leaves_no_canvas() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path();
+    super::super::create::FAIL_LOG.with(|f| f.set(true));
+    let err = create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None)
+        .expect_err("refused");
+    assert!(err.to_string().contains("log"), "{err}");
+    assert!(!root.join("plans/act-1.plan.json").exists());
+    assert!(!root.join("plans/act-1.log.jsonl").exists());
+    let again = create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None)
+        .expect("made once the log writes");
+    assert_eq!(again.doc.id, "act-1", "the id is free again");
+}
+
+/// Every seed as plain data, nodes in card order and links by card index:
+/// what `seeds.json` holds and the mock's test compares against.
+fn seeds_json() -> serde_json::Value {
+    let mut all = serde_json::Map::new();
+    for preset in PRESETS {
+        for target in TARGETS {
+            let (nodes, edges) = seed(preset, target, None);
+            let at = |id: &str| nodes.iter().position(|n| n.id == id).expect("node");
+            let key = format!(
+                "{}/{}",
+                serde_json::to_value(preset)
+                    .expect("preset")
+                    .as_str()
+                    .expect("name"),
+                serde_json::to_value(target)
+                    .expect("target")
+                    .as_str()
+                    .expect("name")
+            );
+            let cards: Vec<_> = nodes
+                .iter()
+                .map(
+                    |n| serde_json::json!({ "title": n.title, "text": n.text, "x": n.x, "y": n.y }),
+                )
+                .collect();
+            let links: Vec<_> = edges
+                .iter()
+                .map(|e| {
+                    serde_json::json!({
+                        "from": at(&e.from), "to": at(&e.to), "kind": e.kind,
+                        "fromSide": e.from_side, "toSide": e.to_side,
+                    })
+                })
+                .collect();
+            all.insert(key, serde_json::json!({ "nodes": cards, "links": links }));
+        }
+    }
+    serde_json::Value::Object(all)
+}
+
+/// `seeds.json` is the seeds as data for the mock backend's test, so both
+/// sides check the same cards, order, places and links. Set
+/// `MAQUETTE_BLESS_SEEDS=1` to write it again after changing a seed.
+#[test]
+fn seeds_json_matches_the_seeds() {
+    let file =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/plans/presets/seeds.json");
+    let now = seeds_json();
+    if std::env::var_os("MAQUETTE_BLESS_SEEDS").is_some() {
+        let text = serde_json::to_string_pretty(&now).expect("json") + "\n";
+        std::fs::write(&file, text).expect("write");
+    }
+    let kept: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).expect("seeds.json")).expect("parse");
+    assert_eq!(
+        kept, now,
+        "run with MAQUETTE_BLESS_SEEDS=1 to write seeds.json again"
     );
 }

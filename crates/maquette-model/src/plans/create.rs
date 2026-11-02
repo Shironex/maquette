@@ -10,7 +10,8 @@ use super::log;
 use super::ops::PlanOp;
 use super::summary::ChangeMark;
 use super::{
-    PlanDoc, PlanFile, PlanPreset, change, check_name, dir, normalized, path, presets, validate,
+    Changed, PlanDoc, PlanFile, PlanPreset, change, check_name, dir, normalized, path, presets,
+    validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::project::{latin_slug, windows_safe};
@@ -61,24 +62,26 @@ pub fn create_by(
     preset: PlanPreset,
     by: Option<&str>,
 ) -> CoreResult<PlanDoc> {
-    make(project_dir, PlanFile::new(name, preset), by)
+    Ok(make(project_dir, PlanFile::new(name, preset), by)?.doc)
 }
 
 /// Makes a canvas called `name` from `preset`, with the preset's starter
 /// notes and links for a project of `target` ([`presets::seed`]), made by
 /// `by` (an agent's name, or `None` for a person). The starters are the
-/// first line of the change log, so one undo takes them all back.
+/// first line of the change log, which [`Changed::entry`] names, so one
+/// undo of that change id takes them all back. The line has no run.
 ///
 /// # Errors
 ///
-/// As [`create`].
+/// As [`create`], and when the starters' log line cannot be written: the
+/// canvas is removed again rather than left with notes no undo can reach.
 pub fn create_seeded(
     project_dir: &Path,
     name: &str,
     preset: PlanPreset,
     target: ProjectTarget,
     by: Option<&str>,
-) -> CoreResult<PlanDoc> {
+) -> CoreResult<Changed> {
     let mut plan = PlanFile::new(name, preset);
     (plan.nodes, plan.edges) = presets::seed(preset, target, by);
     make(project_dir, plan, by)
@@ -86,7 +89,9 @@ pub fn create_seeded(
 
 /// Writes `plan` as a new canvas under a free id made from its name, and
 /// logs it as made, with an add for each node and edge it starts with.
-fn make(project_dir: &Path, plan: PlanFile, by: Option<&str>) -> CoreResult<PlanDoc> {
+/// A blank canvas only warns when its line cannot be written, as every
+/// other plain line does; a canvas with starters is removed again then.
+fn make(project_dir: &Path, plan: PlanFile, by: Option<&str>) -> CoreResult<Changed> {
     check_name(&plan.name)?;
     let plan = normalized(&plan);
     validate(&plan)?;
@@ -115,6 +120,32 @@ fn make(project_dir: &Path, plan: PlanFile, by: Option<&str>) -> CoreResult<Plan
                 .map(|e| PlanOp::AddEdge { edge: e.clone() }),
         )
         .collect();
-    change::note(project_dir, &id, &line);
-    Ok(doc(project_dir, &id, plan))
+    let file = path(project_dir, &id)?;
+    if line.ops.is_empty() {
+        change::note(project_dir, &id, &line);
+    } else if let Err(err) = append(project_dir, &id, &line) {
+        if let Err(stuck) = fs::remove_file(&file) {
+            tracing::warn!("a canvas whose first line was not logged stayed: {stuck}");
+        }
+        return Err(err);
+    }
+    Ok(Changed {
+        doc: doc(project_dir, &id, plan),
+        entry: Some(line),
+        skipped: 0,
+    })
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Makes the next log append here fail, for the test of that path.
+    pub(super) static FAIL_LOG: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn append(project_dir: &Path, id: &str, line: &log::PlanLogEntry) -> CoreResult<()> {
+    #[cfg(test)]
+    if FAIL_LOG.with(|f| f.replace(false)) {
+        return Err(CoreError::Invalid("the log could not be written".into()));
+    }
+    log::append(project_dir, id, line)
 }

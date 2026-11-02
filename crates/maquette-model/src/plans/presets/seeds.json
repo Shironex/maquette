@@ -1,0 +1,274 @@
+{
+  "brainstorm/game": {
+    "links": [],
+    "nodes": []
+  },
+  "brainstorm/website": {
+    "links": [],
+    "nodes": []
+  },
+  "mechanics/game": {
+    "links": [],
+    "nodes": [
+      {
+        "text": "Verb: what the player does most\nLook: how it reads on screen\nInput: the key or button",
+        "title": "System: Core action",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "text": "Verb: how the player gets around\nLook: how it reads on screen\nInput: the key or button",
+        "title": "System: Movement",
+        "x": 280,
+        "y": 0
+      },
+      {
+        "text": "Verb: how the player stays alive\nLook: how it reads on screen\nInput: the key or button",
+        "title": "System: Defence",
+        "x": 560,
+        "y": 0
+      },
+      {
+        "text": "One verb, one look and one input per system. Two systems that share any of them read as one. Add a card for each new system.",
+        "title": "Keep them apart",
+        "x": 0,
+        "y": 240
+      }
+    ]
+  },
+  "mechanics/website": {
+    "links": [],
+    "nodes": [
+      {
+        "text": "Verb: what the player does most\nLook: how it reads on screen\nInput: the key or button",
+        "title": "System: Core action",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "text": "Verb: how the player gets around\nLook: how it reads on screen\nInput: the key or button",
+        "title": "System: Movement",
+        "x": 280,
+        "y": 0
+      },
+      {
+        "text": "Verb: how the player stays alive\nLook: how it reads on screen\nInput: the key or button",
+        "title": "System: Defence",
+        "x": 560,
+        "y": 0
+      },
+      {
+        "text": "One verb, one look and one input per system. Two systems that share any of them read as one. Add a card for each new system.",
+        "title": "Keep them apart",
+        "x": 0,
+        "y": 240
+      }
+    ]
+  },
+  "story/game": {
+    "links": [
+      {
+        "from": 2,
+        "fromSide": "right",
+        "kind": "leads-to",
+        "to": 3,
+        "toSide": "left"
+      },
+      {
+        "from": 3,
+        "fromSide": "right",
+        "kind": "leads-to",
+        "to": 4,
+        "toSide": "left"
+      },
+      {
+        "from": 4,
+        "fromSide": "right",
+        "kind": "leads-to",
+        "to": 5,
+        "toSide": "left"
+      },
+      {
+        "from": 0,
+        "fromSide": "bottom",
+        "kind": "relates",
+        "to": 2,
+        "toSide": "top"
+      },
+      {
+        "from": 1,
+        "fromSide": "bottom",
+        "kind": "relates",
+        "to": 3,
+        "toSide": "top"
+      },
+      {
+        "from": 6,
+        "fromSide": "top",
+        "kind": "relates",
+        "to": 2,
+        "toSide": "bottom"
+      },
+      {
+        "from": 7,
+        "fromSide": "top",
+        "kind": "relates",
+        "to": 5,
+        "toSide": "bottom"
+      }
+    ],
+    "nodes": [
+      {
+        "text": "Who the player is and what they want. Link their asset here once it is on the Board.",
+        "title": "Character: Main character",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "text": "Who or what stands in the way, and why.",
+        "title": "Character: Rival",
+        "x": 280,
+        "y": 0
+      },
+      {
+        "text": "Where it starts and what the player sees first.",
+        "title": "Beat 1: Opening",
+        "x": 0,
+        "y": 240
+      },
+      {
+        "text": "What goes wrong and pulls the player in.",
+        "title": "Beat 2: Trouble",
+        "x": 280,
+        "y": 240
+      },
+      {
+        "text": "The surprise that changes the plan. Draw two links out of a beat to branch.",
+        "title": "Beat 3: Turn",
+        "x": 560,
+        "y": 240
+      },
+      {
+        "text": "How it ends and what the player keeps.",
+        "title": "Beat 4: Ending",
+        "x": 840,
+        "y": 240
+      },
+      {
+        "text": "Where the opening happens. Drop a picture or link a Lab direction.",
+        "title": "Place: First place",
+        "x": 0,
+        "y": 480
+      },
+      {
+        "text": "Where it ends.",
+        "title": "Place: Last place",
+        "x": 840,
+        "y": 480
+      }
+    ]
+  },
+  "story/website": {
+    "links": [
+      {
+        "from": 2,
+        "fromSide": "right",
+        "kind": "leads-to",
+        "to": 3,
+        "toSide": "left"
+      },
+      {
+        "from": 3,
+        "fromSide": "right",
+        "kind": "leads-to",
+        "to": 4,
+        "toSide": "left"
+      },
+      {
+        "from": 4,
+        "fromSide": "right",
+        "kind": "leads-to",
+        "to": 5,
+        "toSide": "left"
+      },
+      {
+        "from": 0,
+        "fromSide": "bottom",
+        "kind": "relates",
+        "to": 2,
+        "toSide": "top"
+      },
+      {
+        "from": 1,
+        "fromSide": "bottom",
+        "kind": "relates",
+        "to": 3,
+        "toSide": "top"
+      },
+      {
+        "from": 6,
+        "fromSide": "top",
+        "kind": "relates",
+        "to": 2,
+        "toSide": "bottom"
+      },
+      {
+        "from": 7,
+        "fromSide": "top",
+        "kind": "relates",
+        "to": 5,
+        "toSide": "bottom"
+      }
+    ],
+    "nodes": [
+      {
+        "text": "What the site is about: a person, a product or a place.",
+        "title": "Character: Main subject",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "text": "Who scrolls through it and what they came for.",
+        "title": "Character: Visitor",
+        "x": 280,
+        "y": 0
+      },
+      {
+        "text": "What a visitor sees before they scroll.",
+        "title": "Beat 1: First view",
+        "x": 0,
+        "y": 240
+      },
+      {
+        "text": "The detail that makes them keep scrolling.",
+        "title": "Beat 2: Hook",
+        "x": 280,
+        "y": 240
+      },
+      {
+        "text": "The view the scroll builds up to. Draw two links out of a beat to branch.",
+        "title": "Beat 3: Reveal",
+        "x": 560,
+        "y": 240
+      },
+      {
+        "text": "The last view and what you want them to do next.",
+        "title": "Beat 4: Close",
+        "x": 840,
+        "y": 240
+      },
+      {
+        "text": "Where the first camera stop looks. Drop a picture or link a Lab direction.",
+        "title": "Place: Opening scene",
+        "x": 0,
+        "y": 480
+      },
+      {
+        "text": "Where the tour ends.",
+        "title": "Place: Final scene",
+        "x": 840,
+        "y": 480
+      }
+    ]
+  }
+}

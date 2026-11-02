@@ -147,10 +147,14 @@ async fn an_agent_starts_canvases_from_presets() {
         json!("Made the canvas Act 1 from the Story preset")
     );
     assert_eq!(line["by"], json!(agent));
+    assert_eq!(
+        game["change"], line["id"],
+        "the answer names the line to undo"
+    );
     let undone = call(
         &client,
         "undo_run",
-        json!({ "project": "frost-game", "canvas": "act-1", "changes": [line["id"]], "agent": agent }),
+        json!({ "project": "frost-game", "canvas": "act-1", "changes": [game["change"]], "agent": agent }),
     )
     .await;
     assert!(undone.is_object());

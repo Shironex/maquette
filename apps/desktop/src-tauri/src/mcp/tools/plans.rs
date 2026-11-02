@@ -283,7 +283,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make a planning canvas in a project, as Plan > New canvas does; writes one file, plans/<id>.plan.json. preset sets only the start, every canvas holds every kind of node: brainstorm (blank, the default), story (starter notes for beats left to right joined in order, characters above and places below, worded for a game or a website by the project's target) or mechanics (a card per system with its verb, look and input, and a note on keeping them apart). The starter notes carry your name and are one change in the log, so the person can undo them at once. Answers with its id, the preset and the node and link counts.",
+        description = "Make a planning canvas in a project, as Plan > New canvas does; writes one file, plans/<id>.plan.json. preset sets only the start, every canvas holds every kind of node: brainstorm (blank, the default), story (starter notes for beats left to right joined in order, characters above and places below, worded for a game or a website by the project's target) or mechanics (a card per system with its verb, look and input, and a note on keeping them apart). The starter notes carry your name and are one change in the log with no run, so the person can undo them at once and you can undo_run them by the change id this answers with. Answers with its id, the preset, the node and link counts and change.",
         annotations(idempotent_hint = false)
     )]
     async fn create_canvas(
@@ -296,12 +296,14 @@ impl McpTools {
             .blocking(move |host, _| {
                 let (dir, manifest) = project_dir(host, &args.project)?;
                 let preset = preset_of(args.preset.as_deref())?;
-                let made =
+                let changed =
                     plans::create_seeded(&dir, &args.name, preset, manifest.target, Some(&agent))?;
+                let made = changed.doc;
                 host.plan_changed(&args.project, &made.id);
                 Ok(json!({
                     "id": made.id, "file": made.file, "preset": made.plan.preset,
                     "nodes": made.plan.nodes.len(), "links": made.plan.edges.len(),
+                    "change": changed.entry.map(|e| e.id),
                 }))
             })
             .await;
