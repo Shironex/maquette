@@ -357,10 +357,7 @@ fn what_is_not_a_regular_file_is_refused_by_name_without_being_opened() {
 fn a_file_over_the_limit_is_refused_and_the_error_names_it_and_the_limit() {
     let f = fixture();
     let big = f.image("big.png");
-    let file = fs::OpenOptions::new()
-        .append(true)
-        .open(&big)
-        .expect("open");
+    let file = fs::OpenOptions::new().write(true).open(&big).expect("open");
     file.set_len(MAX_IMAGE_BYTES + 1).expect("grow");
     let error = f.import(&[big]).expect_err("too big");
     let text = error.to_string();
@@ -381,12 +378,8 @@ fn a_drop_over_the_count_limit_is_refused_and_says_the_limit() {
 fn a_drop_over_the_total_limit_is_refused_and_says_the_limit() {
     let f = fixture();
     let big = f.image("big.png");
-    let file = fs::OpenOptions::new()
-        .append(true)
-        .open(&big)
-        .expect("open");
+    let file = fs::OpenOptions::new().write(true).open(&big).expect("open");
     file.set_len(MAX_IMAGE_BYTES).expect("grow");
-    // The file now ends in zeros, so the size check must come before the ending.
     let n = (MAX_DROP_BYTES / MAX_IMAGE_BYTES) as usize + 1;
     let text = f.import(&vec![big; n]).expect_err("too much").to_string();
     assert!(text.contains("512 MB"), "{text}");
