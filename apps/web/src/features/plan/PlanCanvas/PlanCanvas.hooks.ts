@@ -51,29 +51,16 @@ function safeBox(frame: RefObject<HTMLElement | null>) {
   };
 }
 
-/**
- * Pans (and, unless `panOnly`, zooms out if it must) so the nodes `ids` sit
- * inside the safe part; with `panOnly` nodes too wide stay centred instead.
- */
-function reveal(flow: Flow, frame: RefObject<HTMLElement | null>, ids: string[], panOnly = false) {
-  const safe = safeBox(frame);
-  const nodes = ids.filter(id => flow.getNode(id));
-  if (!safe || nodes.length === 0) return;
-  const bounds = flow.getNodesBounds(nodes);
-  const a = flow.flowToScreenPosition({ x: bounds.x, y: bounds.y });
-  const b = flow.flowToScreenPosition({ x: bounds.x + bounds.width, y: bounds.y + bounds.height });
-  if (a.x >= safe.left && a.y >= safe.top && b.x <= safe.right && b.y <= safe.bottom) return;
-  const zoom = flow.getZoom();
-  const fits = b.x - a.x <= safe.right - safe.left && b.y - a.y <= safe.bottom - safe.top;
-  if (!fits && !panOnly) {
-    void flow.fitView({
-      nodes: nodes.map(id => ({ id })),
-      padding: 0.3,
-      maxZoom: zoom,
-      duration: 250,
-    });
-    return;
-  }
+/** The smallest control in a node (the small icon button), in pixels at zoom 1. */
+const SMALLEST_CONTROL_PX = 26;
+
+/** The lowest zoom that keeps every control in a node at the 24px target size. */
+export const READABLE_ZOOM = 24 / SMALLEST_CONTROL_PX;
+
+type Bounds = ReturnType<Flow['getNodesBounds']>;
+
+/** Centres `bounds` in the safe part at `zoom`. */
+function centre(flow: Flow, bounds: Bounds, zoom: number) {
   // The safe box's middle sits off the canvas's middle by half the insets' difference.
   const shift = {
     x: (SAFE_INSET.left - SAFE_INSET.right) / 2 / zoom,
@@ -84,6 +71,45 @@ function reveal(flow: Flow, frame: RefObject<HTMLElement | null>, ids: string[],
     bounds.y + bounds.height / 2 - shift.y,
     { zoom, duration: 250 }
   );
+}
+
+/**
+ * Pans (and zooms out if it must) so the nodes `ids` sit inside the safe
+ * part. With `readable` it zooms out no further than {@link READABLE_ZOOM};
+ * nodes too spread for that bring the first of them into view instead.
+ */
+export function reveal(
+  flow: Flow,
+  frame: RefObject<HTMLElement | null>,
+  ids: string[],
+  readable = false
+) {
+  const safe = safeBox(frame);
+  const nodes = ids.filter(id => flow.getNode(id));
+  if (!safe || nodes.length === 0) return;
+  const bounds = flow.getNodesBounds(nodes);
+  const a = flow.flowToScreenPosition({ x: bounds.x, y: bounds.y });
+  const b = flow.flowToScreenPosition({ x: bounds.x + bounds.width, y: bounds.y + bounds.height });
+  if (a.x >= safe.left && a.y >= safe.top && b.x <= safe.right && b.y <= safe.bottom) return;
+  const zoom = flow.getZoom();
+  const width = safe.right - safe.left;
+  const height = safe.bottom - safe.top;
+  if (b.x - a.x <= width && b.y - a.y <= height) {
+    centre(flow, bounds, zoom);
+    return;
+  }
+  if (!readable) {
+    void flow.fitView({
+      nodes: nodes.map(id => ({ id })),
+      padding: 0.3,
+      maxZoom: zoom,
+      duration: 250,
+    });
+    return;
+  }
+  const fitting = Math.min(width / bounds.width, height / bounds.height, zoom);
+  if (fitting >= READABLE_ZOOM) centre(flow, bounds, fitting);
+  else centre(flow, flow.getNodesBounds(nodes.slice(0, 1)), zoom);
 }
 
 /**
