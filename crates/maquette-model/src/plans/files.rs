@@ -1,7 +1,8 @@
 //! A project's canvas files: listing, making, reading, saving, renaming and
-//! removing them. Writes in this process go one at a time, and each save
-//! reads the file on disk first, so a canvas removed meanwhile (here or by a
-//! sync from another computer) is not written back.
+//! removing them. Writes in this process go one at a time, and each one
+//! reads the file on disk under the same lock before writing, so a canvas
+//! removed meanwhile (here or by a sync from another computer) is not
+//! written back, and a rename changes only the name of what is there now.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -179,7 +180,9 @@ pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<
 }
 
 /// Writes `plan` over the canvas `id`, normalised. `edited` moves only when
-/// something changed; `created` and the preset stay as the file has them.
+/// something changed; the name, `created` and the preset stay as the file
+/// has them (only [`rename`] changes the name), so a save sent before a
+/// rename never puts the old name back.
 ///
 /// # Errors
 ///
@@ -191,6 +194,7 @@ pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc
     let file = path(project_dir, id)?;
     let current = load_file(&file)?;
     let mut next = normalized(plan);
+    next.name = current.name.clone();
     next.created = current.created.clone();
     next.preset = current.preset;
     next.edited = current.edited.clone();
@@ -210,13 +214,16 @@ pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc
 /// As [`save`], and on a name [`check_name`] refuses.
 pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<PlanSummary> {
     check_name(name)?;
-    let current = get(project_dir, id)?.plan;
-    let next = PlanFile {
-        name: name.trim().to_string(),
-        ..current
-    };
-    let saved = save(project_dir, id, &next)?;
-    Ok(summary(id, &saved.plan))
+    let _lock = writing();
+    let file = path(project_dir, id)?;
+    let mut plan = load_file(&file)?;
+    let name = name.trim();
+    if plan.name != name {
+        plan.name = name.to_string();
+        plan.edited = now_rfc3339();
+        write_json(&file, &plan)?;
+    }
+    Ok(summary(id, &plan))
 }
 
 /// Moves the canvas file into `trash_dir` (the workspace's trash for this
