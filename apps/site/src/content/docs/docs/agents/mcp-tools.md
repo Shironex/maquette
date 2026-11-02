@@ -1273,7 +1273,7 @@ A preset only sets the start; every canvas holds every kind of node, and the cam
 - `story`: eight notes and seven links: four beats left to right joined in order, two characters above and two places below, each linked to the beat it first shows in. A game project's notes talk about the player, a website's about the visitor and the scroll.
 - `mechanics`: a card per system (core action, movement, defence), each with a verb, a look and an input line, and a note on keeping systems apart.
 
-The starter notes carry your name as `by` and are the canvas's first change, so the person can undo them all at once, and so can you with `undo_run`. They are plain guidance for the person to replace. An unknown preset is refused with the list, and nothing is written.
+Preset names are not case sensitive. The starter notes carry your name as `by` and are the canvas's first change, with no run, so the person can undo them all at once from the Changes panel, and you can with `undo_run` and the `change` id this answers with. They are plain guidance for the person to replace. When that change cannot be logged the canvas is removed again and the call fails. An unknown preset is refused with the list, and nothing is written.
 
 | Argument  | Type   | Required | What                                                                                                                |
 | --------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -1287,7 +1287,14 @@ The starter notes carry your name as `by` and are the canvas's first change, so 
 ```
 
 ```json
-{ "id": "act-1", "file": "plans/act-1.plan.json", "preset": "story", "nodes": 8, "links": 7 }
+{
+  "id": "act-1",
+  "file": "plans/act-1.plan.json",
+  "preset": "story",
+  "nodes": 8,
+  "links": 7,
+  "change": "c-mh8k2f4a001"
+}
 ```
 
 ### add_nodes
