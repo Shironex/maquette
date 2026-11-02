@@ -189,7 +189,11 @@ fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
         } else {
             format!("{base}-{n}")
         };
-        if id != super::camera::CAMERA_PLAN_ID && !path(project_dir, &id)?.exists() {
+        // A log left without its canvas counts as taken: it would pass to the new canvas.
+        if id != super::camera::CAMERA_PLAN_ID
+            && !path(project_dir, &id)?.exists()
+            && !log::path(project_dir, &id)?.exists()
+        {
             return Ok(id);
         }
     }
@@ -241,15 +245,27 @@ pub fn create_by(
 pub(super) fn move_aside(project_dir: &Path, plan: &PlanFile) -> CoreResult<String> {
     let id = super::camera::CAMERA_PLAN_ID;
     let to = free_id(project_dir, &plan.name)?;
-    let log_from = log::path(project_dir, id)?;
-    if log_from.exists() {
-        let log_to = log::path(project_dir, &to)?;
-        maquette_base::fs::rename_retrying(&log_from, &log_to)
-            .map_err(|e| CoreError::io(&log_from, e))?;
+    let (from, plan_to) = (path(project_dir, id)?, path(project_dir, &to)?);
+    let (log_from, log_to) = (log::path(project_dir, id)?, log::path(project_dir, &to)?);
+    if plan_to.exists() || log_to.exists() {
+        return Err(CoreError::Invalid(format!(
+            "plans/{to} is taken, so the canvas on the camera plan's id was not moved. Try again."
+        )));
     }
-    let from = path(project_dir, id)?;
-    maquette_base::fs::rename_retrying(&from, &path(project_dir, &to)?)
-        .map_err(|e| CoreError::io(&from, e))?;
+    // The canvas first: a log moved without it would leave the canvas with no history.
+    maquette_base::fs::rename_retrying(&from, &plan_to).map_err(|e| CoreError::io(&from, e))?;
+    let moved_log = if log_from.exists() {
+        maquette_base::fs::rename_retrying(&log_from, &log_to)
+    } else {
+        Ok(())
+    };
+    if let Err(err) = moved_log {
+        // Back where it was, with its log, rather than parted from it.
+        if let Err(stuck) = maquette_base::fs::rename_retrying(&plan_to, &from) {
+            tracing::warn!("a canvas moved off the camera plan's id could not come back: {stuck}");
+        }
+        return Err(CoreError::io(&log_from, err));
+    }
     let line = plain_entry(
         None,
         format!("Moved from plans/{id}.plan.json to make room for the camera plan"),

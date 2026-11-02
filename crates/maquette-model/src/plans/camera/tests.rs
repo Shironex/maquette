@@ -395,3 +395,18 @@ fn the_camera_plan_id_is_kept_for_the_built_in_plan() {
     let own = crate::plans::log::lines(&s.root, CAMERA_PLAN_ID, 5).expect("log");
     assert!(own.iter().all(|l| !l.summary.contains("make room")));
 }
+
+#[test]
+fn a_log_left_without_its_canvas_counts_as_taken() {
+    let s = site(&["porch"]);
+    fs::create_dir_all(s.root.join("plans")).expect("plans");
+    fs::write(s.root.join("plans/camera-plan-2.log.jsonl"), "{}\n").expect("orphan log");
+    let made =
+        create(&s.root, "Camera plan", crate::plans::PlanPreset::Brainstorm).expect("create");
+    assert_eq!(made.id, "camera-plan-3");
+    assert_eq!(
+        fs::read_to_string(s.root.join("plans/camera-plan-2.log.jsonl")).expect("log"),
+        "{}\n",
+        "the orphan log is left alone"
+    );
+}
