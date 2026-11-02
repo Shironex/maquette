@@ -14,7 +14,7 @@ export default function WorkspaceStep({ api }: WorkspaceStepProps) {
     },
     {
       name: layout.inbox,
-      text: 'Tripo downloads land here and get checked before they reach Blender',
+      text: 'Finished 3D models land here and get checked before they reach Blender',
     },
     {
       name: layout.cache,

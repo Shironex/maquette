@@ -1,6 +1,30 @@
 /** Turns detection reports into what the toolchain rows and summaries show. */
 import type { ToolCheckStatus } from '@maquette/ui';
 import type { ToolId, ToolReport } from '@/ipc/client';
+import type { Platform } from '@/ipc/runtime';
+
+export const BLENDER_DOWNLOAD = 'https://www.blender.org/download/';
+
+/** The install command for this computer; Linux varies too much to name one. */
+export function blenderInstallCommand(platform: Platform): string | null {
+  if (platform === 'mac') return 'brew install --cask blender';
+  if (platform === 'windows') return 'winget install BlenderFoundation.Blender';
+  return null;
+}
+
+export type BlenderTrouble = 'missing' | 'broken' | 'stale-path';
+
+/**
+ * What is wrong with Blender. Detection only warns about a found Blender when
+ * the saved location is gone and it fell back to another copy that works, so
+ * builds go on; no copy is missing and a copy that fails is broken, warned or not.
+ */
+export function blenderTrouble(report: ToolReport | undefined): BlenderTrouble | null {
+  if (!report) return null;
+  if (report.status === 'missing') return 'missing';
+  if (report.status === 'broken') return 'broken';
+  return report.warning ? 'stale-path' : null;
+}
 
 /** `/Applications/Blender.app/Contents/MacOS/Blender` reads as the bundle. */
 export function displayToolPath(path: string): string {
@@ -75,7 +99,7 @@ export const MISSING_EFFECT: Record<ToolId, string> = {
   blender: 'nothing builds until it is installed',
   codex: 'the Lab cannot generate concepts until it is installed',
   ffmpeg: 'turntable videos wait until it is installed',
-  toktx: 'textures stay PNG until it is installed',
+  toktx: 'textures stay PNG, so models download larger and use more GPU memory',
   'gltf-transform': 'Compress waits until it is installed',
   node: 'gltf-transform needs it through npx',
 };

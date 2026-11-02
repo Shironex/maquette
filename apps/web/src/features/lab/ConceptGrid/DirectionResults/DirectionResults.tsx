@@ -6,10 +6,10 @@ import { ImageTile } from '../ImageTile';
 import { JobTile } from '../JobTile';
 import { useDirectionResults } from './DirectionResults.hooks';
 
-const KINDS: readonly { id: AssetKind; label: string }[] = [
-  { id: 'scene', label: 'As a scene' },
-  { id: 'prop', label: 'As a prop' },
-  { id: 'character', label: 'As a character' },
+const KINDS: readonly { id: AssetKind; label: string; detail: string }[] = [
+  { id: 'prop', label: 'As a prop', detail: 'The picture shows one object' },
+  { id: 'character', label: 'As a character', detail: 'The picture shows one figure' },
+  { id: 'scene', label: 'As a scene', detail: 'Everything in it fuses into one mesh' },
 ];
 
 export interface DirectionResultsProps {
@@ -35,12 +35,28 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
     sendTo3d,
     to3d,
     chip,
+    cutFirstPick,
   } = useDirectionResults(view, direction);
-  const kindItems = KINDS.map(k => ({
-    id: k.id,
-    label: k.label,
-    onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
-  }));
+  const kindItems = [
+    {
+      id: 'cut',
+      label: picked > 1 ? 'Cut the first pick into objects' : 'Cut into objects first',
+      icon: 'cube-focus' as const,
+      detail:
+        picked > 1
+          ? `Works on the first of your ${picked} picks: one image per object, and adds nothing to the Board yet`
+          : 'Recommended for a scene: one image per object, each its own model. It adds nothing to the Board yet',
+      section: 'cut',
+      onSelect: cutFirstPick,
+    },
+    ...KINDS.map(k => ({
+      id: k.id,
+      label: k.label,
+      detail: k.detail,
+      section: 'whole',
+      onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
+    })),
+  ];
   const tileItems = cells.map(cell => (
     <li key={cell.key}>
       {cell.kind === 'image' ? (
@@ -113,7 +129,7 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
                 objects
                   ? 'Copies each pick into refs/ as its own asset, named after the object'
                   : known
-                    ? `Copies the picks into refs/ and moves ${known.name} to Refs`
+                    ? `Copies the picks into refs/ and moves ${known.name} to Refs. For a scene, use Make object refs on an image first`
                     : 'Copies the picks into refs/ and adds the asset at Refs'
               }
               aria-haspopup={known || objects ? undefined : 'menu'}
@@ -128,13 +144,12 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
                 label="Add the asset"
                 onClose={() => setKindMenu(null)}
                 className="absolute top-10 right-0 z-30 w-[240px]"
-                header={
-                  <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
-                    {kindMenu === '3d'
+                sections={{
+                  whole:
+                    kindMenu === '3d'
                       ? `Adds ${direction.name} at Refs, then opens Send to 3D`
-                      : `Adds ${direction.name} to the Board at Refs`}
-                  </p>
-                }
+                      : `Adds ${direction.name} to the Board at Refs`,
+                }}
                 items={kindItems}
               />
             ) : null}

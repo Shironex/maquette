@@ -8,6 +8,7 @@ import { CreditsButton } from '@/features/providers/CreditsButton';
 import { DownloadsWatchFields } from '@/features/providers/DownloadsWatchFields';
 import { KeyFields } from '@/features/providers/KeyFields';
 import { ProviderPresetFields } from '@/features/providers/PresetFields';
+import { BlenderMissing } from '@/features/toolchain/BlenderMissing';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
 import { SAVE_STATUS_LABEL, patchSection, type SaveStatus } from '@/state/settings-form';
 import { ACTIVE } from '../sections';
@@ -85,6 +86,7 @@ export default function SettingsScreen() {
                   </h2>
                   <RecheckButton />
                 </div>
+                <BlenderMissing className="mx-4 mb-2" />
                 <ToolList density="compact" />
               </section>
               <ProjectSection active={active === 'project'} />

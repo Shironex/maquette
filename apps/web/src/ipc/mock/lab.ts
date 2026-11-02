@@ -340,6 +340,8 @@ export function createFakeLab(options: FakeLabOptions) {
     lab_send_object_picks: ({ project, direction, kind }) =>
       sends.sendObjectPicks(String(project), String(direction), (kind as AssetKind | null) ?? null),
     lab_set_style: ({ project, change }) => styles.set(String(project), change as StyleBoardChange),
+    lab_import_concepts: ({ project, paths }) =>
+      sends.importConcepts(String(project), paths as string[]),
     lab_import_refs: ({ project, paths }) =>
       importRefs(options, refs, String(project), paths as string[]),
     ...createRefsHandlers({

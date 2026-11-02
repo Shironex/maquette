@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { AssetRef, RefsView } from '@/ipc/client';
+import { commands, errorMessage, type AssetRef, type RefsView } from '@/ipc/client';
+import { useAppStore } from '@/state/use-app-store';
 import { emptyViews, filledCount } from '@/state/refs';
 import { useRefsStore } from '@/state/use-refs-store';
 
@@ -30,6 +31,25 @@ export function useRefsBody(view: RefsView) {
       onRemove: () => void remove(item.file),
     }),
     add: (file: string) => void add([file]),
+    /** Copies images from anywhere into `refs/`. A card with no front gets the first as its front. */
+    addFromDisk: async () => {
+      setAdding(false);
+      const picked = await commands.dialogPickFiles('Choose reference images');
+      if (picked.length === 0) return;
+      try {
+        const files = await commands.labImportRefs(view.project.id, picked);
+        // An import can answer with a ref already here, which keeps its view.
+        const fresh = files.filter(file => !refs.some(r => r.file === file));
+        if (fresh.length > 0) await add(fresh);
+        if (!front && files[0] && fresh.includes(files[0])) await tag(files[0], 'front');
+      } catch (error) {
+        useAppStore.getState().notify({
+          status: 'failed',
+          title: 'Could not add those images',
+          detail: errorMessage(error),
+        });
+      }
+    },
     drawViews: () => show('views'),
     close,
   };

@@ -68,7 +68,7 @@ describe('onboarding steps', () => {
       true
     );
     expect(continueLabel(STEP.project, flow())).toBe('Create project');
-    expect(continueLabel(STEP.ready, flow())).toBe('Open Frostveil');
+    expect(continueLabel(STEP.ready, flow())).toBe('Open My first project');
   });
 
   it('returns to Ready after editing a step once things exist', () => {
@@ -92,7 +92,7 @@ describe('onboarding steps', () => {
     expect(get('toolchain')).toMatchObject({
       text: '5 of 6 found.',
       warning: 'toktx missing',
-      effect: 'textures stay PNG until it is installed',
+      effect: 'textures stay PNG, so models download larger and use more GPU memory',
     });
     expect(get('defaults').text).toBe(
       'Tripo H3.1, Meshy 7.1. Characters: 50k faces, multi-view, rig with Mixamo. 3.0\u00a0MB scene, 60k\u00a0tris, 2K, ETC1S, meshopt medium'
@@ -101,7 +101,7 @@ describe('onboarding steps', () => {
       'MCP server off. Headless Blender, no screen capture, ask before shipping'
     );
     expect(get('project').text).toBe(
-      'Frostveil, Floating diorama, ships to Projects/frostveil-site'
+      'My first project, Floating diorama, ships to Projects/frostveil-site'
     );
     expect(canContinue(STEP.ready, flow({ busy: true }))).toBe(false);
   });

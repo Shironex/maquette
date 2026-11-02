@@ -7,7 +7,8 @@ import type {
   SiteTarget,
   TextureFormat,
 } from '@/ipc/client';
-import { targetOf, useFolderDraft } from './ShipSettingsPanel.hooks';
+import { useOpenSettings } from '@/state/use-settings-target';
+import { NEEDS_REPO, targetOf, useFolderDraft } from './ShipSettingsPanel.hooks';
 
 export interface ShipSettingsPanelProps {
   settings: ShipSettings;
@@ -48,7 +49,8 @@ export default function ShipSettingsPanel({
   onTarget,
 }: ShipSettingsPanelProps) {
   const { draft, change, block } = useFolderDraft(plan.target);
-  const noRepo = plan.target.repo ? undefined : 'Set the site repo in Settings first';
+  const noRepo = plan.target.repo ? undefined : NEEDS_REPO;
+  const openSettings = useOpenSettings();
   const ktx2 = settings.textures === 'ktx2';
   const checks = plan.checks.map(c => (
     <li key={c.text} className="flex items-start gap-1.5">
@@ -111,6 +113,11 @@ export default function ShipSettingsPanel({
             {repo ?? 'not set'}
           </dd>
         </dl>
+        {noRepo ? (
+          <Button size="sm" icon="gear-six" onClick={() => openSettings('project')}>
+            Pick the site repo
+          </Button>
+        ) : null}
         <TextField
           label="Models folder"
           mono

@@ -5,9 +5,9 @@ export const STEPS = [
     detail: 'Drag concept art onto the Concept column, or generate a few directions in the Lab.',
   },
   {
-    title: 'Send picks to 3D',
+    title: 'Cut it into objects, then send to 3D',
     detail:
-      'Pick the concepts you like and send them to Tripo, Meshy or by hand. I check every model that comes back.',
+      'A picture sent whole comes back as one fused mesh. Make object refs in the Lab gives each object its own model. Send them to Tripo, Meshy or by hand.',
   },
   {
     title: 'Run the pipeline',

@@ -23,6 +23,8 @@ struct Inner {
     workspace: Option<OpenWorkspace>,
     /// The last tool check, reused by runs until a tool changes.
     tools: Option<Vec<ToolReport>>,
+    /// Counts tool changes, so a check that began before one is not kept.
+    tools_turn: u64,
     watcher: Option<watch::InboxWatcher>,
 }
 
@@ -231,9 +233,27 @@ impl Session {
         self.lock().tools.clone()
     }
 
-    /// Remembers a tool check, or forgets it with `None` after a change.
-    pub fn set_tools(&self, reports: Option<Vec<ToolReport>>) {
-        self.lock().tools = reports;
+    /// Read before a tool check reads the overrides; see [`Self::keep_tools`].
+    pub fn tools_turn(&self) -> u64 {
+        self.lock().tools_turn
+    }
+
+    /// Remembers a tool check unless a tool changed since `turn`, and says
+    /// whether it did: such a check may have read the old overrides.
+    pub fn keep_tools(&self, turn: u64, reports: Vec<ToolReport>) -> bool {
+        let mut inner = self.lock();
+        let current = inner.tools_turn == turn;
+        if current {
+            inner.tools = Some(reports);
+        }
+        current
+    }
+
+    /// Forgets the last check after a tool changed.
+    pub fn forget_tools(&self) {
+        let mut inner = self.lock();
+        inner.tools = None;
+        inner.tools_turn += 1;
     }
 
     /// True while the open workspace's inbox is watched.
@@ -282,6 +302,19 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_check_started_before_a_tool_change_is_not_kept() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let session = Session::with_state(dir.path().to_path_buf(), None, AppState::default());
+        let turn = session.tools_turn();
+        session.forget_tools();
+        assert!(!session.keep_tools(turn, Vec::new()));
+        assert_eq!(session.tools(), None);
+        let turn = session.tools_turn();
+        assert!(session.keep_tools(turn, Vec::new()));
+        assert_eq!(session.tools(), Some(Vec::new()));
+    }
 
     #[test]
     fn set_workspace_remembers_the_pointer_on_disk() {

@@ -59,12 +59,21 @@ export default function RefsBody({ view, warnings, onSend }: RefsBodyProps) {
     );
   });
   const others = body.others.map(tile);
-  const addItems = body.free.map(i => ({
-    id: i.file,
-    label: i.name,
-    icon: 'image' as const,
-    onSelect: () => body.add(i.file),
-  }));
+  const addItems = [
+    {
+      id: 'from-disk',
+      label: 'Choose from disk...',
+      icon: 'folder-open' as const,
+      detail: 'Copies PNG, JPEG or WebP images into refs/',
+      onSelect: () => void body.addFromDisk(),
+    },
+    ...body.free.map(i => ({
+      id: i.file,
+      label: i.name,
+      icon: 'image' as const,
+      onSelect: () => body.add(i.file),
+    })),
+  ];
 
   return (
     <>
@@ -123,10 +132,7 @@ export default function RefsBody({ view, warnings, onSend }: RefsBodyProps) {
             <Button
               size="sm"
               icon="plus"
-              disabled={addItems.length === 0 || busy}
-              disabledReason={
-                addItems.length === 0 ? 'Every image in refs/ is already here' : undefined
-              }
+              disabled={busy}
               aria-expanded={body.adding}
               onClick={body.toggleAdding}
             >

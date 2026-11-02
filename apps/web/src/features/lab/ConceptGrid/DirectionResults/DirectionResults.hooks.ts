@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Asset, AssetKind, Direction, LabView } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
-import { isObjects, tiles } from '@/state/lab';
+import { inProject, isObjects, tiles } from '@/state/lab';
 import { styleChip } from '@/state/lab-style';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
@@ -14,6 +14,7 @@ export function useDirectionResults(view: LabView, direction: Direction) {
   const contactSheet = useLabStore(s => s.contactSheet);
   const sendPicks = useLabStore(s => s.sendPicks);
   const sendObjectPicks = useLabStore(s => s.sendObjectPicks);
+  const openObjects = useLabStore(s => s.openObjects);
   const assets = useAppStore(s => s.workspace?.project?.assets) ?? NO_ASSETS;
   const openPanel = useProvidersStore(s => s.openPanel);
   const openBatch = useProvidersStore(s => s.openBatch);
@@ -25,9 +26,12 @@ export function useDirectionResults(view: LabView, direction: Direction) {
   const [kindMenu, setKindMenu] = useState<'refs' | '3d' | null>(null);
   const cells = tiles(direction, view.jobs);
   const picked = direction.images.filter(i => i.picked).length;
-  const known = assets.find(
+  const named = assets.find(
     a => a.name.trim().toLowerCase() === direction.name.trim().toLowerCase()
   );
+  // A card made by dropping images only guessed its kind, so the send still asks.
+  const known =
+    named?.stage === 'concept' && named.thumbnail?.startsWith('concepts/') ? undefined : named;
 
   const send = () => {
     if (objects) void sendObjectPicks();
@@ -49,7 +53,19 @@ export function useDirectionResults(view: LabView, direction: Direction) {
     } else if (known) void sendTo3d();
     else setKindMenu(m => (m === '3d' ? null : '3d'));
   };
+  /** Make object refs on the first pick: cutting spends Codex usage, so it only opens the sheet. */
+  const cutFirstPick = () => {
+    const first = direction.images.find(i => i.picked);
+    if (!first) return;
+    openObjects({
+      project: view.project,
+      source: first.file,
+      sourcePath: inProject(view.projectDir, first.file),
+      sourceName: direction.name,
+    });
+  };
   return {
+    cutFirstPick,
     busy,
     contactSheet,
     sendPicks,

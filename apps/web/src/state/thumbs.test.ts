@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { InboxItem, InboxSnapshot } from '@/ipc/client';
-import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
+import type { Asset, InboxItem, InboxSnapshot } from '@/ipc/client';
+import { isStale, keepRenders, needsSnapshot, wantsPreview, withThumbnail } from './thumbs';
 
 const item = (patch: Partial<InboxItem>): InboxItem =>
   ({
@@ -90,5 +90,15 @@ describe('keepRenders', () => {
   it('drops it once the file changed', () => {
     const changed = snap([item({ thumbnailState: 'rendering', bytes: 12, modifiedMs: 2 })]);
     expect(keepRenders(snap([ready]), changed).items[0]!.thumbnailState).toBe('rendering');
+  });
+});
+
+describe('a dropped concept on a card', () => {
+  it('asks for a render like a ref does, as the core does', () => {
+    const asset = {
+      thumbnail: 'concepts/gate/gate_01.png',
+      versions: [{ file: 'models/gate_v1.glb' }],
+    } as unknown as Asset;
+    expect(wantsPreview(asset)).toBe(true);
   });
 });

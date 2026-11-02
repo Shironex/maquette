@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
-use crate::project::{ProjectManifest, now_rfc3339, slugify};
+use crate::project::{ProjectManifest, folder_slug, now_rfc3339};
 use crate::ship::ShipSettings;
 
 pub mod copy;
@@ -240,7 +240,7 @@ pub fn shipped_names(manifest: &ProjectManifest, ship: &ShipSettings) -> BTreeMa
             continue;
         }
         // The same text the asset id and its version files are made of.
-        let base = slugify(&asset.name).replace('-', "_");
+        let base = folder_slug(&asset.name).replace('-', "_");
         let shipped = format!("{base}_v{}", version.version);
         if &shipped != stem && taken.insert(shipped.clone()) {
             out.insert(stem.clone(), shipped);
@@ -295,7 +295,7 @@ pub fn clean_name(name: &str) -> CoreResult<String> {
 }
 
 fn unique_id(manifest: &ProjectManifest, name: &str) -> String {
-    let base = slugify(name);
+    let base = folder_slug(name);
     let taken = |id: &str| manifest.assets.iter().any(|a| a.id == id);
     if !taken(&base) {
         return base;
@@ -393,12 +393,17 @@ pub fn resting_status(asset: &Asset) -> AssetStatus {
 /// Accept of "Sakura tree" becomes v2 of the same asset, also after the
 /// asset was renamed (its id keeps the first name).
 pub fn find_by_name<'a>(manifest: &'a ProjectManifest, name: &str) -> Option<&'a Asset> {
-    let slug = slugify(name.trim());
-    manifest
-        .assets
-        .iter()
-        .find(|a| a.id == slug)
-        .or_else(|| manifest.assets.iter().find(|a| slugify(&a.name) == slug))
+    let name = name.trim();
+    // Names with nothing a slug keeps would all look alike, so the text decides.
+    let Some(slug) = crate::project::latin_slug(name) else {
+        return manifest.assets.iter().find(|a| a.name.trim() == name);
+    };
+    manifest.assets.iter().find(|a| a.id == slug).or_else(|| {
+        manifest
+            .assets
+            .iter()
+            .find(|a| crate::project::latin_slug(&a.name).as_deref() == Some(slug.as_str()))
+    })
 }
 
 /// Points the asset at `thumbnail` (relative to the project folder) when
@@ -421,9 +426,10 @@ pub fn set_thumbnail(
 }
 
 /// True when a ref image may stand in as the card's picture: there is no
-/// thumbnail yet, or it is an older ref. A model render or a poster stays.
+/// thumbnail yet, or it is an older ref or a dropped concept. A model render
+/// or a poster stays.
 pub fn ref_may_replace(thumbnail: Option<&str>) -> bool {
-    thumbnail.is_none_or(|t| t.starts_with("refs/"))
+    thumbnail.is_none_or(|t| t.starts_with("refs/") || t.starts_with("concepts/"))
 }
 
 /// Shows the ref image `file` (relative to the project folder) on the

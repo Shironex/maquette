@@ -14,7 +14,10 @@ export default function FirstRunCard({ name, budget }: FirstRunCardProps) {
   const { hidden, hide, setView, steps: tips, importModels } = useFirstRunCard();
   if (hidden) return null;
   const steps = tips.map((step, i) => (
-    <li key={step.title} className="flex gap-3.5 border-t border-line py-3">
+    <li
+      key={step.title}
+      className="flex gap-3.5 border-t border-line py-3 [@media(max-height:800px)]:py-2"
+    >
       <span className="grid size-7 flex-none place-items-center rounded-full border-[1.5px] border-clay-line font-mono text-[12px] leading-none font-semibold text-clay-text">
         {i + 1}
       </span>
@@ -29,9 +32,9 @@ export default function FirstRunCard({ name, budget }: FirstRunCardProps) {
   return (
     <section
       aria-labelledby="first-run"
-      className="absolute top-1/2 left-1/2 w-[560px] max-w-[calc(100%-32px)] -translate-x-1/2 -translate-y-[46%] rounded-[14px] border border-line-strong bg-panel px-7 pt-7 pb-6 shadow-window"
+      className="absolute top-1/2 left-1/2 flex max-h-full w-[560px] max-w-[calc(100%-32px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[14px] border border-line-strong bg-panel px-7 pt-7 pb-6 shadow-window [@media(max-height:800px)]:pt-4 [@media(max-height:800px)]:pb-4"
     >
-      <div className="flex items-center gap-3.5">
+      <div className="flex flex-none items-center gap-3.5">
         <img src={appIcon} alt="" className="size-12 rounded-[12px]" />
         <div>
           <h2 id="first-run" className="text-panel-title">
@@ -42,8 +45,10 @@ export default function FirstRunCard({ name, budget }: FirstRunCardProps) {
           </p>
         </div>
       </div>
-      <ol className="mt-5 list-none p-0">{steps}</ol>
-      <div className="mt-[18px] flex items-center gap-2.5 border-t border-line pt-[18px]">
+      <ol className="mt-5 min-h-0 list-none overflow-y-auto p-0 [@media(max-height:800px)]:mt-3">
+        {steps}
+      </ol>
+      <div className="mt-[18px] flex flex-none items-center gap-2.5 border-t border-line pt-[18px] [@media(max-height:800px)]:mt-0 [@media(max-height:800px)]:pt-3">
         <Button
           size="lg"
           variant="primary"

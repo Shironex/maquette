@@ -306,3 +306,17 @@ fn an_update_leaves_a_file_it_cannot_read_alone() {
         "not json"
     );
 }
+
+#[test]
+fn a_layout_with_a_stop_named_aux_still_loads() {
+    let dir = tempfile::tempdir().expect("dir");
+    let mut aux = stop("Aux", [0.0, 1.0, 3.0], [0.0, 0.5, 0.0]);
+    aux.id = "aux".to_string();
+    let layout = SceneLayout {
+        stops: vec![aux],
+        ..SceneLayout::default()
+    };
+    save_file(dir.path(), &layout).expect("save");
+    let read = load(dir.path()).expect("an old id stays readable");
+    assert_eq!(read.stops[0].id, "aux");
+}

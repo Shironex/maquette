@@ -2,17 +2,29 @@ import { Dropzone, Icon, cn } from '@maquette/ui';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { BoardCard } from '../BoardCard';
 import { STAGE_ICON } from '../constants';
-import { useColumnCards, useColumnDrop } from './BoardColumn.hooks';
+import {
+  useColumnCards,
+  useColumnDrop,
+  useImportConcepts,
+  useNativeImageDrop,
+} from './BoardColumn.hooks';
 import type { BoardColumnProps } from './BoardColumn.types';
 
 /** One stage of the pipeline: its cards, and the drop target for cards from other columns. */
 export default function BoardColumn({ stage, assets, boardEmpty, board }: BoardColumnProps) {
-  const { over, onDragOver, onDragLeave, onDrop } = useColumnDrop(stage, board.actions.dropOn);
-  const { later } = board.actions;
+  const takesImages = stage === 'concept';
+  const { importImages, chooseImages } = useImportConcepts();
+  const onImages = (paths: string[]) => void importImages(paths);
+  const { over, setOver, onDragOver, onDragLeave, onDrop } = useColumnDrop(
+    stage,
+    board.actions.dropOn,
+    takesImages ? onImages : undefined
+  );
   const STAGE_LABEL = useStageLabels();
   const dropzone = stage === 'concept' && boardEmpty;
   const label = `${STAGE_LABEL[stage]}, ${assets.length} ${assets.length === 1 ? 'asset' : 'assets'}`;
   const { scrollRef, listRef, cards: shown } = useColumnCards(assets.length);
+  useNativeImageDrop(scrollRef, takesImages, setOver, onImages);
   const cards = assets.slice(shown.start, shown.end).map((asset, n) => (
     <div key={asset.id} {...shown.itemProps(shown.start + n)}>
       <BoardCard asset={asset} board={board} />
@@ -41,11 +53,11 @@ export default function BoardColumn({ stage, assets, boardEmpty, board }: BoardC
       {dropzone ? (
         <Dropzone
           title="Drop concept art"
-          hint="PNG or JPG, any size"
+          hint="PNG, JPEG or WebP, up to 50 MB"
           icon="image"
           className="h-[176px]"
-          onFiles={() => later('Concept import')}
-          onActivate={() => later('Concept import')}
+          active={over}
+          onActivate={() => void chooseImages()}
         />
       ) : null}
       {assets.length > 0 ? (

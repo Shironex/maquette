@@ -43,7 +43,7 @@ export const retryable = (job: ConceptJob) =>
 
 /** A ref may stand in as a card's picture: none yet, or an older ref. */
 export const refMayReplace = (thumbnail: string | null) =>
-  thumbnail === null || thumbnail.startsWith('refs/');
+  thumbnail === null || thumbnail.startsWith('refs/') || thumbnail.startsWith('concepts/');
 
 /** Copies dropped images into the project's `refs/`, as the core does. */
 export function importRefs(

@@ -1,3 +1,5 @@
+import { nothingToRun } from './board';
+import type { ProjectManifest, StepDef } from '@/ipc/client';
 import { describe, expect, it } from 'vitest';
 import { defaultConfig, frostveilProject } from '@/ipc/mock/fixtures';
 import type { WorkspaceSnapshot } from '@/ipc/client';
@@ -31,5 +33,38 @@ describe('board helpers', () => {
     expect(projectFile(win, 'thumbs/a.jpg')).toBe(
       'C:\\Maquette\\projects\\frostveil\\thumbs\\a.jpg'
     );
+  });
+});
+
+describe('nothing to run', () => {
+  const noModels = { id: 'p', template: 'room', assets: [] } as unknown as ProjectManifest;
+  const step = (id: string, kind: StepDef['kind'], script: string | null) =>
+    ({ id, kind, script }) as unknown as StepDef;
+  const pipeline = (steps: StepDef[], starters: string[]) => ({
+    def: { steps },
+    starters: starters.map(path => ({ path, state: 'current', backup: null })),
+  });
+
+  it("holds a run with no models when every step is the template's own", () => {
+    const own = pipeline(
+      [step('a', 'blender', 'tools/build.py'), step('b', 'gltf-transform', null)],
+      ['tools/build.py']
+    );
+    expect(nothingToRun(noModels, own as never)).toMatch(/No models/);
+    expect(nothingToRun(noModels)).toMatch(/No models/);
+  });
+
+  it('lets a project with a script step of its own run', () => {
+    const custom = pipeline([step('a', 'blender', 'tools/mine.py')], ['tools/build.py']);
+    expect(nothingToRun(noModels, custom as never)).toBeNull();
+  });
+
+  it('lets a project with a shell step of its own run', () => {
+    const custom = pipeline([step('a', 'shell', null)], []);
+    expect(nothingToRun(noModels, custom as never)).toBeNull();
+  });
+
+  it('exempts an imported folder, which builds from its own scene', () => {
+    expect(nothingToRun({ ...noModels, template: 'imported' })).toBeNull();
   });
 });

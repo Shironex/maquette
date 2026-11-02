@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRenderStore } from '@/state/use-render-store';
 import { useUpdaterStore } from '@/state/use-updater-store';
 import { useSettingsGuard } from '@/state/settings-guard';
+import { useSettingsTarget } from '@/state/use-settings-target';
 import type { SectionId } from '../sections';
 import { useAutosave } from './useAutosave';
 
@@ -18,6 +19,7 @@ export function useSettingsScreen() {
   }, []);
   useRevealAbout(go);
   useRevealToolchain(go);
+  useRevealTarget(go);
   return { ...autosave, leaveTo, active, go };
 }
 
@@ -30,6 +32,17 @@ function useRevealToolchain(go: (id: SectionId) => void) {
     done();
     go('toolchain');
   }, [asked, done, go]);
+}
+
+/** Jumps to the section a button elsewhere asked for. */
+function useRevealTarget(go: (id: SectionId) => void) {
+  const asked = useSettingsTarget(s => s.asked);
+  const shown = useSettingsTarget(s => s.shown);
+  useEffect(() => {
+    if (!asked) return;
+    shown();
+    go(asked);
+  }, [asked, shown, go]);
 }
 
 /** Jumps to About when the header's update pill asked for it. */

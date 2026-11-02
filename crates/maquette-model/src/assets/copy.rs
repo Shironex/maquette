@@ -7,7 +7,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Asset, AssetStatus, find, slugify};
+use super::{Asset, AssetStatus, find, folder_slug};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest, now_rfc3339};
 use crate::refs::{REFS_DIR, carry_ref};
@@ -93,11 +93,11 @@ pub fn thumb_of(id: &str, version: u32) -> String {
 /// free on disk too: the name itself, else "Clay bowl 2", "Clay bowl 3".
 pub fn free_name(manifest: &ProjectManifest, to_dir: &Path, asset: &Asset) -> (String, String) {
     let taken = |name: &str| {
-        let id = slugify(name);
+        let id = folder_slug(name);
         manifest
             .assets
             .iter()
-            .any(|a| a.id == id || slugify(&a.name) == id)
+            .any(|a| a.id == id || folder_slug(&a.name) == id)
             || asset.versions.iter().any(|v| {
                 to_dir
                     .join(renamed_version(&v.file, &id, v.version))
@@ -112,7 +112,7 @@ pub fn free_name(manifest: &ProjectManifest, to_dir: &Path, asset: &Asset) -> (S
         })
         .find(|name| !taken(name))
         .unwrap_or_else(|| asset.name.clone());
-    let id = slugify(&name);
+    let id = folder_slug(&name);
     (name, id)
 }
 

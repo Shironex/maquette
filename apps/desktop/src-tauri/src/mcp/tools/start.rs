@@ -96,7 +96,7 @@ fn game_template(template: Option<&str>) -> Result<Option<GameTemplateId>, Strin
 /// A project whose name or id the new name would take.
 fn taken<'a>(name: &str, existing: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {
     let wanted = name.trim();
-    let id = project::slugify(wanted);
+    let id = project::folder_slug(wanted);
     // A name with no Latin letters slugs to the fallback, and takes a suffix as
     // New project in the app does, so only its name can clash.
     let fell_back = id == "project" && !wanted.eq_ignore_ascii_case("project");
@@ -194,6 +194,14 @@ fn tool_works(reports: &[ToolReport], id: ToolId) -> bool {
         .any(|r| r.id == id && r.status == ToolStatus::Found && r.warning.is_none())
 }
 
+/// A found Blender runs builds, warning or not: the warning says a saved
+/// path is gone and another copy took over, and the report carries it.
+fn blender_works(reports: &[ToolReport]) -> bool {
+    reports
+        .iter()
+        .any(|r| r.id == ToolId::Blender && r.status == ToolStatus::Found)
+}
+
 /// The earliest stage any asset is at, "empty" without assets.
 fn project_stage(manifest: &ProjectManifest) -> Value {
     Stage::ALL
@@ -254,7 +262,7 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
             "Settings > 3D providers",
         ));
     }
-    if !tool_works(reports, ToolId::Blender) {
+    if !blender_works(reports) {
         out.push(gate(
             "Install or locate Blender",
             "blender.org, then Settings > Toolchain",
@@ -344,7 +352,7 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         .unwrap_or(0);
     let next = next_steps(&Facts {
         workspace_open: true,
-        blender: tool_works(&reports, ToolId::Blender),
+        blender: blender_works(&reports),
         codex: tool_works(&reports, ToolId::Codex),
         any_key: keys.tripo != Some(false) || keys.meshy != Some(false),
         inbox: inbox_count,

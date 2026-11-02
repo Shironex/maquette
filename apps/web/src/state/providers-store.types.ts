@@ -56,6 +56,8 @@ export interface Downloads {
 export interface ProvidersStore {
   project: string | null;
   jobs: ProviderJob[];
+  /** The project whose jobs were read: until then, and after a failed read, `jobs` says nothing. */
+  jobsReadFor: string | null;
   keys: KeyStatus[];
   /** The keys are being read, which a Keychain prompt can hold up. */
   keysReading: boolean;

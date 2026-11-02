@@ -97,7 +97,7 @@ pub(super) fn has_colour(file: &Path) -> bool {
 }
 
 fn target_of(model: &PackModel, key: String, taken: &mut Vec<String>) -> RenderTarget {
-    let mut folder = project::slugify(&model.name);
+    let mut folder = project::folder_slug(&model.name);
     if folder.is_empty() {
         folder = "model".to_string();
     }

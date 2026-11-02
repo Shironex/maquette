@@ -56,6 +56,22 @@ export const cases = [
   },
   { name: 'board', query: CONFIGURED, hash: '#/board', ready: boardReady },
   {
+    name: 'first run card',
+    query: `${CONFIGURED}&game=import`,
+    hash: '#/board',
+    ready: page => page.getByRole('region', { name: 'Your first build in three steps' }).waitFor(),
+  },
+  ...[
+    ['missing', 'no-blender', 'Blender is missing'],
+    ['did not run', 'no-blender-run', 'Blender did not run'],
+    ['saved path gone', 'no-blender-path', 'Your saved Blender path is gone'],
+  ].map(([name, state, title]) => ({
+    name: `settings blender ${name}`,
+    query: `${CONFIGURED}&render=${state}`,
+    hash: '#/settings',
+    ready: page => page.getByRole('region', { name: title }).waitFor(),
+  })),
+  {
     name: 'board list',
     query: `${CONFIGURED}&handoff=batch`,
     hash: '#/board',

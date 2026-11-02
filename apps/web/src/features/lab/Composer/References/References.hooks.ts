@@ -1,12 +1,10 @@
 import { useRef, useState, type DragEvent, type RefObject } from 'react';
 import { commands, type LabView } from '@/ipc/client';
-import { registerMockFile } from '@/ipc/files';
 import { IN_TAURI } from '@/ipc/runtime';
+import { IMAGE_FILE, mockDroppedFiles } from '@/lib/dropped-images';
 import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { MAX_REFS } from '@/state/lab';
 import { useLabStore } from '@/state/use-lab-store';
-
-const IMAGE_FILE = /\.(png|jpe?g|webp)$/i;
 
 /** Native file drops over the composer column add refs. */
 function useComposerDrop(
@@ -50,14 +48,9 @@ export function useReferences(view: LabView) {
     setOver(false);
     // A plain browser (mock mode) gets File objects without paths.
     if (IN_TAURI) return;
-    const paths: string[] = [];
-    for (const file of Array.from(e.dataTransfer.files)) {
-      if (!IMAGE_FILE.test(file.name)) continue;
-      const path = `/dropped/${file.name}`;
-      registerMockFile(path, URL.createObjectURL(file));
-      paths.push(path);
-    }
-    void addRefs(paths);
+    void addRefs(
+      mockDroppedFiles(Array.from(e.dataTransfer.files).filter(f => IMAGE_FILE.test(f.name)))
+    );
   };
   const onDragOver = (e: DragEvent) => {
     e.preventDefault();

@@ -13,14 +13,19 @@ export const TEMPLATES: readonly {
   {
     id: 'floating-diorama',
     title: 'Floating diorama',
-    detail: 'An island scene with camera stops',
+    detail: 'Creates one website scene: models on an island, with camera stops',
     image: diorama,
   },
-  { id: 'room', title: 'Room', detail: 'One interior, baked light', image: room },
+  {
+    id: 'room',
+    title: 'Room',
+    detail: 'Creates one website scene: an interior with baked light',
+    image: room,
+  },
   {
     id: 'character-showcase',
     title: 'Character showcase',
-    detail: 'One rigged model on a turntable',
+    detail: 'Creates a website page: one rigged model on a turntable',
     image: character,
     contain: true,
   },

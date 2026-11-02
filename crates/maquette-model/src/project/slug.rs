@@ -2,9 +2,39 @@
 
 const SLUG_MAX_CHARS: usize = 60;
 
+/// Names Windows keeps for devices, with or without an extension. A folder
+/// or file with one of them fails or misbehaves there.
+const WINDOWS_RESERVED: [&str; 22] = [
+    "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8",
+    "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+];
+
 /// `"Moon Island"` becomes `"moon-island"`. Common accented Latin letters are
-/// folded to ASCII, anything else is dropped. Never empty.
+/// folded to ASCII, anything else is dropped. Never empty. For an id that
+/// names a new folder, [`folder_slug`].
 pub fn slugify(name: &str) -> String {
+    latin_slug(name).unwrap_or_else(|| "project".to_string())
+}
+
+/// [`slugify`] for an id that will name a new folder or file stem: never a
+/// name Windows reserves (`con` becomes `con-1`). Only for making ids, since
+/// `slugify(id) == id` is how an old `aux` is checked and it stays readable.
+pub fn folder_slug(name: &str) -> String {
+    windows_safe(slugify(name))
+}
+
+/// `slug`, moved off a name Windows reserves.
+pub fn windows_safe(slug: String) -> String {
+    if WINDOWS_RESERVED.contains(&slug.as_str()) {
+        format!("{slug}-1")
+    } else {
+        slug
+    }
+}
+
+/// [`slugify`], or `None` when the name has nothing a slug keeps, for
+/// example one in Japanese: `slugify` then says `project` for all of them.
+pub fn latin_slug(name: &str) -> Option<String> {
     let mut slug = String::new();
     let mut pending_dash = false;
     for c in name.chars() {
@@ -25,11 +55,7 @@ pub fn slugify(name: &str) -> String {
     while slug.ends_with('-') {
         slug.pop();
     }
-    if slug.is_empty() {
-        "project".to_string()
-    } else {
-        slug
-    }
+    if slug.is_empty() { None } else { Some(slug) }
 }
 
 fn fold_char(c: char) -> String {
@@ -59,4 +85,37 @@ fn fold_char(c: char) -> String {
         _ => "",
     };
     folded.to_string()
+}
+
+#[cfg(test)]
+mod reserved_tests {
+    use super::*;
+
+    #[test]
+    fn a_name_windows_reserves_never_becomes_a_new_folder() {
+        for name in ["con", "CON", "Aux", "nul", "PRN", "com1", "LPT9"] {
+            let slug = folder_slug(name);
+            assert_eq!(slug, format!("{}-1", name.to_lowercase()), "{name}");
+            assert!(!WINDOWS_RESERVED.contains(&slug.as_str()));
+        }
+        assert_eq!(folder_slug("console"), "console");
+        assert_eq!(folder_slug("com10"), "com10");
+        assert_eq!(folder_slug("\u{96ea}"), "project");
+    }
+
+    #[test]
+    fn slugify_leaves_those_names_alone_so_old_ids_stay_valid() {
+        for id in ["aux", "con", "com1"] {
+            assert_eq!(slugify(id), id);
+            assert_eq!(latin_slug(id).as_deref(), Some(id));
+        }
+    }
+
+    #[test]
+    fn a_name_with_nothing_to_keep_has_no_latin_slug() {
+        assert_eq!(latin_slug("\u{96ea}"), None);
+        assert_eq!(latin_slug("!!!"), None);
+        assert_eq!(slugify("\u{96ea}"), "project");
+        assert_eq!(latin_slug("Moon"), Some("moon".to_string()));
+    }
 }

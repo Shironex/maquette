@@ -7,6 +7,10 @@ sidebar:
 
 The Board follows each asset through the stages: Concept, Refs, 3D model, Blender, Web and Ship. A card shows where the asset stands: queued, generating, waiting for your model, or done.
 
+## Bringing your own concept art
+
+Drop PNG, JPEG or WebP images on the Concept column, with or without cards in it, or click the drop zone on an empty Board. They become a Lab direction named after the first file, and a card of that name at Concept, so you star, pick and cut them in the Lab like generated images. Send picks to Refs asks what the asset is and moves that card up. Another drop with the same name adds to that direction and overwrites nothing. Maquette reads each file's first bytes, so the extension does not matter. A file that is not one of these images or is over 50 MB stops the whole import before anything is copied, and the message names it. A damaged image still imports and shows as a broken tile. A drop takes up to 50 images and 512 MB.
+
 ## 3D quick view
 
 To look at one model without leaving the Board, open **Inspect 3D model** in a card's menu. A modal shows the newest version on the same studio preview the Inbox uses, with Shaded, Wireframe, UV and, for a rigged model, Bones, plus a turntable, orbit and zoom, and the version, triangles and size. **Open in Inspector** closes it and jumps to that version in the Compare tab. A model the project has not added yet says so instead of opening. Escape closes it. The Library opens the same view from a card's picture, and the Inbox from its preview.
@@ -25,7 +29,7 @@ A card's menu is grouped as Make, Asset and Move, with Remove last. It has Send 
 
 ## Refs and views
 
-Refs and views... on a card opens the asset's refs sheet. Each ref shows one view of the object: Front, Left, Back, Right or Other. The four view slots sit in send order with a count (1 of 4 views), and the Other tray keeps refs that stay with the asset but never go as views. The chip on an image changes its view; picking a view another ref holds swaps the two. Tags save at once, on the asset in `project.json`, never in the file names. Add refs takes any image already in `refs/`, and Leave out of the refs drops one from the asset while the file stays.
+Refs and views... on a card opens the asset's refs sheet. **Add refs** there takes an image already in `refs/`, or copies new ones in with **Choose from disk**, under the same limits as a Concept drop. A file there is never replaced: the same image is reused, and a different one of that name is kept beside it as `front-2.png`; on a card with no front the first becomes its front. Each ref shows one view of the object: Front, Left, Back, Right or Other. The four view slots sit in send order with a count (1 of 4 views), and the Other tray keeps refs that stay with the asset but never go as views. The chip on an image changes its view; picking a view another ref holds swaps the two. Tags save at once, on the asset in `project.json`, never in the file names. Add refs takes any image already in `refs/`, and Leave out of the refs drops one from the asset while the file stays.
 
 An asset nobody tagged reads its views from the order its refs always went in (its Lab picks, else the files named after it): the first is the front, then left, back and right, and any more are other. Sends behave as before until a tag changes.
 
@@ -54,3 +58,7 @@ An asset that already has a model, for example one it got from the library, also
 ## Projects
 
 The project switcher at the top of the rail (Cmd+P on macOS, Ctrl+P on Windows) lists projects with their picture, template, asset count and age. A search field shows once there are more than six. Switching starts every view of the new project clean. Runs, Lab images and provider jobs keep going in the project they belong to. The Inbox is shared by the whole workspace.
+
+## Next step
+
+A strip under the header says what the project is waiting on, in one sentence with one button: a missing Blender, models in the Inbox, refs with no model, a card with no refs or picture, a first run, or a repo to ship to. It stays quiet during a run and once nothing waits on you. Dismissing a step applies to this project and shows the next waiting step, if any. It stays away until it changes: a new failed run, more models in the Inbox, another asset at Refs, or Blender trouble that went away and came back.

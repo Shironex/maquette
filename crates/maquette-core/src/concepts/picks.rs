@@ -6,10 +6,10 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Direction, REFS_DIR, list_directions, load_direction, modify_direction};
+use super::{CONCEPTS_DIR, Direction, REFS_DIR, list_directions, load_direction, modify_direction};
 use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
 use crate::error::{CoreError, CoreResult};
-use crate::project::{self, ProjectManifest, slugify};
+use crate::project::{self, ProjectManifest};
 use crate::workspace::FolderLayout;
 
 /// What Send picks to Refs did.
@@ -86,7 +86,7 @@ pub fn send_picks(
 
 /// `armillary sphere` reads `Armillary sphere`: only the first letter
 /// changes, the rest stays as typed (`HUD panel`).
-fn capitalised(name: &str) -> String {
+pub(super) fn capitalised(name: &str) -> String {
     let name = name.trim();
     let mut chars = name.chars();
     chars.next().map_or_else(String::new, |first| {
@@ -105,6 +105,14 @@ pub(super) fn place_at_refs(
 ) -> CoreResult<Asset> {
     match assets::find_by_name(manifest, name).cloned() {
         Some(existing) if existing.stage < Stage::Refs => {
+            // A card images were dropped for only guessed its kind.
+            if existing
+                .thumbnail
+                .as_deref()
+                .is_some_and(|t| t.starts_with(&format!("{CONCEPTS_DIR}/")))
+            {
+                assets::find_mut(manifest, &existing.id)?.kind = kind;
+            }
             assets::move_to(manifest, &existing.id, Stage::Refs)
         }
         Some(existing) => Ok(existing),
@@ -121,10 +129,15 @@ pub(super) fn place_at_refs(
 
 /// The newest ref copy of the direction named like `asset_id` that is
 /// still on disk, relative to the project folder.
-fn latest_sent_ref(project_dir: &Path, directions: &[Direction], asset_id: &str) -> Option<String> {
+fn latest_sent_ref(
+    project_dir: &Path,
+    directions: &[Direction],
+    manifest: &ProjectManifest,
+    asset_id: &str,
+) -> Option<String> {
     directions
         .iter()
-        .filter(|d| slugify(d.name.trim()) == asset_id)
+        .filter(|d| assets::find_by_name(manifest, &d.name).is_some_and(|a| a.id == asset_id))
         .flat_map(|d| d.images.iter())
         .filter_map(|i| i.ref_file.as_ref().map(|r| (i.index, r)))
         .filter(|(_, r)| project_dir.join(r).is_file())
@@ -152,7 +165,7 @@ pub fn heal_ref_thumbnails(
         .iter()
         .filter(|a| waiting(a))
         .filter_map(|a| {
-            latest_sent_ref(&project_dir, &directions, &a.id).map(|r| (a.id.clone(), r))
+            latest_sent_ref(&project_dir, &directions, &manifest, &a.id).map(|r| (a.id.clone(), r))
         })
         .collect();
     if found.is_empty() {

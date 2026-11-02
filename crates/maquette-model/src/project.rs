@@ -26,7 +26,7 @@ pub use maquette_base::clock::now_rfc3339;
 pub use maquette_base::clock::rfc3339_utc;
 pub use register::register;
 pub use repos::SiteRepoState;
-pub use slug::slugify;
+pub use slug::{folder_slug, latin_slug, slugify, windows_safe};
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PROJECT_VERSION: u32 = 1;
@@ -165,7 +165,7 @@ pub fn create_with(
             (ProjectTemplate::GameImport, Some(Box::new(settings)))
         }
     };
-    let base = slugify(&name);
+    let base = folder_slug(&name);
     let parent = projects_dir(workspace_root, layout);
     fs::create_dir_all(&parent).map_err(|e| CoreError::io(&parent, e))?;
 
