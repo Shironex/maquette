@@ -87,6 +87,12 @@ export function createLabSends({
   /** Mirrors `concepts::import::import_images`. */
   function importConcepts(project: string, paths: string[]): ImportedConcepts {
     if (paths.length === 0) fail('invalid', 'Choose at least one image.');
+    // The core reads headers; here a known other extension stands in for a bad one.
+    for (const path of paths) {
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      if (/\.[^.]+$/.test(name) && !/\.(png|jpe?g|webp)$/i.test(name))
+        fail('invalid', `${name} is not a PNG, JPEG or WebP image.`);
+    }
     const stem = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.[^.]*$/, '');
     const words = stem(paths[0]!).replace(/[_-]/g, ' ').trim();
     const name = words ? words[0]!.toUpperCase() + words.slice(1) : 'Dropped images';

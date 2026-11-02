@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent, type RefObject } from 'react';
 import { commands, type LabView } from '@/ipc/client';
 import { IN_TAURI } from '@/ipc/runtime';
-import { IMAGE_FILE, mockDroppedImages } from '@/lib/dropped-images';
+import { IMAGE_FILE, mockDroppedFiles } from '@/lib/dropped-images';
 import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { MAX_REFS } from '@/state/lab';
 import { useLabStore } from '@/state/use-lab-store';
@@ -48,7 +48,9 @@ export function useReferences(view: LabView) {
     setOver(false);
     // A plain browser (mock mode) gets File objects without paths.
     if (IN_TAURI) return;
-    void addRefs(mockDroppedImages(e.dataTransfer.files));
+    void addRefs(
+      mockDroppedFiles(Array.from(e.dataTransfer.files).filter(f => IMAGE_FILE.test(f.name)))
+    );
   };
   const onDragOver = (e: DragEvent) => {
     e.preventDefault();

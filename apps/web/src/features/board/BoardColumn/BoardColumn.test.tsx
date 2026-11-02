@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NativeDropHandlers } from '@/lib/useNativeDrop';
+import { commands } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
+import { useLabStore } from '@/state/use-lab-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DRAG_TYPE } from '../constants';
 import { fakeBoardEnv, mockAsset } from '../fakeBoardEnv';
@@ -119,11 +121,11 @@ describe('BoardColumn', () => {
     drop(['/art/over_refs.png']);
     expect(cards().map(a => a.name)).not.toContain('Over refs');
     spot.mockReturnValue(concept);
-    drop(['/art/moon_gate.png', '/art/notes.txt']);
+    drop(['/art/moon_gate.png']);
     await waitFor(() => expect(cards().map(a => a.name)).toContain('Moon gate'));
   });
 
-  it('says what it takes when nothing dropped is an image', async () => {
+  const nativeDropOnConcept = (paths: string[]) => {
     render(
       <BoardColumn
         stage="concept"
@@ -137,8 +139,72 @@ describe('BoardColumn', () => {
       configurable: true,
       value: () => concept,
     });
-    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, ['/art/notes.txt'])));
-    expect(notice()).toMatchObject({ title: 'Drop a PNG, JPEG or WebP image' });
+    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, paths)));
+  };
+
+  it('stops the whole import and names the file when one is not an image', async () => {
+    nativeDropOnConcept(['/art/moon_gate.png', '/art/layers.psd']);
+    await waitFor(() => expect(notice()?.status).toBe('failed'));
+    expect(notice()?.detail).toContain('layers.psd');
+    expect(cards().map(a => a.name)).not.toContain('Moon gate');
+  });
+
+  it('lets the core judge a file with no extension', async () => {
+    nativeDropOnConcept(['/art/moon_gate']);
+    await waitFor(() => expect(cards().map(a => a.name)).toContain('Moon gate'));
+  });
+
+  it('stops a browser drop the same way, with the file named', async () => {
+    render(
+      <BoardColumn
+        stage="concept"
+        assets={[mockAsset('Elsheria')]}
+        boardEmpty={false}
+        board={fakeBoardEnv()}
+      />
+    );
+    const good = new File(['x'], 'moon_gate.png', { type: 'image/png' });
+    const bad = new File(['x'], 'layers.psd');
+    fireEvent.drop(screen.getByRole('region', { name: /^Concept/ }), {
+      dataTransfer: { types: ['Files'], files: [good, bad], getData: () => '' },
+    });
+    await waitFor(() => expect(notice()?.detail).toContain('layers.psd'));
+    expect(cards().map(a => a.name)).not.toContain('Moon gate');
+  });
+
+  it('shows the new direction in the Lab right after an import', async () => {
+    await useLabStore.getState().load('frostveil');
+    nativeDropOnConcept(['/art/moon_gate.png']);
+    await waitFor(() =>
+      expect(useLabStore.getState().view?.directions.map(d => d.name)).toContain('Moon gate')
+    );
+  });
+
+  it('keeps the newer manifest when an older import answers last', async () => {
+    const project = useAppStore.getState().workspace!.project!;
+    const answer = (name: string) => ({
+      direction: { name },
+      added: ['concepts/a.png'],
+      asset: {},
+      project: { ...project, name },
+    });
+    let finishOlder!: (value: unknown) => void;
+    const older = new Promise(resolve => {
+      finishOlder = resolve;
+    });
+    const spy = vi
+      .spyOn(commands, 'labImportConcepts')
+      .mockReturnValueOnce(older as never)
+      .mockResolvedValueOnce(answer('Newer') as never);
+    nativeDropOnConcept(['/art/one.png']);
+    act(() => native.handlers.forEach(h => h.onDrop({ x: 1, y: 1 }, ['/art/two.png'])));
+    await waitFor(() => expect(useAppStore.getState().workspace?.project?.name).toBe('Newer'));
+    finishOlder(answer('Older'));
+    await act(async () => {
+      await older;
+    });
+    expect(useAppStore.getState().workspace?.project?.name).toBe('Newer');
+    spy.mockRestore();
   });
 
   it('leaves a native drop on a By hand card to that card', () => {

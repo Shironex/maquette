@@ -1,9 +1,10 @@
 import { useRef, useState, type DragEvent, type RefObject } from 'react';
 import { useWindowedList } from '@maquette/ui';
 import { commands, errorMessage, type Stage } from '@/ipc/client';
-import { IMAGE_FILE, mockDroppedImages } from '@/lib/dropped-images';
+import { mockDroppedFiles } from '@/lib/dropped-images';
 import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { useAppStore } from '@/state/use-app-store';
+import { useLabStore } from '@/state/use-lab-store';
 import { DRAG_TYPE } from '../constants';
 
 /** Lights the column under a dragged card, or files when it takes them, and takes the drop. */
@@ -24,7 +25,7 @@ export function useColumnDrop(
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setOver(false);
-    if (takesFiles(e)) onImages?.(mockDroppedImages(e.dataTransfer.files));
+    if (takesFiles(e)) onImages?.(mockDroppedFiles(e.dataTransfer.files));
     else dropOn(stage, e.dataTransfer.getData(DRAG_TYPE));
   };
   return { over, setOver, onDragOver, onDragLeave, onDrop };
@@ -41,6 +42,10 @@ export function useColumnCards(count: number) {
   return { scrollRef, listRef, cards };
 }
 
+/** Numbers imports, so an older answer never replaces a newer manifest. */
+let importsAsked = 0;
+let importApplied = 0;
+
 /** Images someone already has become a Lab direction and a card at Concept. */
 export function useImportConcepts() {
   const projectId = useAppStore(s => s.workspace?.project?.id);
@@ -48,21 +53,17 @@ export function useImportConcepts() {
   const setView = useAppStore(s => s.setView);
   const notify = useAppStore(s => s.notify);
   const importImages = async (paths: readonly string[]) => {
-    const images = paths.filter(p => IMAGE_FILE.test(p));
-    if (!projectId) return;
-    if (images.length === 0) {
-      if (paths.length > 0) {
-        notify({
-          status: 'info',
-          title: 'Drop a PNG, JPEG or WebP image',
-          detail: 'The Concept column takes images. Models go in through the Inbox.',
-        });
-      }
-      return;
-    }
+    if (!projectId || paths.length === 0) return;
+    importsAsked += 1;
+    const asked = importsAsked;
     try {
-      const done = await commands.labImportConcepts(projectId, images);
-      setProject(done.project);
+      // The core decides what is an image, by its header, and stops at the first that is not.
+      const done = await commands.labImportConcepts(projectId, [...paths]);
+      if (asked > importApplied) {
+        importApplied = asked;
+        setProject(done.project);
+      }
+      void useLabStore.getState().load(projectId);
       const n = done.added.length;
       notify({
         status: 'done',
