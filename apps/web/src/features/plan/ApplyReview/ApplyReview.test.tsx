@@ -107,7 +107,7 @@ describe('ApplyReview', () => {
     const changes = screen.getByRole('region', { name: 'Changes to layout.json' });
     expect(changes).toHaveTextContent('moved from 4');
     expect(changes).toHaveTextContent('moves to 2');
-    expect(changes).toHaveTextContent('2 triggers or timeline keys wait for a removed stop');
+    expect(changes).toHaveTextContent('2 triggers, timeline or path keys wait for a removed stop');
   });
 
   it('applies with the keys it was shown with', async () => {

@@ -36,6 +36,14 @@ describe('PlanList', () => {
     await vi.waitFor(() => expect(usePlansStore.getState().open?.id).toBe('lantern-festival'));
   });
 
+  it('never gives a new canvas the camera plan id', async () => {
+    await renderList(null);
+    await userEvent.click(screen.getAllByRole('button', { name: 'New canvas' })[0]!);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), 'Camera plan');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await vi.waitFor(() => expect(usePlansStore.getState().open?.id).toBe('camera-plan-2'));
+  });
+
   it('removes a canvas after asking', async () => {
     await renderList();
     await userEvent.click(screen.getByRole('button', { name: 'Remove Opening story' }));

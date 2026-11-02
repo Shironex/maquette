@@ -175,11 +175,8 @@ export function createCameraHandlers(deps: CameraDeps) {
     const base = plan.camera?.stops ?? [];
     const main = mainOf(plan);
     const head = plan.nodes.find(n => n.id === main?.nodes[0]) ?? { x: 0, y: 0 };
-    const mine = new Set(
-      mode === 'start-over'
-        ? plan.nodes.filter(n => n.stop && !n.by).map(n => n.id)
-        : (main?.nodes ?? [])
-    );
+    // Both replace only the main line; proposals and stops set aside stay.
+    const mine = new Set(main?.nodes ?? []);
     const kept = stopsOf(plan, main).flatMap(stop => {
       const was = base.find(s => s.id === stop.id);
       const fresh = now.find(s => s.id === stop.id);

@@ -35,7 +35,9 @@ export function usePlanList(list: readonly PlanSummary[]) {
   return {
     now,
     /** A website project's built in camera plan, pinned first; made from layout.json on first open. */
-    camera: website ? (list.find(p => p.id === CAMERA_PLAN_ID) ?? ('new' as const)) : null,
+    camera: website
+      ? (list.find(p => p.id === CAMERA_PLAN_ID && p.camera) ?? ('new' as const))
+      : null,
     openCamera: () => (project ? void openCamera(project) : undefined),
     query,
     setQuery,
@@ -61,7 +63,10 @@ export function usePlanList(list: readonly PlanSummary[]) {
       }
       if (await rename(renaming.id, name)) setRenaming(null);
     },
+    // Only the real camera plan opens as one; an older canvas that took its id opens as itself.
     open: (id: string) =>
-      id === CAMERA_PLAN_ID && project ? void openCamera(project) : void openCanvas(id),
+      list.some(p => p.id === id && p.camera) && project
+        ? void openCamera(project)
+        : void openCanvas(id),
   };
 }

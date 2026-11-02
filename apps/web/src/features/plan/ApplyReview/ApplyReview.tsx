@@ -84,15 +84,15 @@ export default function ApplyReview() {
           <div className="plan-diff">{lines}</div>
           {v.review.dropped ? (
             <p className="pt-1.5 text-[12px] text-amber">
-              {v.review.dropped} trigger{v.review.dropped === 1 ? '' : 's'} or timeline key
+              {v.review.dropped} trigger{v.review.dropped === 1 ? '' : 's'}, timeline or path key
               {v.review.dropped === 1 ? '' : 's'} wait for a removed stop and go with it.
             </p>
           ) : null}
         </section>
         <p className="text-[12px] text-fg-mute">
-          The models, motion and timeline of layout.json stay as they are. The old file is kept in
-          plans/history, and Undo on the Apply line in Changes puts it back while nothing changed it
-          since.
+          Apply changes only the stops, and the triggers, timeline keys and path keys that wait for
+          a stop it removes. The old file is kept in plans/history, and Undo on the Apply line in
+          Changes puts it back while nothing changed it since.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">

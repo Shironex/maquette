@@ -19,6 +19,7 @@
 import type { ChangeMark, PlanDoc, PlanFile, PlanImage, PlanOp, PlanSummary } from '../client';
 import { clock } from '@/lib/clock';
 import { applyOps, diffPlans, invertOps } from '@/state/plan-ops';
+import { CAMERA_PLAN_ID } from '@/state/plan-camera';
 import { trimText } from '@/state/plan-text';
 import { fail, type Args, type BackendOptions } from './backend-options';
 import { createCameraHandlers } from './create-camera-handlers';
@@ -206,7 +207,8 @@ export function createPlanHandlers(
       const all = canvases(project);
       const base = slugOf(trimmed);
       let id = base;
-      for (let n = 2; all.has(id); n += 1) id = `${base}-${n}`;
+      // The camera plan's id is kept for it, as the core keeps it.
+      for (let n = 2; all.has(id) || id === CAMERA_PLAN_ID; n += 1) id = `${base}-${n}`;
       const now = clock.now().toISOString();
       const plan: PlanFile = {
         version: 2,

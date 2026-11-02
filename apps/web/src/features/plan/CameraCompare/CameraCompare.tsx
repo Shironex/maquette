@@ -55,8 +55,9 @@ export default function CameraCompare() {
           <p className="text-[12.5px] text-fg-dim">A rebase only moves the plan&apos;s base.</p>
         ) : null}
         <p className="text-[12px] text-fg-mute">
-          Rebase keeps your edits and takes the rest from layout.json. Start over builds the main
-          line again from layout.json. Either can be undone in Changes.
+          Rebase keeps your edits and takes the rest from layout.json. Start over replaces only the
+          main line with the stops in layout.json now; proposals and stops you set aside stay.
+          Either is one change you can undo in Changes.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
