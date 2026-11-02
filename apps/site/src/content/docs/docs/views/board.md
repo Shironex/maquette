@@ -9,7 +9,7 @@ The Board follows each asset through the stages: Concept, Refs, 3D model, Blende
 
 ## Bringing your own concept art
 
-Drop PNG, JPEG or WebP images on the Concept column, with or without cards in it, or click the drop zone on an empty Board. They become a Lab direction named after the first file, and a card of that name at Concept, so you star, pick and cut them in the Lab like generated images. Send picks to Refs asks what the asset is and moves that card up. Another drop with the same name adds to that direction and overwrites nothing. A file that is not one of these images stops the import before anything is copied.
+Drop PNG, JPEG or WebP images on the Concept column, with or without cards in it, or click the drop zone on an empty Board. They become a Lab direction named after the first file, and a card of that name at Concept, so you star, pick and cut them in the Lab like generated images. Send picks to Refs asks what the asset is and moves that card up. Another drop with the same name adds to that direction and overwrites nothing. Maquette reads each file's first bytes, so the extension does not matter. A file that is not one of these images, looks cut off, or is over 50 MB stops the whole import before anything is copied, and the message names it. A drop takes up to 50 images and 512 MB.
 
 ## 3D quick view
 
@@ -29,7 +29,7 @@ A card's menu is grouped as Make, Asset and Move, with Remove last. It has Send 
 
 ## Refs and views
 
-Refs and views... on a card opens the asset's refs sheet. Each ref shows one view of the object: Front, Left, Back, Right or Other. The four view slots sit in send order with a count (1 of 4 views), and the Other tray keeps refs that stay with the asset but never go as views. The chip on an image changes its view; picking a view another ref holds swaps the two. Tags save at once, on the asset in `project.json`, never in the file names. Add refs takes any image already in `refs/`, and Leave out of the refs drops one from the asset while the file stays.
+Refs and views... on a card opens the asset's refs sheet. **Add refs** there takes an image already in `refs/`, or copies new ones in with **Choose from disk**; on a card with no front the first becomes its front. Each ref shows one view of the object: Front, Left, Back, Right or Other. The four view slots sit in send order with a count (1 of 4 views), and the Other tray keeps refs that stay with the asset but never go as views. The chip on an image changes its view; picking a view another ref holds swaps the two. Tags save at once, on the asset in `project.json`, never in the file names. Add refs takes any image already in `refs/`, and Leave out of the refs drops one from the asset while the file stays.
 
 An asset nobody tagged reads its views from the order its refs always went in (its Lab picks, else the files named after it): the first is the front, then left, back and right, and any more are other. Sends behave as before until a tag changes.
 

@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
+import { useAppStore } from '@/state/use-app-store';
 import { useRefsStore } from '@/state/use-refs-store';
 import { clearMocks, openMockRefs } from '@/test/mock-ipc';
 import { RefsBody } from '.';
@@ -44,5 +46,43 @@ describe('the refs page', () => {
     expect(
       await screen.findByRole('button', { name: 'View of veil_gate_front.png: Other' })
     ).toBeInTheDocument();
+  });
+
+  it('takes a ref from disk when refs/ has nothing to offer, as its front', async () => {
+    const { again } = await body();
+    const view = useRefsStore.getState().view!;
+    useRefsStore.setState({ view: { ...view, refs: [], images: [], tagged: false } });
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => {
+      const refs = useRefsStore.getState().view!.refs;
+      expect(refs).toContainEqual(
+        expect.objectContaining({ file: 'refs/from_disk.png', view: 'front' })
+      );
+    });
+  });
+
+  it('keeps the tags already there when it takes a ref from disk', async () => {
+    const { again } = await body();
+    const front = useRefsStore.getState().view!.refs.find(r => r.view === 'front')!;
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() =>
+      expect(useRefsStore.getState().view!.refs).toContainEqual(
+        expect.objectContaining({ file: 'refs/from_disk.png', view: 'other' })
+      )
+    );
+    expect(useRefsStore.getState().view!.refs.find(r => r.view === 'front')?.file).toBe(front.file);
+  });
+
+  it('says what went wrong when a file from disk is no image', async () => {
+    await body();
+    vi.spyOn(commands, 'dialogPickFiles').mockResolvedValue(['/art/notes.txt'] as never);
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(useAppStore.getState().notice?.detail).toContain('notes.txt'));
+    vi.restoreAllMocks();
   });
 });
