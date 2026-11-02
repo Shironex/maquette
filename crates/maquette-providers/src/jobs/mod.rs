@@ -16,6 +16,8 @@ mod records;
 mod remote;
 mod request;
 mod retexture;
+#[cfg(test)]
+mod save_tests;
 mod send;
 mod sends;
 mod settle;
@@ -170,6 +172,11 @@ type Callback = Box<dyn Fn(ProviderEvent) + Send + Sync>;
 
 struct Shared {
     jobs: Mutex<Vec<Entry>>,
+    /// Held from a change to the job list through writing it, and by
+    /// close, so close never clears the list between a change and its
+    /// write (which would save the project's file empty). Taken before
+    /// `jobs`, never while holding it.
+    saves: Mutex<()>,
     /// Held from a send's checks until its job is in the queue, so two sends
     /// at once cannot both pass the busy check or take the same id.
     sending: Mutex<()>,
@@ -179,6 +186,10 @@ struct Shared {
     options: Options,
     /// The inbox and the bake back, as the app wired them in.
     ports: SendPorts,
+    /// Runs once at the start of the next save, so a test can step in
+    /// between a change and its write.
+    #[cfg(test)]
+    before_save: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 impl Shared {
@@ -188,6 +199,14 @@ impl Shared {
 
     fn sending(&self) -> MutexGuard<'_, ()> {
         self.sending.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Take before changing the job list in a way that gets saved, and
+    /// hold until [`persist`] is done.
+    fn saving(&self) -> Saving<'_> {
+        Saving {
+            _held: self.saves.lock().unwrap_or_else(|p| p.into_inner()),
+        }
     }
 
     fn workspace(&self) -> Option<Workspace> {
@@ -200,6 +219,12 @@ impl Shared {
     fn emit(&self, event: ProviderEvent) {
         (self.on_event)(event);
     }
+}
+
+/// Proof that the caller holds [`Shared::saving`], which [`persist`] asks
+/// for.
+struct Saving<'a> {
+    _held: MutexGuard<'a, ()>,
 }
 
 fn cancel_mode(stored: &Stored) -> CancelMode {
@@ -271,12 +296,15 @@ impl ProviderJobs {
         Self {
             shared: Arc::new(Shared {
                 jobs: Mutex::new(Vec::new()),
+                saves: Mutex::new(()),
                 sending: Mutex::new(()),
                 workspace: Mutex::new(None),
                 on_event: Box::new(on_event),
                 secrets,
                 options,
                 ports,
+                #[cfg(test)]
+                before_save: Mutex::new(None),
             }),
         }
     }
@@ -293,7 +321,10 @@ impl ProviderJobs {
     /// Jobs of a previously open workspace stop polling; their state stays
     /// saved for the next time it opens.
     pub fn open_workspace(&self, root: &Path, config: &WorkspaceConfig) {
-        self.close();
+        // Held until the loaded jobs are saved, so a save from the old
+        // workspace's threads lands before the switch or finds no job.
+        let saving = self.shared.saving();
+        self.clear(&saving);
         let workspace = Workspace {
             root: root.to_path_buf(),
             config: config.clone(),
@@ -342,8 +373,9 @@ impl ProviderJobs {
         touched.sort();
         touched.dedup();
         for project in touched {
-            persist(&self.shared, &project);
+            persist(&self.shared, &saving, &project);
         }
+        drop(saving);
         for manifest in &projects {
             // Sends whose model came in another way first, so the heal
             // then sees their cards with no live job.
@@ -377,8 +409,13 @@ impl ProviderJobs {
     }
 
     /// Stops every polling thread, keeping the saved state. For app exit
-    /// and workspace switches.
+    /// and workspace switches. Waits for a save under way, and a job
+    /// thread that saves afterwards finds no job and writes nothing.
     pub fn close(&self) {
+        self.clear(&self.shared.saving());
+    }
+
+    fn clear(&self, _saving: &Saving<'_>) {
         let mut jobs = self.shared.jobs();
         for entry in jobs.iter() {
             entry.stop.stop();

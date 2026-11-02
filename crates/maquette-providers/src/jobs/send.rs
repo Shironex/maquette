@@ -187,13 +187,15 @@ impl ProviderJobs {
             job: job.clone(),
             chain: Chain::default(),
         };
+        let saving = self.shared.saving();
         self.shared.jobs().push(Entry {
             stored: stored.clone(),
             stop: Arc::new(StopFlag::default()),
             thread: false,
             cancelled: false,
         });
-        persist(&self.shared, &job.project);
+        persist(&self.shared, &saving, &job.project);
+        drop(saving);
         if job.provider == Provider::ByHand {
             super::spend::record_by_hand(&self.shared, &stored);
         }

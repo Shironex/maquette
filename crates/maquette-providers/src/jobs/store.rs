@@ -7,8 +7,8 @@ use std::path::Path;
 
 use super::spend;
 use super::{
-    CLOSED_WHILE_SENDING, Entry, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
-    ProviderEvent, Shared, Stored, snapshot,
+    CLOSED_WHILE_SENDING, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
+    ProviderEvent, Saving, Shared, Stored, snapshot,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -105,23 +105,39 @@ fn read(project_dir: &Path) -> Vec<Stored> {
 }
 
 /// Writes a project's jobs. Keeps the newest finished ones only.
-pub(super) fn persist(shared: &Shared, project: &str) {
+///
+/// The caller holds `saving` from its change to the list until here, so
+/// close cannot clear the list in between.
+pub(super) fn persist(shared: &Shared, _saving: &Saving<'_>, project: &str) {
+    #[cfg(test)]
+    {
+        let hook = shared
+            .before_save
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take();
+        if let Some(hook) = hook {
+            hook();
+        }
+    }
     let Some(workspace) = shared.workspace() else {
         return;
     };
     let Ok(dir) = workspace.project_dir(project) else {
         return;
     };
+    // Written under the jobs lock as well, so whoever reads a job's new
+    // state also finds it on disk.
     let jobs = shared.jobs();
-    write_project(&workspace.root, &dir, &jobs, project);
-}
-
-fn write_project(root: &Path, dir: &Path, jobs: &[Entry], project: &str) {
-    let mut mine: Vec<Stored> = jobs
+    let mine: Vec<Stored> = jobs
         .iter()
         .filter(|e| e.stored.job.project == project)
         .map(|e| e.stored.clone())
         .collect();
+    write_project(&workspace.root, &dir, mine);
+}
+
+fn write_project(root: &Path, dir: &Path, mut mine: Vec<Stored>) {
     // Saved relative to the workspace, so the file reads on every computer.
     for stored in &mut mine {
         if let Some(folder) = stored.job.handoff.as_deref() {
@@ -168,6 +184,8 @@ pub(super) fn update_with(
     spend: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
+    // A change that is not saved (progress) need not wait for a write.
+    let saving = save.then(|| shared.saving());
     let (job, project, before, after) = {
         let mut jobs = shared.jobs();
         let entry = jobs
@@ -183,8 +201,8 @@ pub(super) fn update_with(
             entry.stored.clone(),
         )
     };
-    if save {
-        persist(shared, &project);
+    if let Some(saving) = saving {
+        persist(shared, &saving, &project);
     }
     shared.emit(ProviderEvent::Job { job: Box::new(job) });
     if spend {

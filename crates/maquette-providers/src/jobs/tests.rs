@@ -23,7 +23,7 @@ fn inbox_names_match_the_longest_job_id() {
 }
 
 /// A Meshy prop job, running with the chain given.
-fn meshy_job(state: &str, chain: serde_json::Value) -> Stored {
+pub(super) fn meshy_job(state: &str, chain: serde_json::Value) -> Stored {
     serde_json::from_value(json!({
         "job": {
             "id": "lantern-1", "project": "moon-island", "asset": "lantern",
