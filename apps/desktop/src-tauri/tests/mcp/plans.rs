@@ -1,6 +1,7 @@
 //! A real MCP client plans on a canvas: makes one, adds nodes and links
 //! beside a person's note, edits and tidies them, reads the change log,
-//! is refused when removing the person's note and undoes its own run.
+//! is refused when removing the person's note and undoes its own run,
+//! newest first where its runs rewrote the same note.
 //! Everything happens in a temp workspace.
 
 use std::path::Path;
@@ -259,6 +260,49 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
         links.iter().any(|l| l["id"] == json!("e-person")),
         "{after}"
     );
+
+    // Two runs rewrite the person's note in turn: the older can not be undone
+    // under the newer, and newest first brings the person's words back.
+    let porch_text = |canvas: &Value| {
+        canvas["nodes"]
+            .as_array()
+            .expect("nodes")
+            .iter()
+            .find(|n| n["id"] == json!("n-porch"))
+            .map(|n| n.get("text").cloned().unwrap_or(Value::Null))
+            .expect("porch")
+    };
+    let first_look = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    let original = porch_text(&first_look);
+    for (run, text) in [("r-3", "a"), ("r-4", "b")] {
+        call(
+            &client,
+            "update_nodes",
+            canvas_args(json!({ "run": run, "nodes": [{ "id": "n-porch", "text": text }] })),
+        )
+        .await;
+    }
+    let waits = call_error(&client, "undo_run", canvas_args(json!({ "run": "r-3" }))).await;
+    assert!(waits.contains("Undo the later change first"), "{waits}");
+    let held = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(porch_text(&held), json!("b"), "nothing undone");
+    call(&client, "undo_run", canvas_args(json!({ "run": "r-4" }))).await;
+    call(&client, "undo_run", canvas_args(json!({ "run": "r-3" }))).await;
+    let back = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(porch_text(&back), original, "{back}");
+    // Both rewrites in one run undo together, newest first.
+    for text in ["c", "d"] {
+        call(
+            &client,
+            "update_nodes",
+            canvas_args(json!({ "run": "r-5", "nodes": [{ "id": "n-porch", "text": text }] })),
+        )
+        .await;
+    }
+    let together = call(&client, "undo_run", canvas_args(json!({ "run": "r-5" }))).await;
+    assert_eq!(together["undone"], json!(2), "{together}");
+    let back = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(porch_text(&back), original, "{back}");
 
     let missing = call_error(
         &client,

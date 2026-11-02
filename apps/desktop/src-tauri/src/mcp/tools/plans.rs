@@ -195,7 +195,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a planning canvas: its nodes (id, kind, title, text, url, picture path, linked asset with its live name, stage and version count, Lab direction, x and y, and by: the agent that made it, absent for a person; personWrote: true on an agent's node a person wrote in last, which makes it theirs) and its links between nodes (from, to, kind when not relates, label, by). Texts are cut at 120 characters unless full; nodes narrows it to some ids. Read this before add_nodes so new nodes go near the right one.",
+        description = "Read a planning canvas: its nodes (id, kind, title, text, url, picture path, linked asset with its live name, stage and version count, Lab direction, x and y, and by: the agent that made it, absent for a person; personWrote: true on an agent's node a person wrote in, which makes it theirs) and its links between nodes (from, to, kind when not relates, label, by). Texts are cut at 120 characters unless full; nodes narrows it to some ids. Read this before add_nodes so new nodes go near the right one.",
         annotations(read_only_hint = true)
     )]
     async fn get_canvas(&self, Parameters(args): Parameters<CanvasArgs>) -> Out {
