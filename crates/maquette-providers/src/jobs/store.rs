@@ -8,13 +8,13 @@ use std::path::Path;
 use super::spend;
 use super::{
     CLOSED_WHILE_SENDING, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
-    ProviderEvent, Saving, Shared, Stored, snapshot,
+    ProviderEvent, Saving, Shared, Stored, Workspace, snapshot,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use maquette_base::history::now_ms;
 use maquette_model::assets::{self, AssetStatus, Stage};
-use maquette_model::project;
+use maquette_model::project::{self, ProjectManifest};
 
 /// Fixes a saved job up for a fresh start. True when it changed.
 pub(super) fn resume_fixup(stored: &mut Stored) -> bool {
@@ -184,10 +184,41 @@ pub(super) fn update_with(
     spend: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
+    change_job(shared, None, id, save, spend, change)
+}
+
+/// [`update`] for a job thread or bake started under workspace
+/// `generation`: refused once that workspace has closed, so it never
+/// changes a job of the next one that has the same id.
+pub(super) fn update_in(
+    shared: &Shared,
+    generation: u64,
+    id: &str,
+    save: bool,
+    change: impl FnOnce(&mut Stored) -> CoreResult<()>,
+) -> CoreResult<()> {
+    change_job(shared, Some(generation), id, save, true, change)
+}
+
+fn change_job(
+    shared: &Shared,
+    generation: Option<u64>,
+    id: &str,
+    save: bool,
+    spend: bool,
+    change: impl FnOnce(&mut Stored) -> CoreResult<()>,
+) -> CoreResult<()> {
     // A change that is not saved (progress) need not wait for a write.
     let saving = save.then(|| shared.saving());
     let (job, project, before, after) = {
         let mut jobs = shared.jobs();
+        // Checked under the jobs lock, which close holds to empty the list
+        // and forget the workspace, so the list is still this generation's.
+        if generation.is_some_and(|g| shared.generation() != Some(g)) {
+            return Err(CoreError::Unavailable(
+                "The workspace this job ran in has closed.".to_string(),
+            ));
+        }
         let entry = jobs
             .iter_mut()
             .find(|e| e.stored.job.id == id)
@@ -221,6 +252,20 @@ pub(super) fn touch_asset(
     let Some(workspace) = shared.workspace() else {
         return;
     };
+    if let Some(manifest) = touch_in(&workspace, project, asset, stage, status) {
+        shared.emit(ProviderEvent::Project { project: manifest });
+    }
+}
+
+/// Moves an asset of `workspace` on the Board and sets its status. The
+/// changed project, for the caller to tell the UI.
+pub(super) fn touch_in(
+    workspace: &Workspace,
+    project: &str,
+    asset: &str,
+    stage: Option<Stage>,
+    status: AssetStatus,
+) -> Option<ProjectManifest> {
     let changed = project::modify(&workspace.root, &workspace.config.layout, project, |m| {
         if let Some(stage) = stage
             && assets::find(m, asset)?.stage < stage
@@ -229,8 +274,7 @@ pub(super) fn touch_asset(
         }
         assets::set_status(m, asset, status)
     });
-    match changed {
-        Ok(manifest) => shared.emit(ProviderEvent::Project { project: manifest }),
-        Err(err) => tracing::warn!(error = %err, "could not update the asset"),
-    }
+    changed
+        .inspect_err(|err| tracing::warn!(error = %err, "could not update the asset"))
+        .ok()
 }

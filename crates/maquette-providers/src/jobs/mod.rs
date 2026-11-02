@@ -32,6 +32,7 @@ mod tests;
 mod worker;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -55,7 +56,7 @@ pub use retexture::RetextureRequest;
 pub use split::{SplitRequest, SplitSource};
 
 use model::{Chain, JobsFile, Stored};
-use store::{load, persist, resume_fixup, touch_asset, update, update_with};
+use store::{load, persist, resume_fixup, touch_asset, touch_in, update, update_in, update_with};
 use worker::pump;
 
 pub const JOBS_FILE: &str = "providers.json";
@@ -152,6 +153,10 @@ impl Default for Options {
 struct Workspace {
     root: PathBuf,
     config: WorkspaceConfig,
+    /// Counts the opens, so a job thread or send of a workspace opened
+    /// before is told apart from one of this one even when the job ids
+    /// match (a copied or synced workspace).
+    generation: u64,
 }
 
 impl Workspace {
@@ -181,6 +186,8 @@ struct Shared {
     /// at once cannot both pass the busy check or take the same id.
     sending: Mutex<()>,
     workspace: Mutex<Option<Workspace>>,
+    /// The generation the last open gave out.
+    opened: AtomicU64,
     on_event: Callback,
     secrets: Arc<dyn SecretStore>,
     options: Options,
@@ -214,6 +221,15 @@ impl Shared {
     fn still_open(&self, _saving: &Saving<'_>) -> CoreResult<Workspace> {
         self.workspace()
             .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))
+    }
+
+    /// The open workspace's generation, `None` once the jobs have closed.
+    fn generation(&self) -> Option<u64> {
+        self.workspace
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .as_ref()
+            .map(|w| w.generation)
     }
 
     fn workspace(&self) -> Option<Workspace> {
@@ -306,6 +322,7 @@ impl ProviderJobs {
                 saves: Mutex::new(()),
                 sending: Mutex::new(()),
                 workspace: Mutex::new(None),
+                opened: AtomicU64::new(0),
                 on_event: Box::new(on_event),
                 secrets,
                 options,
@@ -328,13 +345,16 @@ impl ProviderJobs {
     /// Jobs of a previously open workspace stop polling; their state stays
     /// saved for the next time it opens.
     pub fn open_workspace(&self, root: &Path, config: &WorkspaceConfig) {
-        // Held until the loaded jobs are saved, so a save from the old
-        // workspace's threads lands before the switch or finds no job.
+        // Held until the loaded jobs are saved. A save under way finishes
+        // first; then clear forgets the old workspace, and the new one gets
+        // a new generation, so a job thread or bake of the old one finds no
+        // job it may change, even one with the same id here.
         let saving = self.shared.saving();
         self.clear(&saving);
         let workspace = Workspace {
             root: root.to_path_buf(),
             config: config.clone(),
+            generation: self.shared.opened.fetch_add(1, Ordering::SeqCst) + 1,
         };
         *self
             .shared

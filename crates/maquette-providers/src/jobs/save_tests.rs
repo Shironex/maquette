@@ -10,6 +10,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use super::tests::meshy_job;
+use super::worker::Run;
 use super::{JOBS_FILE, Options, ProviderJobs, update};
 use crate::error::CoreResult;
 use crate::secrets::MemoryStore;
@@ -53,6 +54,24 @@ impl TextureBake for Unused {
 /// finished Meshy job, `lantern-1`. Returns the jobs, the workspace config
 /// and the project's jobs file.
 fn one_job(root: &Path) -> (ProviderJobs, WorkspaceConfig, PathBuf) {
+    let (config, path) = workspace_with_job(root);
+    let unused = Arc::new(Unused);
+    let jobs = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        SendPorts {
+            inbox: Arc::clone(&unused) as Arc<dyn InboxPort>,
+            bake: unused,
+        },
+        |_| {},
+    );
+    jobs.open_workspace(root, &config);
+    assert_eq!(jobs.list(None).len(), 1, "the saved job loaded");
+    (jobs, config, path)
+}
+
+/// Makes a workspace at `root` with the saved job of [`one_job`].
+fn workspace_with_job(root: &Path) -> (WorkspaceConfig, PathBuf) {
     let config = workspace::create(root, &WorkspaceConfig::default()).expect("workspace");
     let manifest = project::create(
         root,
@@ -74,19 +93,7 @@ fn one_job(root: &Path) -> (ProviderJobs, WorkspaceConfig, PathBuf) {
         .join(JOBS_FILE);
     let file = json!({ "version": 1, "jobs": [stored] });
     fs::write(&path, file.to_string()).expect("jobs file");
-    let unused = Arc::new(Unused);
-    let jobs = ProviderJobs::new(
-        Arc::new(MemoryStore::default()),
-        Options::default(),
-        SendPorts {
-            inbox: Arc::clone(&unused) as Arc<dyn InboxPort>,
-            bake: unused,
-        },
-        |_| {},
-    );
-    jobs.open_workspace(root, &config);
-    assert_eq!(jobs.list(None).len(), 1, "the saved job loaded");
-    (jobs, config, path)
+    (config, path)
 }
 
 fn saved_ids(path: &Path) -> Vec<String> {
@@ -152,4 +159,23 @@ fn clearing_finished_jobs_after_close_writes_nothing() {
         format!("{cleared:?}").contains("Open a workspace"),
         "{cleared:?}"
     );
+}
+
+#[test]
+fn a_job_thread_of_a_closed_workspace_cannot_save_onto_the_next_one() {
+    let first = tempfile::tempdir().expect("dir");
+    let (jobs, _, _) = one_job(first.path());
+    // A job thread of the first workspace, still going after the switch.
+    let stale = Run::current(&jobs.shared, "lantern-1");
+
+    // A copy of the workspace, so its job has the same id.
+    let second = tempfile::tempdir().expect("dir");
+    let (config, path) = workspace_with_job(second.path());
+    jobs.open_workspace(second.path(), &config);
+    stale.save(|s| s.job.message = Some("from the old workspace".to_string()));
+
+    let job = jobs.get("lantern-1").expect("the new workspace's job");
+    assert_ne!(job.message.as_deref(), Some("from the old workspace"));
+    let saved = fs::read_to_string(&path).expect("read");
+    assert!(!saved.contains("from the old workspace"), "{saved}");
 }
