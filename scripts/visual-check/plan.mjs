@@ -18,6 +18,8 @@
  * `mock_plan_outside` make the outside writes.
  */
 
+import { cameraShots } from './plan-camera.mjs';
+
 const SMALL = { width: 1120, height: 720 };
 
 /** Opens the Plan view on Frostveil's demo canvases. */
@@ -216,4 +218,5 @@ export async function planShots({ open, shot }) {
 
   await assetShots(open, shot);
   await historyShots(open, shot);
+  await cameraShots({ open, shot });
 }

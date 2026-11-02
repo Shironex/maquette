@@ -73,6 +73,8 @@ export interface PlansStore {
   onConnect: (connection: Connection) => void;
   addNode: (kind: NodeKind, at: { x: number; y: number }, fields?: NodeFields) => string;
   updateNode: (id: string, fields: NodeFields) => void;
+  /** Sets the whole flow at once (a stop moved, added or a proposal taken), as one edit. */
+  replaceFlow: (nodes: FlowNode[], edges: FlowEdge[]) => void;
   /** Picks a picture and adds it at `at`; false when cancelled or refused. */
   addPicture: (at: { x: number; y: number }) => Promise<boolean>;
   openLink: (node: string) => Promise<void>;

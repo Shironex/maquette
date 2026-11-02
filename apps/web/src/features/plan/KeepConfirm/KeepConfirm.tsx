@@ -13,7 +13,9 @@ export default function KeepConfirm() {
   const items = v.needs.map(need => (
     <li key={need.id}>
       <span className="text-fg">{need.summary}</span>{' '}
-      <span className="text-fg-mute">({need.parts.join(', ')})</span>
+      <span className="text-fg-mute">
+        ({need.parts.join(', ')}, {v.when(need.at)}, {need.id})
+      </span>
     </li>
   ));
   return (

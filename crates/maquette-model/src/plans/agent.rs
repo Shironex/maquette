@@ -33,7 +33,7 @@ pub struct Agent<'a> {
 }
 
 impl<'a> Agent<'a> {
-    fn writer(&self) -> Writer<'a> {
+    pub(super) fn writer(&self) -> Writer<'a> {
         Writer {
             by: Some(self.name),
             run: self.run,
@@ -77,6 +77,31 @@ pub struct NodeEdit {
     pub x: Option<i32>,
     pub y: Option<i32>,
     pub width: Option<u32>,
+    /// A stop node's camera settings.
+    pub stop: Option<StopEdit>,
+}
+
+/// Changes to a stop node's camera stop: only the given settings change.
+#[derive(Debug, Clone, Default)]
+pub struct StopEdit {
+    pub name: Option<String>,
+    pub position: Option<[f32; 3]>,
+    pub target: Option<[f32; 3]>,
+    pub fov: Option<f32>,
+}
+
+impl StopEdit {
+    /// `stop` with these changes laid over it.
+    pub fn over(&self, stop: &crate::layout::LayoutStop) -> crate::layout::LayoutStop {
+        let mut next = stop.clone();
+        if let Some(name) = &self.name {
+            next.name = super::trimmed(name).to_string();
+        }
+        next.position = self.position.unwrap_or(next.position);
+        next.target = self.target.unwrap_or(next.target);
+        next.fov = self.fov.unwrap_or(next.fov);
+        next
+    }
 }
 
 /// What an agent's write did, for a short answer.
@@ -162,6 +187,7 @@ fn node_of(spec: &NewNode, id: String, agent: &Agent<'_>) -> PlanNode {
         direction: keeps(NodeKind::Direction, &spec.direction),
         by: Some(agent.name.to_string()),
         person_wrote: false,
+        stop: None,
     }
 }
 
@@ -206,6 +232,11 @@ pub fn add(
     }
     for image in nodes.iter().filter_map(|n| n.image.as_deref()) {
         check_picture(project_dir, image)?;
+    }
+    if nodes.iter().any(|n| n.kind == Some(NodeKind::Stop)) {
+        return refuse(
+            "Camera stops are proposed with propose_camera_plan, not added one by one.".into(),
+        );
     }
     let mut made = Vec::new();
     let mut edges = Vec::new();
@@ -336,6 +367,12 @@ pub fn update(
             after.y = edit.y.unwrap_or(after.y);
             if edit.width.is_some() {
                 after.width = edit.width;
+            }
+            if let Some(change) = &edit.stop {
+                let stop = super::camera::stop_of(before).ok_or_else(|| {
+                    CoreError::Invalid(format!("The node {} is not a camera stop.", edit.id))
+                })?;
+                after.stop = Some(Box::new(change.over(stop)));
             }
             ops.push(PlanOp::SetNode {
                 before: before.clone(),

@@ -1,6 +1,6 @@
 ---
 name: maquette-plan-canvas
-description: Plan beside a person on a Maquette planning canvas: read the canvas and its change log, add notes, links, pictures, assets and Lab directions near the right node, edit or tidy them, and undo your own run. Use when asked to brainstorm, plan mechanics or a story, research and pin findings, or clean up what an agent added on a canvas in the Plan view. Not for making concepts (maquette-lab-round).
+description: Plan beside a person on a Maquette planning canvas: read the canvas and its change log, add notes, links, pictures, assets and Lab directions near the right node, edit or tidy them, and undo your own run. Use when asked to brainstorm, plan mechanics or a story, research and pin findings, clean up what an agent added on a canvas in the Plan view, or propose a camera tour for a website project's camera plan. Not for making concepts (maquette-lab-round).
 ---
 
 # Maquette planning canvas
@@ -22,6 +22,8 @@ Maquette and turn the server on in Settings > Agents. An error names its `code`,
 `tryTool` when they help; `personOnly` means ask the person instead of trying again.
 A project's planning canvases hold the person's notes, links and plans: `list_canvases` lists them
 and `get_canvas` reads one, so read the canvas the person points at before you plan for them.
+A website project's camera plan (`get_camera_plan`) is tried there until the person presses Apply
+in the app: agents may propose a tour, never apply one.
 
 ## Hard rules
 
@@ -74,3 +76,20 @@ still count as undone. A change a later agent change rewrote on top of waits: un
 first, or name both (or their run) to undo them together. An undo can not be undone; make the
 change again instead. A change the person kept is theirs: `undo_run` refuses it, so ask them. The person can undo or keep any agent
 change from the Changes panel.
+
+## 4. Camera plan (website projects)
+
+A website project's camera plan is canvas `camera-plan`: stop nodes in tour order, the person's main
+line on top. Nothing on it reaches the site until the person presses Apply, and only the person
+applies: no tool writes `layout.json` from a plan, and `undo_run` refuses an Apply.
+
+1. `get_camera_plan` `{ project }`: the main line with each stop's settings, any proposals and
+   `stale: true` when `layout.json` changed since the plan was based on it (tell the person; they
+   compare or rebase in the app).
+2. `propose_camera_plan` `{ project, agent, run, stops }`: the whole tour in order as your own line
+   below theirs. Known stops by id take only the settings you give; a new stop needs a name,
+   position and target. A new proposal replaces your last one.
+3. `update_nodes` with `stop: { name?, position?, target?, fov? }` changes one stop node's settings,
+   only when the person asked for it on their main line.
+4. `get_apply_preview` `{ project }`: what Apply would write, every moved, added, removed and
+   changed stop. Tell the person in one line what changes and that they apply it in the app.

@@ -19,6 +19,8 @@ const WHOLE: &str = "*";
 enum Of {
     Node,
     Link,
+    /// The camera plan's base.
+    Camera,
 }
 
 type Key<'a> = (Of, &'a str, &'static str);
@@ -33,7 +35,9 @@ fn node_fields(before: &PlanNode, after: &PlanNode) -> Vec<&'static str> {
             }
         )*};
     }
-    check!(kind, x, y, width, title, text, image, url, asset, direction);
+    check!(
+        kind, x, y, width, title, text, image, url, asset, direction, stop
+    );
     fields
 }
 
@@ -56,6 +60,9 @@ fn touched(entry: &PlanLogEntry) -> BTreeSet<Key<'_>> {
             PlanOp::SetEdge { after, .. } => {
                 out.insert((Of::Link, after.id.as_str(), WHOLE));
             }
+            PlanOp::SetCamera { .. } => {
+                out.insert((Of::Camera, "", WHOLE));
+            }
         }
     }
     out
@@ -77,6 +84,7 @@ pub(super) fn parts(entry: &PlanLogEntry) -> Vec<String> {
         let name = match (of, field) {
             (Of::Node, WHOLE) => "whole node".to_string(),
             (Of::Link, _) => "link".to_string(),
+            (Of::Camera, _) => "camera base".to_string(),
             (Of::Node, f) => f.to_string(),
         };
         if !out.contains(&name) {

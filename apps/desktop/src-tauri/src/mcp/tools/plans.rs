@@ -98,6 +98,7 @@ fn kind_word(kind: NodeKind) -> &'static str {
         NodeKind::Link => "link",
         NodeKind::Asset => "asset",
         NodeKind::Direction => "direction",
+        NodeKind::Stop => "stop",
     }
 }
 

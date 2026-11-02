@@ -7,6 +7,11 @@
 //! - **1 to 2:** asset and Lab direction nodes. Every node gains `asset`
 //!   and `direction` (both null for the note, picture and link a version 1
 //!   file can hold).
+//! - **2 to 3:** the camera plan. Nodes may be `stop` nodes holding a camera
+//!   stop, and the file may carry `camera`, the layout stops it was built
+//!   from. Both are left out when absent, so a version 2 file needs nothing
+//!   added; one that already holds either is refused, since version 2 has no
+//!   room for them. A canvas without stops is still written as version 2.
 
 use serde_json::{Map, Value};
 
@@ -15,6 +20,8 @@ use crate::error::{CoreError, CoreResult};
 
 /// The node kinds a version 1 file may hold.
 const V1_KINDS: [&str; 3] = ["note", "image", "link"];
+/// The node kinds a version 2 file may hold.
+const V2_KINDS: [&str; 5] = ["note", "image", "link", "asset", "direction"];
 
 fn invalid<T>(message: &str) -> CoreResult<T> {
     Err(CoreError::Invalid(message.to_string()))
@@ -54,6 +61,7 @@ pub fn to_current(mut value: Value) -> CoreResult<Value> {
     while version < PLAN_VERSION {
         match version {
             1 => v1_to_v2(&mut value)?,
+            2 => v2_to_v3(&value)?,
             _ => return invalid("The canvas file has a version this Maquette never wrote."),
         }
         version += 1;
@@ -78,6 +86,25 @@ fn v1_to_v2(value: &mut Value) -> CoreResult<()> {
         }
         add_null(node, "asset");
         add_null(node, "direction");
+    }
+    Ok(())
+}
+
+fn v2_to_v3(value: &Value) -> CoreResult<()> {
+    if value.get("camera").is_some_and(|c| !c.is_null()) {
+        return invalid(
+            "The canvas file says version 2 but holds a camera plan, which version 2 has no room for.",
+        );
+    }
+    let nodes = value.get("nodes").and_then(Value::as_array);
+    for node in nodes.into_iter().flatten() {
+        let kind = node.get("kind").and_then(Value::as_str).unwrap_or_default();
+        let stop = node.get("stop").is_some_and(|s| !s.is_null());
+        if !V2_KINDS.contains(&kind) || stop {
+            return Err(CoreError::Invalid(format!(
+                "The canvas file says version 2 but holds a node of kind {kind:?} or a camera stop, which version 2 has no room for."
+            )));
+        }
     }
     Ok(())
 }

@@ -22,6 +22,7 @@ const NODE_FIELDS = [
   'url',
   'asset',
   'direction',
+  'stop',
 ] as const satisfies readonly (keyof PlanNode)[];
 const EDGE_FIELDS = [
   'fromSide',
@@ -68,6 +69,8 @@ export function invertOps(ops: readonly PlanOp[]): PlanOp[] {
         return { op: 'add-edge', edge: op.edge };
       case 'set-edge':
         return { op: 'set-edge', before: op.after, after: op.before };
+      case 'set-camera':
+        return { op: 'set-camera', before: op.after, after: op.before };
     }
   });
 }
@@ -98,6 +101,7 @@ export function applyOps(
 ): { plan: PlanFile; skipped: number } {
   let nodes = [...plan.nodes];
   let edges = [...plan.edges];
+  let camera = plan.camera;
   let skipped = 0;
   const nodeAt = (id: string) => nodes.findIndex(n => n.id === id);
   const edgeAt = (id: string) => edges.findIndex(e => e.id === id);
@@ -156,10 +160,15 @@ export function applyOps(
         edges[at] = next;
         return whole;
       }
+      case 'set-camera':
+        // Only a rebase or an Apply moves the base; an undo leaves one changed since.
+        if (merge === 'careful' && !deepEqual(camera ?? null, op.before)) return false;
+        camera = op.after;
+        return true;
     }
   };
   for (const op of ops) if (!one(op)) skipped += 1;
-  return { plan: { ...plan, nodes, edges }, skipped };
+  return { plan: { ...plan, nodes, edges, camera }, skipped };
 }
 
 /**

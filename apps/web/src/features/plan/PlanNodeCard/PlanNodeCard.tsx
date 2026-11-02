@@ -3,9 +3,12 @@ import { cn, Icon, IconButton, type IconName } from '@maquette/ui';
 import type { NodeKind } from '@/ipc/client';
 import { hostOf, isLinked, LIMITS, type FlowNode } from '@/state/plans';
 import { LinkedBody } from './LinkedBody';
+import { StopBody } from './StopBody';
 import { usePlanNodeCard } from './PlanNodeCard.hooks';
 
-const KIND: Record<Exclude<NodeKind, 'asset' | 'direction'>, { label: string; icon: IconName }> = {
+type Plain = Exclude<NodeKind, 'asset' | 'direction' | 'stop'>;
+
+const KIND: Record<Plain, { label: string; icon: IconName }> = {
   note: { label: 'Note', icon: 'note-pencil' },
   image: { label: 'Image', icon: 'image' },
   link: { label: 'Link', icon: 'link-simple' },
@@ -64,14 +67,14 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
       className={cn('plan-handle', linked && 'plan-handle-diamond')}
     />
   ));
-  if (node.kind === 'asset' || node.kind === 'direction') {
+  if (node.kind === 'asset' || node.kind === 'direction' || node.kind === 'stop') {
     return (
       <div
         className={cn('plan-node', v.gone && 'plan-node-gone', agent, selected && 'is-selected')}
       >
         {handles}
         {badge}
-        <LinkedBody node={node} />
+        {node.kind === 'stop' ? <StopBody node={node} /> : <LinkedBody node={node} />}
       </div>
     );
   }

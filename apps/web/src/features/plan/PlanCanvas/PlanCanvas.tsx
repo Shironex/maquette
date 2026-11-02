@@ -13,6 +13,7 @@ import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { KEYS } from '@/lib/keys';
 import { AgentToast } from '../AgentToast';
 import { AssetPicker } from '../AssetPicker';
+import { CameraPanel } from '../CameraPanel';
 import { LinkDialog } from '../LinkDialog';
 import { PlanChanges } from '../PlanChanges';
 import { PlanNodeCard } from '../PlanNodeCard';
@@ -24,6 +25,7 @@ const NODE_TYPES: NodeTypes = {
   link: PlanNodeCard,
   asset: PlanNodeCard,
   direction: PlanNodeCard,
+  stop: PlanNodeCard,
 };
 
 const TOOLS: { kind: AddKind; label: string; icon: IconName; key: string; tip: string }[] = [
@@ -102,7 +104,7 @@ export default function PlanCanvas() {
             </span>
             <h1 className="truncate text-[15px] font-semibold text-fg">{plan.name}</h1>
             <span className="inline-flex h-[22px] items-center rounded-[6px] bg-hover px-2 text-[11.5px] font-medium text-fg-dim">
-              {PRESET_NAME[plan.preset]}
+              {v.camera ? 'Website tour' : PRESET_NAME[plan.preset]}
             </span>
           </nav>
         }
@@ -136,22 +138,26 @@ export default function PlanCanvas() {
                 <span className="text-fg-dim">{h.agent.when}</span>
               </span>
             ) : null}
+            {v.camera && !v.camera.panel ? (
+              <Button size="sm" icon="video-camera" onClick={() => v.camera?.setPanel(true)}>
+                Camera
+              </Button>
+            ) : null}
             <Button
               size="sm"
               icon="clock"
               aria-pressed={h.changes.open}
-              aria-label={
-                h.changes.unseen ? `Changes, ${h.changes.unseen} new from agents` : 'Changes'
-              }
               tooltip="Every change to this canvas, yours and agents', to undo"
               className={cn(h.changes.open && 'border-clay-line text-clay-text')}
               onClick={h.changes.toggle}
             >
               Changes
               {h.changes.unseen ? (
-                <span className="plan-count" aria-hidden="true">
-                  {h.changes.unseen}
-                </span>
+                <>
+                  <span className="sr-only">, </span>
+                  <span className="plan-count">{h.changes.unseen}</span>
+                  <span className="sr-only"> new from agents</span>
+                </>
               ) : null}
             </Button>
             <span className="h-5 w-px bg-line" aria-hidden="true" />
@@ -259,6 +265,12 @@ export default function PlanCanvas() {
           {h.changes.open ? null : <AgentToast />}
         </main>
         {h.changes.open ? <PlanChanges /> : null}
+        {v.camera ? (
+          <CameraPanel
+            hidden={h.changes.open || !v.camera.panel}
+            onClose={() => v.camera?.setPanel(false)}
+          />
+        ) : null}
       </div>
       {v.linking ? <LinkDialog onAdd={v.addLink} onClose={v.closeLink} /> : null}
       {v.picker.open ? (

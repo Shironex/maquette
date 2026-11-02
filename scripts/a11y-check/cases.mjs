@@ -29,6 +29,14 @@ async function openQueue(page) {
   await page.getByRole('dialog', { name: 'Credits' }).getByText('1,240').waitFor();
 }
 
+async function openCameraPlan(page) {
+  await page.getByRole('button', { name: /^Camera plan/ }).click();
+  await page.getByRole('region', { name: 'Order after Apply' }).getByText('Arrival').waitFor();
+}
+
+const cameraInvoke = (page, cmd) =>
+  page.evaluate(c => window.__TAURI_INTERNALS__.invoke(c, { project: 'frostveil' }), cmd);
+
 /** `{ name, query, hash, ready(page) }`, in the order the views sit on the rail. */
 export const cases = [
   {
@@ -275,6 +283,41 @@ export const cases = [
       await page.getByRole('dialog', { name: 'The canvas changed outside' }).waitFor();
       await page.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Answer clash' }).waitFor();
+    },
+  },
+  {
+    name: 'camera plan',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCameraPlan(page);
+      await cameraInvoke(page, 'mock_camera_agent');
+      await page.getByRole('group', { name: 'Proposal by Camera agent' }).waitFor();
+    },
+  },
+  {
+    name: 'camera plan apply review',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCameraPlan(page);
+      await cameraInvoke(page, 'mock_camera_agent');
+      await page.getByRole('button', { name: 'Use this order' }).click();
+      await page.getByRole('region', { name: 'Order after Apply' }).getByText('new stop').waitFor();
+      await page.getByRole('button', { name: 'Apply to layout.json' }).click();
+      await page.getByRole('dialog', { name: 'Apply to layout.json' }).waitFor();
+    },
+  },
+  {
+    name: 'camera plan behind layout and compare',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCameraPlan(page);
+      await cameraInvoke(page, 'mock_layout_outside');
+      await page.getByText('layout.json changed since this plan was based on it').waitFor();
+      await page.getByRole('button', { name: 'Compare' }).click();
+      await page.getByRole('dialog', { name: 'layout.json changed' }).waitFor();
     },
   },
   {

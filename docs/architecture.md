@@ -1011,7 +1011,7 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   two writers never write over each other: each sends what it changed, and the other's work stays.
   The web side's `plan_apply` (it replaced the whole canvas save) sends the operations between the
   canvas the view last had from the file and what it shows, and returns what the file now holds.
-- **Agents.** `plans/agent.rs` is what the nine canvas tools call (`list_canvases`, `get_canvas`,
+- **Agents.** `plans/agent.rs` is what the nine general canvas tools call (`list_canvases`, `get_canvas`,
   `get_changes` read; `create_canvas`, `add_nodes`, `update_nodes`, `remove_nodes`, `layout_canvas`
   and `undo_run` write). Each write names the agent as `by` (the `agent` argument, else the MCP
   client's name, one line, at most 64 characters) and may name a `run` to group calls. At most 100
@@ -1117,6 +1117,41 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   `apps/web/src/state/plans.ts` (file to React Flow and back), `use-plans-store.ts` (saves a
   moment after each change) and `plans-sync.ts`, the view is `features/plan` on `@xyflow/react`, and mock mode serves
   demo canvases with `?plans=demo`.
+- **Camera plan.** A website project has one built in canvas, `plans/camera-plan.plan.json`, pinned
+  in the Plan list and never a preset (`plans/camera.rs` in maquette-model). Its nodes are `stop`
+  nodes, each holding a whole `layout.json` stop, joined by `leads-to` links in tour order; the file
+  also keeps `camera`, the stops it was based on. Only a file that uses either is version 3, so plain
+  canvases stay version 2 and an older app still opens them; a newer version is never written over.
+  `ensure` makes it from `layout.json` the first time it is opened, as the person's line. The id
+  `camera-plan` is kept for it: a new canvas named "Camera plan" gets the next free suffix, and a
+  canvas file from before that sits on the id is moved to a free id with its log (and a log line
+  saying so) instead of blocking the camera plan. The main
+  line, the one Apply writes, is the chain with the most person stops, then the longest, then the
+  leftmost; other chains are agents' proposals or stops set aside. Edits in the canvas and its side
+  panel (`features/plan/CameraPanel`) save to the plan file only.
+  `review` diffs the main line against `layout.json` as it is now (`camera/diff.rs`, a longest common
+  run by stop id, so a moved stop shows where it leaves and where it lands, beside added, removed and
+  changed settings) and returns two keys: a fingerprint of the whole `layout.json` and one of the
+  plan. `apply` takes them back and goes through `layout::update` (its lock, checks and atomic
+  write): it refuses, writing nothing, when either changed since the review was shown, keeps the old
+  file as `plans/history/<change>.layout.json`, moves the plan's base and logs an Apply line as the
+  person's. It is all or nothing: the plan and its log line are checked (validity, file size, a
+  line short enough to keep its operations) before `layout.json` is written, and when the plan or
+  line still fails to write, `layout.json` is put back from the kept copy and the copy removed. An
+  undo reads the kept copy only from inside `plans/history/`. Its undo (`undo_apply`, Undo on that line in the Changes panel) puts the old file back
+  only while `layout.json` is still what the Apply wrote; the general undo refuses Apply lines. When
+  `layout.json` changes underneath, the view says the plan is based on an older one and offers
+  Compare (a dry `rebase`), Rebase (takes outside changes the person did not also make, reports the
+  clashes) and Start over (replaces only the main line; proposals and stops set aside stay); Apply
+  waits until one is chosen, and neither side is overwritten silently. Each is one person's change,
+  refused with nothing written when its undo line would be too long to keep its operations.
+  The facade `plan_camera.rs` in maquette-core adds each stop's poster render; the commands are in
+  `commands/plan_camera.rs`. Agents have three tools of their own (`mcp/tools/plan_camera.rs`):
+  `get_camera_plan`, `propose_camera_plan` (`camera/propose.rs`: the agent's own line below the
+  main line, replacing its last proposal but keeping stops a person wrote in or linked) and
+  `get_apply_preview` (both reads write nothing, and answer from `layout.json` when there is no
+  plan yet), and `update_nodes` edits a stop's settings. No MCP route applies a plan or
+  undoes an Apply.
 
 ## About and updates
 

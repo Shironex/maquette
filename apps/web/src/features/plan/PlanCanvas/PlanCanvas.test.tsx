@@ -210,7 +210,9 @@ describe('PlanCanvas history', () => {
     expect(await screen.findByText('Research agent changed the canvas')).toBeInTheDocument();
     expect(screen.getAllByText('added')).toHaveLength(3);
     expect(screen.getByText('edited')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Changes, 1 new from agents' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Changes,\s*1\s*new from agents$/ })
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Undo run' }));
     await vi.waitFor(() =>
       expect(usePlansStore.getState().nodes.map(n => n.id)).not.toContain('n-a1')

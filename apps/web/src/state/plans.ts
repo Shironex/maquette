@@ -5,7 +5,16 @@
  * back writes the same file.
  */
 import type { Connection, Edge, Node, XYPosition } from '@xyflow/react';
-import type { NodeKind, PlanEdge, PlanFile, PlanNode, PlanSummary, Side } from '@/ipc/client';
+import type {
+  EdgeKind,
+  LayoutStop,
+  NodeKind,
+  PlanEdge,
+  PlanFile,
+  PlanNode,
+  PlanSummary,
+  Side,
+} from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
 import { trimText } from './plan-text';
 
@@ -27,6 +36,7 @@ export const DEFAULT_WIDTH: Record<NodeKind, number> = {
   link: 260,
   asset: 248,
   direction: 220,
+  stop: 220,
 };
 
 /** Kinds that link something of the project and read its name live. */
@@ -52,6 +62,7 @@ const KIND_NAME: Record<NodeKind, string> = {
   link: 'Link',
   asset: 'Asset',
   direction: 'Lab direction',
+  stop: 'Camera stop',
 };
 
 /**
@@ -84,6 +95,7 @@ const GUESS_HEIGHT: Record<NodeKind, number> = {
   link: 130,
   asset: 120,
   direction: 190,
+  stop: 230,
 };
 const GAP = 24;
 
@@ -223,6 +235,8 @@ export interface NodeFields {
   asset?: string | null;
   /** A Lab direction node's direction id. */
   direction?: string | null;
+  /** A camera plan's stop, whole, as `layout.json` keeps it. */
+  stop?: LayoutStop | null;
 }
 
 /** A new node of `kind` with its top left corner at `at`. */
@@ -245,6 +259,8 @@ export function newNode(
     asset: fields.asset ?? null,
     direction: fields.direction ?? null,
     by: null,
+    // Only a stop node carries one: the file leaves the field out otherwise.
+    ...(fields.stop ? { stop: fields.stop } : {}),
   };
 }
 
@@ -256,8 +272,12 @@ export function withFields(flow: FlowNode, fields: NodeFields): FlowNode {
   return { ...flow, ariaLabel: nodeLabel(node), data: { node } };
 }
 
-/** A link between two nodes as a person draws it: they relate. */
-export function newEdge(connection: Connection, nowMs: number): FlowEdge | null {
+/** A link between two nodes as a person draws it: they relate, or one stop leads to the next. */
+export function newEdge(
+  connection: Connection,
+  nowMs: number,
+  kind: EdgeKind = 'relates'
+): FlowEdge | null {
   const { source, target } = connection;
   if (!source || !target || source === target) return null;
   const edge: PlanEdge = {
@@ -266,7 +286,7 @@ export function newEdge(connection: Connection, nowMs: number): FlowEdge | null 
     to: target,
     fromSide: isSide(connection.sourceHandle) ? connection.sourceHandle : null,
     toSide: isSide(connection.targetHandle) ? connection.targetHandle : null,
-    kind: 'relates',
+    kind,
     label: null,
     by: null,
   };
@@ -306,10 +326,12 @@ const UNTITLED: Record<NodeKind, string> = {
   link: 'Link',
   asset: 'Linked asset',
   direction: 'Lab direction',
+  stop: 'Camera stop',
 };
 
 /** A node's one line name, for the minimap, search and dialogs. */
 export function nodeTitle(node: PlanNode): string {
+  if (node.stop) return trimText(node.stop.name) || UNTITLED.stop;
   const title = trimText(node.title);
   if (title) return title;
   const first = trimText(node.text).split('\n')[0] ?? '';
@@ -334,7 +356,9 @@ export function findPlans(plans: readonly PlanSummary[], query: string): PlanSum
 /** "9 nodes · 3 pictures · 2 links · 1 asset", leaving out what a canvas has none of. */
 export function contentLine(plan: PlanSummary): string {
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  const parts = [count(plan.nodes, 'node', 'nodes')];
+  const parts = plan.camera
+    ? [count(plan.stops, 'stop', 'stops')]
+    : [count(plan.nodes, 'node', 'nodes')];
   if (plan.images) parts.push(count(plan.images, 'picture', 'pictures'));
   if (plan.links) parts.push(count(plan.links, 'link', 'links'));
   if (plan.assets) parts.push(count(plan.assets, 'asset', 'assets'));

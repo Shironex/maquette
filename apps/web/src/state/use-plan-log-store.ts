@@ -72,10 +72,10 @@ const notKept = (error: unknown) =>
     detail: errorMessage(error),
   });
 
-/** Keeps exactly `ids`, which already name every change they sit on. */
-async function keepNamed(project: string, canvas: string, ids: string[]) {
+/** Keeps the `clicked` changes with the earlier ones the person `confirmed`, exactly as listed. */
+async function keepNamed(project: string, canvas: string, clicked: string[], confirmed: string[]) {
   try {
-    await commands.planKeep(project, canvas, ids);
+    await commands.planKeep(project, canvas, clicked, confirmed);
     return true;
   } catch (error) {
     notKept(error);
@@ -148,7 +148,7 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
       set({ keepAsk: { ids, needs } });
       return false;
     }
-    if (!(await keepNamed(project, open.id, ids))) return false;
+    if (!(await keepNamed(project, open.id, ids, []))) return false;
     set({ toast: null });
     await get().load(project, open.id);
     return true;
@@ -159,8 +159,12 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
     const { project, open } = usePlansStore.getState();
     set({ keepAsk: null });
     if (!ask || !project || !open) return false;
-    const ids = [...ask.ids, ...ask.needs.map(n => n.id)];
-    if (!(await keepNamed(project, open.id, ids))) return false;
+    const confirmed = ask.needs.map(n => n.id);
+    if (!(await keepNamed(project, open.id, ask.ids, confirmed))) {
+      // The list moved under the dialog: the next Keep asks again with what is there now.
+      await get().load(project, open.id);
+      return false;
+    }
     set({ toast: null });
     await get().load(project, open.id);
     return true;

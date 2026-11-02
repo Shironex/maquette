@@ -14,17 +14,22 @@ import type {
   ProjectManifest,
 } from '../client';
 import type { Args } from './backend-options';
+import type { createFakeLayout } from './layout';
 
 /** Assets whose newest version's file mock mode treats as gone from disk. */
 const MISSING_FILES = new Set(['observatory-arch']);
 
 export interface PlanLinkDeps {
   root: () => string | null;
-  /** What the links are read from: the projects, the Inbox and the Lab's handlers. */
+  /**
+   * What the links are read from: the projects, the Inbox and the Lab's
+   * handlers; and the layout.json the camera plan is built from and applied to.
+   */
   live: {
     projects: () => readonly ProjectManifest[];
     inbox: () => readonly InboxItem[];
     lab: { lab_get?: (args: Args) => unknown };
+    layout?: ReturnType<typeof createFakeLayout>;
   };
 }
 

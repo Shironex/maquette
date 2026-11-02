@@ -19,8 +19,10 @@
 import type { ChangeMark, PlanDoc, PlanFile, PlanImage, PlanOp, PlanSummary } from '../client';
 import { clock } from '@/lib/clock';
 import { applyOps, diffPlans, invertOps } from '@/state/plan-ops';
+import { CAMERA_PLAN_ID } from '@/state/plan-camera';
 import { trimText } from '@/state/plan-text';
 import { fail, type Args, type BackendOptions } from './backend-options';
+import { createCameraHandlers } from './create-camera-handlers';
 import { createPlanLinks, type PlanLinkDeps } from './create-plan-links';
 import { GENERATED_POOL } from './lab-fixtures';
 import { demoCanvases, demoLog, note, type Canvases } from './plan-fixtures';
@@ -155,6 +157,8 @@ export function createPlanHandlers(
     images: plan.nodes.filter(n => n.kind === 'image').length,
     links: plan.nodes.filter(n => n.kind === 'link').length,
     assets: plan.nodes.filter(n => n.kind === 'asset').length,
+    stops: plan.nodes.filter(n => n.kind === 'stop').length,
+    camera: Boolean(plan.camera),
     edited: plan.edited,
     problem: null,
   });
@@ -186,6 +190,15 @@ export function createPlanHandlers(
 
   return {
     ...createPlanLinks(deps),
+    ...createCameraHandlers({
+      get: (project, id) => canvases(project).get(id),
+      put: (project, id, plan) => void canvases(project).set(id, plan),
+      doc,
+      logs,
+      layout: deps.live.layout,
+      emit: deps.emit,
+      projectDir,
+    }),
     plan_list: ({ project }: Args) =>
       sortById([...canvases(project)].map(([id, plan]) => summary(id, plan))),
     plan_get: ({ project, id }: Args) => doc(project, String(id), existing(project, id)),
@@ -194,7 +207,8 @@ export function createPlanHandlers(
       const all = canvases(project);
       const base = slugOf(trimmed);
       let id = base;
-      for (let n = 2; all.has(id); n += 1) id = `${base}-${n}`;
+      // The camera plan's id is kept for it, as the core keeps it.
+      for (let n = 2; all.has(id) || id === CAMERA_PLAN_ID; n += 1) id = `${base}-${n}`;
       const now = clock.now().toISOString();
       const plan: PlanFile = {
         version: 2,
@@ -215,8 +229,13 @@ export function createPlanHandlers(
       });
       return doc(project, id, plan);
     },
-    plan_apply: ({ project, id, ops }: Args) => {
+    plan_apply: ({ project, id, created, ops }: Args) => {
       const current = existing(project, id);
+      if (created !== current.created)
+        fail(
+          'invalid',
+          'This canvas was replaced on disk since it was opened, so your edits were not saved. Open it again from the Plan list; copy anything you need first.'
+        );
       if (deps.plans === 'locked')
         fail('io', 'The canvas file is in use by another program, so it could not be written.');
       return write(project, String(id), applyOps(current, ops as PlanOp[], 'mine').plan, null);
@@ -257,9 +276,17 @@ export function createPlanHandlers(
         : doc(project, String(id), current);
       return { doc: saved, changed, kept: 0 };
     },
-    plan_keep: ({ project, id, changes }: Args) => {
+    plan_keep: ({ project, id, changes, confirmed }: Args) => {
       existing(project, id);
-      const ids = changes as string[];
+      const clicked = changes as string[];
+      const seen = [...((confirmed as string[] | undefined) ?? [])].sort();
+      const listed = logs
+        .needs(project, id, clicked)
+        .map(n => n.id)
+        .sort();
+      if (seen.join() !== listed.join())
+        fail('invalid', 'The list changed since you saw it, so nothing was kept. Review again.');
+      const ids = [...clicked, ...seen];
       const keepable = new Set(
         logs
           .lines(project, id, 1000)

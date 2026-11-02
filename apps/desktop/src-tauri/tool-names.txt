@@ -26,8 +26,10 @@ discard_inbox_model
 dismiss_download
 export_pack
 find_look_alikes
+get_apply_preview
 get_avatar
 get_bake_settings
+get_camera_plan
 get_canvas
 get_changes
 get_codex_usage
@@ -79,6 +81,7 @@ merge_library_entries
 pick_concepts
 preview_fixups
 prioritize_concept_jobs
+propose_camera_plan
 rebuild_built_asset
 redo_inbox_model
 redo_inbox_models

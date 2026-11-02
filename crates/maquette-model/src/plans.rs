@@ -42,6 +42,13 @@
 //! canvas never goes stale and a removed asset only shows as gone. Files
 //! of an older version are brought up to this one as they are read
 //! ([`migrate`]) and written as this version only when a save changes them.
+//!
+//! A website project has one built in camera plan ([`camera`]): stop nodes
+//! holding camera stops as `layout.json` keeps them, joined in tour order by
+//! `leads-to` edges, and `camera`, the layout's stops the plan was last built
+//! from. It is tried on the canvas only; Apply writes it to `layout.json`.
+//! A file is written as the lowest version that holds what it has, so a
+//! canvas without stops stays version 2 and an older Maquette still opens it.
 
 use std::fs;
 use std::io::{self, Read as _};
@@ -52,6 +59,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 
 pub mod agent;
+pub mod camera;
 mod change;
 mod check;
 mod files;
@@ -59,18 +67,22 @@ pub mod images;
 pub mod log;
 pub mod migrate;
 pub mod ops;
+mod person;
 mod place;
 pub mod summary;
 pub mod text;
 
-pub use change::{Changed, KeepNeed, Writer, change, keep, keep_needs, undo};
+pub use change::{Changed, KeepNeed, Writer, change, keep, keep_confirmed, keep_needs, undo};
 pub use check::{check_name, is_link_id, is_project_relative, validate};
 pub use files::{PlanDoc, PlanSummary, create, create_by, get, list, remove, rename, save};
+pub use person::apply_person;
 pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";
 pub const PLAN_SUFFIX: &str = ".plan.json";
-pub const PLAN_VERSION: u32 = 2;
+pub const PLAN_VERSION: u32 = 3;
+/// The version a canvas without camera stops is written as.
+pub const PLAN_VERSION_PLAIN: u32 = 2;
 pub const NAME_MAX_CHARS: usize = 120;
 pub const TITLE_MAX_CHARS: usize = 300;
 pub const TEXT_MAX_CHARS: usize = 20_000;
@@ -116,6 +128,8 @@ pub enum NodeKind {
     Asset,
     /// A direction in the project's Lab, by its folder name. Read live too.
     Direction,
+    /// A camera stop of the camera plan, held whole as `layout.json` keeps it.
+    Stop,
 }
 
 /// The side of a node an edge leaves or arrives at.
@@ -171,6 +185,10 @@ pub struct PlanNode {
     /// only when true, so files without it read as false and stay version 2.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub person_wrote: bool,
+    /// A stop node's camera stop (id, name, position, target, field of view
+    /// and models), as `layout.json` would keep it. Only in the camera plan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop: Option<Box<crate::layout::LayoutStop>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -198,6 +216,11 @@ pub struct PlanFile {
     pub edited: String,
     pub nodes: Vec<PlanNode>,
     pub edges: Vec<PlanEdge>,
+    /// Only the camera plan has it: the stops of `layout.json` the plan was
+    /// last built, rebased or applied from, so a change made to the layout
+    /// since shows and can be compared or rebased, never written over.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera: Option<camera::CameraBase>,
 }
 
 impl PlanFile {
@@ -205,13 +228,25 @@ impl PlanFile {
     pub fn new(name: &str, preset: PlanPreset) -> Self {
         let now = crate::project::now_rfc3339();
         Self {
-            version: PLAN_VERSION,
+            version: PLAN_VERSION_PLAIN,
             name: trimmed(name).to_string(),
             preset,
             created: now.clone(),
             edited: now,
             nodes: Vec::new(),
             edges: Vec::new(),
+            camera: None,
+        }
+    }
+
+    /// The lowest version that holds this canvas: version 3 only for the
+    /// camera plan and its stops.
+    pub fn needed_version(&self) -> u32 {
+        let stops = self.nodes.iter().any(|n| n.kind == NodeKind::Stop);
+        if self.camera.is_some() || stops {
+            PLAN_VERSION
+        } else {
+            PLAN_VERSION_PLAIN
         }
     }
 }
@@ -295,7 +330,7 @@ fn read_capped(file: &Path) -> io::Result<String> {
     Ok(text)
 }
 
-/// The canvas as it is written: the current version, trimmed name, node
+/// The canvas as it is written: the lowest version that holds it, trimmed name, node
 /// titles and addresses, empty edge labels as none, and nodes and edges
 /// sorted by id. Trimming takes the [`text::TRIMMED`] set. The view does the same (`apps/web/src/state/plans.ts`,
 /// `planOf`), so a canvas it sends back unchanged is the canvas saved.
@@ -324,7 +359,7 @@ pub fn normalized(plan: &PlanFile) -> PlanFile {
         .collect();
     edges.sort_by(|a, b| a.id.cmp(&b.id));
     PlanFile {
-        version: PLAN_VERSION,
+        version: plan.needed_version(),
         name: trimmed(&plan.name).to_string(),
         nodes,
         edges,
@@ -341,6 +376,8 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<ops::PlanOp>()
         .register::<log::PlanLogEntry>()
         .register::<log::PlanLogLine>()
+        .register::<camera::CameraReview>()
+        .register::<camera::RebaseReport>()
 }
 
 #[cfg(test)]

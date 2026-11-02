@@ -94,6 +94,7 @@ export interface BackendOptions {
       | { name: 'render'; payload: RenderRecord }
       | { name: 'thumbnail'; payload: ThumbnailReady }
       | { name: 'plan'; project: string; id: string }
+      | { name: 'layout'; project: string }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;

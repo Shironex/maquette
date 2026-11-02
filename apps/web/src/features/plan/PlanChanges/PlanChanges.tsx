@@ -15,6 +15,8 @@ const MARK_ICON: Record<ChangeMark, IconName> = {
   rename: 'tag',
   create: 'sparkle',
   keep: 'check',
+  apply: 'upload-simple',
+  rebase: 'git-branch',
 };
 
 const KEEP_TIP =
@@ -166,10 +168,8 @@ export default function PlanChanges() {
         )}
       </div>
       <p className="plan-side-foot">
-        Agents never remove your nodes or links, or nodes you wrote in. What an agent changed on
-        your content stays undoable until you undo it or press Keep, also after a restart. Other
-        changes stay undoable while they are among the newest in the log (at least the last 512 KB);
-        one edit over 256 KB keeps only its summary.
+        An agent&apos;s change to your content stays undoable until you undo it or press Keep. Other
+        changes stay undoable while they are among the newest in the log.
       </p>
       <KeepConfirm />
     </aside>

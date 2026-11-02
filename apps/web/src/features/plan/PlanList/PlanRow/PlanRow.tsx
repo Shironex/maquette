@@ -62,7 +62,7 @@ export default function PlanRow(props: PlanRowProps) {
       <td className="truncate px-2 font-mono text-[11.5px] text-fg-mute">{plan.file}</td>
       <td className="pr-3">
         <span className="flex justify-end gap-1">
-          {plan.problem ? null : (
+          {plan.problem || plan.camera ? null : (
             <IconButton
               icon="note-pencil"
               label={`Rename ${plan.name}`}
@@ -71,13 +71,15 @@ export default function PlanRow(props: PlanRowProps) {
               onClick={props.onRename}
             />
           )}
-          <IconButton
-            icon="trash"
-            label={`Remove ${plan.name}`}
-            size="sm"
-            variant="ghost"
-            onClick={props.onRemove}
-          />
+          {plan.camera ? null : (
+            <IconButton
+              icon="trash"
+              label={`Remove ${plan.name}`}
+              size="sm"
+              variant="ghost"
+              onClick={props.onRemove}
+            />
+          )}
         </span>
       </td>
     </tr>

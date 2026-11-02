@@ -64,6 +64,7 @@ fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
         && a.url == b.url
         && a.asset == b.asset
         && a.direction == b.direction
+        && a.stop == b.stop
 }
 
 /// Marks agent nodes a person wrote in: a person's write to the content
@@ -94,6 +95,7 @@ fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, undoing: Option<Undoing>) -> 
         undoes,
         keeps: Vec::new(),
         trimmed: false,
+        applied: None,
     }
 }
 
@@ -261,6 +263,11 @@ pub fn undo(
                     "The change {want} is an undo, and an undo can not be undone. Redo your own edits with Redo on the canvas; an agent makes its change again instead."
                 )));
             }
+            if entry.applied.is_some() {
+                return Err(CoreError::Invalid(format!(
+                    "The change {want} applied the camera plan to layout.json. Only the person undoes an Apply, with Undo on that line in the Changes panel, which puts the old layout.json back while nothing changed it since."
+                )));
+            }
             if entry.trimmed || entry.ops.is_empty() {
                 return Err(CoreError::Invalid(format!(
                     "The change {want} can not be undone: it changed no nodes or was too big to keep."
@@ -318,6 +325,8 @@ pub fn undo(
 #[serde(rename_all = "camelCase")]
 pub struct KeepNeed {
     pub id: String,
+    /// When it was made (RFC 3339), so changes with the same summary differ.
+    pub at: String,
     pub summary: String,
     /// The parts it changed: field names, "whole node" or "link".
     pub parts: Vec<String>,
@@ -336,11 +345,51 @@ pub struct KeepNeed {
 /// Fails when the canvas is gone, a change is not in the log or holds
 /// nothing of a person's that is still kept for undo, or the log cannot be
 /// written.
+///
+/// It accepts any keepable ids, ones the person never saw listed too, so it
+/// must never be exposed to agents. The app keeps through
+/// [`keep_confirmed`], which holds the list to what the person confirmed.
 pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
+    let _lock = writing();
+    keep_locked(project_dir, id, ids)
+}
+
+/// Keeps the changes the person clicked (`clicked`) with the earlier ones
+/// they confirmed (`confirmed`), refused unless `confirmed` is exactly what
+/// [`keep_needs`] lists for `clicked` now: one undone, kept or added since
+/// the person saw the list means they review it again.
+///
+/// # Errors
+///
+/// Refuses a list that changed since; fails as [`keep`].
+pub fn keep_confirmed(
+    project_dir: &Path,
+    id: &str,
+    clicked: &[String],
+    confirmed: &[String],
+) -> CoreResult<PlanLogEntry> {
+    let _lock = writing();
+    let all = log::entries(project_dir, id)?;
+    let released = log::released_ids(&all);
+    let picked: Vec<&PlanLogEntry> = all.iter().filter(|e| clicked.contains(&e.id)).collect();
+    let needs: BTreeSet<&str> = beneath(&all, &picked, &released)
+        .iter()
+        .map(|e| e.id.as_str())
+        .collect();
+    let seen: BTreeSet<&str> = confirmed.iter().map(String::as_str).collect();
+    if needs != seen {
+        return Err(CoreError::Invalid(
+            "The list changed since you saw it, so nothing was kept. Review again.".into(),
+        ));
+    }
+    let ids: Vec<String> = clicked.iter().chain(confirmed).cloned().collect();
+    keep_locked(project_dir, id, &ids)
+}
+
+fn keep_locked(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
     if ids.is_empty() {
         return Err(CoreError::Invalid("Name the changes to keep.".into()));
     }
-    let _lock = writing();
     load_file(&path(project_dir, id)?)?;
     let all = log::entries(project_dir, id)?;
     let released = log::released_ids(&all);
@@ -384,6 +433,7 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogE
         undoes: Vec::new(),
         keeps: picked.iter().map(|e| e.id.clone()).collect(),
         trimmed: false,
+        applied: None,
     };
     log::append(project_dir, id, &entry)?;
     Ok(entry)
@@ -404,6 +454,7 @@ pub fn keep_needs(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Ve
         .into_iter()
         .map(|e| KeepNeed {
             id: e.id.clone(),
+            at: e.at.clone(),
             summary: e.summary.clone(),
             parts: stack::parts(e),
         })

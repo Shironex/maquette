@@ -8,6 +8,7 @@ import { commands } from '@/ipc/client';
 import { events } from '@/ipc/generated/bindings';
 import { createBackend } from '@/ipc/mock/backend';
 import { useAppStore } from '@/state/use-app-store';
+import { usePlanCameraStore } from '@/state/use-plan-camera-store';
 import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
@@ -54,6 +55,7 @@ export function fakeFlowLayout() {
 export async function openPlans(plans: string | null = 'demo') {
   usePlansStore.setState(usePlansStore.getInitialState(), true);
   usePlanLogStore.getState().clear();
+  usePlanCameraStore.getState().clear();
   usePlanLogStore.setState({ panel: false, filter: 'all', dismissed: null });
   const handle = createBackend({
     scenario: 'configured',
@@ -64,6 +66,7 @@ export async function openPlans(plans: string | null = 'demo') {
     emit: event => {
       if (event.name === 'plan')
         void events.planChanged.emit({ project: event.project, id: event.id });
+      if (event.name === 'layout') void events.layoutChanged.emit({ project: event.project });
     },
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>), {

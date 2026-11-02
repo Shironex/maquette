@@ -1,4 +1,4 @@
-import { Button, EmptyState, InlineBanner, TextField, TopBar } from '@maquette/ui';
+import { Button, EmptyState, Icon, InlineBanner, TextField, TopBar } from '@maquette/ui';
 import { SectionLabel } from '@/features/common/SectionLabel';
 import type { PlanSummary } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
@@ -46,6 +46,29 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
       </span>
     </button>
   ));
+  const pinned = v.camera ? (
+    <section aria-label="Pinned" className="flex flex-col gap-3">
+      <SectionLabel>Pinned</SectionLabel>
+      <button
+        type="button"
+        aria-busy={opening === 'camera-plan'}
+        onClick={v.openCamera}
+        className="flex max-w-[460px] items-center gap-3 rounded-card border border-line bg-raised px-3.5 py-3 text-left hover:border-line-strong focus-visible:outline-2 focus-visible:outline-focus"
+      >
+        <span className="grid size-10 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
+          <Icon name="video-camera" size={18} />
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-[13.5px] font-semibold text-fg">Camera plan</span>{' '}
+          <span className="truncate text-meta text-fg-dim">
+            {v.camera === 'new'
+              ? 'Plan the tour from the stops in layout.json'
+              : `${contentLine(v.camera)} · edited ${edited(v.camera, v.now)}`}
+          </span>
+        </span>
+      </button>
+    </section>
+  ) : null;
   const rows = v.found.map(plan => (
     <PlanRow
       key={plan.id}
@@ -94,6 +117,7 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
         {openError ? (
           <InlineBanner tone="danger" title="The canvas could not be opened" detail={openError} />
         ) : null}
+        {pinned}
         {list.length === 0 ? (
           <div className="grid flex-1 place-items-center">
             <EmptyState

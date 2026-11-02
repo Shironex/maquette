@@ -34,6 +34,7 @@ fn note(id: &str, x: i32, text: &str) -> PlanNode {
         direction: None,
         by: None,
         person_wrote: false,
+        stop: None,
     }
 }
 
@@ -199,6 +200,7 @@ fn the_log_keeps_its_newest_lines_under_the_cap() {
             ops: Vec::new(),
             undoes: Vec::new(),
             trimmed: false,
+            applied: None,
             keeps: Vec::new(),
         };
         log::append(&root, &doc.id, &entry).expect("append");
@@ -224,6 +226,7 @@ fn the_log_keeps_its_newest_lines_under_the_cap() {
         }],
         undoes: Vec::new(),
         trimmed: false,
+        applied: None,
         keeps: Vec::new(),
     };
     log::append(&root, &doc.id, &huge).expect("append");

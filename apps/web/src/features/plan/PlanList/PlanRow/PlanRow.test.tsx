@@ -14,6 +14,8 @@ const plan: PlanSummary = {
   images: 0,
   links: 0,
   assets: 0,
+  stops: 0,
+  camera: false,
   edited: '2026-10-31T09:00:00.000Z',
   problem: null,
 };

@@ -23,6 +23,10 @@ pub enum ChangeMark {
     Create,
     /// A person kept (accepted) agent changes.
     Keep,
+    /// A person applied the camera plan to `layout.json`.
+    Apply,
+    /// The camera plan was brought up to a changed `layout.json`.
+    Rebase,
 }
 
 fn kind_name(kind: NodeKind) -> &'static str {
@@ -32,6 +36,7 @@ fn kind_name(kind: NodeKind) -> &'static str {
         NodeKind::Link => "link",
         NodeKind::Asset => "asset",
         NodeKind::Direction => "Lab direction",
+        NodeKind::Stop => "stop",
     }
 }
 
@@ -40,7 +45,8 @@ fn kind_name(kind: NodeKind) -> &'static str {
 pub fn node_name(node: &PlanNode) -> String {
     let title = node.title.trim();
     let first = node.text.trim().lines().next().unwrap_or_default().trim();
-    let name = [title, first]
+    let stop = node.stop.as_ref().map_or("", |s| s.name.trim());
+    let name = [stop, title, first]
         .into_iter()
         .find(|s| !s.is_empty())
         .map(str::to_string)
@@ -99,6 +105,8 @@ fn count(ops: &[PlanOp]) -> Counts<'_> {
             PlanOp::AddEdge { .. } | PlanOp::RemoveEdge { .. } | PlanOp::SetEdge { .. } => {
                 c.links += 1;
             }
+            // The base moves only with a rebase or an Apply, which say so themselves.
+            PlanOp::SetCamera { .. } => {}
         }
     }
     c

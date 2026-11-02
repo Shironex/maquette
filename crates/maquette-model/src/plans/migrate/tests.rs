@@ -74,7 +74,8 @@ fn file_text(p: &Project) -> String {
 fn a_version_1_file_opens_as_version_2_without_being_rewritten() {
     let p = project_with_v1();
     let opened = get(&p.root, "combat-ideas").expect("a v1 file opens");
-    assert_eq!(opened.plan.version, PLAN_VERSION);
+    // No camera stops, so it reads as the plain version.
+    assert_eq!(opened.plan.version, crate::plans::PLAN_VERSION_PLAIN);
     assert_eq!(opened.plan.nodes.len(), 2);
     assert!(
         opened
@@ -113,7 +114,7 @@ fn a_rename_is_an_edit_and_writes_version_2() {
 fn the_migration_adds_the_link_fields_and_keeps_what_was_there() {
     let v1: Value = serde_json::from_str(V1_FILE).expect("json");
     let v2 = to_current(v1.clone()).expect("migrate");
-    assert_eq!(v2["version"], json!(2));
+    assert_eq!(v2["version"], json!(PLAN_VERSION));
     for (old, new) in v1["nodes"]
         .as_array()
         .expect("nodes")
@@ -152,9 +153,9 @@ fn versions_that_are_missing_odd_or_newer_are_refused() {
             "{odd}"
         );
     }
-    match version_of(&json!({"version": 3})) {
+    match version_of(&json!({"version": 4})) {
         Err(CoreError::UnsupportedVersion { found, supported }) => {
-            assert_eq!((found, supported), (3, PLAN_VERSION));
+            assert_eq!((found, supported), (4, PLAN_VERSION));
         }
         other => panic!("expected a version error, got {other:?}"),
     }
@@ -168,7 +169,7 @@ fn a_file_from_a_newer_maquette_is_never_written_back() {
     let file = dir.path().join(&made.file);
     let newer = fs::read_to_string(&file)
         .expect("read")
-        .replace("\"version\": 2", "\"version\": 3")
+        .replace("\"version\": 2", "\"version\": 4")
         .replace(
             "\"nodes\": []",
             "\"nodes\": [{ \"id\": \"n-1\", \"kind\": \"sketch\" }]",
@@ -187,8 +188,31 @@ fn a_file_from_a_newer_maquette_is_never_written_back() {
         listed[0]
             .problem
             .as_deref()
-            .is_some_and(|m| m.contains('3')),
+            .is_some_and(|m| m.contains('4')),
         "{:?}",
         listed[0].problem
     );
+}
+
+#[test]
+fn a_version_2_file_opens_as_it_is_and_one_holding_stops_is_refused() {
+    let v1: Value = serde_json::from_str(V1_FILE).expect("json");
+    let mut v2 = to_current(v1).expect("v1 to current");
+    v2["version"] = json!(2);
+    let lifted = to_current(v2.clone()).expect("v2 lifts");
+    assert_eq!(lifted["version"], json!(3));
+    assert_eq!(
+        lifted["nodes"], v2["nodes"],
+        "a v2 file needs nothing added"
+    );
+
+    let mut stop = v2.clone();
+    stop["nodes"][0]["kind"] = json!("stop");
+    let refused = to_current(stop).expect_err("a stop node in v2");
+    assert!(refused.to_string().contains("version 2"), "{refused}");
+
+    let mut camera = v2.clone();
+    camera["camera"] = json!({ "stops": [] });
+    let refused = to_current(camera).expect_err("a camera plan in v2");
+    assert!(refused.to_string().contains("camera plan"), "{refused}");
 }

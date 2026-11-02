@@ -89,6 +89,11 @@ pub struct PlanLogEntry {
     /// The operations were too big to keep.
     #[serde(default)]
     pub trimmed: bool,
+    /// An Apply of the camera plan: where the layout it replaced is kept and
+    /// what `layout.json` held before and after, so an undo puts the old one
+    /// back only while the file is still as the Apply left it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied: Option<super::camera::Applied>,
 }
 
 /// A log line as the Changes panel and agents read it: no operations.

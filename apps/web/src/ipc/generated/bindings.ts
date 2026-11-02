@@ -356,9 +356,10 @@ export const commands = {
 	 *  Writes a person's edits: the operations between the canvas the view
 	 *  last had from the file and what it shows now, laid over the file as it
 	 *  is, so an agent's write made meanwhile stays. Returns what the file now
-	 *  holds, which the view takes as its new base.
+	 *  holds, which the view takes as its new base. `created` is the opened
+	 *  canvas's, so a save never lands on another canvas that took the id.
 	 */
-	planApply: (project: string, id: string, ops: PlanOp_Deserialize[]) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_apply", { project, id, ops }),
+	planApply: (project: string, id: string, created: string, ops: PlanOp_Deserialize[]) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_apply", { project, id, created, ops }),
 	/**  The newest lines of the canvas's change log, newest first. */
 	planLog: (project: string, id: string, limit: number) => __TAURI_INVOKE<PlanLogLine[]>("plan_log", { project, id, limit }),
 	/**
@@ -368,10 +369,11 @@ export const commands = {
 	planUndo: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanUndone_Serialize>("plan_undo", { project, id, changes }),
 	/**
 	 *  Keeps (accepts) agent changes as a person: frees the room the log kept
-	 *  to undo them. The canvas does not change. Refused unless `changes`
-	 *  names every earlier change it sits on ([`plan_keep_needs`]).
+	 *  to undo them. The canvas does not change. `changes` are the ones the
+	 *  person clicked and `confirmed` the earlier ones they confirmed; refused
+	 *  unless `confirmed` is exactly what [`plan_keep_needs`] lists now.
 	 */
-	planKeep: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<null>("plan_keep", { project, id, changes }),
+	planKeep: (project: string, id: string, changes: string[], confirmed: string[]) => __TAURI_INVOKE<null>("plan_keep", { project, id, changes, confirmed }),
 	/**
 	 *  The earlier agent changes a Keep of `changes` must take along, for the
 	 *  person to confirm first; empty when the Keep can go as it is.
@@ -414,6 +416,29 @@ export const commands = {
 	 *  stored in the canvas. The Inbox is read only when assets are asked for.
 	 */
 	planLinks: (project: string, assets: string[], directions: string[]) => __TAURI_INVOKE<PlanLinks>("plan_links", { project, assets, directions }),
+	/**  The project's camera plan as the canvas shows it. */
+	planCamera: (project: string) => __TAURI_INVOKE<CameraView_Serialize>("plan_camera", { project }),
+	/**
+	 *  What Apply would write: the exact diff of the main line against
+	 *  `layout.json` now, and the keys Apply takes back.
+	 */
+	planCameraReview: (project: string) => __TAURI_INVOKE<CameraReview>("plan_camera_review", { project }),
+	/**
+	 *  Writes the reviewed main line to `layout.json`, as the person. Refused
+	 *  when `layout.json` or the plan changed since the review was shown.
+	 */
+	planCameraApply: (project: string, layoutKey: string, planKey: string) => __TAURI_INVOKE<CameraView_Serialize>("plan_camera_apply", { project, layoutKey, planKey }),
+	/**
+	 *  Undoes the Apply logged as `change`: puts the old `layout.json` back,
+	 *  refused when `layout.json` changed since that Apply.
+	 */
+	planCameraUndoApply: (project: string, change: string) => __TAURI_INVOKE<CameraView_Serialize>("plan_camera_undo_apply", { project, change }),
+	/**
+	 *  Brings the plan up to `layout.json` as it is now (or starts its main
+	 *  line over from it). With `dry` nothing is written: the report says what
+	 *  a rebase would take, keep and could not settle.
+	 */
+	planCameraRebase: (project: string, mode: RebaseMode, dry: boolean) => __TAURI_INVOKE<CameraRebased_Serialize>("plan_camera_rebase", { project, mode, dry }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears
@@ -1061,6 +1086,15 @@ export type AppState = {
 	 *  folder, then each question's key (`site::preview::PreviewAsk::key`).
 	 */
 	previewApprovals: { [key in string]: string[] },
+};
+
+/**  What an Apply wrote, kept in its log line for its undo. */
+export type Applied = {
+	/**  The layout it replaced, relative to the project. */
+	history: string,
+	/**  [`layout_key`] of `layout.json` before and after the Apply. */
+	before: string,
+	after: string,
 };
 
 /**  Something an agent asked for that waits for a yes or no in the app. */
@@ -2079,6 +2113,54 @@ export type CallOutcome = "ok" |
 /**  The request had no valid token, or asked for something not served. */
 "refused";
 
+/**
+ *  The stops of `layout.json` the plan was last built, rebased or applied
+ *  from.
+ */
+export type CameraBase = {
+	stops: LayoutStop[],
+};
+
+/**  A line of stop nodes beside the main line. */
+export type CameraLine = {
+	/**  Its node ids, in tour order. */
+	nodes: string[],
+	/**  The agent that proposed it, when one agent made every stop. */
+	agent: string | null,
+	problem: string | null,
+};
+
+export type CameraRebased = CameraRebased_Serialize | CameraRebased_Deserialize;
+
+export type CameraRebased_Deserialize = {
+	view: CameraView_Deserialize,
+	report: RebaseReport,
+};
+
+export type CameraRebased_Serialize = {
+	view: CameraView_Serialize,
+	report: RebaseReport,
+};
+
+/**  What Apply would write, as the review dialog and agents read it. */
+export type CameraReview = {
+	diff: StopDiff,
+	/**  The line reviewed, its node ids in tour order. */
+	chain: string[],
+	/**
+	 *  Triggers and timeline keys that wait for a stop the Apply removes,
+	 *  which go with it.
+	 */
+	dropped: number,
+	/**  The plan is based on other stops than `layout.json` has now. */
+	stale: boolean,
+	/**  Why it can not be applied; empty when it can. */
+	problems: string[],
+	/**  Give both back to Apply: it refuses when either changed since. */
+	layoutKey: string,
+	planKey: string,
+};
+
 export type CameraStopDef = {
 	name: string,
 	position: [(number | null), (number | null), (number | null)],
@@ -2094,6 +2176,44 @@ export type CameraStops = {
 	/**  The file the stops were read from, relative to the project. */
 	file: string | null,
 	stops: CameraStopDef[],
+};
+
+export type CameraView = CameraView_Serialize | CameraView_Deserialize;
+
+export type CameraView_Deserialize = {
+	doc: PlanDoc_Deserialize,
+	posters: StopPoster[],
+	/**
+	 *  The line Apply writes, its node ids in tour order; empty when the
+	 *  plan has none.
+	 */
+	main: string[],
+	/**  Why the main line can not be applied as it is (a fork, a loop). */
+	problem: string | null,
+	/**  The other lines: agents' proposals and stops left aside. */
+	lines: CameraLine[],
+	/**  `layout.json` changed since the plan was based on it. */
+	stale: boolean,
+	/**  What changed in `layout.json` since: from the plan's base to now. */
+	outside: StopDiff,
+};
+
+export type CameraView_Serialize = {
+	doc: PlanDoc_Serialize,
+	posters: StopPoster[],
+	/**
+	 *  The line Apply writes, its node ids in tour order; empty when the
+	 *  plan has none.
+	 */
+	main: string[],
+	/**  Why the main line can not be applied as it is (a fork, a loop). */
+	problem: string | null,
+	/**  The other lines: agents' proposals and stops left aside. */
+	lines: CameraLine[],
+	/**  `layout.json` changed since the plan was based on it. */
+	stale: boolean,
+	/**  What changed in `layout.json` since: from the plan's base to now. */
+	outside: StopDiff,
 };
 
 /**  What Cancel would do, so the UI can say it before you press it. */
@@ -2176,7 +2296,11 @@ export type ChangeMark = "add" | "edit" | "move" | "remove" |
 /**  Several kinds at once. */
 "mixed" | "undo" | "rename" | "create" | 
 /**  A person kept (accepted) agent changes. */
-"keep";
+"keep" | 
+/**  A person applied the camera plan to `layout.json`. */
+"apply" | 
+/**  The camera plan was brought up to a changed `layout.json`. */
+"rebase";
 
 export type Check = {
 	id: string,
@@ -2738,6 +2862,16 @@ export type DevCommand = {
 	lockfile: string | null,
 };
 
+export type DiffKind = "same" | "add" | "remove";
+
+/**  One line of `layout.json`'s stops in the diff. */
+export type DiffLine = {
+	kind: DiffKind,
+	text: string,
+	/**  Why the line is there: "moves to 2", "moved from 4", "new", "removed", "changed". */
+	note: string | null,
+};
+
 export type Direction = {
 	/**  The folder name under `concepts/`. */
 	id: string,
@@ -2943,6 +3077,14 @@ export type FactorMode =
 "override" | 
 /**  Scales the factor; the map stays. */
 "multiply";
+
+/**  One setting of a stop before and after, as a person reads it. */
+export type FieldChange = {
+	/**  name, position, target, fov or models. */
+	field: string,
+	before: string,
+	after: string,
+};
 
 /**  How much a finding matters, most first. */
 export type FindingLevel = 
@@ -3770,6 +3912,8 @@ export type JointMoveState =
 /**  An earlier change a Keep must take along, for the person to confirm. */
 export type KeepNeed = {
 	id: string,
+	/**  When it was made (RFC 3339), so changes with the same summary differ. */
+	at: string,
 	summary: string,
 	/**  The parts it changed: field names, "whole node" or "link". */
 	parts: string[],
@@ -4711,7 +4855,9 @@ export type NodeKind =
  */
 "asset" | 
 /**  A direction in the project's Lab, by its folder name. Read live too. */
-"direction";
+"direction" | 
+/**  A camera stop of the camera plan, held whole as `layout.json` keeps it. */
+"stop";
 
 /**  The script's `report.json`. */
 export type NormalizeReport = {
@@ -5372,6 +5518,12 @@ export type PlanFile_Deserialize = {
 	edited: string,
 	nodes: PlanNode_Deserialize[],
 	edges: PlanEdge[],
+	/**
+	 *  Only the camera plan has it: the stops of `layout.json` the plan was
+	 *  last built, rebased or applied from, so a change made to the layout
+	 *  since shows and can be compared or rebased, never written over.
+	 */
+	camera?: CameraBase | null,
 };
 
 export type PlanFile_Serialize = {
@@ -5384,6 +5536,12 @@ export type PlanFile_Serialize = {
 	edited: string,
 	nodes: PlanNode_Serialize[],
 	edges: PlanEdge[],
+	/**
+	 *  Only the camera plan has it: the stops of `layout.json` the plan was
+	 *  last built, rebased or applied from, so a change made to the layout
+	 *  since shows and can be compared or rebased, never written over.
+	 */
+	camera?: CameraBase | null,
 };
 
 /**  A picture ready for an image node. */
@@ -5425,6 +5583,12 @@ export type PlanLogEntry_Deserialize = {
 	keeps?: string[],
 	/**  The operations were too big to keep. */
 	trimmed?: boolean,
+	/**
+	 *  An Apply of the camera plan: where the layout it replaced is kept and
+	 *  what `layout.json` held before and after, so an undo puts the old one
+	 *  back only while the file is still as the Apply left it.
+	 */
+	applied?: Applied | null,
 };
 
 /**  One write to a canvas. */
@@ -5445,6 +5609,12 @@ export type PlanLogEntry_Serialize = {
 	keeps?: string[],
 	/**  The operations were too big to keep. */
 	trimmed: boolean,
+	/**
+	 *  An Apply of the camera plan: where the layout it replaced is kept and
+	 *  what `layout.json` held before and after, so an undo puts the old one
+	 *  back only while the file is still as the Apply left it.
+	 */
+	applied?: Applied | null,
 };
 
 /**  A log line as the Changes panel and agents read it: no operations. */
@@ -5506,6 +5676,11 @@ export type PlanNode_Deserialize = {
 	 *  only when true, so files without it read as false and stay version 2.
 	 */
 	personWrote?: boolean,
+	/**
+	 *  A stop node's camera stop (id, name, position, target, field of view
+	 *  and models), as `layout.json` would keep it. Only in the camera plan.
+	 */
+	stop?: LayoutStop | null,
 };
 
 export type PlanNode_Serialize = {
@@ -5541,6 +5716,11 @@ export type PlanNode_Serialize = {
 	 *  only when true, so files without it read as false and stay version 2.
 	 */
 	personWrote?: boolean,
+	/**
+	 *  A stop node's camera stop (id, name, position, target, field of view
+	 *  and models), as `layout.json` would keep it. Only in the camera plan.
+	 */
+	stop?: LayoutStop | null,
 };
 
 /**  One change to one node or edge. */
@@ -5551,14 +5731,24 @@ export type PlanOp_Deserialize = ({ op: "add-node"; node: PlanNode_Deserialize }
 /**  The node as it was when removed. */
 ({ op: "remove-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never } | 
 /**  Only the fields that differ between `before` and `after` change. */
-({ op: "set-node"; before: PlanNode_Deserialize; after: PlanNode_Deserialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never };
+({ op: "set-node"; before: PlanNode_Deserialize; after: PlanNode_Deserialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never } | 
+/**
+ *  The camera plan's base: the `layout.json` stops it was built,
+ *  rebased or applied from. Only a person's rebase or Apply writes it.
+ */
+({ op: "set-camera"; before: CameraBase | null; after: CameraBase | null }) & { edge?: never; node?: never };
 
 /**  One change to one node or edge. */
 export type PlanOp_Serialize = ({ op: "add-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never } | 
 /**  The node as it was when removed. */
 ({ op: "remove-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never } | 
 /**  Only the fields that differ between `before` and `after` change. */
-({ op: "set-node"; before: PlanNode_Serialize; after: PlanNode_Serialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never };
+({ op: "set-node"; before: PlanNode_Serialize; after: PlanNode_Serialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never } | 
+/**
+ *  The camera plan's base: the `layout.json` stops it was built,
+ *  rebased or applied from. Only a person's rebase or Apply writes it.
+ */
+({ op: "set-camera"; before: CameraBase | null; after: CameraBase | null }) & { edge?: never; node?: never };
 
 /**
  *  What a canvas started from. Presets only set the starting content;
@@ -5579,6 +5769,10 @@ export type PlanSummary = {
 	links: number,
 	/**  Asset nodes, each linking an asset of the project. */
 	assets: number,
+	/**  Camera stop nodes. */
+	stops: number,
+	/**  The built in camera plan of a website project. */
+	camera: boolean,
 	/**  RFC 3339; empty when the file could not be read. */
 	edited: string,
 	/**  Why the file could not be read, for a canvas that only lists. */
@@ -5976,6 +6170,26 @@ export type RealSize = {
 	/**  In `unit`. */
 	value: number | null,
 	unit: SizeUnit,
+};
+
+export type RebaseMode = 
+/**  Keep the plan's changes and take the layout's. */
+"rebase" | 
+/**  Build the main line again from the layout. */
+"start-over";
+
+/**  What a rebase takes in, keeps and could not settle, one line each. */
+export type RebaseReport = {
+	/**  Settings and order taken from `layout.json`: "Moon: fov". */
+	taken: string[],
+	/**  Stops the layout added, joined to the main line. */
+	added: string[],
+	/**  Stops the layout removed, gone from the plan. */
+	removed: string[],
+	/**  Where both sides changed the same thing; the plan's side stays. */
+	clashes: string[],
+	/**  The log line, once written. */
+	change: string | null,
 };
 
 /**  The recipe kept for a prop: the request without its project and asset. */
@@ -7994,6 +8208,43 @@ export type StepState =
 "cached" | "done" | "failed" | 
 /**  Not part of this run, or not reached because an earlier step failed. */
 "skipped" | "cancelled";
+
+/**  What happens to one stop. */
+export type StopChange = {
+	id: string,
+	name: string,
+	/**  The plan's stop node, for stops that stay or come. */
+	node: string | null,
+	/**
+	 *  Its place in the tour before and after, from 1; none when it is new
+	 *  or goes.
+	 */
+	from: number | null,
+	to: number | null,
+	added: boolean,
+	removed: boolean,
+	/**  It leaves the longest run of stops that keep their order. */
+	moved: boolean,
+	fields: FieldChange[],
+};
+
+export type StopDiff = {
+	/**  The stops in their new order, then the ones that go. */
+	stops: StopChange[],
+	lines: DiffLine[],
+	added: number,
+	removed: number,
+	moved: number,
+	/**  Stops whose settings change, moved or not. */
+	changed: number,
+};
+
+/**  A stop's poster render on this computer. */
+export type StopPoster = {
+	/**  The stop's id in `layout.json`. */
+	stop: string,
+	poster: string,
+};
 
 /**  Where the stops came from, for the "From stops.json" line. */
 export type StopsSource = "project-file" | "layout" | "posters" | "model-cameras" | "none";
