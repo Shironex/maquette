@@ -385,32 +385,61 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// What the MCP server can reach: the tools, the router and the HTTP
-/// server. None of it may answer an approval; only the app's commands do.
+/// The identifiers of `source`, line comments left out.
+fn identifiers(source: &str) -> Vec<String> {
+    source
+        .lines()
+        .map(|line| line.split("//").next().unwrap_or_default())
+        .flat_map(|code| code.split(|c: char| !(c.is_alphanumeric() || c == '_')))
+        .filter(|word| !word.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// What the MCP server can reach: every file of the MCP module but the
+/// hub's own answering code. None of it may answer an approval or call a
+/// command that does; only the app's commands do.
 #[test]
 fn no_mcp_tool_can_answer_an_approval() {
     let mcp = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/mcp");
-    let mut files = vec![mcp.join("tools.rs"), mcp.join("server.rs")];
-    rust_files(&mcp.join("tools"), &mut files);
-    assert!(files.len() > 30, "found the tools: {}", files.len());
+    let mut files = Vec::new();
+    rust_files(&mcp, &mut files);
+    // The answering code itself, and the tests that call it.
+    let own = ["hub/decisions.rs", "hub/rig.rs", "hub/tests.rs"];
+    files.retain(|f| !own.iter().any(|o| f.ends_with(o)));
+    assert!(files.len() > 40, "found the module: {}", files.len());
     let answers = [
-        "hub.decide",
-        ".decide_by(",
-        ".settle(",
-        "expire_all(",
-        "close_rig_doctor(",
-        "export::decide",
-        "decide_reweight(",
-        "decide_springs(",
-        "decide_joints(",
-        "approve_preview(",
+        "decide",
+        "decide_by",
+        "settle",
+        "expire_all",
+        "close_rig_doctor",
+        "from_card",
+        "mcp_decide",
+        "avatar_decide",
+        "avatar_decide_reweight",
+        "avatar_decide_springs",
+        "decide_reweight",
+        "decide_springs",
+        "decide_joints",
+        "rig_decide_joints",
+        "rig_land",
+        "rig_discard",
+        "rig_confirm_chains",
+        "approve_preview",
     ];
+    // A pack's retry choice is not an approval: decide_pack answers an
+    // export that failed, and nothing paid waits on it.
+    let not_approvals = [("tools/packs.rs", "decide")];
     for file in &files {
         let source = std::fs::read_to_string(file).expect("read");
-        for answer in answers {
+        for word in identifiers(&source) {
+            let allowed = not_approvals
+                .iter()
+                .any(|(name, w)| file.ends_with(name) && *w == word);
             assert!(
-                !source.contains(answer),
-                "{} answers an approval with {answer}",
+                allowed || !answers.contains(&word.as_str()),
+                "{} answers an approval with {word}",
                 file.display()
             );
         }
