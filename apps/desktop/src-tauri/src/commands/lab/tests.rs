@@ -178,6 +178,21 @@ fn a_real_image_with_bytes_after_its_end_is_a_ref() {
 }
 
 #[test]
+fn names_that_differ_only_in_case_are_one_name_on_every_disk() {
+    let f = refs_fixture();
+    let upper = f.file("a", "Front.png", &png(b"first"));
+    let lower = f.file("b", "front.png", &png(b"first"));
+    let other = f.file("c", "FRONT.png", &png(b"second"));
+    assert_eq!(
+        f.import(&[upper, lower.clone()]).expect("one"),
+        ["refs/Front.png"]
+    );
+    assert_eq!(f.import(&[lower]).expect("again"), ["refs/Front.png"]);
+    assert_eq!(f.import(&[other]).expect("other"), ["refs/FRONT-2.png"]);
+    assert_eq!(f.on_disk(), ["FRONT-2.png", "Front.png"]);
+}
+
+#[test]
 fn a_ref_must_be_a_file_within_the_limits() {
     let f = refs_fixture();
     let folder = f.dir.path().join("folder.png");

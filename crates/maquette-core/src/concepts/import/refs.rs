@@ -29,6 +29,22 @@ fn ref_name(path: &Path, extension: &str) -> String {
     format!("{stem}.{extension}")
 }
 
+/// The name in `names` that is `wanted` to a case insensitive disk: the exact
+/// one when there is one.
+fn entry_like(names: impl Iterator<Item = String>, wanted: &str) -> Option<String> {
+    let lower = wanted.to_lowercase();
+    let mut like = None;
+    for name in names {
+        if name == wanted {
+            return Some(name);
+        }
+        if name.to_lowercase() == lower {
+            like = Some(name);
+        }
+    }
+    like
+}
+
 /// `front.png`, then `front-2.png` and on.
 fn numbered(name: &str, n: u32) -> String {
     if n == 1 {
@@ -46,11 +62,28 @@ fn same_bytes(from: &Path, there: &Path) -> io::Result<bool> {
     Ok(b.is_file() && a.len() == b.len() && fs::read(from)? == fs::read(there)?)
 }
 
+fn listing(folder: &Path) -> CoreResult<Vec<String>> {
+    let entries = fs::read_dir(folder).map_err(|e| CoreError::io(folder, e))?;
+    Ok(entries
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect())
+}
+
 /// The name `from` ends up under in `refs`, and whether this call wrote it:
 /// the first free name, or the one already holding the same bytes.
 fn place(from: &Path, refs: &Path, name: &str) -> CoreResult<(String, bool)> {
     for n in 1..=MAX_NAME_TRIES {
         let candidate = numbered(name, n);
+        // A case insensitive disk would answer for this name with another's
+        // file, so every disk treats them as one and keeps the real name.
+        if let Some(real) = entry_like(listing(refs)?.into_iter(), &candidate) {
+            let there = refs.join(&real);
+            if same_bytes(from, &there).map_err(|e| CoreError::io(&there, e))? {
+                return Ok((real, false));
+            }
+            continue;
+        }
         let to = refs.join(&candidate);
         match fs::OpenOptions::new()
             .write(true)
@@ -109,4 +142,34 @@ pub fn import_refs(project_dir: &Path, paths: &[PathBuf]) -> CoreResult<Vec<Stri
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::entry_like;
+
+    /// A case sensitive disk cannot show the real name a case insensitive one
+    /// answers with, so this runs the rule on a listing.
+    #[test]
+    fn the_real_name_of_an_entry_wins_over_the_name_asked_for() {
+        let names = ["Front.png".to_string(), "back.png".to_string()];
+        assert_eq!(
+            entry_like(names.iter().cloned(), "front.png"),
+            Some(names[0].clone())
+        );
+        assert_eq!(
+            entry_like(names.iter().cloned(), "back.png"),
+            Some(names[1].clone())
+        );
+        assert_eq!(entry_like(names.iter().cloned(), "left.png"), None);
+    }
+
+    #[test]
+    fn an_exact_name_wins_when_a_disk_holds_both_cases() {
+        let names = ["Front.png".to_string(), "front.png".to_string()];
+        assert_eq!(
+            entry_like(names.iter().cloned(), "front.png"),
+            Some(names[1].clone())
+        );
+    }
 }
