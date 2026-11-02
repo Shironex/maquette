@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use maquette_core::project;
+use maquette_core::providers::ledger::{DecisionRecord, decisions};
 use maquette_core::providers::{JobState, Provider, ProviderJob, ProviderJobs};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -200,6 +201,15 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
     out
 }
 
+/// A job with who answered its approval (`null` for a send started in the
+/// app, or one still waiting), for get_provider_job.
+fn with_decision(mut out: Value, job: &ProviderJob, decided: &[DecisionRecord]) -> Value {
+    let found = decisions::for_job(decided, &job.project, &job.id, f64::MAX)
+        .filter(|d| d.at_ms >= job.created_at_ms);
+    out["decision"] = found.map_or(Value::Null, to_value);
+    out
+}
+
 /// Waits for the person's answer on its own thread, then releases or drops
 /// every job it covers. Jobs cancelled from the app's queue withdraw the
 /// approval once none is left waiting.
@@ -344,7 +354,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent and message. With project instead of id, every send in the project.",
+        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). With project instead of id, every send in the project.",
         annotations(read_only_hint = true)
     )]
     async fn get_provider_job(&self, Parameters(args): Parameters<ProviderJobArgs>) -> Out {
@@ -361,7 +371,8 @@ impl McpTools {
                             Some(project) => format!("There is no send {id} in {project}."),
                             None => format!("There is no send {id}."),
                         })?;
-                    return Ok(job_value(hub, &job));
+                    let decided = super::credits::decisions_of(host);
+                    return Ok(with_decision(job_value(hub, &job), &job, &decided));
                 }
                 let Some(project) = args.project.as_deref() else {
                     return Err("Pass the job id, or a project to list its sends."
@@ -370,12 +381,13 @@ impl McpTools {
                 };
                 let (root, config) = workspace(host)?;
                 project::load(&root, &config.layout, project)?;
+                let decided = super::credits::decisions_of(host);
                 let jobs: Vec<Value> = host
                     .studio()
                     .list(Some(project))
                     .iter()
                     .filter(|j| args.asset.as_deref().is_none_or(|a| j.asset == a))
-                    .map(|j| job_value(hub, j))
+                    .map(|j| with_decision(job_value(hub, j), j, &decided))
                     .collect();
                 Ok(json!({ "project": project, "jobs": jobs }))
             })

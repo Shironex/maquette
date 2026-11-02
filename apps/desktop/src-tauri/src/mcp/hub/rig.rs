@@ -3,6 +3,7 @@
 
 use maquette_core::avatar::normalize::NormalizeSheets;
 use maquette_core::pipeline::history::now_ms;
+use maquette_core::providers::ledger::{DecidedBy, Decision, DecisionSource};
 use maquette_core::rig::{RigRecord, RigStarter, RigState};
 
 use super::{Approval, ApprovalKind, Hub};
@@ -65,10 +66,16 @@ impl Hub {
             .cloned()
     }
 
-    /// The case was added or dropped: nothing waits any more.
-    pub fn close_rig_doctor(&self, id: &str) {
+    /// The case was added (approved), dropped (denied) or started over or
+    /// held (cancelled) by a person in the Rig doctor: nothing waits any more.
+    pub fn close_rig_doctor(&self, id: &str, decision: Decision) {
         if let Some(found) = self.rig_doctor_for(id) {
-            self.decide(&found.id, false);
+            self.settle(
+                &found.id,
+                false,
+                decision,
+                DecidedBy::from(DecisionSource::RigDoctor),
+            );
         }
     }
 }
@@ -119,7 +126,7 @@ mod tests {
         assert_eq!(waiting[0].kind, ApprovalKind::RigDoctor);
         assert_eq!(waiting[0].job.as_deref(), Some("hero-v1"));
         assert_eq!(waiting[0].asset_name.as_deref(), Some("Hero v2"));
-        hub.close_rig_doctor("hero-v1");
+        hub.close_rig_doctor("hero-v1", Decision::Denied);
         assert!(hub.rig_doctor_for("hero-v1").is_none());
     }
 

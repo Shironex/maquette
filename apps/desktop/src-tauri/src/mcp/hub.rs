@@ -3,14 +3,13 @@
 //! for a person.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Condvar, Mutex, MutexGuard};
-use std::time::Duration;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use maquette_core::avatar::normalize::NormalizeSheets;
 use maquette_core::pipeline::StepDef;
 use maquette_core::pipeline::history::{LogEntry, RunRecord, now_ms};
 use maquette_core::pipeline::runner::PipelineEvent;
+use maquette_core::providers::ledger::DecisionRecord;
 use maquette_core::providers::{ProviderJob, format_credits};
 use maquette_core::site::preview::PreviewAsk;
 use serde::{Deserialize, Serialize};
@@ -48,6 +47,10 @@ pub struct McpCall {
     pub outcome: CallOutcome,
     pub message: Option<String>,
     pub duration_ms: f64,
+    /// The approval a `waiting` call raised. Once it is answered the call
+    /// reads as done, with the answer as its message.
+    #[serde(default)]
+    pub approval: Option<String>,
 }
 
 /// What an agent asked that waits for a person.
@@ -169,11 +172,15 @@ struct Inner {
     preview_withdrawn: HashSet<String>,
 }
 
+/// Where every answer to an approval is written; see [`Hub::set_recorder`].
+type Recorder = Arc<dyn Fn(&DecisionRecord) + Send + Sync>;
+
 /// Shared between the server's tools, the run gate and the app.
 pub struct Hub {
     inner: Mutex<Inner>,
     decided: Condvar,
     on_change: Box<dyn Fn() + Send + Sync>,
+    recorder: Mutex<Option<Recorder>>,
 }
 
 impl Hub {
@@ -183,6 +190,7 @@ impl Hub {
             inner: Mutex::new(Inner::default()),
             decided: Condvar::new(),
             on_change: Box::new(on_change),
+            recorder: Mutex::new(None),
         }
     }
 
@@ -207,6 +215,19 @@ impl Hub {
         message: Option<String>,
         duration_ms: f64,
     ) {
+        self.log_waiting_call(tool, detail, outcome, message, duration_ms, None);
+    }
+
+    /// [`Hub::log_call`] for a call that raised `approval`.
+    pub fn log_waiting_call(
+        &self,
+        tool: &str,
+        detail: String,
+        outcome: CallOutcome,
+        message: Option<String>,
+        duration_ms: f64,
+        approval: Option<String>,
+    ) {
         {
             let mut inner = self.lock();
             inner.next_call += 1;
@@ -218,6 +239,7 @@ impl Hub {
                 outcome,
                 message,
                 duration_ms,
+                approval,
             };
             inner.calls.push_front(call);
             inner.calls.truncate(MAX_CALLS);
@@ -439,55 +461,9 @@ impl Hub {
             }
         }))
     }
-
-    /// Approves or denies. False when the approval is gone (decided already,
-    /// or its run was cancelled).
-    pub fn decide(&self, approval_id: &str, approve: bool) -> bool {
-        let found = {
-            let mut inner = self.lock();
-            let before = inner.approvals.len();
-            inner.approvals.retain(|a| a.id != approval_id);
-            let found = inner.approvals.len() != before;
-            if found {
-                inner.decisions.insert(approval_id.to_string(), approve);
-            }
-            found
-        };
-        if found {
-            self.decided.notify_all();
-            (self.on_change)();
-        }
-        found
-    }
-
-    /// Blocks until the approval is decided. `None` when the run was
-    /// cancelled first; the approval is then withdrawn.
-    pub fn wait_decision(&self, approval_id: &str, cancelled: &AtomicBool) -> Option<bool> {
-        self.wait_until(approval_id, || cancelled.load(Ordering::SeqCst))
-    }
-
-    /// Like [`Hub::wait_decision`], with any test for "it went away first".
-    pub fn wait_until(&self, approval_id: &str, gone: impl Fn() -> bool) -> Option<bool> {
-        let mut inner = self.lock();
-        loop {
-            if let Some(answer) = inner.decisions.remove(approval_id) {
-                return Some(answer);
-            }
-            if gone() {
-                inner.approvals.retain(|a| a.id != approval_id);
-                drop(inner);
-                (self.on_change)();
-                return None;
-            }
-            inner = self
-                .decided
-                .wait_timeout(inner, Duration::from_millis(100))
-                .map(|(guard, _)| guard)
-                .unwrap_or_else(|p| p.into_inner().0);
-        }
-    }
 }
 
+mod decisions;
 mod preview;
 mod rest_pose;
 mod rig;

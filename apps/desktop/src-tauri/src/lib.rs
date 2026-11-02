@@ -45,6 +45,8 @@ pub fn run() {
             app.manage(session);
             let emitter = app.handle().clone();
             let hub = Arc::new(mcp::hub::Hub::new(move || mcp::emit_status(&emitter)));
+            let recorder = app.handle().clone();
+            hub.set_recorder(move |record| mcp::record_decision(&recorder, record));
             let sink = Arc::new(events::TauriSink(app.handle().clone(), Arc::clone(&hub)));
             app.manage(commands::pipeline::Pipelines(
                 maquette_core::pipeline::runner::PipelineRunner::new(sink),
@@ -90,6 +92,7 @@ pub fn run() {
 /// Runs on exit and before an update restarts the app.
 pub(crate) fn shutdown(handle: &tauri::AppHandle) {
     if let Some(agents) = handle.try_state::<mcp::Agents>() {
+        agents.hub.expire_all();
         agents.stop();
     }
     if let Some(preview) = handle.try_state::<commands::site::Preview>() {

@@ -11,6 +11,7 @@ pub mod tools;
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use maquette_core::providers::ledger::{DecisionRecord, decisions};
 use maquette_core::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager as _};
@@ -171,6 +172,21 @@ impl Agents {
         if let Some(running) = self.lock().running.take() {
             running.stop();
         }
+    }
+}
+
+/// Writes an answer to an approval into the open workspace's
+/// `approvals.jsonl`. A failed write is logged, never raised: the answer
+/// itself must go through.
+pub fn record_decision(handle: &AppHandle, record: &DecisionRecord) {
+    let Some(session) = handle.try_state::<Session>() else {
+        return;
+    };
+    let Ok((root, _)) = session.workspace() else {
+        return;
+    };
+    if let Err(err) = decisions::append(&root, record) {
+        tracing::warn!(error = %err, "could not write the approvals log");
     }
 }
 

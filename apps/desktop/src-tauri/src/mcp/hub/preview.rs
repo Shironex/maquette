@@ -23,6 +23,7 @@ impl Hub {
     /// takes the old card's place, since no one should approve what will not
     /// run.
     pub fn request_preview(&self, project: &str, ask: &PreviewAsk) -> (String, bool) {
+        let mut replaced = None;
         let id = {
             let mut inner = self.lock();
             let waiting = inner
@@ -33,6 +34,7 @@ impl Hub {
             match waiting {
                 Some((id, true)) => return (id, false),
                 Some((old, false)) => {
+                    replaced = inner.approvals.iter().find(|a| a.id == old).cloned();
                     inner.approvals.retain(|a| a.id != old);
                     inner.decisions.insert(old.clone(), false);
                     inner.preview_withdrawn.insert(old);
@@ -65,6 +67,9 @@ impl Hub {
             });
             id
         };
+        if let Some(old) = replaced {
+            self.withdrawn(&old);
+        }
         (self.on_change)();
         (id, true)
     }

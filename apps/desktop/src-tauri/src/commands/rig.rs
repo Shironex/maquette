@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use maquette_core::inbox::{self, AcceptRequest};
 use maquette_core::pipeline::runner::{NullSink, PipelineRunner};
+use maquette_core::providers::ledger::Decision;
 use maquette_core::providers::own_file::{self, OwnFile};
 use maquette_core::rig::{
     RigChainEdit, RigDoctors, RigRecord, RigRoute, RigRun, RigSource, RigStarter, RigState,
@@ -221,7 +222,7 @@ pub fn rig_confirm_chains(
     let (root, config) = session.workspace()?;
     let case = rig.0.confirm_chains(&root, &config, &id, edits)?;
     if case.state != RigState::Fixed {
-        rig.1.close_rig_doctor(&id);
+        rig.1.close_rig_doctor(&id, Decision::Cancelled);
     }
     Ok(case)
 }
@@ -267,7 +268,7 @@ pub async fn rig_land(
         return Err(super::invalid("Accept the model as v1 first."));
     };
     if let Some(why) = got_worse(Path::new(&case.input), &draft)? {
-        rig.1.close_rig_doctor(&id);
+        rig.1.close_rig_doctor(&id, Decision::Cancelled);
         return Ok(rig.0.held(&root, &config, &id, why)?);
     }
     let tools = toolchain::toolbox(&session).await?;
@@ -291,7 +292,7 @@ pub async fn rig_land(
         prep: None,
     };
     let done = super::inbox::inbox_accept(session.clone(), service, studio, request).await?;
-    rig.1.close_rig_doctor(&id);
+    rig.1.close_rig_doctor(&id, Decision::Approved);
     Ok(rig.0.landed(&root, &config, &id, done.version.version)?)
 }
 
@@ -305,7 +306,7 @@ pub fn rig_discard(
 ) -> CommandResult<RigRecord> {
     let (root, config) = session.workspace()?;
     let found = rig.0.discard(&root, &config, &id)?;
-    rig.1.close_rig_doctor(&id);
+    rig.1.close_rig_doctor(&id, Decision::Denied);
     Ok(found)
 }
 

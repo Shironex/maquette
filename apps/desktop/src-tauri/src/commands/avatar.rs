@@ -13,6 +13,7 @@ use maquette_core::avatar::springs::{Chained, FoundSprings, SpringsMode};
 use maquette_core::avatar::{self, AvatarSpec};
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::project;
+use maquette_core::providers::ledger::{DecidedBy, DecisionSource};
 use tauri::{AppHandle, Manager as _, State};
 
 use super::CommandResult;
@@ -215,7 +216,11 @@ pub fn avatar_decide(
     };
     let decided = with_request(&session, &target, |req| export::decide(req, approve))?;
     if let Some(waiting) = agents.hub.rest_pose_for(&decided.project, &decided.asset) {
-        agents.hub.decide(&waiting.id, approve);
+        agents.hub.decide_by(
+            &waiting.id,
+            approve,
+            DecidedBy::from(DecisionSource::Avatar),
+        );
     }
     Ok(decided)
 }
@@ -246,7 +251,11 @@ pub fn avatar_decide_reweight(
         export::decide_reweight(req, approve)
     })?;
     if let Some(waiting) = agents.hub.reweight_for(&decided.project, &decided.asset) {
-        agents.hub.decide(&waiting.id, approve);
+        agents.hub.decide_by(
+            &waiting.id,
+            approve,
+            DecidedBy::from(DecisionSource::Avatar),
+        );
     }
     Ok(decided)
 }
@@ -311,7 +320,11 @@ pub fn avatar_decide_springs(
         export::decide_springs(req, approve)
     })?;
     if let Some(waiting) = agents.hub.springs_for(&decided.project, &decided.asset) {
-        agents.hub.decide(&waiting.id, approve);
+        agents.hub.decide_by(
+            &waiting.id,
+            approve,
+            DecidedBy::from(DecisionSource::Avatar),
+        );
     }
     Ok(decided)
 }
