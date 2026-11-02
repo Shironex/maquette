@@ -103,6 +103,8 @@ export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null
   const panel = usePlanLogStore(s => s.panel);
   const seenAt = usePlanLogStore(s => s.seenAt);
   const setPanel = usePlanLogStore(s => s.setPanel);
+  // Escape or a click outside closes the clash question without choosing; saves stay blocked until it is answered.
+  const [hidden, setHidden] = useState<object | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -158,7 +160,14 @@ export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null
     /** The agent that wrote last, for the chip: "Research agent · 12:41". */
     agent: agent ? { name: agent.by ?? '', when: whenOf(agent.at, clock.now()) } : null,
     outside: outside
-      ? { count: outside.conflicts.length, keepMine, useTheirs: () => useTheirs() }
+      ? {
+          count: outside.conflicts.length,
+          asking: hidden !== outside,
+          keepMine,
+          useTheirs: () => useTheirs(),
+          later: () => setHidden(outside),
+          ask: () => setHidden(null),
+        }
       : null,
   };
 }
@@ -235,6 +244,7 @@ export function usePlanCanvas() {
   const edges = usePlansStore(s => s.edges);
   const saving = usePlansStore(s => s.saving);
   const saveError = usePlansStore(s => s.saveError);
+  const clash = usePlansStore(s => Boolean(s.outside));
   const onNodesChange = usePlansStore(s => s.onNodesChange);
   const onEdgesChange = usePlansStore(s => s.onEdgesChange);
   const onConnect = usePlansStore(s => s.onConnect);
@@ -333,8 +343,14 @@ export function usePlanCanvas() {
       fit: () => void flow.fitView({ duration: 200, padding: 0.2 }),
     },
     back: () => void close(),
-    saveLine: saving ? 'saving' : saveError ? 'not saved, edit again to retry' : 'saved',
-    saveFailed: Boolean(saveError) && !saving,
+    saveLine: clash
+      ? 'not saved, answer the clash'
+      : saving
+        ? 'saving'
+        : saveError
+          ? 'not saved, edit again to retry'
+          : 'saved',
+    saveFailed: clash || (Boolean(saveError) && !saving),
     /** A save failed on the way out: the question and its answers. */
     leave: {
       asking: leaving !== null,

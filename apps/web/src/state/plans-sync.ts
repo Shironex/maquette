@@ -37,7 +37,7 @@ export const SAVE_FAILED = 'The canvas was not saved';
 /** Why nothing saves while the outside change waits for its answer. */
 export const ANSWER_FIRST = 'The canvas changed outside';
 export const ANSWER_FIRST_DETAIL =
-  'Choose Keep mine or Use theirs first. Nothing saves until you answer.';
+  'Choose Keep mine or Use theirs first (Answer clash in the top bar). Nothing saves until you answer.';
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 /** The save on its way, so the next one waits for it instead of racing it. */

@@ -118,6 +118,17 @@ export default function PlanCanvas() {
               <span className="max-[1279px]:hidden">{file} · </span>
               {v.saveLine}
             </span>
+            {h.outside && !h.outside.asking ? (
+              <Button
+                size="sm"
+                icon="warning"
+                className="border-clay-line text-clay-text"
+                tooltip="Nothing saves until you choose Keep mine or Use theirs"
+                onClick={h.outside.ask}
+              >
+                Answer clash
+              </Button>
+            ) : null}
             {h.agent ? (
               <span className="plan-agent-chip">
                 <Icon name="robot" size={14} />
@@ -272,10 +283,10 @@ export default function PlanCanvas() {
           </p>
         </ChoiceDialog>
       ) : null}
-      {h.outside && !v.leave.asking ? (
+      {h.outside?.asking && !v.leave.asking ? (
         <ChoiceDialog
           title="The canvas changed outside"
-          onDismiss={h.outside.keepMine}
+          onDismiss={h.outside.later}
           choices={[
             { label: 'Use theirs', onClick: h.outside.useTheirs },
             { label: 'Keep mine', variant: 'primary', onClick: h.outside.keepMine },

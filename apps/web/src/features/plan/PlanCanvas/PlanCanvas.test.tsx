@@ -249,4 +249,28 @@ describe('PlanCanvas history', () => {
     expect(text('n-01')).toBe('Theirs');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  it('closes the clash question on Escape without choosing, and reopens it from the top bar', async () => {
+    const store = await open();
+    act(() => usePlansStore.getState().updateNode('n-01', { text: 'Mine' }));
+    await act(async () => {
+      await store.mock('mock_plan_outside', { ...COMBAT, node: 'n-01', text: 'Theirs' });
+      await watcherSaw();
+    });
+    await screen.findByRole('dialog', { name: 'The canvas changed outside' });
+    const apply = vi.spyOn(commands, 'planApply');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(usePlansStore.getState().outside).not.toBeNull();
+    expect(text('n-01')).toBe('Mine');
+    expect(screen.getByRole('status')).toHaveTextContent('not saved, answer the clash');
+    expect(await usePlansStore.getState().save()).toBe(false);
+    expect(apply).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Answer clash' }));
+    const dialog = await screen.findByRole('dialog', { name: 'The canvas changed outside' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep mine' }));
+    expect(usePlansStore.getState().outside).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Answer clash' })).not.toBeInTheDocument();
+  });
 });
