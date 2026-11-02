@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use super::*;
+use crate::mcp::hub::{DecisionLog, Refused};
 use maquette_core::pipeline::history::RunState;
 use maquette_core::providers::ledger::{
     DecidedBy, Decision, DecisionInput, DecisionRecord, DecisionSource,
@@ -113,13 +114,57 @@ fn a_batch_approval_covers_every_job_of_it() {
     assert!(hub.pending_for_job("lamp-1").is_none());
 }
 
-/// A hub whose answers land in the returned list.
-fn recorded() -> (Hub, Arc<Mutex<Vec<DecisionRecord>>>) {
+/// Runs while a test log writes.
+type Hook = Box<dyn Fn() + Send>;
+
+/// A log that keeps what it is given: where (the place captured when the
+/// question was raised) and what. It can be told to fail, and runs `hook`
+/// as it writes.
+#[derive(Clone, Default)]
+struct TestLog {
+    place: Arc<Mutex<PathBuf>>,
+    seen: Arc<Mutex<Vec<(PathBuf, DecisionRecord)>>>,
+    fail: Arc<AtomicBool>,
+    hook: Arc<Mutex<Option<Hook>>>,
+}
+
+impl DecisionLog for TestLog {
+    fn place(&self) -> Option<PathBuf> {
+        Some(self.place.lock().expect("lock").clone())
+    }
+    fn write(&self, place: &Path, record: &DecisionRecord) -> Result<(), String> {
+        if let Some(hook) = self.hook.lock().expect("lock").as_ref() {
+            hook();
+        }
+        if self.fail.load(Ordering::SeqCst) {
+            return Err("the disk is full".to_string());
+        }
+        self.seen
+            .lock()
+            .expect("lock")
+            .push((place.to_path_buf(), record.clone()));
+        Ok(())
+    }
+}
+
+impl TestLog {
+    fn records(&self) -> Vec<DecisionRecord> {
+        self.seen
+            .lock()
+            .expect("lock")
+            .iter()
+            .map(|(_, r)| r.clone())
+            .collect()
+    }
+}
+
+/// A hub whose answers land in the returned log.
+fn recorded() -> (Hub, TestLog) {
     let hub = Hub::new(|| {});
-    let seen = Arc::new(Mutex::new(Vec::new()));
-    let sink = Arc::clone(&seen);
-    hub.set_recorder(move |r| sink.lock().expect("lock").push(r.clone()));
-    (hub, seen)
+    let log = TestLog::default();
+    *log.place.lock().expect("lock") = PathBuf::from("/work/one");
+    hub.set_log(log.clone());
+    (hub, log)
 }
 
 #[test]
@@ -138,9 +183,13 @@ fn an_answer_from_a_card_is_recorded_with_where_and_how() {
         window_minimized: Some(false),
         ..DecidedBy::from(DecisionSource::FloatingCard)
     };
-    assert!(hub.decide_by(&id, true, by));
-    assert!(!hub.decide_by(&id, false, by), "answered once");
-    let seen = seen.lock().expect("lock");
+    assert_eq!(hub.decide_by(&id, true, by), Ok(()));
+    assert_eq!(
+        hub.decide_by(&id, false, by),
+        Err(Refused::Gone),
+        "answered once"
+    );
+    let seen = seen.records();
     assert_eq!(seen.len(), 1, "{seen:?}");
     let record = &seen[0];
     assert_eq!(record.approval, id);
@@ -159,7 +208,7 @@ fn an_answer_without_a_source_says_so() {
     let (hub, seen) = recorded();
     let id = hub.request_send(&job("lamp-1", "Desk lamp"));
     assert!(hub.decide(&id, false));
-    let seen = seen.lock().expect("lock");
+    let seen = seen.records();
     assert_eq!(seen[0].decision, Decision::Denied);
     assert_eq!(seen[0].by.source, DecisionSource::Unknown);
     assert_eq!(seen[0].asset.as_deref(), Some("Desk lamp"));
@@ -173,9 +222,9 @@ fn a_cancel_before_any_answer_and_a_quit_are_recorded() {
     let send_id = hub.request_send(&job("lamp-1", "Desk lamp"));
     assert_eq!(hub.wait_until(&send_id, || true), None);
     let left = hub.request_send(&job("cup-1", "Brush cup"));
-    hub.expire_all();
+    hub.expire_all(DecisionSource::Quit);
     assert!(hub.approvals().is_empty());
-    let seen = seen.lock().expect("lock");
+    let seen = seen.records();
     let summary: Vec<(&str, Decision, DecisionSource)> = seen
         .iter()
         .map(|r| (r.approval.as_str(), r.decision, r.by.source))
@@ -228,6 +277,100 @@ fn the_call_that_raised_an_approval_stops_waiting_once_answered() {
         .find(|c| c.tool == "get_provider_job")
         .expect("call");
     assert_eq!(other.message, None, "other calls stay as they were");
+}
+
+#[test]
+fn a_yes_that_cannot_be_written_releases_nothing_and_says_why() {
+    let (hub, log) = recorded();
+    let hub = Arc::new(hub);
+    let id = hub.request_send(&job("lamp-1", "Desk lamp"));
+    let waiter = {
+        let (hub, id) = (Arc::clone(&hub), id.clone());
+        std::thread::spawn(move || hub.wait_until(&id, || false))
+    };
+    log.fail.store(true, Ordering::SeqCst);
+    let refused = hub.decide_by(&id, true, DecidedBy::from(DecisionSource::FloatingCard));
+    let Err(Refused::Unrecorded(why)) = refused else {
+        panic!("a yes without its record went through: {refused:?}");
+    };
+    assert!(why.contains("the disk is full"), "{why}");
+    assert_eq!(hub.approvals().len(), 1, "it still waits for a person");
+    assert_eq!(
+        hub.unrecorded(&id).as_deref(),
+        Some(why.as_str()),
+        "the agent can read why"
+    );
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(!waiter.is_finished(), "nothing was released");
+    // A no still applies, even unrecorded.
+    assert!(hub.decide(&id, false));
+    assert_eq!(waiter.join().expect("join"), Some(false));
+    assert!(hub.unrecorded(&id).is_none());
+}
+
+#[test]
+fn the_answer_is_written_before_the_waiter_wakes() {
+    let (hub, log) = recorded();
+    let hub = Arc::new(hub);
+    let id = hub.request_send(&job("lamp-1", "Desk lamp"));
+    let woke = Arc::new(AtomicBool::new(false));
+    let early = Arc::new(AtomicBool::new(false));
+    {
+        let (woke, early) = (Arc::clone(&woke), Arc::clone(&early));
+        *log.hook.lock().expect("lock") = Some(Box::new(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            early.store(woke.load(Ordering::SeqCst), Ordering::SeqCst);
+        }));
+    }
+    let waiter = {
+        let (hub, id, woke) = (Arc::clone(&hub), id.clone(), Arc::clone(&woke));
+        std::thread::spawn(move || {
+            let answer = hub.wait_until(&id, || false);
+            woke.store(true, Ordering::SeqCst);
+            answer
+        })
+    };
+    std::thread::sleep(Duration::from_millis(30));
+    assert!(hub.decide(&id, true));
+    assert_eq!(waiter.join().expect("join"), Some(true));
+    assert!(
+        !early.load(Ordering::SeqCst),
+        "the waiter woke before the record was written"
+    );
+    let record = &log.records()[0];
+    assert!(record.at_ms >= record.requested_at_ms);
+}
+
+#[test]
+fn an_answer_goes_to_the_workspace_open_when_it_was_asked() {
+    let (hub, log) = recorded();
+    let id = hub.request_send(&job("lamp-1", "Desk lamp"));
+    *log.place.lock().expect("lock") = PathBuf::from("/work/two");
+    assert!(hub.decide(&id, true));
+    let seen = log.seen.lock().expect("lock");
+    assert_eq!(seen[0].0, PathBuf::from("/work/one"));
+}
+
+#[test]
+fn a_workspace_change_expires_what_waits_and_releases_nothing() {
+    let (hub, log) = recorded();
+    let hub = Arc::new(hub);
+    let id = hub.request_send(&job("lamp-1", "Desk lamp"));
+    let waiter = {
+        let (hub, id) = (Arc::clone(&hub), id.clone());
+        std::thread::spawn(move || hub.wait_until(&id, || false))
+    };
+    std::thread::sleep(Duration::from_millis(30));
+    hub.expire_all(DecisionSource::WorkspaceChanged);
+    assert_eq!(
+        waiter.join().expect("join"),
+        Some(false),
+        "told no, never yes"
+    );
+    assert!(hub.approvals().is_empty());
+    let record = &log.records()[0];
+    assert_eq!(record.decision, Decision::Expired);
+    assert_eq!(record.by.source, DecisionSource::WorkspaceChanged);
 }
 
 /// Every Rust file under `dir`.

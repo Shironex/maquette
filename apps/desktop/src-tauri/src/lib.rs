@@ -14,6 +14,7 @@ pub mod session;
 pub mod updater;
 pub mod workspace_lock;
 
+use maquette_core::providers::ledger::DecisionSource;
 use std::sync::Arc;
 
 use tauri::Manager as _;
@@ -45,8 +46,7 @@ pub fn run() {
             app.manage(session);
             let emitter = app.handle().clone();
             let hub = Arc::new(mcp::hub::Hub::new(move || mcp::emit_status(&emitter)));
-            let recorder = app.handle().clone();
-            hub.set_recorder(move |record| mcp::record_decision(&recorder, record));
+            hub.set_log(mcp::WorkspaceLog(app.handle().clone()));
             let sink = Arc::new(events::TauriSink(app.handle().clone(), Arc::clone(&hub)));
             app.manage(commands::pipeline::Pipelines(
                 maquette_core::pipeline::runner::PipelineRunner::new(sink),
@@ -92,7 +92,7 @@ pub fn run() {
 /// Runs on exit and before an update restarts the app.
 pub(crate) fn shutdown(handle: &tauri::AppHandle) {
     if let Some(agents) = handle.try_state::<mcp::Agents>() {
-        agents.hub.expire_all();
+        agents.hub.expire_all(DecisionSource::Quit);
         agents.stop();
     }
     if let Some(preview) = handle.try_state::<commands::site::Preview>() {

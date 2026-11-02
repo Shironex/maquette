@@ -35,7 +35,7 @@ static WRITE: Mutex<()> = Mutex::new(());
 pub enum Decision {
     Approved,
     Denied,
-    /// Still waiting when Maquette quit.
+    /// Still waiting when Maquette quit or another workspace was opened.
     Expired,
     /// It went away before anyone answered: its jobs or its run were
     /// cancelled, or the question changed under it.
@@ -66,6 +66,8 @@ pub enum DecisionSource {
     QuestionChanged,
     /// Still waiting when Maquette quit.
     Quit,
+    /// Still waiting when another workspace was opened.
+    WorkspaceChanged,
     /// A caller that did not say.
     Unknown,
 }

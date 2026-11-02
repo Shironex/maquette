@@ -5,6 +5,7 @@ use maquette_core::providers::ledger::DecidedBy;
 use tauri::{AppHandle, State, WebviewWindow};
 
 use super::{CommandResult, invalid};
+use crate::mcp::hub::Refused;
 use crate::mcp::{self, Agents, McpStatus};
 use crate::session::Session;
 
@@ -35,8 +36,12 @@ pub fn mcp_decide(
         window.is_minimized().ok(),
     ];
     let by = from_card(by, os)?;
-    if !agents.hub.decide_by(&approval_id, approve, by) {
-        return Err(invalid("That request is no longer waiting for approval."));
+    match agents.hub.decide_by(&approval_id, approve, by) {
+        Ok(()) => {}
+        Err(Refused::Gone) => {
+            return Err(invalid("That request is no longer waiting for approval."));
+        }
+        Err(Refused::Unrecorded(why)) => return Err(invalid(&why)),
     }
     Ok(agents.status(&session))
 }

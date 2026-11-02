@@ -23,7 +23,7 @@ use maquette_core::{
 };
 use maquette_desktop_lib::mcp::host::Host;
 use maquette_desktop_lib::mcp::hub::Hub;
-use maquette_desktop_lib::mcp::hub::{ApprovalKind, CallOutcome};
+use maquette_desktop_lib::mcp::hub::{ApprovalKind, CallOutcome, DecisionLog};
 use maquette_desktop_lib::mcp::tool_names;
 use maquette_desktop_lib::mcp::{Agents, ensure_token};
 use maquette_desktop_lib::session::Session;
@@ -35,6 +35,22 @@ use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig
 use serde_json::{Value, json};
 
 use super::support::{call, raw_call, text};
+
+/// Answers land in the fixture workspace's approvals.jsonl, as in the app.
+struct WorkspaceFile(std::path::PathBuf);
+
+impl DecisionLog for WorkspaceFile {
+    fn place(&self) -> Option<std::path::PathBuf> {
+        Some(self.0.clone())
+    }
+    fn write(
+        &self,
+        place: &Path,
+        record: &maquette_core::providers::ledger::DecisionRecord,
+    ) -> Result<(), String> {
+        decisions::append(place, record).map_err(|e| e.to_string())
+    }
+}
 
 struct TestHost {
     session: Session,
@@ -259,7 +275,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     });
     // Answers land in the workspace's approvals.jsonl, as in the app.
     let (root, _) = host.session.workspace().expect("workspace");
-    hub.set_recorder(move |r| decisions::append(&root, r).expect("record"));
+    hub.set_log(WorkspaceFile(root));
     // Port 0 so the test never collides with a running app; the app itself
     // listens on the configured 4791.
     let token = ensure_token(&host.session).expect("token");
@@ -768,7 +784,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         window_visible: Some(true),
         ..DecidedBy::from(DecisionSource::FloatingCard)
     };
-    assert!(hub.decide_by(&approvals[0].id, false, by));
+    assert_eq!(hub.decide_by(&approvals[0].id, false, by), Ok(()));
     let deadline = Instant::now() + Duration::from_secs(5);
     let denied = loop {
         let job = call(&client, "get_provider_job", json!({ "id": job_id })).await;

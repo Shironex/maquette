@@ -2512,7 +2512,7 @@ export type DecidedBy = {
 
 /**  How an approval ended. */
 export type Decision = "approved" | "denied" | 
-/**  Still waiting when Maquette quit. */
+/**  Still waiting when Maquette quit or another workspace was opened. */
 "expired" | 
 /**
  *  It went away before anyone answered: its jobs or its run were
@@ -2588,6 +2588,8 @@ export type DecisionSource =
 "question-changed" | 
 /**  Still waiting when Maquette quit. */
 "quit" | 
+/**  Still waiting when another workspace was opened. */
+"workspace-changed" | 
 /**  A caller that did not say. */
 "unknown";
 

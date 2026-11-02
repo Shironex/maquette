@@ -196,6 +196,7 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
         out["approval"] = json!({
             "id": approval.id,
             "note": "A person approves or denies spending these credits in the Maquette app. Poll get_provider_job; do not send again.",
+            "error": hub.unrecorded(&approval.id),
         });
     }
     out

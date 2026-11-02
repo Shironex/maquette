@@ -9,6 +9,7 @@ pub mod server;
 pub mod tool_names;
 pub mod tools;
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use maquette_core::providers::ledger::{DecisionRecord, decisions};
@@ -18,7 +19,7 @@ use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
 
 use self::host::Host;
-use self::hub::{Approval, Hub, McpCall};
+use self::hub::{Approval, DecisionLog, Hub, McpCall};
 use crate::commands::CommandResult;
 use crate::commands::site::gate::{StartGate, Starter, check as check_start};
 use crate::events::McpUpdate;
@@ -175,18 +176,18 @@ impl Agents {
     }
 }
 
-/// Writes an answer to an approval into the open workspace's
-/// `approvals.jsonl`. A failed write is logged, never raised: the answer
-/// itself must go through.
-pub fn record_decision(handle: &AppHandle, record: &DecisionRecord) {
-    let Some(session) = handle.try_state::<Session>() else {
-        return;
-    };
-    let Ok((root, _)) = session.workspace() else {
-        return;
-    };
-    if let Err(err) = decisions::append(&root, record) {
-        tracing::warn!(error = %err, "could not write the approvals log");
+/// Answers to approvals go to `approvals.jsonl` in the workspace that was
+/// open when each question was raised.
+pub struct WorkspaceLog(pub AppHandle);
+
+impl DecisionLog for WorkspaceLog {
+    fn place(&self) -> Option<PathBuf> {
+        let session = self.0.try_state::<Session>()?;
+        session.workspace().ok().map(|(root, _)| root)
+    }
+
+    fn write(&self, place: &Path, record: &DecisionRecord) -> Result<(), String> {
+        decisions::append(place, record).map_err(|e| e.to_string())
     }
 }
 

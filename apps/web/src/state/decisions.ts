@@ -47,6 +47,7 @@ const WHERE: Record<DecisionSource, string> = {
   'run-cancelled': 'as its run was cancelled',
   'question-changed': 'as the command changed',
   quit: 'as Maquette quit',
+  'workspace-changed': 'as another workspace opened',
   unknown: 'in the app',
 };
 

@@ -70,12 +70,10 @@ impl Hub {
     /// held (cancelled) by a person in the Rig doctor: nothing waits any more.
     pub fn close_rig_doctor(&self, id: &str, decision: Decision) {
         if let Some(found) = self.rig_doctor_for(id) {
-            self.settle(
-                &found.id,
-                false,
-                decision,
-                DecidedBy::from(DecisionSource::RigDoctor),
-            );
+            let by = DecidedBy::from(DecisionSource::RigDoctor);
+            if let Err(err) = self.settle(&found.id, false, decision, by) {
+                tracing::warn!(error = ?err, "could not close a rig doctor approval");
+            }
         }
     }
 }

@@ -3,13 +3,13 @@
 //! for a person.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use maquette_core::avatar::normalize::NormalizeSheets;
 use maquette_core::pipeline::StepDef;
 use maquette_core::pipeline::history::{LogEntry, RunRecord, now_ms};
 use maquette_core::pipeline::runner::PipelineEvent;
-use maquette_core::providers::ledger::DecisionRecord;
 use maquette_core::providers::{ProviderJob, format_credits};
 use maquette_core::site::preview::PreviewAsk;
 use serde::{Deserialize, Serialize};
@@ -170,17 +170,20 @@ struct Inner {
     preview_refused: HashMap<String, PreviewAsk>,
     /// Page preview: approvals taken back because the question changed.
     preview_withdrawn: HashSet<String>,
+    /// Where each waiting approval's answer is written, captured when it
+    /// was raised.
+    places: HashMap<String, Option<PathBuf>>,
+    /// Why a yes to a waiting approval was refused (its record could not
+    /// be written).
+    unrecorded: HashMap<String, String>,
 }
-
-/// Where every answer to an approval is written; see [`Hub::set_recorder`].
-type Recorder = Arc<dyn Fn(&DecisionRecord) + Send + Sync>;
 
 /// Shared between the server's tools, the run gate and the app.
 pub struct Hub {
     inner: Mutex<Inner>,
     decided: Condvar,
     on_change: Box<dyn Fn() + Send + Sync>,
-    recorder: Mutex<Option<Recorder>>,
+    log: Mutex<Option<Arc<dyn DecisionLog>>>,
 }
 
 impl Hub {
@@ -190,7 +193,7 @@ impl Hub {
             inner: Mutex::new(Inner::default()),
             decided: Condvar::new(),
             on_change: Box::new(on_change),
-            recorder: Mutex::new(None),
+            log: Mutex::new(None),
         }
     }
 
@@ -314,10 +317,12 @@ impl Hub {
     }
 
     fn push(&self, approval: impl FnOnce(String) -> Approval) -> String {
+        let place = self.place_now();
         let id = {
             let mut inner = self.lock();
             inner.next_approval += 1;
             let id = format!("approval-{}", inner.next_approval);
+            inner.places.insert(id.clone(), place);
             inner.approvals.push(approval(id.clone()));
             id
         };
@@ -464,6 +469,8 @@ impl Hub {
 }
 
 mod decisions;
+
+pub use decisions::{DecisionLog, Refused};
 mod preview;
 mod rest_pose;
 mod rig;

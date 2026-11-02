@@ -151,6 +151,7 @@ fn only_the_app_cards_count_as_card_sources() {
         DecisionSource::RunCancelled,
         DecisionSource::QuestionChanged,
         DecisionSource::Quit,
+        DecisionSource::WorkspaceChanged,
         DecisionSource::Unknown,
     ] {
         assert!(!other.is_card(), "{other:?}");
