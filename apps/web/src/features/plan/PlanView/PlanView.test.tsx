@@ -46,4 +46,14 @@ describe('PlanView', () => {
     act(() => void window.dispatchEvent(new Event('focus')));
     expect(reload).toHaveBeenCalled();
   });
+
+  it('reads the list again on focus while the project has no canvas folder to watch', async () => {
+    await openPlans();
+    vi.spyOn(commands, 'planWatch').mockResolvedValue(false);
+    render(<PlanView />);
+    await screen.findByRole('region', { name: 'All canvases' });
+    const list = vi.spyOn(commands, 'planList');
+    await act(async () => void window.dispatchEvent(new Event('focus')));
+    expect(list).toHaveBeenCalled();
+  });
 });

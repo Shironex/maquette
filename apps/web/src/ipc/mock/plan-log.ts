@@ -17,7 +17,17 @@ export interface MockLogEntry {
   mark: ChangeMark;
   ops: PlanOp[];
   undoes: string[];
+  keeps?: string[];
 }
+
+/** Whether `op` changed a person's content: their node or link, or an agent node they wrote in last. */
+const touchesPerson = (op: PlanOp) =>
+  op.op === 'set-node' || op.op === 'remove-node'
+    ? (op.op === 'set-node' ? op.before : op.node).by === null ||
+      Boolean((op.op === 'set-node' ? op.before : op.node).personWrote)
+    : op.op === 'set-edge' || op.op === 'remove-edge'
+      ? (op.op === 'set-edge' ? op.before : op.edge).by === null
+      : false;
 
 const KIND_NAME: Record<PlanNode['kind'], string> = {
   note: 'note',
@@ -120,10 +130,18 @@ export function createMockLogs() {
     lines: (project: unknown, id: unknown, limit: number): PlanLogLine[] => {
       const all = of(project, id);
       const undone = new Set(all.flatMap(e => e.undoes));
+      const kept = new Set(all.flatMap(e => e.keeps ?? []));
       return [...all]
         .reverse()
         .slice(0, limit)
         .map(e => ({
+          keepable:
+            e.by !== null &&
+            !e.undoes.length &&
+            !undone.has(e.id) &&
+            !kept.has(e.id) &&
+            e.ops.some(touchesPerson),
+          kept: kept.has(e.id),
           id: e.id,
           at: e.at,
           by: e.by,

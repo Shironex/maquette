@@ -106,6 +106,11 @@ async function historyShots(open, shot) {
     await page.getByRole('complementary', { name: 'Changes' }).waitFor();
     await page.waitForTimeout(300);
     await shot(page, `plan-history${suffix}`);
+    // A second agent edit of a person note in the same run: Keep per change and Keep run.
+    await mock(page, 'mock_plan_agent', { ...COMBAT, edit: 'n-02' });
+    await page.getByRole('button', { name: 'Keep run' }).waitFor();
+    await page.waitForTimeout(300);
+    await shot(page, `plan-keep${suffix}`);
     await page.context().close();
   }
 
@@ -122,6 +127,11 @@ async function historyShots(open, shot) {
   await page.getByRole('dialog', { name: 'The canvas changed outside' }).waitFor();
   await page.waitForTimeout(300);
   await shot(page, 'plan-outside');
+  // Escape closes the question without choosing: the top bar says so and asks again.
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Answer clash' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'plan-clash');
   await page.context().close();
 }
 

@@ -18,6 +18,7 @@ export function usePlanChanges() {
   const setFilter = usePlanLogStore(s => s.setFilter);
   const setPanel = usePlanLogStore(s => s.setPanel);
   const undoLines = usePlanLogStore(s => s.undo);
+  const keepLines = usePlanLogStore(s => s.keep);
   const now = useNow(CLOCK_MS);
   const runs = useMemo(() => runsOf(lines, filter), [lines, filter]);
   const [folded, setFolded] = useState<Record<string, boolean>>({});
@@ -33,6 +34,7 @@ export function usePlanChanges() {
     isOpen,
     toggle: (run: LogRun) => setFolded(f => ({ ...f, [run.key]: isOpen(run) })),
     undo: (ids: string[]) => void undoLines(ids),
+    keep: (ids: string[]) => void keepLines(ids),
     close: () => setPanel(false),
   };
 }

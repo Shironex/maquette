@@ -224,8 +224,15 @@ export const cases = [
         })
       );
       await page.getByText('Research agent changed the canvas').waitFor();
+      await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke('mock_plan_agent', {
+          project: 'frostveil',
+          id: 'combat-ideas',
+          edit: 'n-02',
+        })
+      );
       await page.getByRole('button', { name: /^Changes/ }).click();
-      await page.getByRole('complementary', { name: 'Changes' }).waitFor();
+      await page.getByRole('button', { name: 'Keep run' }).waitFor();
     },
   },
   {
@@ -246,6 +253,28 @@ export const cases = [
         })
       );
       await page.getByRole('dialog', { name: 'The canvas changed outside' }).waitFor();
+    },
+  },
+  {
+    name: 'plan clash left unanswered',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await page.getByRole('group', { name: 'Note: Frost veil' }).dblclick();
+      await page.getByRole('textbox', { name: 'Note text' }).fill('Mine, not saved yet');
+      await page.keyboard.press('Control+Enter');
+      await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke('mock_plan_outside', {
+          project: 'frostveil',
+          id: 'combat-ideas',
+          node: 'n-01',
+          text: 'Changed on the laptop',
+        })
+      );
+      await page.getByRole('dialog', { name: 'The canvas changed outside' }).waitFor();
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Answer clash' }).waitFor();
     },
   },
   {

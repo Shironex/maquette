@@ -16,6 +16,8 @@ export interface LogRun {
   lines: PlanLogLine[];
   /** The lines of it that can still be undone. */
   undoable: string[];
+  /** Its agent changes to the person's content still kept for undo: Keep run accepts them. */
+  keepable: string[];
 }
 
 /** Changes by one writer this close together, without a run id, make one group. */
@@ -40,9 +42,12 @@ export function runsOf(lines: readonly PlanLogLine[], filter: LogFilter = 'all')
         ? oldest.run === line.run
         : oldest.run === null && ms(oldest.at) - ms(line.at) < SAME_RUN_MS);
     if (same) last.lines.push(line);
-    else runs.push({ key: line.id, by: line.by, lines: [line], undoable: [] });
+    else runs.push({ key: line.id, by: line.by, lines: [line], undoable: [], keepable: [] });
   }
-  for (const run of runs) run.undoable = run.lines.filter(l => l.undoable).map(l => l.id);
+  for (const run of runs) {
+    run.undoable = run.lines.filter(l => l.undoable).map(l => l.id);
+    run.keepable = run.lines.filter(l => l.keepable).map(l => l.id);
+  }
   return runs;
 }
 

@@ -44,6 +44,10 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let inflight: Promise<boolean> | null = null;
 /** Counts saves started, so a reload knows one ran while it read the file. */
 let saves = 0;
+/** A reload saves kept overtaking, tried again a moment later. */
+let retry: ReturnType<typeof setTimeout> | undefined;
+/** How long a reload that saves kept overtaking waits before it reads again, in milliseconds. */
+export const RELOAD_RETRY_MS = 1000;
 /** Counts renames, so a save answered after a rename keeps the new name. */
 let renames = 0;
 /** The flow's canvas at the last undo step, so the next edit records what changed since. */
@@ -55,7 +59,10 @@ export const noteRename = () => {
 
 /** Whether an outside write changed what `before` says (its text or links), not only where it sits. */
 const editedOutside = (before: PlanNode, after: PlanNode) =>
-  !deepEqual({ ...before, x: 0, y: 0 }, { ...after, x: 0, y: 0 });
+  !deepEqual(
+    { ...before, x: 0, y: 0, personWrote: false },
+    { ...after, x: 0, y: 0, personWrote: false }
+  );
 
 const notifyFailed = (title: string, error: unknown) =>
   useAppStore.getState().notify({ status: 'failed', title, detail: errorMessage(error) });
@@ -132,6 +139,7 @@ export function createSync(set: SetPlans, get: GetPlans) {
   /** Forgets the undo steps and timer, for a canvas opened or closed. */
   const reset = (plan: PlanFile | null) => {
     clearTimeout(timer);
+    clearTimeout(retry);
     mark = plan;
     set({ history: EMPTY_HISTORY, outside: null, arrived: [], marks: {} });
   };
@@ -212,6 +220,7 @@ export function createSync(set: SetPlans, get: GetPlans) {
 
       reload: async () => {
         // The app's own save first: its answer is the base the file is compared with.
+        clearTimeout(retry);
         let doc: PlanDoc | null = null;
         // A save that ran while the file was read makes the read stale: read again after it.
         for (let round = 0; round < 5 && !doc; round += 1) {
@@ -227,10 +236,22 @@ export function createSync(set: SetPlans, get: GetPlans) {
           }
           if (started !== saves || inflight) doc = null;
         }
-        if (!doc) return;
+        if (!doc) {
+          // Saves kept landing while it read: read again once they settle.
+          retry = setTimeout(() => void get().reload(), RELOAD_RETRY_MS);
+          return;
+        }
         const base = get().open;
         const local = draft();
-        if (base?.id !== doc.id || !local || samePlan(doc.plan, base.plan)) return;
+        if (base?.id !== doc.id || !local) return;
+        if (samePlan(doc.plan, base.plan)) {
+          // The file matches the base again: a pending clash names a version the file does not hold.
+          if (get().outside) {
+            set({ outside: null });
+            changed(false);
+          }
+          return;
+        }
         if (samePlan(local, base.plan)) {
           adopt(doc, doc.plan);
           set({ outside: null });

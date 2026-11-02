@@ -364,6 +364,13 @@
   padding: 10px 8px 10px 12px;
 }
 
+/* A run's Keep run and Undo run, under its name so a long agent name stays whole. */
+.plan-run-actions {
+  display: flex;
+  gap: 6px;
+  padding: 0 8px 10px 48px;
+}
+
 .plan-run-avatar {
   width: 28px;
   height: 28px;

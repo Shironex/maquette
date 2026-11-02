@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { clearMocks, openPlans } from '@/test/open-plan';
-import { ANSWER_FIRST } from './plans-sync';
+import { ANSWER_FIRST, RELOAD_RETRY_MS } from './plans-sync';
 import { useAppStore } from './use-app-store';
-import { usePlanLogStore } from './use-plan-log-store';
+import { NOTHING_TO_UNDO, usePlanLogStore } from './use-plan-log-store';
 import { SAVE_DELAY, usePlansStore } from './use-plans-store';
 
 beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
@@ -14,6 +14,7 @@ afterEach(() => {
 });
 
 const plans = () => usePlansStore.getState();
+const ORIGINAL = 'Slow time around you for a moment. Hold Shift, the same key as Dash.';
 const flowNode = (id: string) => plans().nodes.find(n => n.id === id);
 const fileText = async (id: string) =>
   (await commands.planGet('frostveil', 'combat-ideas')).plan.nodes.find(n => n.id === id)?.text;
@@ -91,6 +92,15 @@ describe('while the outside change waits for its answer', () => {
     await stillAsks(apply);
   });
 
+  it('drops the question when the file goes back to what the view had', async () => {
+    const { store } = await clash();
+    await outside(store, 'n-01', ORIGINAL);
+    await plans().reload();
+    expect(plans().outside).toBeNull();
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY + 50);
+    expect(await fileText('n-01')).toBe('Mine');
+  });
+
   it('saves once the person answers', async () => {
     await clash();
     plans().keepMine();
@@ -120,6 +130,27 @@ describe('reading the file again', () => {
     expect(await fileText('n-01')).toBe('Saved meanwhile');
   });
 
+  it('reads again a moment later when saves keep overtaking it', async () => {
+    await openPlans();
+    await plans().openCanvas('combat-ideas');
+    const real = commands.planGet;
+    let n = 0;
+    const get = vi.spyOn(commands, 'planGet').mockImplementation(async (project, id) => {
+      const doc = await real(project, id);
+      n += 1;
+      if (n <= 5) {
+        plans().updateNode('n-01', { text: `Saved ${n}` });
+        void plans().save();
+      }
+      return doc;
+    });
+    await plans().reload();
+    expect(get).toHaveBeenCalledTimes(5);
+    await vi.advanceTimersByTimeAsync(RELOAD_RETRY_MS + 50);
+    expect(get).toHaveBeenCalledTimes(6);
+    expect(flowNode('n-01')?.data.node.text).toBe('Saved 5');
+  });
+
   it('keeps where a drag started when an outside change lands mid drag', async () => {
     const store = await openPlans();
     await plans().openCanvas('combat-ideas');
@@ -136,5 +167,36 @@ describe('reading the file again', () => {
     plans().undo();
     expect(flowNode('n-01')?.position.x).toBe(startX);
     expect(flowNode('n-02')?.data.node.text).toBe('From the laptop');
+  });
+});
+
+describe('freeing what the log keeps for undo', () => {
+  it('says plainly when an undo finds nothing left to undo, and marks it undone', async () => {
+    await openPlans();
+    await plans().openCanvas('combat-ideas');
+    // The person removes what the agent added a day ago.
+    plans().onNodesChange([{ type: 'remove', id: 'n-05' }]);
+    await plans().save();
+    const log = usePlanLogStore.getState();
+    await log.load('frostveil', 'combat-ideas');
+    const agent = usePlanLogStore.getState().lines.find(l => l.by === 'Research agent');
+    expect(await usePlanLogStore.getState().undo([agent!.id])).toBe(true);
+    expect(useAppStore.getState().notice?.title).toBe(NOTHING_TO_UNDO);
+    const lines = usePlanLogStore.getState().lines;
+    expect(lines.find(l => l.id === agent!.id)?.undone).toBe(true);
+    expect(lines[0]?.summary).toMatch(/^Nothing to undo, already changed/);
+  });
+
+  it('keeps an agent edit of the person note, which can then no longer be kept', async () => {
+    const store = await openPlans();
+    await plans().openCanvas('combat-ideas');
+    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas' });
+    await usePlanLogStore.getState().load('frostveil', 'combat-ideas');
+    const edit = usePlanLogStore.getState().lines[0];
+    expect(edit?.keepable).toBe(true);
+    expect(await usePlanLogStore.getState().keep([edit!.id])).toBe(true);
+    const after = usePlanLogStore.getState().lines;
+    expect(after[0]?.mark).toBe('keep');
+    expect(after.find(l => l.id === edit!.id)).toMatchObject({ kept: true, keepable: false });
   });
 });

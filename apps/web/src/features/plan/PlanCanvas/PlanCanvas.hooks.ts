@@ -51,8 +51,11 @@ function safeBox(frame: RefObject<HTMLElement | null>) {
   };
 }
 
-/** Pans (and zooms out only if it must) so the nodes `ids` sit inside the safe part. */
-function reveal(flow: Flow, frame: RefObject<HTMLElement | null>, ids: string[]) {
+/**
+ * Pans (and, unless `panOnly`, zooms out if it must) so the nodes `ids` sit
+ * inside the safe part; with `panOnly` nodes too wide stay centred instead.
+ */
+function reveal(flow: Flow, frame: RefObject<HTMLElement | null>, ids: string[], panOnly = false) {
   const safe = safeBox(frame);
   const nodes = ids.filter(id => flow.getNode(id));
   if (!safe || nodes.length === 0) return;
@@ -62,7 +65,7 @@ function reveal(flow: Flow, frame: RefObject<HTMLElement | null>, ids: string[])
   if (a.x >= safe.left && a.y >= safe.top && b.x <= safe.right && b.y <= safe.bottom) return;
   const zoom = flow.getZoom();
   const fits = b.x - a.x <= safe.right - safe.left && b.y - a.y <= safe.bottom - safe.top;
-  if (!fits) {
+  if (!fits && !panOnly) {
     void flow.fitView({
       nodes: nodes.map(id => ({ id })),
       padding: 0.3,
@@ -139,7 +142,7 @@ export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null
   useEffect(() => {
     if (!panel) return;
     const timer = setTimeout(
-      () => reveal(flow, frame, Object.keys(usePlansStore.getState().marks)),
+      () => reveal(flow, frame, Object.keys(usePlansStore.getState().marks), true),
       60
     );
     return () => clearTimeout(timer);

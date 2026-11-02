@@ -13,7 +13,11 @@ const MARK_ICON: Record<ChangeMark, IconName> = {
   undo: 'arrow-counter-clockwise',
   rename: 'tag',
   create: 'sparkle',
+  keep: 'check',
 };
+
+const KEEP_TIP =
+  'Accept this agent change: the log stops holding your earlier version for it, which frees room. It stays undoable while it is among the newest changes.';
 
 const FILTERS: { value: LogFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -35,6 +39,7 @@ export default function PlanChanges() {
     const agent = run.by !== null;
     const newest = run.lines[0];
     const undoRun = agent && open && run.undoable.length > 1;
+    const keepRun = agent && open && run.keepable.length > 1;
     const rows = open
       ? run.lines.map(line => (
           <div key={line.id} className={cn('plan-change', line.undone && 'is-undone')}>
@@ -45,19 +50,35 @@ export default function PlanChanges() {
               {line.summary}
               {line.undone ? <span className="sr-only"> (undone)</span> : null}
             </span>
-            {line.undoable ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={v.busy}
-                aria-label={`Undo: ${line.summary}`}
-                onClick={() => v.undo([line.id])}
-              >
-                Undo
-              </Button>
-            ) : (
-              <span className="text-[11px] text-fg-mute">{line.undone ? 'undone' : ''}</span>
-            )}
+            <span className="flex items-center gap-0.5">
+              {line.keepable ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={v.busy}
+                  aria-label={`Keep: ${line.summary}`}
+                  tooltip={KEEP_TIP}
+                  onClick={() => v.keep([line.id])}
+                >
+                  Keep
+                </Button>
+              ) : null}
+              {line.undoable ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={v.busy}
+                  aria-label={`Undo: ${line.summary}`}
+                  onClick={() => v.undo([line.id])}
+                >
+                  Undo
+                </Button>
+              ) : (
+                <span className="text-[11px] text-fg-mute">
+                  {line.undone ? 'undone' : line.kept ? 'kept' : ''}
+                </span>
+              )}
+            </span>
           </div>
         ))
       : null;
@@ -81,16 +102,6 @@ export default function PlanChanges() {
             </p>
           </div>
           <span className="ml-auto" />
-          {undoRun ? (
-            <Button
-              size="sm"
-              disabled={v.busy}
-              tooltip="Undoes every change of this run that is not undone yet"
-              onClick={() => v.undo(run.undoable)}
-            >
-              Undo run
-            </Button>
-          ) : null}
           <IconButton
             icon="caret-down"
             size="sm"
@@ -101,6 +112,30 @@ export default function PlanChanges() {
             onClick={() => v.toggle(run)}
           />
         </div>
+        {keepRun || undoRun ? (
+          <div className="plan-run-actions">
+            {keepRun ? (
+              <Button
+                size="sm"
+                disabled={v.busy}
+                tooltip="Accepts every agent change of this run to your content, freeing the room the log holds to undo them"
+                onClick={() => v.keep(run.keepable)}
+              >
+                Keep run
+              </Button>
+            ) : null}
+            {undoRun ? (
+              <Button
+                size="sm"
+                disabled={v.busy}
+                tooltip="Undoes every change of this run that is not undone yet"
+                onClick={() => v.undo(run.undoable)}
+              >
+                Undo run
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {rows}
       </div>
     );
@@ -130,10 +165,10 @@ export default function PlanChanges() {
         )}
       </div>
       <p className="plan-side-foot">
-        Agents never remove your nodes or links. What an agent changed on your nodes stays undoable
-        until you undo it, also after a restart. Other changes stay undoable while they are among
-        the newest in the log (at least the last 512 KB); one edit over 256 KB keeps only its
-        summary.
+        Agents never remove your nodes or links, or nodes you wrote in. What an agent changed on
+        your content stays undoable until you undo it or press Keep, also after a restart. Other
+        changes stay undoable while they are among the newest in the log (at least the last 512 KB);
+        one edit over 256 KB keeps only its summary.
       </p>
     </aside>
   );

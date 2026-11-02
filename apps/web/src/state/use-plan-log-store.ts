@@ -13,6 +13,9 @@ import { useAppStore } from './use-app-store';
 import { answerFirst } from './plans-sync';
 import { usePlansStore } from './use-plans-store';
 
+/** What an undo says when everything it would undo was changed since. */
+export const NOTHING_TO_UNDO = 'Already changed, nothing to undo';
+
 /** How many log lines the panel reads. */
 export const LOG_LIMIT = 200;
 
@@ -32,6 +35,8 @@ interface PlanLogStore {
   undoing: boolean;
   load: (project: string, id: string) => Promise<void>;
   undo: (lines: string[]) => Promise<boolean>;
+  /** Keeps (accepts) agent changes: the log stops holding room to undo them. */
+  keep: (lines: string[]) => Promise<boolean>;
   setPanel: (open: boolean) => void;
   setFilter: (filter: LogFilter) => void;
   dismissToast: () => void;
@@ -79,7 +84,14 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
     // The person's edits reach the file first, so the undo meets them there.
     if (!(await plans.save())) return false;
     try {
-      await commands.planUndo(project, open.id, ids);
+      const done = await commands.planUndo(project, open.id, ids);
+      if (!done.changed)
+        useAppStore.getState().notify({
+          status: 'info',
+          title: NOTHING_TO_UNDO,
+          detail:
+            'What this change touched was edited or removed since, so nothing changed. It counts as undone and holds no more room in the log.',
+        });
     } catch (error) {
       useAppStore.getState().notify({
         status: 'failed',
@@ -90,6 +102,24 @@ export const usePlanLogStore = create<PlanLogStore>((set, get) => ({
     }
     set({ toast: null });
     await usePlansStore.getState().reload();
+    await get().load(project, open.id);
+    return true;
+  },
+
+  keep: async ids => {
+    const { project, open } = usePlansStore.getState();
+    if (!project || !open || ids.length === 0) return false;
+    try {
+      await commands.planKeep(project, open.id, ids);
+    } catch (error) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: 'The change was not kept',
+        detail: errorMessage(error),
+      });
+      return false;
+    }
+    set({ toast: null });
     await get().load(project, open.id);
     return true;
   },

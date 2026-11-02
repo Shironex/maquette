@@ -237,13 +237,52 @@ export function createPlanHandlers(
       const ops = [...picked].reverse().flatMap(e => invertOps(e.ops));
       const next = applyOps(current, ops, 'careful').plan;
       const only = picked.length === 1 ? picked[0] : undefined;
-      const summary = only ? `Undid: ${only.summary}` : `Undid ${picked.length} changes`;
-      return write(project, String(id), next, null, { summary, mark: 'undo', undoes: [...wanted] });
+      const what = only ? only.summary : `${picked.length} changes`;
+      const changed = diffPlans(current, stored(current, next)).length > 0;
+      // Nothing left to undo still writes its line, so the change counts as undone.
+      if (!changed)
+        logs.append(project, id, {
+          by: null,
+          run: null,
+          ops: [],
+          summary: `Nothing to undo, already changed: ${what}`,
+          mark: 'undo',
+          undoes: [...wanted],
+        });
+      const summary = only ? `Undid: ${what}` : `Undid ${what}`;
+      const saved = changed
+        ? write(project, String(id), next, null, { summary, mark: 'undo', undoes: [...wanted] })
+        : doc(project, String(id), current);
+      return { doc: saved, changed, kept: 0 };
+    },
+    plan_keep: ({ project, id, changes }: Args) => {
+      existing(project, id);
+      const ids = changes as string[];
+      const keepable = new Set(
+        logs
+          .lines(project, id, 1000)
+          .filter(l => l.keepable)
+          .map(l => l.id)
+      );
+      if (!ids.length || ids.some(c => !keepable.has(c)))
+        fail('invalid', 'That change has nothing to keep.');
+      const only =
+        ids.length === 1 ? logs.entries(project, id).find(e => e.id === ids[0]) : undefined;
+      const summary = only ? `Kept: ${only.summary}` : `Kept ${ids.length} agent changes`;
+      logs.append(project, id, { by: null, run: null, ops: [], summary, mark: 'keep', keeps: ids });
+      return null;
     },
     plan_watch: () => true,
     // Mock only, for the visual check: an agent's run and a change from another computer.
-    mock_plan_agent: ({ project, id }: Args) => {
+    mock_plan_agent: ({ project, id, edit }: Args) => {
       const current = existing(project, id);
+      // With `edit`, only that node's text, as a second call of the same run.
+      if (edit) {
+        const nodes = current.nodes.map(n =>
+          n.id === edit ? { ...n, text: `${n.text} Check it on a phone first.` } : n
+        );
+        return write(project, String(id), { ...current, nodes }, AGENT);
+      }
       const right = Math.max(...current.nodes.map(n => n.x + (n.width ?? 260)), 0) + 64;
       const add = AGENT_NOTES.map((n, i) => ({
         ...note(`n-a${i + 1}`, right, 60 + i * 170, n.text, n.title),

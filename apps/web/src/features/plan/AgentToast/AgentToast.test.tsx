@@ -14,6 +14,8 @@ const line = (id: string, summary: string): PlanLogLine => ({
   mark: 'add',
   undone: false,
   undoable: true,
+  keepable: false,
+  kept: false,
 });
 
 afterEach(() => usePlanLogStore.getState().clear());

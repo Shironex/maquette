@@ -21,7 +21,8 @@ function reread(project: string, id: string | null) {
  * and change log again (its own saves read back as the same canvas, so
  * nothing reloads in a loop); with no canvas open the list reads again.
  * When the folder cannot be watched the person is told, and the canvas
- * reads its file again whenever the window comes to the front.
+ * reads its file again whenever the window comes to the front; a project
+ * with no `plans/` folder yet reads its list again on focus until it has one.
  */
 export function usePlanWatch(projectId: string | null) {
   const openId = usePlansStore(s => s.open?.id ?? null);
@@ -29,10 +30,11 @@ export function usePlanWatch(projectId: string | null) {
   const hasCanvas = usePlansStore(s => Boolean(s.open) || (s.list?.length ?? 0) > 0);
   const [unwatched, setUnwatched] = useState(false);
   useEffect(() => {
-    if (!projectId || !hasCanvas) return;
+    if (!projectId) return;
     let live = true;
+    // False: no `plans/` yet. The list reads again on focus (and on an agent's create_canvas) until it has one.
     commands.planWatch(projectId).then(
-      () => live && setUnwatched(false),
+      watching => live && setUnwatched(!watching),
       (error: unknown) => {
         if (!live) return;
         setUnwatched(true);

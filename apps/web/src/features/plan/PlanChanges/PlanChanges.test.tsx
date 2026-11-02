@@ -14,14 +14,17 @@ const line = (id: string, by: string | null, summary: string, more = {}): PlanLo
   mark: 'add',
   undone: false,
   undoable: true,
+  keepable: false,
+  kept: false,
   ...more,
 });
 
 const show = (lines: PlanLogLine[]) => {
   const undo = vi.fn(async () => true);
-  usePlanLogStore.setState({ lines, error: null, filter: 'all', panel: true, undo });
+  const keep = vi.fn(async () => true);
+  usePlanLogStore.setState({ lines, error: null, filter: 'all', panel: true, undo, keep });
   render(<PlanChanges />);
-  return undo;
+  return Object.assign(undo, { keep });
 };
 
 afterEach(() => usePlanLogStore.getState().clear());
@@ -68,5 +71,21 @@ describe('PlanChanges', () => {
     expect(usePlanLogStore.getState().panel).toBe(false);
     usePlanLogStore.setState({ error: 'Locked' });
     expect(await screen.findByRole('alert')).toHaveTextContent('Locked');
+  });
+
+  it('keeps an agent change to the person content, one or the whole run', async () => {
+    const calls = show([
+      line('c3', 'Research agent', 'Edited note: Porch', { mark: 'edit', keepable: true }),
+      line('c2', 'Research agent', 'Edited note: Moon', { mark: 'edit', keepable: true }),
+      line('c1', 'Research agent', 'Added note: Dusk', { kept: true, undoable: false }),
+    ]);
+    await userEvent.click(screen.getByRole('button', { name: 'Keep: Edited note: Porch' }));
+    expect(calls.keep).toHaveBeenCalledWith(['c3']);
+    await userEvent.click(screen.getByRole('button', { name: 'Keep run' }));
+    expect(calls.keep).toHaveBeenCalledWith(['c3', 'c2']);
+    expect(screen.getByText('kept')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Keep: Added note: Dusk' })
+    ).not.toBeInTheDocument();
   });
 });
