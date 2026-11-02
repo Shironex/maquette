@@ -13,6 +13,7 @@ mod codex;
 pub mod codex_usage;
 pub mod import;
 pub mod jobs;
+mod naming;
 pub mod objects;
 pub mod pick;
 mod picks;
@@ -37,6 +38,8 @@ use crate::project::now_rfc3339;
 pub use crate::refs::REFS_DIR;
 pub use codex::{assemble, attached, codex_args, prompt};
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
+pub use naming::direction_id;
+use naming::existing_id;
 pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
 pub use pick::{ImageRef, MAX_PICKS, PickRequest, Picked, PickedImage, pick_images, star_images};
 pub use picks::{SentPicks, heal_ref_thumbnails, send_picks};
@@ -207,21 +210,6 @@ fn check_direction_id(id: &str) -> CoreResult<()> {
     }
 }
 
-/// The folder name for a direction called `name`. A name with nothing a
-/// slug keeps gets its own stable id from its text, since every such name
-/// would otherwise share `project`.
-pub fn direction_id(name: &str) -> String {
-    crate::project::latin_slug(name).map_or_else(
-        || {
-            let hash = name.trim().bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
-                (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
-            });
-            format!("direction-{hash:016x}")
-        },
-        crate::project::windows_safe,
-    )
-}
-
 pub fn direction_dir(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
     check_direction_id(id)?;
     Ok(concepts_dir(project_dir).join(id))
@@ -351,16 +339,6 @@ pub fn prepare(
     new: &NewConcepts,
 ) -> CoreResult<(Direction, Vec<(u32, String)>)> {
     prepare_with(project_dir, new, None)
-}
-
-/// The folder of a direction already called `name`, which an older id rule
-/// may have put elsewhere (`con`, or `project` for a name in another script).
-fn existing_id(project_dir: &Path, name: &str) -> Option<String> {
-    let name = name.trim();
-    list_directions(project_dir)
-        .into_iter()
-        .find(|d| d.name.trim() == name)
-        .map(|d| d.id)
 }
 
 /// [`prepare`] for a batch that carries the style board at
