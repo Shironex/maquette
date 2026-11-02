@@ -16,6 +16,10 @@
 //!
 //! Images the Lab made with OpenAI's Image API are written as version 3
 //! lines in dollars (see [`images`]) and read into their own list.
+//!
+//! Who approved or denied what an agent asked is kept in a sibling file,
+//! `approvals.jsonl` (see [`decisions`]); reading links each send to the
+//! decision that let it go.
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write as _};
@@ -27,8 +31,10 @@ use serde::{Deserialize, Serialize};
 use super::presets::ProviderId;
 use crate::error::{CoreError, CoreResult};
 
+pub mod decisions;
 pub mod images;
 
+pub use decisions::{DecidedBy, Decision, DecisionInput, DecisionRecord, DecisionSource};
 pub use images::{ImageSpend, month_to_date, recent_average_usd};
 
 pub const LEDGER_FILE: &str = "credits.jsonl";
@@ -157,6 +163,11 @@ pub struct Spend {
     pub redo_of: Option<String>,
     pub via_agent: bool,
     pub source: SpendSource,
+    /// Who approved it, when and from where, for a send an agent asked for;
+    /// none for a send started in the app (its send form was the yes) and
+    /// for sends from before decisions were kept.
+    #[serde(default)]
+    pub decision: Option<DecisionRecord>,
 }
 
 /// The ledger as read: newest send first.
@@ -191,14 +202,21 @@ pub fn append(root: &Path, line: &impl Serialize) -> CoreResult<()> {
         .map_err(|e| CoreError::io(&path, e))
 }
 
-/// Reads the ledger. A missing file is an empty ledger.
+/// Reads the ledger, each send with its decision. A missing file is an
+/// empty ledger; a missing or unreadable decisions file leaves every
+/// decision out.
 pub fn read(root: &Path) -> CoreResult<Ledger> {
     let path = path(root);
-    match fs::read_to_string(&path) {
-        Ok(text) => Ok(parse(&text)),
-        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Ledger::default()),
-        Err(err) => Err(CoreError::io(&path, err)),
+    let mut ledger = match fs::read_to_string(&path) {
+        Ok(text) => parse(&text),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ledger::default(),
+        Err(err) => return Err(CoreError::io(&path, err)),
+    };
+    match decisions::read(root) {
+        Ok(found) => decisions::attach(&mut ledger.spends, &found),
+        Err(err) => tracing::warn!(error = %err, "could not read the approvals log"),
     }
+    Ok(ledger)
 }
 
 /// Folds the lines of `text`, skipping and counting the ones that do not
@@ -267,6 +285,7 @@ pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
                     redo_of: None,
                     via_agent: false,
                     source: line.source,
+                    decision: None,
                 },
                 None,
                 None,
