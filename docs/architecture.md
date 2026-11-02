@@ -1017,8 +1017,13 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   client's name, one line, at most 64 characters) and may name a `run` to group calls. At most 100
   nodes and links per call, and everything is checked before anything is written. An agent may add
   anything and edit or move any node, a person's too, since the log keeps what it said before. It
-  never removes a person's node or link, nor a node that has a link someone else drew: each is
-  refused with a reason. Agent names are labels, not accounts (any client can pass any name), so a
+  never removes a person's node or link, an agent node a person wrote in last, nor a node that has a
+  link someone else drew: each is refused with a reason. Who wrote a node last is in the file: an
+  agent node whose content (kind, title, text, picture, address, asset or direction) a person wrote
+  last carries `personWrote: true`. The core sets it on every write (a person's sets it, an agent's
+  clears it, a move leaves it), writes it only when true and an undo carries it back with the
+  content, so files without it read as before and stay version 2; an older app ignores it and drops
+  it on its next save there. Agent names are labels, not accounts (any client can pass any name), so a
   node under another agent's name is refused too as a courtesy, but the only protection is between
   the person and agents. `place.rs` puts a node without `x` and
   `y` in a column right of the `near` node (or right of everything), clear of every other node by a
@@ -1028,11 +1033,19 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
 - **Change log.** Each canvas has `plans/<id>.log.jsonl`, one JSON line per write (`log.rs`): id, time,
   `by` (null for a person), `run`, a one line summary (`summary.rs`), the operations as written and the
   lines an undo took back. It is only appended to, so a sync tool sends the new lines and the canvas
-  file stays small. An agent's line that changed a person's node or link is a keeper: it is the only
-  place the person's earlier content lives, so rotation never drops it while it is not undone. An
-  agent write is refused before anything is written when its line would pass 256 KiB (one node's
-  longest text, before and after, fits) or when it changes a person's content and the keepers would
-  pass 4 MiB; the person undoes or reviews agent changes first, and adding nodes still works. Every
+  file stays small. An agent's line that changed a person's content (their node or link, or an agent
+  node with `personWrote`) is a keeper (`log/keep.rs`): it is the only place their earlier version
+  lives, so rotation never drops it until it is released. An undo releases what it names, the
+  person's or the agent's own `undo_run`, and writes its line even when everything was changed since
+  (no operations, "Nothing to undo, already changed", and the view says "Already changed, nothing to
+  undo"). The person's Keep and Keep run in the Changes panel (`plan_keep`) write a line with `keeps`
+  that releases them without changing the canvas. Undo and keep lines are never keepers. An agent
+  write is refused before anything is written when its line would pass 256 KiB (one node's longest
+  text, before and after, fits) or when it changes a person's content and the keepers, less what it
+  releases, would pass 4 MiB; an undo is never refused for room, and adding nodes still works. The
+  keepers' sizes and the other lines' total are indexed in memory per log, so an append neither
+  rereads the log for the budget nor to decide on rotation; the index is read again whenever the
+  file's size or time is not what the last write left. Every
   other line (a person's own edits, agents' changes to their own nodes) stays undoable while it is
   among the newest: once those lines pass 1 MiB one atomic rewrite keeps every keeper and the newest
   512 KiB of the rest. A person's own line over 256 KiB keeps its summary but drops its operations

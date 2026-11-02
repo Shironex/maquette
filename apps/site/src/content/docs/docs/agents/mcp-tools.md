@@ -1194,7 +1194,7 @@ Lists a project's planning canvases: the id every other canvas tool takes as `ca
 
 `read only`
 
-Reads a canvas: each node's id, kind, title, text, `url`, picture path, linked asset (with its live name, stage and version count, or `gone`), Lab direction, `x`, `y` and `by` (the agent that added it, absent for a person), and the links between nodes (`from`, `to`, `kind` when it is not `relates`, `label`, `by`). Texts are cut at 120 characters unless `full`. Read it before `add_nodes` so new nodes go near the right one.
+Reads a canvas: each node's id, kind, title, text, `url`, picture path, linked asset (with its live name, stage and version count, or `gone`), Lab direction, `x`, `y`, `by` (the agent that added it, absent for a person) and `personWrote: true` on an agent's node a person wrote in last (it is theirs now), and the links between nodes (`from`, `to`, `kind` when it is not `relates`, `label`, `by`). Texts are cut at 120 characters unless `full`. Read it before `add_nodes` so new nodes go near the right one.
 
 | Argument  | Type     | Required | What                                                  |
 | --------- | -------- | -------- | ----------------------------------------------------- |
@@ -1317,7 +1317,7 @@ Adds nodes (`note`, `image`, `link`, `asset` or `direction`) and links to a canv
 
 `writes files`
 
-Edits or moves nodes: only the fields given change. Any node may be edited, a person's too, because the change log keeps what it said before and the edit can be undone. When the person edits the same field before saving, they choose in the app which value stays. The log keeps a person's earlier text until they undo your change, so a call is refused, with nothing written, when its undo record would pass 256 KB (send fewer nodes) or when the agents' changes to a person's nodes not undone yet already hold 4 MB (the person reviews them in the Changes panel first; adding nodes still works).
+Edits or moves nodes: only the fields given change. Any node may be edited, a person's too, because the change log keeps what it said before and the edit can be undone. When the person edits the same field before saving, they choose in the app which value stays. The log keeps a person's earlier version until your change is released (the person presses Undo or Keep in the Changes panel, or you call `undo_run`), so a call is refused, with nothing written, when its undo record would pass 256 KB (send fewer nodes) or when the agents' changes to a person's content not released yet already hold 4 MB (adding nodes still works, and `undo_run` is never refused for room).
 
 | Argument  | Type     | Required | What                                                      |
 | --------- | -------- | -------- | --------------------------------------------------------- |
@@ -1343,7 +1343,7 @@ Edits or moves nodes: only the fields given change. Any node may be edited, a pe
 
 `writes files`
 
-Removes nodes and links you added. A node goes with its links. A person's node or link is refused with the reason, and so is a node that has a link someone else drew: agents never delete a person's work, so ask the person. Agent names are labels, not accounts: a node made under another agent's name is refused too, but any agent can pass any name, so that is a courtesy, not a protection. Ids no longer on the canvas are noted, not refused.
+Removes nodes and links you added. A node goes with its links. A person's node or link is refused with the reason, and so is a node of yours a person wrote in last (`personWrote` in `get_canvas`) and a node that has a link someone else drew: agents never delete a person's work, so ask the person. Agent names are labels, not accounts: a node made under another agent's name is refused too, but any agent can pass any name, so that is a courtesy, not a protection. Ids no longer on the canvas are noted, not refused.
 
 | Argument  | Type     | Required | What                                                 |
 | --------- | -------- | -------- | ---------------------------------------------------- |
@@ -1384,7 +1384,7 @@ Tidies the nodes you added: each one that overlaps another node moves to a free 
 
 `writes files`
 
-Undoes your own changes on a canvas: a whole `run`, or change ids from `get_changes` or an edit tool's answer, at most 100 per call. It is careful: a field someone changed since stays as they left it, and a node a person edited or linked since is kept with their links and counted in `kept`. A person's change, or one made under another agent name, is refused; names are labels, so only the person's work is protected. The undo is itself a logged change. Answers with how many changes it undid.
+Undoes your own changes on a canvas: a whole `run`, or change ids from `get_changes` or an edit tool's answer, at most 100 per call. It is careful: a field someone changed since stays as they left it, and a node a person edited or linked since is kept with their links and counted in `kept`. A person's change, or one made under another agent name, is refused; names are labels, so only the person's work is protected. The undo is itself a logged change, and it frees the room the log held for those changes. When everything was changed since, nothing changes (`nothingChanged: true`) but the changes count as undone. Answers with how many changes it undid.
 
 | Argument  | Type     | Required | What                                                           |
 | --------- | -------- | -------- | -------------------------------------------------------------- |
@@ -1399,5 +1399,5 @@ Undoes your own changes on a canvas: a whole `run`, or change ids from `get_chan
 ```
 
 ```json
-{ "undone": 1, "change": "c-mh2k1x9a005", "kept": 0 }
+{ "undone": 1, "change": "c-mh2k1x9a005", "kept": 0, "nothingChanged": false }
 ```

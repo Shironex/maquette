@@ -25,14 +25,17 @@ and `get_canvas` reads one, so read the canvas the person points at before you p
 
 ## Hard rules
 
-- Never remove a person's node or link. `remove_nodes` refuses it; ask the person instead.
+- Never remove a person's node or link, or a node of yours a person wrote in last (`get_canvas`
+  shows `personWrote: true`; it is theirs now). `remove_nodes` refuses it; ask the person instead.
 - Pass the same `agent` name on every call, such as "Research agent", and a `run` id that groups
   one task's calls, so the person can read and undo the whole run at once.
 - Agent names are labels, not accounts. Leave nodes made under another agent's name alone unless
   the person asks; nothing but courtesy stops you, so do not count on it either way.
-- Edit a person's node only when they asked for it. Their earlier text stays in the change log
-  until they undo or keep your change, and that store is limited: when it is full, edits to a
-  person's nodes are refused until they review the Changes panel. Adding your own nodes still works.
+- Edit a person's content only when they asked for it. The change log holds their earlier version
+  until your change is released: the person presses Undo or Keep (Keep run for a whole run) in the
+  Changes panel, or you `undo_run` it. That room is limited (4 MB): when it is full, edits to a
+  person's content are refused until something is released. Adding your own nodes still works, and
+  `undo_run` is never refused for lack of room.
 - Keep each call small: a few nodes at a time. A call whose undo record would pass 256 KB is
   refused with nothing written; split it.
 - Never capture the screen. The person looks at the canvas in the app.
@@ -66,4 +69,5 @@ Tell the person in one line what you added and where (near which node), and the 
 `undo_run` `{ project, canvas, agent, run }` (or `changes`, at most 100 ids from `get_changes`)
 undoes your own changes carefully: a field someone changed since stays as they left it, and a node
 a person edited or linked since is kept with their links (`kept` counts them). It answers with how
-many changes it undid. The person can undo any agent change themselves from the Changes panel.
+many changes it undid; `nothingChanged: true` means everything was changed since, and the changes
+still count as undone. The person can undo or keep any agent change from the Changes panel.
