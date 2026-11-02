@@ -47,7 +47,10 @@ export default function SpendRow({ spend, now, project, position }: SpendRowProp
           {spend.viaAgent ? ' · by an agent' : ''}
         </span>
         {spend.decision ? (
-          <span className="truncate text-meta text-fg-mute" title={decisionTitle(spend.decision)}>
+          <span
+            className="text-meta text-pretty text-fg-mute"
+            title={decisionTitle(spend.decision)}
+          >
             {decisionText(spend.decision)}
           </span>
         ) : null}
