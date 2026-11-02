@@ -103,11 +103,24 @@ fn start_over_builds_the_main_line_again_and_keeps_proposals() {
     let (branch, links) = line_of(&[stop("lantern", 3.0)], 0, 400, Some("Camera agent"));
     plan.nodes.extend(branch);
     plan.edges.extend(links);
+    // A stop the person set aside, off the main line.
+    let (aside, _) = line_of(&[stop("bell", 4.0)], 0, 800, None);
+    let aside_id = aside[0].id.clone();
+    plan.nodes.extend(aside);
     save(&s.root, CAMERA_PLAN_ID, &plan).expect("save");
     edit(&s.root, "moon", |m| m.fov = 20.0);
     set_stops(&s.root, tour(&["dock", "porch"]));
-    let (doc, _) = rebase(&s.root, CAMERA_PLAN_ID, RebaseMode::StartOver, false).expect("over");
+    let (doc, report) =
+        rebase(&s.root, CAMERA_PLAN_ID, RebaseMode::StartOver, false).expect("over");
     assert_eq!(main_ids(&doc.plan), ["dock", "porch"]);
+    assert!(
+        doc.plan.nodes.iter().any(|n| n.id == aside_id),
+        "a stop set aside stays"
+    );
+    // One person's change that undoes whole: the old main line comes back.
+    let change = report.change.expect("change");
+    let back = crate::plans::undo(&s.root, CAMERA_PLAN_ID, &[change], None, None).expect("undo");
+    assert_eq!(main_ids(&back.doc.plan), ["porch", "moon"]);
     assert!(
         doc.plan
             .nodes

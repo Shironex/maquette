@@ -10,7 +10,10 @@
 //! the plan left it as it was; stops the layout added join the main line
 //! after the stop they follow there; a new tour order comes in only when
 //! the plan kept the old one. Start over instead builds the main line
-//! again from the layout; the person's old stops stay undoable in the log.
+//! again from the layout: only the main line's stop nodes are replaced, and
+//! proposals and stops set aside stay. Either is one person's change in the
+//! log, refused with nothing written when its undo line would be too long
+//! to keep its operations, so it is always undoable.
 
 use std::path::Path;
 
@@ -261,22 +264,18 @@ fn reorder(
 }
 
 /// The plan with its main line built again from `now`, where the old main
-/// line began. Agents' proposals stay.
+/// line began. Only the main line's stop nodes and their links go; agents'
+/// proposals and stops set aside stay.
 pub fn started_over(plan: &PlanFile, now: &[LayoutStop]) -> PlanFile {
     let mut next = plan.clone();
-    let head = main_chain(plan)
-        .and_then(|c| c.nodes.first().cloned())
-        .and_then(|id| plan.nodes.iter().find(|n| n.id == id))
+    let main = main_chain(plan).map(|c| c.nodes).unwrap_or_default();
+    let head = main
+        .first()
+        .and_then(|id| plan.nodes.iter().find(|n| &n.id == id))
         .map_or((0, 0), |n| (n.x, n.y));
-    let mine: Vec<String> = plan
-        .nodes
-        .iter()
-        .filter(|n| stop_of(n).is_some() && n.by.is_none())
-        .map(|n| n.id.clone())
-        .collect();
-    next.nodes.retain(|n| !mine.contains(&n.id));
+    next.nodes.retain(|n| !main.contains(&n.id));
     next.edges
-        .retain(|e| !mine.contains(&e.from) && !mine.contains(&e.to));
+        .retain(|e| !main.contains(&e.from) && !main.contains(&e.to));
     let (nodes, edges) = line_of(now, head.0, head.1, None);
     next.nodes.extend(nodes);
     next.edges.extend(edges);
