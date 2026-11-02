@@ -146,6 +146,9 @@ async fn an_agent_proposes_a_tour_and_only_the_person_applies() {
     assert_eq!(read["main"].as_array().map(Vec::len), Some(3));
     assert_eq!(read["main"][0]["id"], json!("porch"));
     assert!(read.get("stale").is_none());
+    // A read never makes the plan: it answers layout.json's stops with a note.
+    assert!(read["note"].is_string());
+    assert!(!moon.join("plans/camera-plan.plan.json").exists());
     assert!(
         read["apply"]
             .as_str()

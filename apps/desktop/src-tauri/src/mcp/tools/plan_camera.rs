@@ -5,10 +5,10 @@
 //! `layout.json` from a plan. Stop settings of single nodes change through
 //! update_nodes, whose `stop` field is [`StopChange`].
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use maquette_core::ProjectTarget;
-use maquette_core::layout::LayoutStop;
+use maquette_core::layout::{self, LayoutStop};
 use maquette_core::plan_camera;
 use maquette_core::plans::agent::{Agent, StopEdit};
 use maquette_core::plans::camera::{self, CAMERA_PLAN_ID, CameraReview, ProposedStop};
@@ -89,7 +89,15 @@ fn round(v: f32) -> f64 {
     (f64::from(v) * 1000.0).round() / 1000.0
 }
 
-fn stop_view(node: &str, stop: &LayoutStop) -> Value {
+/// Said when the project has no camera plan yet: the reads never make one.
+const NO_PLAN: &str = "No camera plan yet. It is made from layout.json when the person opens it, or by propose_camera_plan.";
+
+/// Whether the project has its camera plan; a read never makes or moves one.
+fn has_plan(dir: &Path) -> bool {
+    maquette_core::plans::get(dir, CAMERA_PLAN_ID).is_ok_and(|d| d.plan.camera.is_some())
+}
+
+fn stop_view(node: Option<&str>, stop: &LayoutStop) -> Value {
     json!({
         "node": node, "id": stop.id, "name": stop.name,
         "position": stop.position.map(round), "target": stop.target.map(round),
@@ -136,18 +144,27 @@ fn review_view(review: &CameraReview) -> Value {
 #[tool_router(router = plan_camera_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Read a website project's camera plan (made from layout.json the first time): the main line Apply would write, its stops in order (node, id, name, position, target, fov), the other lines (agents' proposals with their agent, stops set aside), stale: true when layout.json changed since the plan was based on it, and the stops with a poster render. Change single stops with update_nodes (its stop field) on canvas camera-plan, propose a whole tour with propose_camera_plan.",
+        description = "Read a website project's camera plan without writing anything: the main line Apply would write, its stops in order (node, id, name, position, target, fov), the other lines (agents' proposals with their agent, stops set aside), stale: true when layout.json changed since the plan was based on it, and the stops with a poster render. With no plan yet it answers layout.json's stops and a note. Change single stops with update_nodes (its stop field) on canvas camera-plan, propose a whole tour with propose_camera_plan.",
         annotations(read_only_hint = true)
     )]
     async fn get_camera_plan(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = plan_camera::view(&website_dir(host, &args.project)?)?;
+                let dir = website_dir(host, &args.project)?;
+                if !has_plan(&dir) {
+                    let stops = layout::load(&dir)?.stops;
+                    let main: Vec<Value> = stops.iter().map(|s| stop_view(None, s)).collect();
+                    return Ok(json!({
+                        "canvas": CAMERA_PLAN_ID, "main": main, "lines": [], "posters": [],
+                        "note": NO_PLAN, "apply": PERSON_APPLIES,
+                    }));
+                }
+                let view = plan_camera::view(&dir)?;
                 let plan = &view.doc.plan;
                 let line = |ids: &[String]| -> Vec<Value> {
                     ids.iter()
                         .filter_map(|id| plan.nodes.iter().find(|n| &n.id == id))
-                        .filter_map(|n| camera::stop_of(n).map(|s| stop_view(&n.id, s)))
+                        .filter_map(|n| camera::stop_of(n).map(|s| stop_view(Some(&n.id), s)))
                         .collect()
                 };
                 let lines: Vec<Value> = view
@@ -220,19 +237,24 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read what Apply would write to layout.json from a website project's camera plan now: the counts (added, moved, removed, changed), each stop that changes with its place before and after and the settings that change, the main line's node ids, dropped: triggers and timeline keys that go with a removed stop, stale: true when layout.json changed since the plan was based on it (the person compares or rebases first), and problems that block Apply. Reading only: the person applies, with Apply in the app, after reviewing this same diff.",
+        description = "Read what Apply would write to layout.json from a website project's camera plan now: the counts (added, moved, removed, changed), each stop that changes with its place before and after and the settings that change, the main line's node ids, dropped: triggers, timeline and path keys that go with a removed stop, stale: true when layout.json changed since the plan was based on it (the person compares or rebases first), and problems that block Apply. Reading only: the person applies, with Apply in the app, after reviewing this same diff.",
         annotations(read_only_hint = true)
     )]
     async fn get_apply_preview(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let dir = website_dir(host, &args.project)?;
-                camera::ensure(&dir, None)?;
+                if !has_plan(&dir) {
+                    return Ok(json!({
+                        "counts": "0 stops added · 0 moved · 0 removed · 0 changed",
+                        "stops": [], "nodes": [], "problems": [NO_PLAN], "apply": PERSON_APPLIES,
+                    }));
+                }
                 let review = camera::review(&dir, CAMERA_PLAN_ID)?;
                 let mut out = review_view(&review);
                 out["nodes"] = json!(review.chain);
                 if review.dropped > 0 {
-                    // Triggers and timeline keys that wait for a removed stop.
+                    // Triggers, timeline and path keys that wait for a removed stop.
                     out["dropped"] = json!(review.dropped);
                 }
                 out["apply"] = json!(PERSON_APPLIES);
