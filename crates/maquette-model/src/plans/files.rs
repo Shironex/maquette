@@ -13,11 +13,10 @@ use std::sync::{Mutex, MutexGuard};
 use serde::Serialize;
 
 use super::{
-    PLAN_SUFFIX, PlanFile, PlanPreset, check_name, dir, images, load_file, normalized, path,
-    validate,
+    MAX_FILE_BYTES, PLAN_SUFFIX, PlanFile, PlanPreset, check_name, dir, images, load_file,
+    normalized, path, validate,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::json::write_json;
 use crate::project::{latin_slug, now_rfc3339, windows_safe};
 
 /// One canvas as the view gets it: its id, its file relative to the
@@ -58,6 +57,20 @@ fn writing() -> MutexGuard<'static, ()> {
     WRITES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Writes a canvas file as `write_json` would, refused when the text would
+/// be over [`MAX_FILE_BYTES`], since such a file would not open again.
+fn write_plan(file: &Path, plan: &PlanFile) -> CoreResult<()> {
+    let mut text = serde_json::to_string_pretty(plan).map_err(|e| CoreError::json(file, e))?;
+    text.push('\n');
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "The canvas would be over {} MB, too big to save. Move some notes to another canvas.",
+            MAX_FILE_BYTES / (1024 * 1024)
+        )));
+    }
+    maquette_base::fs::write_atomic(file, text.as_bytes()).map_err(|e| CoreError::io(file, e))
 }
 
 fn count(n: usize) -> u32 {
@@ -175,7 +188,7 @@ pub fn create(project_dir: &Path, name: &str, preset: PlanPreset) -> CoreResult<
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     let plan = PlanFile::new(name, preset);
-    write_json(&path(project_dir, &id)?, &plan)?;
+    write_plan(&path(project_dir, &id)?, &plan)?;
     Ok(doc(project_dir, &id, plan))
 }
 
@@ -202,7 +215,7 @@ pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc
         return Ok(doc(project_dir, id, current));
     }
     next.edited = now_rfc3339();
-    write_json(&file, &next)?;
+    write_plan(&file, &next)?;
     Ok(doc(project_dir, id, next))
 }
 
@@ -221,7 +234,7 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<PlanSummar
     if plan.name != name {
         plan.name = name.to_string();
         plan.edited = now_rfc3339();
-        write_json(&file, &plan)?;
+        write_plan(&file, &plan)?;
     }
     Ok(summary(id, &plan))
 }

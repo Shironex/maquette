@@ -411,3 +411,72 @@ fn a_rename_never_undoes_a_save_that_lands_beside_it() {
     assert_eq!(last.nodes.len(), 40, "every save is kept");
     assert_eq!(last.name, "Race 39");
 }
+
+#[test]
+fn a_file_with_untrimmed_fields_opens_as_it_would_save() {
+    let p = project();
+    let made = create(&p.root, "Loose", PlanPreset::Brainstorm).expect("create");
+    let file = path(&p.root, &made.id).expect("path");
+    let mut plan = made.plan.clone();
+    plan.nodes = vec![
+        PlanNode {
+            title: " porch ".into(),
+            ..note("n-2", 0, 0)
+        },
+        PlanNode {
+            kind: NodeKind::Link,
+            url: Some(" https://a.example ".into()),
+            ..note("n-1", 0, 0)
+        },
+    ];
+    plan.edges = vec![PlanEdge {
+        label: Some(String::new()),
+        ..edge("e-1", "n-1", "n-2")
+    }];
+    fs::write(&file, serde_json::to_string_pretty(&plan).expect("json")).expect("write");
+    let opened = get(&p.root, &made.id).expect("get").plan;
+    assert_eq!(opened.nodes[0].id, "n-1", "sorted");
+    assert_eq!(opened.nodes[0].url.as_deref(), Some("https://a.example"));
+    assert_eq!(opened.nodes[1].title, "porch");
+    assert_eq!(opened.edges[0].label, None);
+    // Sent back unchanged, it is the canvas on disk: nothing new to write.
+    let before = read(&file);
+    assert_eq!(save(&p.root, &made.id, &opened).expect("save").plan, opened);
+    assert_eq!(read(&file), before);
+}
+
+#[test]
+fn a_save_that_would_not_open_again_is_refused() {
+    let p = project();
+    let made = create(&p.root, "Heavy", PlanPreset::Brainstorm).expect("create");
+    let mut plan = made.plan.clone();
+    plan.nodes = (0..500)
+        .map(|n| PlanNode {
+            text: "x".repeat(TEXT_MAX_CHARS),
+            ..note(&format!("n-{n:03}"), 0, 0)
+        })
+        .collect();
+    let refused = save(&p.root, &made.id, &plan).expect_err("over the cap");
+    assert!(refused.to_string().contains("too big to save"), "{refused}");
+    assert!(
+        get(&p.root, &made.id)
+            .expect("still opens")
+            .plan
+            .nodes
+            .is_empty()
+    );
+}
+
+#[test]
+fn the_console_and_superscript_device_names_are_refused_too() {
+    for bad in [
+        "CONIN$",
+        "conout$.txt",
+        "COM\u{b9}",
+        "lpt\u{b3}.png",
+        "concepts/COM\u{b2}/a.png",
+    ] {
+        assert!(!is_project_relative(bad), "{bad:?} must be refused");
+    }
+    assert!(is_project_relative("concepts/com10.png"));
+}

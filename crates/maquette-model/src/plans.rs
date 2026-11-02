@@ -205,7 +205,8 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
     Ok(dir(project_dir).join(format!("{id}{PLAN_SUFFIX}")))
 }
 
-/// Reads and checks a canvas file.
+/// Reads and checks a canvas file, normalised ([`normalized`]) so the
+/// canvas a view gets is the one a save writes back.
 ///
 /// # Errors
 ///
@@ -241,7 +242,7 @@ pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
     }
     let plan: PlanFile = serde_json::from_value(value).map_err(|e| CoreError::json(file, e))?;
     validate(&plan)?;
-    Ok(plan)
+    Ok(normalized(&plan))
 }
 
 /// The file's text, refused unread when its size is over [`MAX_FILE_BYTES`].
@@ -259,8 +260,10 @@ fn read_capped(file: &Path) -> io::Result<String> {
     Ok(text)
 }
 
-/// The canvas as it is written: the current version, trimmed text, and
-/// nodes and edges sorted by id.
+/// The canvas as it is written: the current version, trimmed name, node
+/// titles and addresses, empty edge labels as none, and nodes and edges
+/// sorted by id. The view does the same (`apps/web/src/state/plans.ts`,
+/// `planOf`), so a canvas it sends back unchanged is the canvas saved.
 pub fn normalized(plan: &PlanFile) -> PlanFile {
     let mut nodes: Vec<PlanNode> = plan
         .nodes
