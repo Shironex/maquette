@@ -25,7 +25,8 @@ Maquette and turn the server on in Settings > Agents. An error names its `code`,
   The default of this skill is `provider: "by-hand"`, which spends nothing. After an API send
   answers `waiting for approval`, poll `get_provider_job`; never send again.
 - `cancel_provider_jobs` cannot deny a send that waits for approval: the person denies it in the
-  app.
+  app. No tool approves anything. Once answered, `get_provider_job` carries `decision`: who
+  answered, when, from which card and with what input.
 - Never attach, accept or dismiss a download on a similarity score alone. LOOK at both pictures
   first (step 4).
 - Never capture the screen. Renders are files written headless.
@@ -36,7 +37,7 @@ Maquette and turn the server on in Settings > Agents. An error names its `code`,
    full set of views. If views are missing or refs are weak, run `maquette-lab-round` first.
 2. `get_ref_views` per asset. A send carries front, left, back and right in that order.
 3. `get_credits` `{ project }` shows balances and the ledger of paid sends, API spend and By hand
-   subscription spend apart. It spends nothing; report it when the person asks about cost.
+   subscription spend apart, each agent's send with the `decision` that approved it. It spends nothing; report it when the person asks about cost.
 
 ## 2. Write the handoffs
 
