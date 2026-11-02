@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use maquette_core::assets::remove::project_trash;
 use maquette_core::plan_links::{self, LinkFacts, PlanLinks};
-use maquette_core::plans::{self, PlanDoc, PlanFile, PlanPreset, PlanSummary, images::PlanImage};
+use maquette_core::plans::log::PlanLogLine;
+use maquette_core::plans::ops::PlanOp;
+use maquette_core::plans::{self, PlanDoc, PlanPreset, PlanSummary, Writer, images::PlanImage};
 use maquette_core::{CoreError, inbox, project};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt as _;
@@ -52,16 +54,51 @@ pub fn plan_create(
     Ok(plans::create(&dir, &name, PlanPreset::Brainstorm)?)
 }
 
-/// Writes the whole canvas, normalised; returns what the file now holds.
+/// Writes a person's edits: the operations between the canvas the view
+/// last had from the file and what it shows now, laid over the file as it
+/// is, so an agent's write made meanwhile stays. Returns what the file now
+/// holds, which the view takes as its new base.
 #[tauri::command(async)]
 #[specta::specta]
-pub fn plan_save(
+pub fn plan_apply(
     session: State<'_, Session>,
     project: String,
     id: String,
-    plan: PlanFile,
+    ops: Vec<PlanOp>,
 ) -> CommandResult<PlanDoc> {
-    Ok(plans::save(&project_dir(&session, &project)?, &id, &plan)?)
+    let dir = project_dir(&session, &project)?;
+    Ok(plans::change(&dir, &id, &Writer::PERSON, |_| Ok(ops))?.doc)
+}
+
+/// The newest lines of the canvas's change log, newest first.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_log(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    limit: u32,
+) -> CommandResult<Vec<PlanLogLine>> {
+    let limit = usize::try_from(limit.clamp(1, 500)).unwrap_or(200);
+    Ok(plans::log::lines(
+        &project_dir(&session, &project)?,
+        &id,
+        limit,
+    )?)
+}
+
+/// Undoes log lines (an agent's run, or one change) as a person; a field
+/// changed since stays. Returns what the file now holds.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_undo(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    changes: Vec<String>,
+) -> CommandResult<PlanDoc> {
+    let dir = project_dir(&session, &project)?;
+    Ok(plans::undo(&dir, &id, &changes, None, None)?.doc)
 }
 
 #[tauri::command(async)]

@@ -1,0 +1,234 @@
+//! A real MCP client plans on a canvas: makes one, adds nodes and links
+//! beside a person's note, edits and tidies them, reads the change log,
+//! is refused when removing the person's note and undoes its own run.
+//! Everything happens in a temp workspace.
+
+use std::path::Path;
+use std::sync::Arc;
+
+use maquette_core::concepts::Concepts;
+use maquette_core::pipeline::runner::PipelineRunner;
+use maquette_core::plans::{self, NodeKind, PlanNode, Writer, ops::PlanOp};
+use maquette_core::providers::{MemoryStore, Options, ProviderJobs};
+use maquette_core::thumbs::Thumbnails;
+use maquette_core::{AppState, NewProject, ProjectTemplate, WorkspaceConfig, project, workspace};
+use maquette_desktop_lib::mcp::ensure_token;
+use maquette_desktop_lib::mcp::host::Host;
+use maquette_desktop_lib::mcp::hub::Hub;
+use maquette_desktop_lib::session::Session;
+use rmcp::ServiceExt as _;
+use rmcp::model::ClientConfig;
+use rmcp::transport::StreamableHttpClientTransport;
+use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+use serde_json::{Value, json};
+
+use super::support::{TestHost, call, call_error};
+
+fn fixture(dir: &Path) -> Session {
+    let root = dir.join("ws");
+    let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
+    let session = Session::with_state(dir.join("cfg"), None, AppState::default());
+    session
+        .set_workspace(root.clone(), config.clone())
+        .expect("open");
+    project::create(
+        &root,
+        &config.layout,
+        NewProject {
+            name: "Moon Island".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    session
+}
+
+fn ids(value: &Value) -> Vec<String> {
+    value
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|v| v.as_str().expect("id").to_string())
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let session = fixture(dir.path());
+    let moon = dir.path().join("ws/projects/moon-island");
+    let host = Arc::new(TestHost {
+        session,
+        runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::new(Hub::new(|| {})),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+    let agent = "Research agent";
+    let canvas_args = |extra: Value| {
+        let mut args = json!({ "project": "moon-island", "canvas": "hero-ideas", "agent": agent });
+        if let (Some(args), Value::Object(extra)) = (args.as_object_mut(), extra) {
+            args.extend(extra);
+        }
+        args
+    };
+
+    let made = call(
+        &client,
+        "create_canvas",
+        json!({ "project": "moon-island", "name": "Hero ideas", "agent": agent }),
+    )
+    .await;
+    assert_eq!(made["id"], json!("hero-ideas"));
+    assert_eq!(made["file"], json!("plans/hero-ideas.plan.json"));
+
+    // The person writes a note in the app.
+    let porch = PlanNode {
+        id: "n-porch".into(),
+        kind: NodeKind::Note,
+        x: 0,
+        y: 0,
+        width: None,
+        title: "Porch at dusk".into(),
+        text: String::new(),
+        image: None,
+        url: None,
+        asset: None,
+        direction: None,
+        by: None,
+    };
+    plans::change(&moon, "hero-ideas", &Writer::PERSON, |_| {
+        Ok(vec![PlanOp::AddNode { node: porch }])
+    })
+    .expect("person");
+
+    let listed = call(
+        &client,
+        "list_canvases",
+        json!({ "project": "moon-island" }),
+    )
+    .await;
+    assert_eq!(listed["canvases"][0]["nodes"], json!(1));
+
+    let added = call(
+        &client,
+        "add_nodes",
+        canvas_args(json!({
+            "near": "n-porch",
+            "run": "r-1",
+            "nodes": [
+                { "text": "Warm key from the lanterns, cool fill from the moon" },
+                { "kind": "link", "title": "Lighting small scenes", "url": "https://example.com/night" }
+            ],
+            "links": [{ "from": "n-porch", "to": "$0" }, { "from": "$0", "to": "$1", "kind": "source" }]
+        })),
+    )
+    .await;
+    let new = ids(&added["added"]);
+    assert_eq!(new.len(), 2);
+    assert_eq!(added["placed"], json!(2));
+    assert_eq!(ids(&added["links"]).len(), 2);
+    assert!(added["change"].as_str().expect("change").starts_with("c-"));
+
+    let read = call(&client, "get_canvas", canvas_args(json!({}))).await;
+    let nodes = read["nodes"].as_array().expect("nodes");
+    assert_eq!(nodes.len(), 3);
+    let research = nodes
+        .iter()
+        .find(|n| n["id"] == json!(new[0]))
+        .expect("note");
+    assert_eq!(research["by"], json!(agent));
+    assert!(
+        research["x"].as_i64().expect("x") > 220,
+        "beside the porch: {research}"
+    );
+    let person = nodes
+        .iter()
+        .find(|n| n["id"] == json!("n-porch"))
+        .expect("porch");
+    assert!(person.get("by").is_none(), "a person's node has no by");
+    assert_eq!(read["links"].as_array().expect("links").len(), 2);
+
+    let refused = call_error(
+        &client,
+        "remove_nodes",
+        canvas_args(json!({ "nodes": ["n-porch"] })),
+    )
+    .await;
+    assert!(refused.contains("ask the person"), "{refused}");
+
+    let edited = call(
+        &client,
+        "update_nodes",
+        canvas_args(
+            json!({ "run": "r-1", "nodes": [{ "id": "n-porch", "text": "Open on the porch." }] }),
+        ),
+    )
+    .await;
+    assert_eq!(edited["updated"], json!(1));
+    let tidy = call(&client, "layout_canvas", canvas_args(json!({}))).await;
+    assert_eq!(tidy["moved"], json!(0), "placed nodes are clear already");
+    assert!(tidy["change"].is_null());
+
+    let changes = call(&client, "get_changes", canvas_args(json!({ "by": agent }))).await;
+    let lines = changes["changes"].as_array().expect("changes");
+    assert_eq!(lines.len(), 3, "made, added, edited: {changes}");
+    assert_eq!(lines[0]["summary"], json!("Edited note: Porch at dusk"));
+    let person_lines = call(
+        &client,
+        "get_changes",
+        canvas_args(json!({ "by": "person" })),
+    )
+    .await;
+    assert_eq!(person_lines["changes"].as_array().expect("lines").len(), 1);
+
+    let undone = call(&client, "undo_run", canvas_args(json!({ "run": "r-1" }))).await;
+    assert_eq!(ids(&undone["undone"]).len(), 2);
+    assert_eq!(undone["kept"], json!(0));
+    let after = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    let nodes = after["nodes"].as_array().expect("nodes");
+    assert_eq!(nodes.len(), 1, "{after}");
+    assert!(
+        nodes[0].get("text").is_none(),
+        "the person's note is back as it was"
+    );
+    let again = call_error(&client, "undo_run", canvas_args(json!({ "run": "r-1" }))).await;
+    assert!(again.contains("Nothing of yours"), "{again}");
+
+    let missing = call_error(
+        &client,
+        "get_canvas",
+        json!({ "project": "moon-island", "canvas": "nope" }),
+    )
+    .await;
+    assert!(missing.contains("Could not find the canvas"), "{missing}");
+
+    client.cancel().await.expect("close");
+    server.stop();
+}

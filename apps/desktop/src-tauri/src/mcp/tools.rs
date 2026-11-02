@@ -33,6 +33,8 @@ pub mod page;
 pub mod parts;
 pub mod paths;
 pub mod picks;
+pub mod plan_edits;
+pub mod plans;
 pub mod prepare;
 pub mod projects;
 pub mod refs;
@@ -207,6 +209,10 @@ impl McpTools {
                 + Self::picks_router(),
         ));
         all.merge(tagged("refs", Self::refs_router()));
+        all.merge(tagged(
+            "plan",
+            Self::plans_router() + Self::plan_edits_router(),
+        ));
         all.merge(tagged(
             "send",
             Self::sending_router()

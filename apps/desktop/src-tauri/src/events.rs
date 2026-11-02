@@ -100,6 +100,17 @@ pub struct PipelineChanged {
     pub project: String,
 }
 
+/// A canvas file or its change log changed: an agent wrote it, another
+/// window saved it or a sync tool brought it from another computer. The
+/// open canvas reloads, keeping the person's unsaved edits.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanChanged {
+    pub project: String,
+    /// The canvas id, its file name without `.plan.json`.
+    pub id: String,
+}
+
 /// An agent changed a project's scene layout through the MCP server, so
 /// the Layout editor reloads it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

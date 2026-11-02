@@ -6,6 +6,7 @@ add_built_asset
 add_fixups
 add_many_to_library
 add_model_file
+add_nodes
 add_to_library
 assemble_prop
 attach_download
@@ -17,6 +18,7 @@ cancel_run
 clean_ref_background
 compare_versions
 copy_asset
+create_canvas
 create_project
 decide_pack
 decide_render
@@ -26,6 +28,8 @@ export_pack
 find_look_alikes
 get_avatar
 get_bake_settings
+get_canvas
+get_changes
 get_codex_usage
 get_concepts
 get_credits
@@ -55,9 +59,11 @@ get_starters
 get_style_board
 import_animations
 import_game_models
+layout_canvas
 list_animations
 list_assets
 list_built_assets
+list_canvases
 list_fixups
 list_handoffs
 list_inbox
@@ -79,6 +85,7 @@ redo_inbox_models
 remove_assets
 remove_fixups
 remove_from_library
+remove_nodes
 rename_library_entry
 render_styles
 render_thumbnail
@@ -115,7 +122,9 @@ start_page_preview
 start_rig_doctor
 stop_page_preview
 tag_library_entries
+undo_run
 update_from_library
+update_nodes
 update_starters
 use_animations
 use_from_library

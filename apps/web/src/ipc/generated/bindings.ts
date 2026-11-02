@@ -352,8 +352,25 @@ export const commands = {
 	 *  later version fills in; every canvas starts blank for now.
 	 */
 	planCreate: (project: string, name: string) => __TAURI_INVOKE<PlanDoc>("plan_create", { project, name }),
-	/**  Writes the whole canvas, normalised; returns what the file now holds. */
-	planSave: (project: string, id: string, plan: PlanFile) => __TAURI_INVOKE<PlanDoc>("plan_save", { project, id, plan }),
+	/**
+	 *  Writes a person's edits: the operations between the canvas the view
+	 *  last had from the file and what it shows now, laid over the file as it
+	 *  is, so an agent's write made meanwhile stays. Returns what the file now
+	 *  holds, which the view takes as its new base.
+	 */
+	planApply: (project: string, id: string, ops: PlanOp[]) => __TAURI_INVOKE<PlanDoc>("plan_apply", { project, id, ops }),
+	/**  The newest lines of the canvas's change log, newest first. */
+	planLog: (project: string, id: string, limit: number) => __TAURI_INVOKE<PlanLogLine[]>("plan_log", { project, id, limit }),
+	/**
+	 *  Undoes log lines (an agent's run, or one change) as a person; a field
+	 *  changed since stays. Returns what the file now holds.
+	 */
+	planUndo: (project: string, id: string, changes: string[]) => __TAURI_INVOKE<PlanDoc>("plan_undo", { project, id, changes }),
+	/**
+	 *  Watches the project's `plans/` folder, if it is not watched yet, and
+	 *  sends `PlanChanged` for each canvas whose file or log changes.
+	 */
+	planWatch: (project: string) => __TAURI_INVOKE<null>("plan_watch", { project }),
 	planRename: (project: string, id: string, name: string) => __TAURI_INVOKE<PlanSummary>("plan_rename", { project, id, name }),
 	/**  Moves the canvas file into the workspace trash; returns where it went. */
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
@@ -839,6 +856,7 @@ export const events = {
 	pageServerChanged: makeEvent<PageServerChanged>("page-server-changed"),
 	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
+	planChanged: makeEvent<PlanChanged>("plan-changed"),
 	prepareChanged: makeEvent<PrepareChanged>("prepare-changed"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	projectCreated: makeEvent<ProjectCreated>("project-created"),
@@ -2137,6 +2155,13 @@ export type Chained = {
 	key: string,
 	approvedAt: string | null,
 };
+
+/**  What kind of change a log line is, for its mark in the Changes panel. */
+export type ChangeMark = "add" | "edit" | "move" | "remove" | 
+/**  Only links between nodes were drawn, changed or removed. */
+"link" | 
+/**  Several kinds at once. */
+"mixed" | "undo" | "rename" | "create";
 
 export type Check = {
 	id: string,
@@ -5238,6 +5263,17 @@ export type Placement = {
 	scale: number | null,
 };
 
+/**
+ *  A canvas file or its change log changed: an agent wrote it, another
+ *  window saved it or a sync tool brought it from another computer. The
+ *  open canvas reloads, keeping the person's unsaved edits.
+ */
+export type PlanChanged = {
+	project: string,
+	/**  The canvas id, its file name without `.plan.json`. */
+	id: string,
+};
+
 export type PlanClip = {
 	/**  `<file id>/<clip>`, which the request names it by. */
 	key: string,
@@ -5312,6 +5348,41 @@ export type PlanLinks = {
 	directions: DirectionLink[],
 };
 
+/**  One write to a canvas. */
+export type PlanLogEntry = {
+	id: string,
+	/**  RFC 3339. */
+	at: string,
+	/**  The agent's name; `None` for a person. */
+	by: string | null,
+	/**  An agent's run, grouping several calls. */
+	run: string | null,
+	summary: string,
+	mark: ChangeMark,
+	ops?: PlanOp[],
+	/**  The lines this one undid. */
+	undoes?: string[],
+	/**  The operations were too big to keep. */
+	trimmed?: boolean,
+};
+
+/**  A log line as the Changes panel and agents read it: no operations. */
+export type PlanLogLine = {
+	id: string,
+	at: string,
+	by: string | null,
+	run: string | null,
+	summary: string,
+	mark: ChangeMark,
+	/**  A later line undid it. */
+	undone: boolean,
+	/**
+	 *  It can be undone: it changed nodes or edges, kept its operations
+	 *  and was not undone yet.
+	 */
+	undoable: boolean,
+};
+
 export type PlanNode = {
 	id: string,
 	kind: NodeKind,
@@ -5338,6 +5409,13 @@ export type PlanNode = {
 	/**  Who made it: `None` for a person, else the agent's name. */
 	by: string | null,
 };
+
+/**  One change to one node or edge. */
+export type PlanOp = { op: "add-node"; node: PlanNode } | 
+/**  The node as it was when removed. */
+{ op: "remove-node"; node: PlanNode } | 
+/**  Only the fields that differ between `before` and `after` change. */
+{ op: "set-node"; before: PlanNode; after: PlanNode } | { op: "add-edge"; edge: PlanEdge } | { op: "remove-edge"; edge: PlanEdge } | { op: "set-edge"; before: PlanEdge; after: PlanEdge };
 
 /**
  *  What a canvas started from. Presets only set the starting content;
