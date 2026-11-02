@@ -14,6 +14,7 @@ use rmcp::{Peer, schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::plan_camera::StopChange;
 use super::plans::{agent_name, project_dir};
 use super::{McpTools, Out, ToolError, respond};
 use crate::mcp::host::Host;
@@ -87,6 +88,8 @@ pub struct NodeChange {
     pub x: Option<i32>,
     pub y: Option<i32>,
     pub width: Option<u32>,
+    /// A stop node's camera settings on the camera plan.
+    pub stop: Option<StopChange>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -252,7 +255,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Edit or move nodes on a planning canvas: title, text, url, x, y or width; only the fields given change. Any node may be edited, a person's too; the change log keeps what it said before, so it can be undone. If the person edits the same field before saving, their value wins. A call whose undo record would pass 256 KB is refused with nothing written (send fewer nodes), and so are edits to a person's content once agents' changes to it not undone or kept yet hold 4 MB (the person frees that room with Undo or Keep in the Changes panel; your undo_run frees it too).",
+        description = "Edit or move nodes on a planning canvas: title, text, url, x, y, width or a camera plan stop's settings (stop: name, position, target, fov); only the fields given change. Stop edits stay in the plan until the person applies it. Any node may be edited, a person's too; the change log keeps what it said before, so it can be undone. If the person edits the same field before saving, their value wins. A call whose undo record would pass 256 KB is refused with nothing written (send fewer nodes), and so are edits to a person's content once agents' changes to it not undone or kept yet hold 4 MB (the person frees that room with Undo or Keep in the Changes panel; your undo_run frees it too).",
         annotations(idempotent_hint = true)
     )]
     async fn update_nodes(
@@ -273,7 +276,7 @@ impl McpTools {
                 x: c.x,
                 y: c.y,
                 width: c.width,
-                stop: None,
+                stop: c.stop.map(Into::into),
             })
             .collect();
         write(self, args.project, args.canvas, move |dir, canvas| {

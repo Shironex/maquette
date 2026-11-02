@@ -18,6 +18,7 @@ mod packs;
 mod page;
 mod page_gate;
 mod picks;
+mod plan_camera;
 mod plans;
 mod reads;
 mod renders;

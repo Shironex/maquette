@@ -16,7 +16,7 @@ TOOL GROUPS
 [project] Projects, assets, the scene layout, copying assets, the asset trash.
 [lab] Concept images, their jobs, the style board, picks to the Board, the image backends, Codex usage.
 [refs] An asset's reference views: reading and tagging them, drawing missing ones, cleaning backgrounds.
-[plan] Planning canvases: read them, add and arrange nodes, the change log. Agents never remove a person's nodes.
+[plan] Planning canvases: read them, add and arrange nodes, the change log, a website's camera plan. Agents never remove a person's nodes.
 [send] Sending refs to Tripo or Meshy or by hand, redos, splits, credits, By hand handoffs and downloads.
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.
 [prepare] Real size, fix-ups, parts, materials, assembling props, comparing versions.
@@ -34,6 +34,7 @@ WAITS FOR A PERSON (in the Maquette app, no tool can answer; poll, and never sta
 - Shipping: run_pipeline at its Ship step while Ask before shipping is on, and always in a game project (follow with get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview, the first time for a repo an agent set, and again when its path or command changes (follow with get_page_preview).
 - Avatars: new weights, rest pose and spring chains (follow with get_avatar). Rig doctor: a joint move, and adding its draft as a version.
+- Camera plan: Apply writes it to layout.json after the person reviews it; agents propose with propose_camera_plan.
 - Only a person can: save API keys, set the monthly OpenAI image cap, sign in to Codex, install Blender and the other tools, open a workspace.
 A waiting answer gives status \"waiting for approval\", pollEverySeconds and whereToApprove.
 Nothing is lost without them: send_to_3d with provider by-hand and add_built_asset spend nothing.
