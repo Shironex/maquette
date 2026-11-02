@@ -85,4 +85,35 @@ describe('the refs page', () => {
     await waitFor(() => expect(useAppStore.getState().notice?.detail).toContain('notes.txt'));
     vi.restoreAllMocks();
   });
+
+  it('uses the name the import gives, which may differ from the file picked', async () => {
+    const { again } = await body();
+    vi.spyOn(commands, 'labImportRefs').mockResolvedValue(['refs/from_disk-2.png'] as never);
+    const saved = vi.spyOn(commands, 'refsSetViews');
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(saved.mock.lastCall?.[2]).toContainEqual({
+      file: 'refs/from_disk-2.png',
+      view: 'other',
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('leaves a ref alone when the import reuses it, so the front stays the front', async () => {
+    const { again } = await body();
+    const front = useRefsStore.getState().view!.refs.find(r => r.view === 'front')!;
+    const count = useRefsStore.getState().view!.refs.length;
+    vi.spyOn(commands, 'labImportRefs').mockResolvedValue([front.file] as never);
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(commands.labImportRefs).toHaveBeenCalled());
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const refs = useRefsStore.getState().view!.refs;
+    expect(refs.find(r => r.view === 'front')?.file).toBe(front.file);
+    expect(refs).toHaveLength(count);
+    vi.restoreAllMocks();
+  });
 });

@@ -38,7 +38,9 @@ export function useRefsBody(view: RefsView) {
       if (picked.length === 0) return;
       try {
         const files = await commands.labImportRefs(view.project.id, picked);
-        await add(files);
+        // An import can answer with a ref already here, which keeps its view.
+        const fresh = files.filter(file => !refs.some(r => r.file === file));
+        if (fresh.length > 0) await add(fresh);
         if (!front && files[0]) await tag(files[0], 'front');
       } catch (error) {
         useAppStore.getState().notify({
