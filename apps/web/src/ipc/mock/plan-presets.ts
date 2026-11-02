@@ -1,7 +1,7 @@
 /**
  * The starter notes a preset puts on a new canvas in mock mode, a copy of
- * the core's `crates/maquette-model/src/plans/presets.rs` (a test keeps
- * the words equal). Brainstorm starts blank; Story is worded for the
+ * the core's `crates/maquette-model/src/plans/presets.rs` (a test checks
+ * them card for card against its `presets/seeds.json`). Brainstorm starts blank; Story is worded for the
  * project's target.
  */
 import type { PlanEdge, PlanFile, PlanNode, PlanOp, PlanPreset, ProjectTarget } from '../client';
@@ -37,7 +37,7 @@ const STORY_JOINS: readonly Join[] = [
   [7, 5, 'up'],
 ];
 
-export const STORY_GAME: readonly Card[] = [
+const STORY_GAME: readonly Card[] = [
   card(
     0,
     0,
@@ -63,7 +63,7 @@ export const STORY_GAME: readonly Card[] = [
   card(3, 2, 'Place: Last place', 'Where it ends.'),
 ];
 
-export const STORY_WEBSITE: readonly Card[] = [
+const STORY_WEBSITE: readonly Card[] = [
   card(0, 0, 'Character: Main subject', 'What the site is about: a person, a product or a place.'),
   card(1, 0, 'Character: Visitor', 'Who scrolls through it and what they came for.'),
   card(0, 1, 'Beat 1: First view', 'What a visitor sees before they scroll.'),
@@ -84,7 +84,7 @@ export const STORY_WEBSITE: readonly Card[] = [
   card(3, 2, 'Place: Final scene', 'Where the tour ends.'),
 ];
 
-export const MECHANICS: readonly Card[] = [
+const MECHANICS: readonly Card[] = [
   card(
     0,
     0,
