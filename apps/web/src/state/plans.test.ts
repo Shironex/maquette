@@ -21,7 +21,7 @@ import {
 } from './plans';
 
 const plan = (): PlanFile => ({
-  version: 1,
+  version: 2,
   name: 'Combat ideas',
   preset: 'brainstorm',
   created: '2026-11-01T10:00:00.000Z',
@@ -37,6 +37,8 @@ const plan = (): PlanFile => ({
       text: 'Frost veil slows time',
       image: null,
       url: null,
+      asset: null,
+      direction: null,
       by: null,
     },
     {
@@ -49,6 +51,8 @@ const plan = (): PlanFile => ({
       text: '',
       image: 'concepts/gate.webp',
       url: null,
+      asset: null,
+      direction: null,
       by: null,
     },
   ],
@@ -75,6 +79,7 @@ const summary = (id: string, name: string, edited: string): PlanSummary => ({
   edges: 0,
   images: 1,
   links: 0,
+  assets: 0,
   edited,
   problem: null,
 });

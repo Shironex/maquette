@@ -14,7 +14,12 @@ afterEach(() => {
 describe('the plans store', () => {
   it('lists the project canvases and opens one', async () => {
     const store = await openPlans();
-    expect(store.list?.map(p => p.id)).toEqual(['boss-arena', 'combat-ideas', 'opening-story']);
+    expect(store.list?.map(p => p.id)).toEqual([
+      'boss-arena',
+      'boss-frost-warden',
+      'combat-ideas',
+      'opening-story',
+    ]);
     await usePlansStore.getState().openCanvas('combat-ideas');
     const s = usePlansStore.getState();
     expect(s.open?.plan.name).toBe('Combat ideas');
@@ -83,13 +88,18 @@ describe('the plans store', () => {
     await usePlansStore.getState().openCanvas('opening-story');
     expect(await usePlansStore.getState().remove('opening-story')).toBe(true);
     expect(usePlansStore.getState().open).toBeNull();
-    expect(usePlansStore.getState().list?.map(p => p.id)).toEqual(['boss-arena', 'combat-ideas']);
+    expect(usePlansStore.getState().list?.map(p => p.id)).toEqual([
+      'boss-arena',
+      'boss-frost-warden',
+      'combat-ideas',
+    ]);
 
     await usePlansStore.getState().openCanvas('combat-ideas');
     vi.spyOn(commands, 'planSave').mockRejectedValueOnce({ code: 'io', message: 'Disk full' });
     usePlansStore.getState().addNode('note', { x: 0, y: 0 });
     expect(await usePlansStore.getState().save()).toBe(false);
     expect(usePlansStore.getState().saveError).toBe('Disk full');
+    expect(useAppStore.getState().notice?.title).toBe('The canvas was not saved');
   });
 });
 
@@ -110,6 +120,8 @@ describe('leaving a canvas', () => {
     expect(s.open?.id).toBe('combat-ideas');
     expect(s.leaving).toEqual({ to: 'list' });
     expect(s.dirty).toBe(true);
+    // The dialog asks about the failed save; no notice says it a second time.
+    expect(useAppStore.getState().notice).toBeNull();
     expect(s.nodes.find(n => n.id === 'n-01')?.data.node.text).toBe(
       'Kept even when the disk says no'
     );
