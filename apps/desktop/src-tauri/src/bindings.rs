@@ -156,6 +156,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             plans::plan_log,
             plans::plan_undo,
             plans::plan_keep,
+            plans::plan_keep_needs,
             plan_watch::plan_watch,
             plans::plan_rename,
             plans::plan_remove,

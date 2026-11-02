@@ -348,6 +348,21 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
     assert_eq!(porch_text(&back), original, "{back}");
     assert_eq!(held(), 0);
 
+    // A change the person kept is theirs: the agent can not undo it.
+    call(
+        &client,
+        "update_nodes",
+        canvas_args(json!({ "run": "r-8", "nodes": [{ "id": "n-porch", "text": "kept" }] })),
+    )
+    .await;
+    let lines = call(&client, "get_changes", canvas_args(json!({ "by": agent }))).await;
+    let kept_id = lines["changes"][0]["id"].as_str().expect("id").to_string();
+    plans::keep(&moon, "hero-ideas", std::slice::from_ref(&kept_id)).expect("the person keeps it");
+    let refused = call_error(&client, "undo_run", canvas_args(json!({ "run": "r-8" }))).await;
+    assert!(refused.contains("The person kept the change"), "{refused}");
+    let now = call(&client, "get_canvas", canvas_args(json!({ "full": true }))).await;
+    assert_eq!(porch_text(&now), json!("kept"));
+
     let missing = call_error(
         &client,
         "get_canvas",

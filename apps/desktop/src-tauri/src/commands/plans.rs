@@ -117,17 +117,9 @@ pub fn plan_undo(
     })
 }
 
-/// What a Keep kept besides the changes named: the summaries of earlier
-/// agent changes to the same fields, kept with them.
-#[derive(Debug, Clone, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanKept {
-    pub also: Vec<String>,
-}
-
 /// Keeps (accepts) agent changes as a person: frees the room the log kept
-/// to undo them, with the earlier changes they sit on. The canvas does not
-/// change.
+/// to undo them. The canvas does not change. Refused unless `changes`
+/// names every earlier change it sits on ([`plan_keep_needs`]).
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_keep(
@@ -135,9 +127,26 @@ pub fn plan_keep(
     project: String,
     id: String,
     changes: Vec<String>,
-) -> CommandResult<PlanKept> {
-    let kept = plans::keep(&project_dir(&session, &project)?, &id, &changes)?;
-    Ok(PlanKept { also: kept.also })
+) -> CommandResult<()> {
+    plans::keep(&project_dir(&session, &project)?, &id, &changes)?;
+    Ok(())
+}
+
+/// The earlier agent changes a Keep of `changes` must take along, for the
+/// person to confirm first; empty when the Keep can go as it is.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn plan_keep_needs(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    changes: Vec<String>,
+) -> CommandResult<Vec<plans::KeepNeed>> {
+    Ok(plans::keep_needs(
+        &project_dir(&session, &project)?,
+        &id,
+        &changes,
+    )?)
 }
 
 #[tauri::command(async)]
