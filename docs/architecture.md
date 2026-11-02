@@ -985,6 +985,19 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   the file stays version 1 on disk until an edit or a rename saves it as version 2. A version 1
   file holding a kind it could not have is refused, and a file from a newer Maquette lists with a
   problem and is never saved over.
+- **Presets.** `preset` (`brainstorm`, `story` or `mechanics`) only sets what a canvas starts
+  with; it is not a node kind and every canvas holds every kind of node. `plans/presets.rs` lays
+  out the starter notes: Brainstorm is blank, Story puts four beats left to right joined by
+  `leads-to` links with two characters above and two places below (worded for a player in a game
+  project and a visitor in a website, from the project's target), Game mechanics a card per system
+  with its verb, look and input lines and a note on keeping systems apart. `create_seeded` (the
+  app's New canvas and `create_canvas`) writes them through the usual checks, normalisation and
+  size cap as the canvas's first log line, an add for each node and link under the person or the
+  agent that made it, so one undo takes them all back. The field was there since version 2, so a
+  seeded canvas stays version 2. The view's New canvas dialog and the empty list pick the preset
+  (`features/plan/PresetPicker`, names in `state/plan-presets.ts`), the list shows it on each
+  card and row, and mock mode keeps a copy of the starter words (`ipc/mock/plan-presets.ts`, a
+  test keeps them equal to the core's).
 - **Links.** An `asset` or `direction` node keeps only the id: no name, picture, version or state.
   `maquette_core::plan_links` reads them live each time the canvas asks (`plan_links`): an asset's
   name, kind, stage, thumbnail, newest version, numbers and Inbox models to check, and a
