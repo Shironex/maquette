@@ -966,12 +966,28 @@ scroll: { top, max } }` as it scrolls and `{ type: "stats", frameMs, p95Ms, draw
 
 `maquette_core::plans` owns them: one plain JSON file per canvas at
 `<project>/plans/<id>.plan.json`, the id being the file name and fixed for its life (Rename only
-changes `name`). The file carries `version` (1; a newer one is refused, never rewritten), `name`,
-`preset`, `created`, `edited`, `nodes` and `edges`. Nodes are `note`, `image` or `link` with whole
-pixel `x` and `y`, an optional `width`, `title`, `text`, a project relative `image` or an http(s)
-`url`, and `by` (who added it, empty for a person). Edges join two node ids with optional sides,
-a `kind` (`relates`, `leads-to`, `source`) and a `label`. Pan and zoom are not stored, so two
-computers syncing the folder never fight over the view.
+changes `name`). The file carries `version` (2; a newer one is refused, never rewritten), `name`,
+`preset`, `created`, `edited`, `nodes` and `edges`. Nodes are `note`, `image`, `link`, `asset` or
+`direction` with whole pixel `x` and `y`, an optional `width`, `title`, `text`, a project relative
+`image`, an http(s) `url`, an `asset` id or a Lab `direction` id, and `by` (who added it, empty for
+a person). Edges join two node ids with optional sides, a `kind` (`relates`, `leads-to`, `source`)
+and a `label`. Pan and zoom are not stored, so two computers syncing the folder never fight over
+the view. Names, titles, addresses and labels are trimmed of one set of white space on both sides
+(`plans/text.rs`, mirrored by `state/plan-text.ts`, a test keeps them equal).
+
+- **Versions.** `migrate.rs` reads the version first and lifts an older file step by step before
+  it is parsed: version 1 gains `asset` and `direction` (null) on every node. Opening never writes;
+  the file stays version 1 on disk until an edit or a rename saves it as version 2. A version 1
+  file holding a kind it could not have is refused, and a file from a newer Maquette lists with a
+  problem and is never saved over.
+- **Links.** An `asset` or `direction` node keeps only the id: no name, picture, version or state.
+  `maquette_core::plan_links` reads them live each time the canvas asks (`plan_links`): an asset's
+  name, kind, stage, thumbnail, newest version, numbers and Inbox models to check, and a
+  direction's images, picks and running Lab jobs. An id that names nothing reads as gone, which
+  the node shows as not found; the file is never touched. The web side reads again when the
+  canvas opens, its links change, the project or Inbox changes, the window comes back, and every
+  few seconds while a linked Lab round runs (`state/use-plan-links-store.ts`); `state/plan-links.ts`
+  turns a read into the node's status and next step (Inspector, Inbox, Lab or Board).
 
 - **Writes.** `files.rs` validates (`check.rs`: fields by kind, limits, paths safe on Windows),
   sorts nodes and edges by id and writes atomically under one lock, reading the file first; `edited`
@@ -980,7 +996,7 @@ computers syncing the folder never fight over the view.
   8 MB lists as broken without being read.
 - **Leaving.** The web store waits for a save on its way and saves the latest edits before Back,
   another canvas, another project or quitting. When that save fails the canvas stays open and asks:
-  try again, stay, or leave without saving.
+  try again, stay, or leave without saving; that dialog is the only message, no notice repeats it.
 - **Pictures.** `images.rs` links a picture already inside the project by its relative path and
   copies one from elsewhere into `plans/images/<name>-<hash>.<ext>` once.
 - **Remove.** The file moves to `<workspace>/trash/<project>/plans/`; copied pictures stay.
