@@ -79,7 +79,7 @@ pub fn add(project_dir: &Path, source: &Path) -> CoreResult<PlanImage> {
     }
     let name = source
         .file_stem()
-        .map(|s| s.to_string_lossy().trim().to_string())
+        .map(|s| super::trimmed(&s.to_string_lossy()).to_string())
         .unwrap_or_default();
     let root = maquette_base::fs::real_folder(project_dir);
     let real = maquette_base::fs::real_folder(source);

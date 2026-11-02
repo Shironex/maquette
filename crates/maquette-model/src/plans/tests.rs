@@ -32,6 +32,8 @@ fn note(id: &str, x: i32, y: i32) -> PlanNode {
         text: "Frost veil slows time".into(),
         image: None,
         url: None,
+        asset: None,
+        direction: None,
         by: None,
     }
 }
@@ -104,7 +106,7 @@ fn a_canvas_round_trips_and_a_newer_file_says_so() {
     assert_eq!(back.plan, made.plan);
 
     let file = p.root.join(&made.file);
-    let text = read(&file).replace("\"version\": 1", "\"version\": 9");
+    let text = read(&file).replace("\"version\": 2", "\"version\": 9");
     fs::write(&file, text).expect("newer");
     match get(&p.root, &made.id) {
         Err(CoreError::UnsupportedVersion { found, supported }) => {
@@ -479,4 +481,145 @@ fn the_console_and_superscript_device_names_are_refused_too() {
         assert!(!is_project_relative(bad), "{bad:?} must be refused");
     }
     assert!(is_project_relative("concepts/com10.png"));
+}
+
+#[test]
+fn an_asset_node_keeps_only_the_asset_id() {
+    let p = project();
+    let made = create(&p.root, "Boss", PlanPreset::Brainstorm).expect("create");
+    let asset = PlanNode {
+        kind: NodeKind::Asset,
+        text: String::new(),
+        asset: Some("frost-warden".into()),
+        ..note("n-1", 0, 0)
+    };
+    let direction = PlanNode {
+        kind: NodeKind::Direction,
+        text: String::new(),
+        direction: Some("kotatsu-corner".into()),
+        ..note("n-2", 0, 0)
+    };
+    let mut plan = made.plan.clone();
+    plan.nodes = vec![asset.clone(), direction.clone()];
+    save(&p.root, &made.id, &plan).expect("save");
+    let text = read(&p.root.join(&made.file));
+    assert!(text.contains("\"kind\": \"asset\""));
+    assert!(text.contains("\"asset\": \"frost-warden\""));
+    assert!(text.contains("\"direction\": \"kotatsu-corner\""));
+    let back = get(&p.root, &made.id).expect("get").plan;
+    assert_eq!(back.nodes, vec![asset.clone(), direction.clone()]);
+    let listed = list(&p.root).expect("list");
+    assert_eq!((listed[0].assets, listed[0].nodes), (1, 2));
+
+    for (node, why) in [
+        (
+            PlanNode {
+                asset: None,
+                ..asset.clone()
+            },
+            "an asset node without an asset",
+        ),
+        (
+            PlanNode {
+                asset: Some("../x".into()),
+                ..asset.clone()
+            },
+            "an asset id that names a path",
+        ),
+        (
+            PlanNode {
+                asset: Some("a".repeat(LINK_ID_MAX_CHARS + 1)),
+                ..asset.clone()
+            },
+            "a long asset id",
+        ),
+        (
+            PlanNode {
+                title: "Frost Warden".into(),
+                ..asset.clone()
+            },
+            "a copied name on an asset node",
+        ),
+        (
+            PlanNode {
+                url: Some("https://a.example".into()),
+                ..asset.clone()
+            },
+            "an address on an asset node",
+        ),
+        (
+            PlanNode {
+                direction: Some("d".into()),
+                ..asset.clone()
+            },
+            "a direction on an asset node",
+        ),
+        (
+            PlanNode {
+                asset: Some("a".into()),
+                ..note("n-1", 0, 0)
+            },
+            "an asset on a note",
+        ),
+        (
+            PlanNode {
+                direction: None,
+                ..direction.clone()
+            },
+            "a direction node without one",
+        ),
+        (
+            PlanNode {
+                text: "notes".into(),
+                ..direction.clone()
+            },
+            "text on a direction node",
+        ),
+    ] {
+        plan.nodes = vec![node];
+        assert!(validate(&plan).is_err(), "{why} must be refused");
+    }
+}
+
+#[test]
+fn both_sides_trim_the_same_characters_so_a_padded_title_settles() {
+    let p = project();
+    let made = create(&p.root, "\u{feff}Trim\u{85}", PlanPreset::Brainstorm).expect("create");
+    assert_eq!(made.plan.name, "Trim");
+    let file = path(&p.root, &made.id).expect("path");
+    let mut plan = made.plan.clone();
+    plan.nodes = vec![PlanNode {
+        title: "\u{feff} porch \u{85}".into(),
+        ..note("n-1", 0, 0)
+    }];
+    fs::write(&file, serde_json::to_string_pretty(&plan).expect("json")).expect("write");
+    let opened = get(&p.root, &made.id).expect("get").plan;
+    assert_eq!(opened.nodes[0].title, "porch");
+    let before = read(&file);
+    save(&p.root, &made.id, &opened).expect("save");
+    assert_eq!(read(&file), before, "nothing new to write");
+}
+
+#[test]
+fn a_long_title_padded_with_spaces_is_checked_after_trimming() {
+    let p = project();
+    let made = create(&p.root, "Padded", PlanPreset::Brainstorm).expect("create");
+    let file = path(&p.root, &made.id).expect("path");
+    let full = "t".repeat(TITLE_MAX_CHARS);
+    let mut plan = made.plan.clone();
+    plan.nodes = vec![PlanNode {
+        title: format!("   {full}   "),
+        ..note("n-1", 0, 0)
+    }];
+    fs::write(&file, serde_json::to_string_pretty(&plan).expect("json")).expect("write");
+    let listed = list(&p.root).expect("list");
+    assert_eq!(listed[0].problem, None, "it opens, not listed as broken");
+    assert_eq!(
+        get(&p.root, &made.id).expect("get").plan.nodes[0].title,
+        full
+    );
+    let saved = save(&p.root, &made.id, &plan).expect("a padded save is trimmed first");
+    assert_eq!(saved.plan.nodes[0].title, full);
+    plan.nodes[0].title = format!("{full}t");
+    assert!(save(&p.root, &made.id, &plan).is_err(), "still too long");
 }
