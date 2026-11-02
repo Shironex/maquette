@@ -1017,8 +1017,10 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   client's name, one line, at most 64 characters) and may name a `run` to group calls. At most 100
   nodes and links per call, and everything is checked before anything is written. An agent may add
   anything and edit or move any node, a person's too, since the log keeps what it said before. It
-  never removes what it did not make: a person's or another agent's node or link is refused with a
-  reason, and so is a node that has a link someone else drew. `place.rs` puts a node without `x` and
+  never removes a person's node or link, nor a node that has a link someone else drew: each is
+  refused with a reason. Agent names are labels, not accounts (any client can pass any name), so a
+  node under another agent's name is refused too as a courtesy, but the only protection is between
+  the person and agents. `place.rs` puts a node without `x` and
   `y` in a column right of the `near` node (or right of everything), clear of every other node by a
   gap, never stacked at 0, 0, with node sizes guessed as the view guesses them before a node has
   drawn. `layout_canvas` moves only the agent's own nodes that overlap another, to a free spot beside
@@ -1026,20 +1028,30 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
 - **Change log.** Each canvas has `plans/<id>.log.jsonl`, one JSON line per write (`log.rs`): id, time,
   `by` (null for a person), `run`, a one line summary (`summary.rs`), the operations as written and the
   lines an undo took back. It is only appended to, so a sync tool sends the new lines and the canvas
-  file stays small. Past 1 MiB the oldest lines go in one atomic rewrite that keeps the newest half. A
-  line over 128 KiB keeps its summary but drops its operations (`trimmed`) and can no longer be undone.
-  A line that does not read (a write cut short, a sync conflict copy) is skipped. The log moves to the
-  trash with its canvas.
+  file stays small. An agent's line that changed a person's node or link is a keeper: it is the only
+  place the person's earlier content lives, so rotation never drops it while it is not undone. An
+  agent write is refused before anything is written when its line would pass 256 KiB (one node's
+  longest text, before and after, fits) or when it changes a person's content and the keepers would
+  pass 4 MiB; the person undoes or reviews agent changes first, and adding nodes still works. Every
+  other line (a person's own edits, agents' changes to their own nodes) stays undoable while it is
+  among the newest: once those lines pass 1 MiB one atomic rewrite keeps every keeper and the newest
+  512 KiB of the rest. A person's own line over 256 KiB keeps its summary but drops its operations
+  (`trimmed`); the canvas holds what it wrote. The Changes panel's footer says the same. A line that
+  does not read (a write cut short, a sync conflict copy) is skipped, and the next line starts on its
+  own line. Removing a canvas moves its log to the trash first and the canvas after, putting the log
+  back if the canvas cannot move, so a new canvas with the same id never inherits an old log.
 - **Undo.** `plans::undo` inverts the operations of the lines named and lays them over the canvas as
-  it is now, carefully: a field changed since stays as it was left, and a node a person edited since
-  is kept and counted. An agent may undo only its own lines (`undo_run`, by `run` or by change ids);
+  it is now, carefully: a field changed since stays as it was left, and a node edited or linked since
+  is kept with its links and counted, so an undo never drops a link a person drew. An agent may undo only lines under its own name (`undo_run`, by `run` or by change ids, at most
+  100 per call);
   a person's undo (`plan_undo`, the Changes panel's Undo and Undo run) may take back any. An undo is
   itself a logged change. The view's own Mod+Z, Shift+Mod+Z and Mod+Y undo and redo a person's edits
   in the open canvas (`state/plan-history.ts`, 100 edits deep) the same way, as inverted operations,
   so an agent's write that landed in between is not undone with them.
 - **Watching.** `commands/plan_watch.rs` watches the project's `plans/` folder while a canvas is open
-  (`plan_watch`; one watcher per folder, shared by every window, the four newest folders stay) and
-  emits `PlanChanged` with the canvas id after the file or its log has been quiet for 250 ms, so a
+  (`plan_watch`; one watcher per folder, shared by every window, the four newest folders stay; a
+  project with no `plans/` folder yet answers false and the view asks again once it has a canvas)
+  and emits `PlanChanged` once per canvas id after its file or log has been quiet for 250 ms, so a
   write by an agent, another window or a sync from another computer reaches the view. MCP writes also
   call `Host::plan_changed`, so the app does not wait for the watcher.
 - **Person, agent and outside edits.** `state/plans-sync.ts` keeps the canvas as the file last held
@@ -1048,7 +1060,12 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   so they never reload in a loop. When the file changes from outside and the person has no unsaved
   edits, it simply shows. When they do, the two are merged by node id (`state/plan-ops.ts`): the
   person's edits are laid over the new file, and only when both changed the same field of the same
-  node does the canvas ask Keep mine or Use theirs, with autosave waiting until then. An agent's
+  node does the canvas ask Keep mine or Use theirs. Until the person answers nothing saves: not
+  autosave, leaving, quitting, renaming, opening a link (the link opens, unsaved) or an undo from
+  the log, since any save would choose Keep mine for them; each says to answer first. A reload
+  that a save overtook while it read the file reads again, and an outside change that lands mid
+  drag keeps where the drag started for undo. When the folder cannot be watched the view says so
+  and reads the canvas again each time the window comes to the front. An agent's
   write shows a toast, the nodes an outside write added or edited carry an "added" or "edited"
   badge, and an agent's nodes have a blue ring. The Changes panel (`features/plan/PlanChanges`,
   `state/plan-log.ts`) groups the log into runs and filters All, Agents or Mine.
