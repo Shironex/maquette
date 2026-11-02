@@ -240,7 +240,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
                 variant="secondary"
                 disabled={deciding}
                 tooltip="Does not ship; nothing is written to the game repo"
-                onClick={() => void answer(false)}
+                onClick={event => void answer(false, event)}
               >
                 Deny
               </Button>
@@ -250,7 +250,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
                 loading={deciding}
                 disabled={deciding}
                 tooltip="Writes these files to the game repo"
-                onClick={() => void answer(true)}
+                onClick={event => void answer(true, event)}
               >
                 Approve and ship
               </Button>

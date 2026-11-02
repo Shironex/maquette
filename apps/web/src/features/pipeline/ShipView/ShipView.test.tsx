@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useGameStore } from '@/state/use-game-store';
 import { clearMocks, openMockGame } from '@/test/mock-ipc';
@@ -41,8 +42,14 @@ describe('ShipView', () => {
   });
 
   it('approves the ship in the app', async () => {
+    const decide = vi.spyOn(commands, 'mcpDecide');
     render(<ShipView project="crypt-game" onClose={vi.fn()} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Approve and ship' }));
+    expect(decide).toHaveBeenCalledWith(
+      expect.any(String),
+      true,
+      expect.objectContaining({ source: 'ship-view', input: 'pointer' })
+    );
     expect(useAgentsStore.getState().status?.approvals).toEqual([]);
     expect(await screen.findByText(/What the next Ship changes · 0 of/)).toBeInTheDocument();
   });

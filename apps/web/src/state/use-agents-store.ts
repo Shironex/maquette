@@ -4,7 +4,7 @@
  * by `mcpUpdate`.
  */
 import { create } from 'zustand';
-import { commands, errorMessage, type McpStatus } from '@/ipc/client';
+import { commands, errorMessage, type DecidedBy, type McpStatus } from '@/ipc/client';
 import { isGame } from './game';
 import { useAppStore } from './use-app-store';
 
@@ -14,7 +14,8 @@ interface AgentsStore {
   deciding: string | null;
   load: () => Promise<void>;
   onUpdate: (status: McpStatus) => void;
-  decide: (approvalId: string, approve: boolean) => Promise<void>;
+  /** Answers an approval; `by` says which card and what pressed it, for the record. */
+  decide: (approvalId: string, approve: boolean, by: DecidedBy) => Promise<void>;
   clearActivity: () => Promise<void>;
   renewToken: () => Promise<void>;
 }
@@ -36,11 +37,11 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
 
   onUpdate: status => set({ status }),
 
-  decide: async (approvalId, approve) => {
+  decide: async (approvalId, approve, by) => {
     const approval = get().status?.approvals.find(a => a.id === approvalId);
     set({ deciding: approvalId });
     try {
-      set({ status: await commands.mcpDecide(approvalId, approve) });
+      set({ status: await commands.mcpDecide(approvalId, approve, by) });
       if (approval?.kind === 'send-to-3d') {
         const asset = approval.assetName ?? 'The asset';
         notify(

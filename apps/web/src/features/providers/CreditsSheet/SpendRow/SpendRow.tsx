@@ -2,6 +2,7 @@ import { StatusChip, type WindowItemProps } from '@maquette/ui';
 import type { Spend } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { formatCredits, outcomeChip } from '@/state/credits';
+import { decisionText, decisionTitle } from '@/state/decisions';
 import { SERVICE_LABEL } from '@/state/providers';
 
 export interface SpendRowProps {
@@ -13,7 +14,10 @@ export interface SpendRowProps {
   position?: WindowItemProps;
 }
 
-/** One paid send: when, which asset, its settings, how it ended and what it cost. */
+/**
+ * One paid send: when, which asset, its settings, how it ended and what it
+ * cost, and for an agent's send who approved it, when and from where.
+ */
 export default function SpendRow({ spend, now, project, position }: SpendRowProps) {
   const chip = outcomeChip(spend);
   const sent = spend.sentAtMs ? new Date(spend.sentAtMs).toLocaleString('en-GB') : '';
@@ -42,6 +46,11 @@ export default function SpendRow({ spend, now, project, position }: SpendRowProp
           {SERVICE_LABEL[spend.service]}
           {spend.viaAgent ? ' · by an agent' : ''}
         </span>
+        {spend.decision ? (
+          <span className="truncate text-meta text-fg-mute" title={decisionTitle(spend.decision)}>
+            {decisionText(spend.decision)}
+          </span>
+        ) : null}
       </span>
       <span className="truncate text-meta text-fg-dim" title={spend.summary}>
         {spend.summary}

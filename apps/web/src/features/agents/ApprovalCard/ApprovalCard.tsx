@@ -4,6 +4,7 @@ import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { COMMAND_SOURCE, approvalTitle } from '@/state/agents';
 import { formatCredits } from '@/state/credits';
+import { decidedBy } from '@/state/decisions';
 import { useApprovalCard } from './ApprovalCard.hooks';
 
 export interface ApprovalCardProps {
@@ -32,6 +33,7 @@ export default function ApprovalCard({
   armed = true,
 }: ApprovalCardProps) {
   const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
+  const source = floating ? 'floating-card' : 'agents-panel';
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';
   const chains = approval.kind === 'springs';
@@ -267,7 +269,7 @@ export default function ApprovalCard({
                         ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
                         : 'Writes nothing; the agent is told the pose was turned down'
                 }
-                onClick={() => void pose.deny()}
+                onClick={event => void pose.deny(decidedBy(source, event))}
               >
                 Deny
               </Button>
@@ -298,7 +300,7 @@ export default function ApprovalCard({
                         ? 'Sends nothing and spends no credits'
                         : 'Ships nothing'
                 }
-                onClick={() => void decide(approval.id, false)}
+                onClick={event => void decide(approval.id, false, decidedBy(source, event))}
               >
                 Deny
               </Button>
@@ -319,7 +321,7 @@ export default function ApprovalCard({
                         ? 'Sends it to the provider, which spends credits'
                         : 'Writes the files to the game repo'
                 }
-                onClick={() => void decide(approval.id, true)}
+                onClick={event => void decide(approval.id, true, decidedBy(source, event))}
               >
                 {preview
                   ? 'Approve and run'

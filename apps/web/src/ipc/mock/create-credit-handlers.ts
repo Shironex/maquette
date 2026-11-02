@@ -7,6 +7,7 @@
 import type {
   Balance,
   BatchRequest,
+  DecisionRecord,
   Ledger,
   ProviderId,
   ProviderJob,
@@ -107,6 +108,34 @@ function past(
     redoOf,
     viaAgent: job === 'veil-platform-2',
     source: 'api',
+    decision: job === 'veil-platform-2' ? agentYes(project, assetName, job, sent) : null,
+  };
+}
+
+/** The record an agent's send leaves once a person approves it on the floating card. */
+function agentYes(project: string, asset: string, job: string, sent: number): DecisionRecord {
+  return {
+    v: 1,
+    atMs: sent - 20_000,
+    approval: 'approval-1',
+    kind: 'send-to-3d',
+    decision: 'approved',
+    by: {
+      source: 'floating-card',
+      input: 'pointer',
+      trusted: true,
+      pageFocused: true,
+      pageVisible: true,
+      windowFocused: true,
+      windowVisible: true,
+      windowMinimized: false,
+    },
+    project,
+    jobs: [job],
+    provider: 'Tripo',
+    asset,
+    estimate: 30,
+    requestedAtMs: sent - 34_000,
   };
 }
 
