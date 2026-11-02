@@ -41,7 +41,7 @@ export function useRefsBody(view: RefsView) {
         // An import can answer with a ref already here, which keeps its view.
         const fresh = files.filter(file => !refs.some(r => r.file === file));
         if (fresh.length > 0) await add(fresh);
-        if (!front && files[0]) await tag(files[0], 'front');
+        if (!front && files[0] && fresh.includes(files[0])) await tag(files[0], 'front');
       } catch (error) {
         useAppStore.getState().notify({
           status: 'failed',

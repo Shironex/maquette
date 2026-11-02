@@ -116,4 +116,22 @@ describe('the refs page', () => {
     expect(refs).toHaveLength(count);
     vi.restoreAllMocks();
   });
+
+  it('keeps a reused ref in its view on a card with no front', async () => {
+    const { again } = await body();
+    const view = useRefsStore.getState().view!;
+    const left = 'refs/left.png';
+    useRefsStore.setState({
+      view: { ...view, refs: [{ file: left, view: 'left' }], tagged: true },
+    });
+    const tag = vi.spyOn(commands, 'refsSetViews');
+    vi.spyOn(commands, 'labImportRefs').mockResolvedValue([left] as never);
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(commands.labImportRefs).toHaveBeenCalled());
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(tag).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
 });
