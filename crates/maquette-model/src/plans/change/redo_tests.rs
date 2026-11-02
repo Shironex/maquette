@@ -204,3 +204,34 @@ fn a_line_after_a_torn_one_counts_as_a_read_of_the_log_counts_it() {
         held(&root, &id)
     );
 }
+
+#[test]
+fn a_confirmed_keep_takes_exactly_the_list_the_person_saw() {
+    let (_dir, root, id) = canvas(&["orig".to_string(), "other".to_string()]);
+    let first = agent_edit(&root, &id, "n-0", "a");
+    let second = agent_edit(&root, &id, "n-0", "b");
+    let elsewhere = agent_edit(&root, &id, "n-1", "c");
+    let before = held(&root, &id);
+    // An extra id the list never named is refused, and so is a short list.
+    let extra = super::keep_confirmed(
+        &root,
+        &id,
+        std::slice::from_ref(&second),
+        &[first.clone(), elsewhere.clone()],
+    )
+    .expect_err("extra");
+    assert!(extra.to_string().contains("Review again"), "{extra}");
+    let short =
+        super::keep_confirmed(&root, &id, std::slice::from_ref(&second), &[]).expect_err("short");
+    assert!(short.to_string().contains("The list changed"), "{short}");
+    assert_eq!(held(&root, &id), before);
+    // The confirmed need released meanwhile (kept in another window): the list
+    // changed, which says to review again rather than "nothing to keep".
+    keep(&root, &id, std::slice::from_ref(&first)).expect("kept elsewhere");
+    let stale = super::keep_confirmed(&root, &id, std::slice::from_ref(&second), &[first])
+        .expect_err("stale list");
+    assert!(stale.to_string().contains("The list changed"), "{stale}");
+    let kept =
+        super::keep_confirmed(&root, &id, std::slice::from_ref(&second), &[]).expect("as listed");
+    assert_eq!(kept.keeps, vec![second]);
+}

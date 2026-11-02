@@ -189,6 +189,20 @@ fn posters(project: &Path) -> Vec<(String, PathBuf)> {
         .collect()
 }
 
+/// The poster render of each stop in `stops` (its id and name) that has
+/// one, matched by name as the filmstrip matches them.
+pub fn stop_posters(project: &Path, stops: &[(String, String)]) -> Vec<(String, String)> {
+    let posters = posters(project);
+    stops
+        .iter()
+        .filter_map(|(id, name)| {
+            let key = snake(name);
+            let (_, file) = posters.iter().find(|(k, _)| *k == key)?;
+            Some((id.clone(), file.display().to_string()))
+        })
+        .collect()
+}
+
 /// Camera nodes of one glTF file as stops looking at `center`'s depth.
 pub fn cameras_in(file: &Path, center: [f32; 3]) -> Vec<CameraStopDef> {
     let Ok(bytes) = fs::read(file) else {
