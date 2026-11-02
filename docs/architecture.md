@@ -973,9 +973,14 @@ pixel `x` and `y`, an optional `width`, `title`, `text`, a project relative `ima
 a `kind` (`relates`, `leads-to`, `source`) and a `label`. Pan and zoom are not stored, so two
 computers syncing the folder never fight over the view.
 
-- **Writes.** `files.rs` validates, sorts nodes and edges by id and writes atomically; `edited`
+- **Writes.** `files.rs` validates (`check.rs`: fields by kind, limits, paths safe on Windows),
+  sorts nodes and edges by id and writes atomically under one lock, reading the file first; `edited`
   only moves when the content changes, so a save with nothing new writes the same bytes. A save
-  to a removed canvas is refused rather than bringing it back.
+  keeps the file's name (only Rename changes it) and is refused for a removed canvas. A file over
+  8 MB lists as broken without being read.
+- **Leaving.** The web store waits for a save on its way and saves the latest edits before Back,
+  another canvas, another project or quitting. When that save fails the canvas stays open and asks:
+  try again, stay, or leave without saving.
 - **Pictures.** `images.rs` links a picture already inside the project by its relative path and
   copies one from elsewhere into `plans/images/<name>-<hash>.<ext>` once.
 - **Remove.** The file moves to `<workspace>/trash/<project>/plans/`; copied pictures stay.
