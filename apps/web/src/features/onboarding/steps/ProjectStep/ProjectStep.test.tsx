@@ -23,7 +23,7 @@ describe('the first project step', () => {
     await openMockWorkspace('first-run');
     render(<Harness />);
     const name = screen.getByLabelText('Project name');
-    expect(name).toHaveValue('Frostveil');
+    expect(name).toHaveValue('My first project');
     await userEvent.clear(name);
     await userEvent.type(name, 'Harbour lights');
     expect(screen.getByLabelText('Project name')).toHaveValue('Harbour lights');

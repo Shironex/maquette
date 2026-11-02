@@ -16,7 +16,7 @@ export default function ProjectTopBar({ extra, primaryRun }: ProjectTopBarProps)
     loaded,
     canRun,
     running,
-    models,
+    nothing,
     showPipeline,
     run,
   } = useProjectTopBar();
@@ -40,12 +40,8 @@ export default function ProjectTopBar({ extra, primaryRun }: ProjectTopBarProps)
               variant={primaryRun ? 'primary' : 'secondary'}
               icon="play"
               disabled={!canRun}
-              disabledReason={loaded ? undefined : 'Loading the pipeline'}
-              tooltip={
-                models
-                  ? 'Runs every step, skipping cached ones'
-                  : 'No models yet, so a run has nothing to build'
-              }
+              disabledReason={loaded ? (nothing ?? undefined) : 'Loading the pipeline'}
+              tooltip="Runs every step, skipping cached ones"
               onClick={run}
             >
               Run pipeline

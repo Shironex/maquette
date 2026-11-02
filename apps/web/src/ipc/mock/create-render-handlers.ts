@@ -6,7 +6,8 @@
  *
  * `?render=` sets what opens: `running` a render held at 7 of 13 files,
  * `failures` a render that hit every problem, `big` a GIF over the target,
- * `no-blender` and `no-ffmpeg` the tool missing from the toolchain.
+ * `no-blender` and `no-ffmpeg` the tool missing from the toolchain, `no-blender-run`
+ * a copy that fails and `no-blender-path` a saved path gone with another copy working.
  */
 import type {
   LibraryView,

@@ -13,9 +13,11 @@ use super::{
 fn missing_hint(tool: ToolId, os: HostOs) -> &'static str {
     let windows = os == HostOs::Windows;
     match tool {
-        ToolId::Blender if windows => "Install Blender from blender.org, or locate blender.exe.",
+        ToolId::Blender if windows => {
+            "Install Blender from blender.org or with winget install BlenderFoundation.Blender, or locate blender.exe."
+        }
         ToolId::Blender if os == HostOs::Mac => {
-            "Install Blender from blender.org, or locate Blender.app."
+            "Install Blender from blender.org or with brew install --cask blender, or locate Blender.app."
         }
         ToolId::Blender => "Install Blender from blender.org, or locate the blender binary.",
         ToolId::Codex => "Install it with npm i -g @openai/codex, then run codex login.",
@@ -23,7 +25,7 @@ fn missing_hint(tool: ToolId, os: HostOs) -> &'static str {
         ToolId::Ffmpeg if os == HostOs::Mac => "Install it with brew install ffmpeg.",
         ToolId::Ffmpeg => "Install ffmpeg with your package manager.",
         ToolId::Toktx => {
-            "Install KTX-Software, then Re-check. Until then Compress keeps textures as PNG."
+            "Install KTX-Software, then Re-check. Until then Compress keeps textures as PNG, so models download larger and use more GPU memory."
         }
         ToolId::GltfTransform => {
             "Install it with npm i -g @gltf-transform/cli, or install Node so I can use npx."

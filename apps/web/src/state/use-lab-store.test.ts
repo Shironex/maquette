@@ -1,5 +1,6 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProjectsStore } from '@/state/use-projects-store';
@@ -107,6 +108,20 @@ describe('Make object refs and a project switch', () => {
     expect(await useLabStore.getState().makeObjects()).toBe(true);
     expect(useLabStore.getState().view?.project).toBe('frost-cathedral');
     expect(useLabStore.getState().objects).toBeNull();
+  });
+});
+
+describe('adding a ref to the composer', () => {
+  it('uses the name the import gives, not the name of the file', async () => {
+    await openMockWorkspace();
+    await useLabStore.getState().load('frostveil');
+    const spy = vi
+      .spyOn(commands, 'labImportRefs')
+      .mockResolvedValue(['refs/front-2.png'] as never);
+    await useLabStore.getState().addRefs(['/Users/me/Desktop/front.png']);
+    expect(useLabStore.getState().draft.refs).toContain('refs/front-2.png');
+    expect(useLabStore.getState().draft.refs).not.toContain('refs/front.png');
+    spy.mockRestore();
   });
 });
 

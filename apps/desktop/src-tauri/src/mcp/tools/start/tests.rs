@@ -146,3 +146,39 @@ fn a_key_the_store_could_not_read_is_not_called_missing() {
     assert!(!says_no_key(&keys(None, None)));
     assert!(!says_no_key(&keys(Some(true), Some(false))));
 }
+
+fn found(id: ToolId, warning: &str) -> ToolReport {
+    ToolReport {
+        id,
+        label: id.label().to_string(),
+        required: true,
+        status: ToolStatus::Found,
+        source: None,
+        path: None,
+        version: None,
+        detail: None,
+        hint: None,
+        warning: Some(warning.to_string()),
+    }
+}
+
+#[test]
+fn a_found_blender_with_a_warning_works_and_a_codex_not_signed_in_does_not() {
+    let keys = Keys {
+        tripo: Some(true),
+        meshy: Some(true),
+        openai: None,
+    };
+    let says = |reports: &[ToolReport], what: &str| {
+        gates(reports, &keys, true)
+            .iter()
+            .any(|g| g["gate"].as_str().is_some_and(|w| w.contains(what)))
+    };
+    let blender = [found(ToolId::Blender, "The saved path is gone.")];
+    assert!(blender_works(&blender));
+    assert!(!says(&blender, "locate Blender"));
+    assert!(says(&[], "locate Blender"));
+    let codex = [found(ToolId::Codex, "Codex CLI is not signed in.")];
+    assert!(!tool_works(&codex, ToolId::Codex));
+    assert!(says(&codex, "Codex CLI"));
+}

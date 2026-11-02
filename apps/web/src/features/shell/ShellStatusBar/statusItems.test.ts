@@ -66,6 +66,12 @@ describe('the shell status items', () => {
     expect(labels({})).toEqual(['Local worker connected', 'Blender not found', 'No runs yet']);
   });
 
+  it('says a Blender that fails did not run, not that it is gone', () => {
+    const reports = [{ id: 'blender', status: 'broken' }] as ToolReport[];
+    expect(labels({ reports })).toContain('Blender did not run');
+    expect(labels({ reports })).not.toContain('Blender not found');
+  });
+
   it('names the Blender version, and the Codex CLI only in the Lab', () => {
     const reports = [
       { id: 'blender', status: 'found', version: '4.2' },

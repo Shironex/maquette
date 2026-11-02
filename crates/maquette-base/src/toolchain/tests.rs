@@ -411,7 +411,9 @@ fn missing_tools_have_os_hints() {
     );
     assert_eq!(
         blender.hint.as_deref(),
-        Some("Install Blender from blender.org, or locate blender.exe.")
+        Some(
+            "Install Blender from blender.org or with winget install BlenderFoundation.Blender, or locate blender.exe."
+        )
     );
     assert!(runner.calls().is_empty());
 }

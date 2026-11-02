@@ -11,7 +11,9 @@
 pub mod backend;
 mod codex;
 pub mod codex_usage;
+pub mod import;
 pub mod jobs;
+mod naming;
 pub mod objects;
 pub mod pick;
 mod picks;
@@ -31,11 +33,13 @@ use serde::{Deserialize, Serialize};
 use crate::assets::AssetKind;
 use crate::error::{CoreError, CoreResult};
 use crate::json::{from_json_with_defaults, write_json};
-use crate::project::{now_rfc3339, slugify};
+use crate::project::now_rfc3339;
 
 pub use crate::refs::REFS_DIR;
 pub use codex::{assemble, attached, codex_args, prompt};
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
+pub use naming::direction_id;
+use naming::existing_id;
 pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
 pub use pick::{ImageRef, MAX_PICKS, PickRequest, Picked, PickedImage, pick_images, star_images};
 pub use picks::{SentPicks, heal_ref_thumbnails, send_picks};
@@ -344,7 +348,8 @@ pub(crate) fn prepare_with(
     new: &NewConcepts,
     style_revision: Option<u32>,
 ) -> CoreResult<(Direction, Vec<(u32, String)>)> {
-    let id = slugify(&new.direction);
+    let id =
+        existing_id(project_dir, &new.direction).unwrap_or_else(|| direction_id(&new.direction));
     let folder = direction_dir(project_dir, &id)?;
     let _guard = write_lock();
     let now = now_rfc3339();
@@ -381,7 +386,7 @@ pub(crate) fn prepare_with(
     Ok((direction, files))
 }
 
-/// One past the highest `<id>_<n>.png` already in the folder, so a job
+/// One past the highest `<id>_<n>` image already in the folder, so a job
 /// that is still running (or a file left by a failed one) is never
 /// overwritten by the next batch.
 fn next_free_index(project_dir: &Path, id: &str) -> u32 {
@@ -393,8 +398,10 @@ fn next_free_index(project_dir: &Path, id: &str) -> u32 {
         .flatten()
         .filter_map(|e| {
             let name = e.file_name().to_string_lossy().into_owned();
-            name.strip_prefix(&prefix)?
-                .strip_suffix(".png")?
+            let rest = name.strip_prefix(&prefix)?;
+            [".png", ".jpg", ".webp"]
+                .iter()
+                .find_map(|extension| rest.strip_suffix(extension))?
                 .parse::<u32>()
                 .ok()
         })

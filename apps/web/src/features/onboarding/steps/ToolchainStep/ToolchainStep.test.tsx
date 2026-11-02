@@ -14,5 +14,14 @@ describe('the toolchain step', () => {
     await act(() => useAppStore.getState().detectTools());
     expect(screen.getByText('KTX-Software toktx')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Re-check all' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Blender is missing' })).toBeNull();
+  });
+
+  it('leads with what to do when Blender is missing', async () => {
+    await openMockWorkspace('no-blender');
+    render(<ToolchainStep />);
+    await act(() => useAppStore.getState().detectTools());
+    expect(screen.getByRole('region', { name: 'Blender is missing' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Get Blender' })).toBeVisible();
   });
 });

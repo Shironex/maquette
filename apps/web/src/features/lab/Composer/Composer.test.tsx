@@ -85,7 +85,11 @@ describe('the composer', () => {
     const codex = { id: 'codex', status: 'missing', hint: 'Run codex login.' } as ToolReport;
     useAppStore.setState({ tools: { ...app.tools, reports: [codex] } });
     render(<Composer view={view} />);
-    expect(screen.getByText('Codex CLI is not ready. Run codex login.')).toBeVisible();
+    expect(
+      screen.getByText(
+        "Codex CLI is not ready. Run codex login. Or drag your own images onto the Board's Concept column."
+      )
+    ).toBeVisible();
   });
 
   it('carries the project style unless the switch turns it off', async () => {

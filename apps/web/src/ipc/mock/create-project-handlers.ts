@@ -73,6 +73,10 @@ export function createProjectHandlers({
       snapshot();
       return projects.get().map(summary);
     },
+    project_get: ({ id }) => {
+      snapshot();
+      return project(String(id));
+    },
     project_switch: ({ id }) => {
       snapshot();
       project(String(id));

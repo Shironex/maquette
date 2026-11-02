@@ -11,7 +11,7 @@ export const commands = {
 	appAbout: () => __TAURI_INVOKE<AboutInfo>("app_about"),
 	/**
 	 *  Opens one of the project's own pages (the repo, its releases and issue
-	 *  forms, the docs site) in the browser. Anything else is refused.
+	 *  forms, the docs site) or Blender's site in the browser. Anything else is refused.
 	 */
 	appOpenLink: (url: string) => __TAURI_INVOKE<null>("app_open_link", { url }),
 	/**  Whether this build updates itself, and what the last check found. */
@@ -58,6 +58,8 @@ export const commands = {
 	projectCreate: (project: NewProject_Deserialize) => __TAURI_INVOKE<WorkspaceSnapshot>("project_create", { project }),
 	/**  The projects for the switcher. */
 	projectList: () => __TAURI_INVOKE<ProjectSummary[]>("project_list"),
+	/**  Reads a project as it is on disk, leaving which one is open alone. */
+	projectGet: (id: string) => __TAURI_INVOKE<ProjectManifest>("project_get", { id }),
 	projectSwitch: (id: string) => __TAURI_INVOKE<WorkspaceSnapshot>("project_switch", { id }),
 	projectUpdate: (id: string, name: string, siteRepo: string | null) => __TAURI_INVOKE<ProjectManifest>("project_update", { id, name, siteRepo }),
 	projectInspectRepo: (path: string) => __TAURI_INVOKE<RepoInspection>("project_inspect_repo", { path }),
@@ -603,6 +605,11 @@ export const commands = {
 	 */
 	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
 	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
+	/**
+	 *  Copies images dropped on the Board's Concept column into a Lab direction
+	 *  and puts its card at Concept.
+	 */
+	labImportConcepts: (project: string, paths: string[]) => __TAURI_INVOKE<ImportedConcepts>("lab_import_concepts", { project, paths }),
 	labSetStyle: (project: string, change: StyleBoardChange) => __TAURI_INVOKE<StyleBoard>("lab_set_style", { project, change }),
 	labMoveDirection: (project: string, direction: string, to: string) => __TAURI_INVOKE<MovedDirection>("lab_move_direction", { project, direction, to }),
 	labMakeObjects: (request: NewObjectRefs) => __TAURI_INVOKE<LabView>("lab_make_objects", { request }),
@@ -3301,6 +3308,16 @@ export type Imported = {
 	revised: AnimationClip[],
 	skipped: number,
 	leftOut: number,
+};
+
+/**  What importing images did. */
+export type ImportedConcepts = {
+	direction: Direction,
+	asset: Asset,
+	/**  The new files, relative to the project folder. */
+	added: string[],
+	/**  The project with the card added, for the Board. */
+	project: ProjectManifest,
 };
 
 /**  The asset an inbox model goes to by default. */

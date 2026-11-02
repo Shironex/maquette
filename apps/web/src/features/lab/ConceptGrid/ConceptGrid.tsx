@@ -16,14 +16,17 @@ export default function ConceptGrid({ view }: ConceptGridProps) {
         <EmptyState
           icon="flask"
           title="No concepts yet"
-          body="Name a direction, describe it and press Generate. Codex makes each image in about a minute, a few at a time."
+          body="Name a direction, describe it and press Generate. The Codex CLI makes each image in about a minute, a few at a time. No Codex? Drag your own images onto the Board's Concept column."
           steps={[
             {
               title: 'Write the brief',
               detail: 'A direction name, the prompt and any references.',
             },
             { title: 'Generate', detail: 'Images land in concepts/ inside the project.' },
-            { title: 'Star and pick', detail: 'Send the picks to Refs to start the asset.' },
+            {
+              title: 'Star, pick and cut',
+              detail: 'Cut a scene into objects, then send the picks to Refs to start each asset.',
+            },
           ]}
         />
       </section>

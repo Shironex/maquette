@@ -6,6 +6,7 @@ import { BoardColumn } from '../BoardColumn';
 import { BoardHeader } from '../BoardHeader';
 import { BoardList } from '../BoardList';
 import { FirstRunCard } from '../FirstRunCard';
+import { NextStepStrip } from '../NextStepStrip';
 import { PrepDialog } from '../PrepDialog';
 import { RemoveAssetsDialog } from '../RemoveAssetsDialog';
 import { RenameAssetDialog } from '../RenameAssetDialog';
@@ -41,6 +42,7 @@ export default function BoardView() {
       <ProjectTopBar primaryRun={primary === 'run'} />
       <main className="flex min-h-0 flex-1 flex-col gap-[18px] px-6 pt-[22px] pb-5">
         <BoardHeader />
+        <NextStepStrip />
 
         <div className="relative min-h-0 flex-1">
           {prefs.layout === 'list' && assets.length > 0 ? (

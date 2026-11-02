@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
+import { useAppStore } from '@/state/use-app-store';
 import { useRefsStore } from '@/state/use-refs-store';
 import { clearMocks, openMockRefs } from '@/test/mock-ipc';
 import { RefsBody } from '.';
@@ -44,5 +46,92 @@ describe('the refs page', () => {
     expect(
       await screen.findByRole('button', { name: 'View of veil_gate_front.png: Other' })
     ).toBeInTheDocument();
+  });
+
+  it('takes a ref from disk when refs/ has nothing to offer, as its front', async () => {
+    const { again } = await body();
+    const view = useRefsStore.getState().view!;
+    useRefsStore.setState({ view: { ...view, refs: [], images: [], tagged: false } });
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => {
+      const refs = useRefsStore.getState().view!.refs;
+      expect(refs).toContainEqual(
+        expect.objectContaining({ file: 'refs/from_disk.png', view: 'front' })
+      );
+    });
+  });
+
+  it('keeps the tags already there when it takes a ref from disk', async () => {
+    const { again } = await body();
+    const front = useRefsStore.getState().view!.refs.find(r => r.view === 'front')!;
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() =>
+      expect(useRefsStore.getState().view!.refs).toContainEqual(
+        expect.objectContaining({ file: 'refs/from_disk.png', view: 'other' })
+      )
+    );
+    expect(useRefsStore.getState().view!.refs.find(r => r.view === 'front')?.file).toBe(front.file);
+  });
+
+  it('says what went wrong when a file from disk is no image', async () => {
+    await body();
+    vi.spyOn(commands, 'dialogPickFiles').mockResolvedValue(['/art/notes.txt'] as never);
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(useAppStore.getState().notice?.detail).toContain('notes.txt'));
+    vi.restoreAllMocks();
+  });
+
+  it('uses the name the import gives, which may differ from the file picked', async () => {
+    const { again } = await body();
+    vi.spyOn(commands, 'labImportRefs').mockResolvedValue(['refs/from_disk-2.png'] as never);
+    const saved = vi.spyOn(commands, 'refsSetViews');
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(saved.mock.lastCall?.[2]).toContainEqual({
+      file: 'refs/from_disk-2.png',
+      view: 'other',
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('leaves a ref alone when the import reuses it, so the front stays the front', async () => {
+    const { again } = await body();
+    const front = useRefsStore.getState().view!.refs.find(r => r.view === 'front')!;
+    const count = useRefsStore.getState().view!.refs.length;
+    vi.spyOn(commands, 'labImportRefs').mockResolvedValue([front.file] as never);
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(commands.labImportRefs).toHaveBeenCalled());
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const refs = useRefsStore.getState().view!.refs;
+    expect(refs.find(r => r.view === 'front')?.file).toBe(front.file);
+    expect(refs).toHaveLength(count);
+    vi.restoreAllMocks();
+  });
+
+  it('keeps a reused ref in its view on a card with no front', async () => {
+    const { again } = await body();
+    const view = useRefsStore.getState().view!;
+    const left = 'refs/left.png';
+    useRefsStore.setState({
+      view: { ...view, refs: [{ file: left, view: 'left' }], tagged: true },
+    });
+    const tag = vi.spyOn(commands, 'refsSetViews');
+    vi.spyOn(commands, 'labImportRefs').mockResolvedValue([left] as never);
+    again();
+    await userEvent.click(screen.getByRole('button', { name: 'Add refs' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Choose from disk...' }));
+    await waitFor(() => expect(commands.labImportRefs).toHaveBeenCalled());
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(tag).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });

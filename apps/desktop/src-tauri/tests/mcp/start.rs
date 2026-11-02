@@ -139,10 +139,13 @@ async fn an_agent_starts_from_an_empty_workspace() {
     std::fs::create_dir_all(&site).expect("site");
     std::fs::create_dir_all(site.join(".git")).expect("git");
     let session = session_in(dir.path(), true, |_| {});
-    session.set_tools(Some(vec![
-        report(ToolId::Blender, ToolStatus::Found),
-        report(ToolId::Codex, ToolStatus::Missing),
-    ]));
+    session.keep_tools(
+        session.tools_turn(),
+        vec![
+            report(ToolId::Blender, ToolStatus::Found),
+            report(ToolId::Codex, ToolStatus::Missing),
+        ],
+    );
     let (client, server, host) = serve(session).await;
 
     let started = call(&client, "get_started", json!({})).await;

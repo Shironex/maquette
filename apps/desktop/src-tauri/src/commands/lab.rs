@@ -9,6 +9,7 @@ use maquette_core::concepts::backend::ImageJobKind;
 use maquette_core::concepts::jobs::{Lane, Start};
 
 use super::image_api::{self, Backend};
+use maquette_core::concepts::import::ImportedConcepts;
 use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, NewObjectRefs, REFS_DIR,
     SentObjects, SentPicks, StyleBoard, StyleBoardChange, sheet, style,
@@ -327,11 +328,12 @@ pub(crate) fn move_direction(
     }
     let found = concepts::load_direction(&dir, direction_id)?
         .ok_or_else(|| CoreError::NotFound(format!("the direction {direction_id}")))?;
-    let asset = project::slugify(found.name.trim());
-    let keep_asset = studio
-        .list(Some(project_id))
-        .iter()
-        .any(|j| j.asset == asset && (j.state.is_active() || j.state == JobState::Inbox));
+    let manifest = project::load(&root, &config.layout, project_id)?;
+    let asset = direction_asset(&manifest, &found.name);
+    let keep_asset = studio.list(Some(project_id)).iter().any(|j| {
+        asset.as_deref() == Some(j.asset.as_str())
+            && (j.state.is_active() || j.state == JobState::Inbox)
+    });
     Ok(concepts::move_direction(
         &root,
         &config.layout,
@@ -355,40 +357,22 @@ pub fn lab_move_direction(
     move_direction(&session, &lab.0, &studio.0, &project, &direction, &to)
 }
 
-/// Copies images dropped on the composer into `refs/` (skipping ones that
-/// are already there) and returns their paths relative to the project.
+/// The id of the card a direction called `name` belongs to.
+fn direction_asset(manifest: &project::ProjectManifest, name: &str) -> Option<String> {
+    maquette_core::assets::find_by_name(manifest, name).map(|a| a.id.clone())
+}
+
+/// Copies images into `refs/` and returns their final paths relative to the
+/// project, for the composer and the refs sheet. Nothing there is replaced:
+/// the same bytes reuse the file, and other bytes get a free name.
 pub(crate) fn import_refs(
     session: &Session,
     project_id: &str,
     paths: &[String],
 ) -> CommandResult<Vec<String>> {
     let (_, _, dir) = project_dir(session, project_id)?;
-    let refs = dir.join(REFS_DIR);
-    std::fs::create_dir_all(&refs).map_err(|e| CoreError::io(&refs, e))?;
-    let mut out = Vec::new();
-    for raw in paths {
-        let from = session.expand(raw);
-        if !from.is_file() || !is_image(&from) {
-            return Err(super::invalid(&format!(
-                "{} is not a PNG, JPEG or WebP image.",
-                session.display(&from)
-            )));
-        }
-        let Some(name) = from.file_name().map(|n| n.to_string_lossy().into_owned()) else {
-            continue;
-        };
-        let inside = from
-            .canonicalize()
-            .ok()
-            .zip(refs.canonicalize().ok())
-            .is_some_and(|(f, r)| f.starts_with(r));
-        if !inside {
-            let to = refs.join(&name);
-            std::fs::copy(&from, &to).map_err(|e| CoreError::io(&from, e))?;
-        }
-        out.push(format!("{REFS_DIR}/{name}"));
-    }
-    Ok(out)
+    let paths: Vec<PathBuf> = paths.iter().map(|raw| session.expand(raw)).collect();
+    Ok(concepts::import::import_refs(&dir, &paths)?)
 }
 
 /// Changes the project's style board. Its images may be board images,
@@ -444,6 +428,25 @@ pub fn lab_import_refs(
     paths: Vec<String>,
 ) -> CommandResult<Vec<String>> {
     import_refs(&session, &project, &paths)
+}
+
+/// Copies images dropped on the Board's Concept column into a Lab direction
+/// and puts its card at Concept.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn lab_import_concepts(
+    session: State<'_, Session>,
+    project: String,
+    paths: Vec<String>,
+) -> CommandResult<ImportedConcepts> {
+    let (root, config) = session.workspace()?;
+    let paths: Vec<_> = paths.iter().map(|p| session.expand(p)).collect();
+    Ok(concepts::import::import_images(
+        &root,
+        &config.layout,
+        &project,
+        &paths,
+    )?)
 }
 
 pub mod queue;

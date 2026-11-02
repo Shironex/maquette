@@ -15,10 +15,9 @@ use serde::{Deserialize, Serialize};
 use super::codex::assemble;
 use super::objects::MAX_NOTE_CHARS;
 use super::style::StyleBoard;
-use super::{Aspect, Direction, NewConcepts, load_direction, modify_direction};
+use super::{Aspect, Direction, NewConcepts, direction_id, load_direction, modify_direction};
 use crate::assets::Asset;
 use crate::error::{CoreError, CoreResult};
-use crate::project::slugify;
 use crate::refs::{AssetRef, RefView};
 
 /// The most candidates one view gets in one go.
@@ -219,7 +218,7 @@ fn direction_name(project_dir: &Path, asset: &Asset, kind: RefsJobKind) -> CoreR
         } else {
             format!("{base} {word} {n}")
         };
-        match load_direction(project_dir, &slugify(&name))? {
+        match load_direction(project_dir, &direction_id(&name))? {
             None => return Ok(name),
             Some(d)
                 if d.refs_job

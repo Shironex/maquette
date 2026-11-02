@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use maquette_core::inbox::open_in_blender_args;
-use maquette_core::{ProbeEnv, SystemRunner, ToolId, ToolStatus, toolchain};
+use maquette_core::{ToolId, ToolStatus};
 
 use super::{CommandResult, invalid};
 use crate::session::Session;
@@ -18,16 +18,7 @@ pub(crate) async fn open_gui(session: &Session, file: &Path) -> CommandResult<()
     }
     let reports = match session.tools() {
         Some(reports) => reports,
-        None => {
-            let overrides = super::toolchain::overrides(session, &session.app_state());
-            let reports = tauri::async_runtime::spawn_blocking(move || {
-                toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
-            })
-            .await
-            .map_err(super::join_failed)?;
-            session.set_tools(Some(reports.clone()));
-            reports
-        }
+        None => super::toolchain::check_blocking(session).await?,
     };
     let blender = reports
         .iter()

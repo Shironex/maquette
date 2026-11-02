@@ -40,6 +40,7 @@ pub fn suggested(project_dir: &Path, asset: &Asset, files: &[String]) -> Vec<Str
     let named = |text: &str| {
         text.trim().eq_ignore_ascii_case(asset.name.trim())
             || project::slugify(text.trim()) == asset.id
+            || project::folder_slug(text.trim()) == asset.id
     };
     let mut from_lab: Vec<String> = Vec::new();
     for d in concepts::list_directions(project_dir) {

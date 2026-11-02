@@ -22,6 +22,47 @@ describe('the project top bar', () => {
     expect(await tooltipText(run)).toBe('Loading the pipeline');
   });
 
+  const noModels = (template: 'room' | 'imported') => {
+    const project = useAppStore.getState().workspace!.project!;
+    act(() => useAppStore.getState().setProject({ ...project, template, assets: [] }));
+  };
+  const loadPipeline = (script: string) =>
+    act(() =>
+      usePipelineStore.setState({
+        view: {
+          project: 'frostveil',
+          runs: [],
+          starters: [{ path: 'tools/build.py', state: 'current', backup: null }],
+          defaults: {},
+          artifacts: [],
+          models: [],
+          def: { steps: [{ id: 'a', kind: 'blender', script }] },
+        } as never,
+      })
+    );
+
+  it('holds Run with no models and only template steps', async () => {
+    await openMockWorkspace();
+    noModels('room');
+    render(<ProjectTopBar />);
+    loadPipeline('tools/build.py');
+    const run = screen.getByRole('button', { name: 'Run pipeline' });
+    expect(run).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('offers Run with no models for a custom script step and for an imported folder', async () => {
+    await openMockWorkspace();
+    noModels('room');
+    const { rerender } = render(<ProjectTopBar />);
+    loadPipeline('tools/mine.py');
+    const run = () => screen.getByRole('button', { name: 'Run pipeline' });
+    expect(run()).not.toHaveAttribute('aria-disabled', 'true');
+    noModels('imported');
+    loadPipeline('tools/build.py');
+    rerender(<ProjectTopBar />);
+    expect(run()).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('does not say it is reading the budget with no project open', async () => {
     await openMockWorkspace();
     const workspace = useAppStore.getState().workspace!;
@@ -71,6 +112,7 @@ describe('the project top bar', () => {
     expect(run).toHaveClass('bg-clay');
     const project = useAppStore.getState().workspace!.project!;
     act(() => useAppStore.getState().setProject({ ...project, assets: [] }));
+    expect(run).toHaveAttribute('aria-disabled', 'true');
     expect(await tooltipText(run)).toBe('No models yet, so a run has nothing to build');
   });
 });

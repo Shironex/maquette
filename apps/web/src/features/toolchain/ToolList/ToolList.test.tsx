@@ -30,7 +30,13 @@ function report(id: ToolReport['id'], over: Partial<ToolReport> = {}): ToolRepor
 
 const tools = (over: Partial<ReturnType<typeof useAppStore.getState>['tools']>) =>
   useAppStore.setState({
-    tools: { reports: [], checking: false, busyTool: null, checkedAt: null, ...over },
+    tools: {
+      ...useAppStore.getState().tools,
+      reports: [],
+      checking: false,
+      busyTool: null,
+      ...over,
+    },
   });
 
 describe('the tool list', () => {

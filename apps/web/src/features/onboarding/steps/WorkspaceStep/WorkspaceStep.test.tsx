@@ -23,7 +23,7 @@ describe('the workspace step', () => {
     await openMockWorkspace('first-run');
     render(<Harness />);
     expect(screen.getByText('projects/')).toBeVisible();
-    expect(screen.getByText(/Tripo downloads land here/)).toBeVisible();
+    expect(screen.getByText(/Finished 3D models land here/)).toBeVisible();
     const field = screen.getByRole('textbox', { name: 'Root folder' });
     await userEvent.clear(field);
     await userEvent.type(field, '~/Documents{Enter}');

@@ -37,6 +37,10 @@ export interface ToolsState {
   /** The tool a Locate or Reset is running for. */
   busyTool: ToolId | null;
   checkedAt: number | null;
+  /** The Locate file dialog is open, and taking the window's focus. */
+  picking: boolean;
+  /** When the window coming back last asked for a check. */
+  focusCheckedAt: number | null;
 }
 
 interface AppStore {
@@ -66,10 +70,19 @@ interface AppStore {
   detectTools: () => Promise<void>;
   locateTool: (tool: ToolId) => Promise<void>;
   notify: (notice: Omit<Notice, 'id'>) => void;
+  /** A tool check for the window coming back: throttled, and never over the Locate dialog. */
+  recheckToolsOnFocus: () => Promise<void>;
   dismissNotice: () => void;
 }
 
 let noticeId = 0;
+/** Counts Locates, so a check that began before one is dropped. */
+let toolsTurn = 0;
+/**
+ * A crashing or quarantined Blender can raise a system dialog that takes focus,
+ * and each check would raise it again: at most one check per this long.
+ */
+const FOCUS_RECHECK_MS = 30_000;
 
 function currentHash(): string {
   return typeof window === 'undefined' ? '' : window.location.hash;
@@ -84,7 +97,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   bootError: null,
   workspace: null,
   view: viewFromHash(currentHash()),
-  tools: { reports: [], checking: false, busyTool: null, checkedAt: null },
+  tools: {
+    reports: [],
+    checking: false,
+    busyTool: null,
+    checkedAt: null,
+    picking: false,
+    focusCheckedAt: null,
+  },
   notice: null,
 
   init: () => {
@@ -183,10 +203,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   detectTools: async () => {
     if (get().tools.checking) return;
+    const turn = toolsTurn;
     set(s => ({ tools: { ...s.tools, checking: true } }));
     try {
       const reports = await commands.toolchainDetect();
-      set(s => ({ tools: { ...s.tools, reports, checking: false, checkedAt: clock.nowMs() } }));
+      // A Locate since may have saved after this check read the overrides.
+      if (turn !== toolsTurn) set(s => ({ tools: { ...s.tools, checking: false } }));
+      else
+        set(s => ({ tools: { ...s.tools, reports, checking: false, checkedAt: clock.nowMs() } }));
     } catch (error) {
       set(s => ({ tools: { ...s.tools, checking: false } }));
       get().notify({
@@ -197,13 +221,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  recheckToolsOnFocus: async () => {
+    const { checking, picking, focusCheckedAt } = get().tools;
+    const now = clock.nowMs();
+    if (checking || picking) return;
+    if (focusCheckedAt !== null && now - focusCheckedAt < FOCUS_RECHECK_MS) return;
+    set(s => ({ tools: { ...s.tools, focusCheckedAt: now } }));
+    await get().detectTools();
+  },
+
   locateTool: async tool => {
     const label = get().tools.reports.find(r => r.id === tool)?.label ?? tool;
     try {
-      const path = await commands.dialogPickFile(`Locate ${label}`);
+      set(s => ({ tools: { ...s.tools, picking: true } }));
+      const path = await commands
+        .dialogPickFile(`Locate ${label}`)
+        .finally(() => set(s => ({ tools: { ...s.tools, picking: false } })));
       if (!path) return;
+      toolsTurn += 1;
       set(s => ({ tools: { ...s.tools, busyTool: tool } }));
       const report = await commands.toolchainLocate(tool, path);
+      toolsTurn += 1;
       set(s => ({
         tools: {
           ...s.tools,

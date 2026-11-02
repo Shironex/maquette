@@ -51,9 +51,12 @@ pub const PROJECT_LINKS: [&str; 2] = [
     "https://shironex.github.io/maquette",
 ];
 
-/// True for one of [`PROJECT_LINKS`] or a page under it.
+/// Where the first run sends someone to get a missing tool.
+pub const TOOL_SITES: [&str; 1] = ["https://www.blender.org"];
+
+/// True for one of [`PROJECT_LINKS`] or [`TOOL_SITES`], or a page under it.
 pub fn is_project_link(url: &str) -> bool {
-    PROJECT_LINKS.iter().any(|base| {
+    PROJECT_LINKS.iter().chain(TOOL_SITES.iter()).any(|base| {
         url.strip_prefix(base)
             .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
     })
@@ -65,7 +68,7 @@ pub fn open_project_link(url: &str) -> std::io::Result<()> {
     if !is_project_link(url) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "only the Maquette repo and docs open from About",
+            "only the Maquette repo, its docs and blender.org open from the app",
         ));
     }
     open_url(url)
@@ -174,12 +177,20 @@ mod tests {
             "https://github.com/Shironex/maquette/issues/new?template=bug_report.yml&version=0.1.0"
         ));
         assert!(is_project_link("https://shironex.github.io/maquette/"));
+        assert!(is_project_link("https://www.blender.org/download/"));
         for bad in [
             "https://github.com/Shironex/maquette-fork",
             "https://github.com/Shironex/other",
             "https://github.com/Shironex/maquette@evil.example",
             "http://github.com/Shironex/maquette",
             "https://shironex.github.io/maquettes",
+            "https://www.blender.org.example.com/",
+            "https://www.blender.org@evil.example",
+            "https://www.blender.org:443@evil.example/",
+            "https://www.blender.org:8443/",
+            "https://www.blender.org\\@evil.example/",
+            "https://github.com/Shironex/maquette:x@evil.example/",
+            "https://shironex.github.io/maquette\\@evil.example/",
             "https://example.com/",
         ] {
             assert!(!is_project_link(bad), "{bad}");

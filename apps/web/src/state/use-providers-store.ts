@@ -19,6 +19,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   ...createRedoSlice(set, get, api),
   project: null,
   jobs: [],
+  jobsReadFor: null,
   keys: [],
   keysReading: false,
   panel: null,
@@ -36,6 +37,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
       set({
         project,
         jobs: [],
+        jobsReadFor: null,
         panel: panel && panel.project !== project ? null : panel,
         batch: batch && batch.project !== project ? null : batch,
         downloads: downloads && downloads.project !== project ? null : downloads,
@@ -43,7 +45,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     }
     try {
       const jobs = await commands.providerJobs(project);
-      if (get().project === project) set({ jobs });
+      if (get().project === project) set({ jobs, jobsReadFor: project });
     } catch (error) {
       notify('failed', 'Could not read Sends', errorMessage(error));
     }

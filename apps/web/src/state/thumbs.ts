@@ -30,7 +30,11 @@ export function missingPreviews(project: ProjectManifest | null | undefined): nu
 /** True for an asset whose newest model can be rendered and has no picture of its own yet. */
 export function wantsPreview(asset: Asset): boolean {
   const latest = asset.versions[asset.versions.length - 1];
-  const shown = asset.thumbnail && !asset.thumbnail.startsWith('refs/');
+  // As the core's ref_may_replace: a ref or a dropped concept only stands in.
+  const shown =
+    asset.thumbnail &&
+    !asset.thumbnail.startsWith('refs/') &&
+    !asset.thumbnail.startsWith('concepts/');
   return Boolean(latest && RENDERABLE.test(latest.file) && !shown);
 }
 

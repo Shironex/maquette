@@ -65,11 +65,11 @@ The check runs `--version` on each tool. Locate a tool by hand if it is not on y
 
 ## First run
 
-After a welcome screen, the onboarding walks through six steps.
+The onboarding has seven steps in its side list: Welcome, then these six.
 
 1. A workspace folder. Projects, the inbox and the cache live under one root. Pick an empty folder, or an existing Maquette workspace.
 2. The toolchain check above.
-3. Defaults for every new model and build, such as the budgets and the compression settings. A project can override them later.
+3. Defaults for every new model and build. Use the recommended ones, or choose Edit to set the presets, the budgets and the compression. A project can override them later.
 4. The agents step, which can start the local MCP server. It is off by default. See [Connect an agent](/docs/agents/connect/).
 5. Your first project: a template, a name and an optional site repo, or an imported folder.
 6. A summary of what was set up.
