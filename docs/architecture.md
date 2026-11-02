@@ -139,7 +139,7 @@ against it.
 | Layer     | May use    | Modules                                                                                                                                                                                                                                   |
 | --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                                                           |
-| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`                                             |
+| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, `plans`, and the stored files of `prepare`, `built`, `materials` and `ship`                                    |
 | glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                                                                   |
 | preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                                                                      |
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight, springs}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
@@ -961,6 +961,28 @@ scroll: { top, max } }` as it scrolls and `{ type: "stats", frameMs, p95Ms, draw
 - **Numbers.** Readouts come from the page (frame time, draw calls) and from the inspect data:
   the `site` source is the current ship, the `shipped` source this run. Device budgets
   (`DEVICE_BUDGETS` in `state/page-numbers.ts`) give the phone, laptop and desktop verdicts.
+
+## Planning canvases
+
+`maquette_core::plans` owns them: one plain JSON file per canvas at
+`<project>/plans/<id>.plan.json`, the id being the file name and fixed for its life (Rename only
+changes `name`). The file carries `version` (1; a newer one is refused, never rewritten), `name`,
+`preset`, `created`, `edited`, `nodes` and `edges`. Nodes are `note`, `image` or `link` with whole
+pixel `x` and `y`, an optional `width`, `title`, `text`, a project relative `image` or an http(s)
+`url`, and `by` (who added it, empty for a person). Edges join two node ids with optional sides,
+a `kind` (`relates`, `leads-to`, `source`) and a `label`. Pan and zoom are not stored, so two
+computers syncing the folder never fight over the view.
+
+- **Writes.** `files.rs` validates, sorts nodes and edges by id and writes atomically; `edited`
+  only moves when the content changes, so a save with nothing new writes the same bytes. A save
+  to a removed canvas is refused rather than bringing it back.
+- **Pictures.** `images.rs` links a picture already inside the project by its relative path and
+  copies one from elsewhere into `plans/images/<name>-<hash>.<ext>` once.
+- **Remove.** The file moves to `<workspace>/trash/<project>/plans/`; copied pictures stay.
+- **Edges.** The Tauri commands are in `commands/plans.rs`. The web state is
+  `apps/web/src/state/plans.ts` (file to React Flow and back) and `use-plans-store.ts` (saves a
+  moment after each change), the view is `features/plan` on `@xyflow/react`, and mock mode serves
+  demo canvases with `?plans=demo`.
 
 ## About and updates
 
