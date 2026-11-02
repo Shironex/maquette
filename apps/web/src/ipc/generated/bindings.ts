@@ -58,6 +58,8 @@ export const commands = {
 	projectCreate: (project: NewProject_Deserialize) => __TAURI_INVOKE<WorkspaceSnapshot>("project_create", { project }),
 	/**  The projects for the switcher. */
 	projectList: () => __TAURI_INVOKE<ProjectSummary[]>("project_list"),
+	/**  Reads a project as it is on disk, leaving which one is open alone. */
+	projectGet: (id: string) => __TAURI_INVOKE<ProjectManifest>("project_get", { id }),
 	projectSwitch: (id: string) => __TAURI_INVOKE<WorkspaceSnapshot>("project_switch", { id }),
 	projectUpdate: (id: string, name: string, siteRepo: string | null) => __TAURI_INVOKE<ProjectManifest>("project_update", { id, name, siteRepo }),
 	projectInspectRepo: (path: string) => __TAURI_INVOKE<RepoInspection>("project_inspect_repo", { path }),

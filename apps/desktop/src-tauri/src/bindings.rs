@@ -55,6 +55,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             toolchain::toolchain_reset,
             project::project_create,
             project::project_list,
+            project::project_get,
             project::project_switch,
             project::project_update,
             project::project_inspect_repo,
