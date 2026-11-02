@@ -3,15 +3,16 @@
  * of Frostveil's canvases with the New canvas dialog and a rename, Remove's
  * question, Combat ideas open with notes, pictures, a link and edges, a
  * node selected and a note being written, the Add a link dialog, a new
- * empty canvas, and the list and canvas at the minimum window size. Mock
- * mode's `?plans=demo` serves them.
+ * empty canvas, the list and canvas at the minimum window size, and the
+ * question asked when the save on the way back fails. Mock mode's
+ * `?plans=demo` serves them (`?plans=locked`: the same, every save failing).
  */
 
 const SMALL = { width: 1120, height: 720 };
 
 /** Opens the Plan view on Frostveil's demo canvases. */
-async function plans(open, viewport) {
-  const page = await open('&scenario=configured&plans=demo', '#/plan', viewport);
+async function plans(open, viewport, mode = 'demo') {
+  const page = await open(`&scenario=configured&plans=${mode}`, '#/plan', viewport);
   await page.getByRole('region', { name: 'All canvases' }).waitFor();
   return page;
 }
@@ -79,4 +80,16 @@ export async function planShots({ open, shot }) {
   await combat(small);
   await shot(small, 'plan-canvas-small');
   await small.context().close();
+
+  // Every save fails: a new note, then Back, asks before dropping it.
+  const locked = await plans(open, undefined, 'locked');
+  await combat(locked);
+  await locked.getByRole('button', { name: /^Note/ }).click();
+  await locked.getByRole('textbox', { name: 'Note text' }).fill('Kept until you choose');
+  await locked.keyboard.press('Control+Enter');
+  await locked.getByRole('button', { name: 'Plan, back to all canvases' }).click();
+  await locked.getByRole('dialog', { name: 'The canvas was not saved' }).waitFor();
+  await locked.waitForTimeout(300);
+  await shot(locked, 'plan-unsaved');
+  await locked.context().close();
 }
