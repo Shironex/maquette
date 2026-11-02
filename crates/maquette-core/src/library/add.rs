@@ -13,7 +13,7 @@ use super::{
 use crate::assets::copy::{key, refs_of};
 use crate::assets::{self, Asset, AssetOrigin};
 use crate::error::{CoreError, CoreResult};
-use crate::project::{self, ProjectManifest, now_rfc3339, slugify};
+use crate::project::{self, ProjectManifest, folder_slug, now_rfc3339};
 use crate::providers::ProviderJob;
 use crate::workspace::FolderLayout;
 use crate::{materials, prepare};
@@ -67,7 +67,7 @@ pub(super) fn entry_of<'a>(
 }
 
 fn free_id(entries: &[LibraryEntry], root: &Path, name: &str) -> String {
-    let base = slugify(name);
+    let base = folder_slug(name);
     let taken = |id: &str| {
         entries.iter().any(|e| e.id == id) || entry_dir(root, id).is_ok_and(|d| d.exists())
     };

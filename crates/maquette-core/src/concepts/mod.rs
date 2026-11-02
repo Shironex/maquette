@@ -211,12 +211,15 @@ fn check_direction_id(id: &str) -> CoreResult<()> {
 /// slug keeps gets its own stable id from its text, since every such name
 /// would otherwise share `project`.
 pub fn direction_id(name: &str) -> String {
-    crate::project::latin_slug(name).unwrap_or_else(|| {
-        let hash = name.trim().bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
-            (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
-        });
-        format!("direction-{hash:016x}")
-    })
+    crate::project::latin_slug(name).map_or_else(
+        || {
+            let hash = name.trim().bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+                (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+            });
+            format!("direction-{hash:016x}")
+        },
+        crate::project::windows_safe,
+    )
 }
 
 pub fn direction_dir(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {

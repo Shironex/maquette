@@ -235,7 +235,7 @@ fn store(root: &Path, clip: &AnimationClip) -> CoreResult<()> {
 
 /// A folder name for a clip called `name` that no clip has yet.
 fn free_id(root: &Path, taken: &[String], name: &str) -> String {
-    let base = match crate::project::slugify(name) {
+    let base = match crate::project::folder_slug(name) {
         s if s.is_empty() => "clip".to_string(),
         s => s,
     };

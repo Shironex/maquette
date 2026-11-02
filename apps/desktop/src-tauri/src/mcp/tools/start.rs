@@ -96,7 +96,7 @@ fn game_template(template: Option<&str>) -> Result<Option<GameTemplateId>, Strin
 /// A project whose name or id the new name would take.
 fn taken<'a>(name: &str, existing: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {
     let wanted = name.trim();
-    let id = project::slugify(wanted);
+    let id = project::folder_slug(wanted);
     // A name with no Latin letters slugs to the fallback, and takes a suffix as
     // New project in the app does, so only its name can clash.
     let fell_back = id == "project" && !wanted.eq_ignore_ascii_case("project");

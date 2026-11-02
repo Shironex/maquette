@@ -655,3 +655,12 @@ fn a_ref_goes_only_to_the_card_of_its_own_direction_in_another_script() {
         "{sent:?}"
     );
 }
+
+#[test]
+fn a_new_direction_never_takes_a_name_windows_reserves() {
+    assert_eq!(direction_id("Aux"), "aux-1");
+    let f = fixture();
+    let done = f.import(&[f.image("aux.png")]).expect("import");
+    assert_eq!(done.direction.id, "aux-1");
+    assert_eq!(done.asset.id, "aux-1");
+}

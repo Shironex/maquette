@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use super::codex::assemble;
 use super::style::StyleBoard;
 use super::{
-    Aspect, Direction, MAX_IMAGES_PER_BATCH, NewConcepts, REFS_DIR, load_direction,
+    Aspect, Direction, MAX_IMAGES_PER_BATCH, NewConcepts, REFS_DIR, direction_id, load_direction,
     modify_direction, resolve_ref,
 };
 use crate::assets::{self, Asset, AssetKind};
@@ -107,7 +107,7 @@ fn numbered_name(source_name: &str, n: u32) -> String {
 fn objects_direction_name(project_dir: &Path, new: &NewObjectRefs) -> CoreResult<String> {
     for n in 1..=99 {
         let name = numbered_name(&new.source_name, n);
-        match load_direction(project_dir, &slugify(&name))? {
+        match load_direction(project_dir, &direction_id(&name))? {
             None => return Ok(name),
             Some(d)
                 if d.source.as_deref() == Some(new.source.as_str()) && d.kind == Some(new.kind) =>
