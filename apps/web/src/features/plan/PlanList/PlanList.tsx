@@ -141,7 +141,7 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
             <EmptyState
               icon="graph"
               title="Plan with canvases"
-              body="A canvas holds notes, pictures, links and your assets in one place. Agents can read it and add to it, and you see every change they make. Each one is a file in plans/ in the project folder."
+              body="Notes, pictures, links and your assets in one place. Agents can add to it, and you see every change they make."
               action={firstCanvas}
             />
           </div>
