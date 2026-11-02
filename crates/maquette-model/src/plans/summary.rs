@@ -21,6 +21,8 @@ pub enum ChangeMark {
     Undo,
     Rename,
     Create,
+    /// A person kept (accepted) agent changes.
+    Keep,
 }
 
 fn kind_name(kind: NodeKind) -> &'static str {

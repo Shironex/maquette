@@ -16,12 +16,16 @@
 //!
 //! What stays undoable, and for how long:
 //!
-//! - An agent's line that changed a person's node or link is the only
-//!   place the person's earlier text lives, so it is a keeper: rotation
-//!   never drops it while it is not undone. An agent write is refused when
-//!   its line would be over [`LINE_MAX_BYTES`] (split it into smaller
-//!   calls) or when it changes a person's content and the keepers would
-//!   pass [`KEEP_MAX_BYTES`] (the person undoes some agent changes first).
+//! - An agent's line that changed a person's content (their node or link,
+//!   or an agent node they wrote in last) is the only place their earlier
+//!   version lives, so it is a keeper ([`keep`]): rotation never drops it
+//!   until it is released, by an undo (the person's or the agent's, which
+//!   writes its line even when nothing is left to undo) or by the person's
+//!   Keep. An agent write is refused when its line would be over
+//!   [`LINE_MAX_BYTES`] (split it into smaller calls) or when it changes a
+//!   person's content and the keepers would pass [`KEEP_MAX_BYTES`] (the
+//!   person undoes or keeps agent changes first). Undo lines are never
+//!   keepers and are never refused for room.
 //! - Every other line, a person's own edits and agents' changes to their
 //!   own nodes, stays undoable while it is among the newest lines: past
 //!   [`LOG_MAX_BYTES`] one atomic rewrite keeps the keepers and the newest
@@ -40,8 +44,11 @@ use serde::{Deserialize, Serialize};
 
 use super::ops::PlanOp;
 use super::summary::ChangeMark;
+
+mod keep;
 use super::{PLANS_DIR, is_plan_id};
 use crate::error::{CoreError, CoreResult};
+pub use keep::{is_keeper, keeper_bytes, protected_node, released_ids};
 
 pub const LOG_SUFFIX: &str = ".log.jsonl";
 /// Past this size the oldest lines go.
@@ -76,6 +83,9 @@ pub struct PlanLogEntry {
     /// The lines this one undid.
     #[serde(default)]
     pub undoes: Vec<String>,
+    /// The agent lines a person kept (accepted), which releases them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keeps: Vec<String>,
     /// The operations were too big to keep.
     #[serde(default)]
     pub trimmed: bool,
@@ -96,6 +106,11 @@ pub struct PlanLogLine {
     /// It can be undone: it changed nodes or edges, kept its operations
     /// and was not undone yet.
     pub undoable: bool,
+    /// An agent's change to a person's content the log still keeps for
+    /// undo: Keep accepts it and frees that room.
+    pub keepable: bool,
+    /// A person kept (accepted) it.
+    pub kept: bool,
 }
 
 static SEQ: AtomicU32 = AtomicU32::new(0);
@@ -147,44 +162,34 @@ pub fn line_len(entry: &PlanLogEntry) -> CoreResult<usize> {
     Ok(json(entry)?.len())
 }
 
-/// Whether `entry` is an agent's change to a person's node or link that is
-/// not undone: the only record of what the person had.
-pub fn is_keeper(entry: &PlanLogEntry, undone: &BTreeSet<String>) -> bool {
-    entry.by.is_some()
-        && !entry.trimmed
-        && !undone.contains(&entry.id)
-        && entry.ops.iter().any(|op| match op {
-            PlanOp::SetNode { before, .. } | PlanOp::RemoveNode { node: before } => {
-                before.by.is_none()
-            }
-            PlanOp::SetEdge { before, .. } | PlanOp::RemoveEdge { edge: before } => {
-                before.by.is_none()
-            }
-            PlanOp::AddNode { .. } | PlanOp::AddEdge { .. } => false,
-        })
-}
-
-/// How many bytes the keepers of `entries` hold.
-pub fn keeper_bytes(entries: &[PlanLogEntry]) -> u64 {
-    let undone = undone_ids(entries);
-    entries
-        .iter()
-        .filter(|e| is_keeper(e, &undone))
-        .map(|e| u64::try_from(line_len(e).unwrap_or(0) + 1).unwrap_or(u64::MAX))
-        .sum()
-}
-
-/// The JSON line of `entry`, its operations dropped when it is too long.
-fn line_of(entry: &PlanLogEntry) -> CoreResult<String> {
+/// The JSON line of `entry`, its operations dropped when it is too long
+/// (then true).
+fn line_of(entry: &PlanLogEntry) -> CoreResult<(String, bool)> {
     let line = json(entry)?;
     if line.len() <= LINE_MAX_BYTES {
-        return Ok(line);
+        return Ok((line, false));
     }
-    json(&PlanLogEntry {
+    let cut = json(&PlanLogEntry {
         ops: Vec::new(),
         trimmed: true,
         ..entry.clone()
-    })
+    })?;
+    Ok((cut, true))
+}
+
+/// The bytes the keepers would hold once `entry` (a line `len` bytes long)
+/// is appended to the canvas's log.
+///
+/// # Errors
+///
+/// Fails when the log cannot be read.
+pub fn held_after(
+    project_dir: &Path,
+    id: &str,
+    entry: &PlanLogEntry,
+    len: usize,
+) -> CoreResult<u64> {
+    keep::held_after(&path(project_dir, id)?, entry, len)
 }
 
 /// Whether the file is missing, empty or ends with a line break, so the next
@@ -209,8 +214,8 @@ fn ends_whole(file: &Path) -> CoreResult<bool> {
     Ok(last[0] == b'\n')
 }
 
-/// Appends `entry` in one write, then drops the oldest lines when the log
-/// passed [`LOG_MAX_BYTES`]. The canvas write lock is held by the caller,
+/// Appends `entry` in one write, then drops the oldest lines when the lines
+/// that are not keepers passed [`LOG_MAX_BYTES`]. The canvas write lock is held by the caller,
 /// so lines land in the order the writes did.
 ///
 /// # Errors
@@ -218,7 +223,8 @@ fn ends_whole(file: &Path) -> CoreResult<bool> {
 /// Fails when the log cannot be written.
 pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<()> {
     let file = path(project_dir, id)?;
-    let mut line = line_of(entry)?;
+    let before = keep::stamp(&file);
+    let (mut line, cut) = line_of(entry)?;
     line.push('\n');
     if !ends_whole(&file)? {
         line.insert(0, '\n');
@@ -231,13 +237,11 @@ pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<
     handle
         .write_all(line.as_bytes())
         .map_err(|e| CoreError::io(&file, e))?;
-    let len = handle
-        .metadata()
-        .map_err(|e| CoreError::io(&file, e))?
-        .len();
     drop(handle);
-    if len > LOG_MAX_BYTES {
-        trim(&file)?;
+    if keep::noted(&file, entry, !cut, line.len(), before)? > LOG_MAX_BYTES {
+        let trimmed = trim(&file);
+        keep::forget(&file);
+        trimmed?;
     }
     Ok(())
 }
@@ -252,7 +256,7 @@ fn trim(file: &Path) -> CoreResult<()> {
         .filter_map(|l| serde_json::from_str(l).ok().map(|e| (l, e)))
         .collect();
     let all: Vec<PlanLogEntry> = parsed.iter().map(|(_, e)| e.clone()).collect();
-    let undone = undone_ids(&all);
+    let undone = released_ids(&all);
     let rest: u64 = parsed
         .iter()
         .filter(|(_, e)| !is_keeper(e, &undone))
@@ -338,13 +342,22 @@ pub fn undone_ids(entries: &[PlanLogEntry]) -> BTreeSet<String> {
 pub fn lines(project_dir: &Path, id: &str, limit: usize) -> CoreResult<Vec<PlanLogLine>> {
     let all = entries(project_dir, id)?;
     let undone = undone_ids(&all);
+    let released = released_ids(&all);
+    let kept: BTreeSet<&String> = all.iter().flat_map(|e| e.keeps.iter()).collect();
+    let flags: Vec<(bool, bool)> = all
+        .iter()
+        .map(|e| (is_keeper(e, &released), kept.contains(&e.id)))
+        .collect();
     Ok(all
         .into_iter()
+        .zip(flags)
         .rev()
         .take(limit)
-        .map(|e| {
+        .map(|(e, (keepable, kept))| {
             let gone = undone.contains(&e.id);
             PlanLogLine {
+                keepable,
+                kept,
                 undoable: !gone && !e.trimmed && !e.ops.is_empty(),
                 undone: gone,
                 id: e.id,
@@ -376,6 +389,7 @@ pub(super) fn move_beside(
         return Ok(None);
     }
     let to = to_stem.with_extension("").with_extension("log.jsonl");
+    keep::forget(&from);
     if maquette_base::fs::rename_retrying(&from, &to).is_ok() {
         return Ok(Some(to));
     }

@@ -231,6 +231,7 @@ fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -> PlanLogEn
         ops: Vec::new(),
         undoes: Vec::new(),
         trimmed: false,
+        keeps: Vec::new(),
     }
 }
 
@@ -295,10 +296,16 @@ pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<Stri
     // The log first: one left behind would pass to a new canvas with this id.
     let moved_log = log::move_beside(project_dir, id, &to)?;
     if let Err(err) = move_file(&file, &to) {
-        if let Some(log_to) = moved_log
-            && let Ok(back) = log::path(project_dir, id)
-        {
-            let _ = maquette_base::fs::rename_retrying(&log_to, &back);
+        let Some(log_to) = moved_log else {
+            return Err(err);
+        };
+        let back = log::path(project_dir, id)?;
+        if let Err(stuck) = maquette_base::fs::rename_retrying(&log_to, &back) {
+            return Err(CoreError::Invalid(format!(
+                "The canvas could not move to the trash ({err}), and its change log, already there, could not come back ({stuck}). Move {} back to {} by hand to keep its history.",
+                log_to.display(),
+                back.display()
+            )));
         }
         return Err(err);
     }

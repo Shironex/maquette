@@ -35,6 +35,7 @@ fn setup() -> (tempfile::TempDir, std::path::PathBuf, String) {
         asset: None,
         direction: None,
         by: None,
+        person_wrote: false,
     }];
     save(&root, &made.id, &plan).expect("save");
     (dir, root, made.id)

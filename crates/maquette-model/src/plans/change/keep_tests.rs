@@ -14,19 +14,19 @@ use super::super::ops::{PlanOp, diff};
 use super::super::*;
 use super::{Writer, change, undo};
 
-const RESEARCH: Agent<'static> = Agent {
+pub(super) const RESEARCH: Agent<'static> = Agent {
     name: "Research agent",
     run: Some("r-1"),
 };
 
 /// 20 000 characters of four byte text: the longest a note holds, at its widest.
-fn widest(seed: char) -> String {
+pub(super) fn widest(seed: char) -> String {
     std::iter::once(seed)
         .chain(std::iter::repeat_n('𝄞', 19_999))
         .collect()
 }
 
-fn note(id: &str, text: &str) -> PlanNode {
+pub(super) fn note(id: &str, text: &str) -> PlanNode {
     PlanNode {
         id: id.into(),
         kind: NodeKind::Note,
@@ -40,11 +40,12 @@ fn note(id: &str, text: &str) -> PlanNode {
         asset: None,
         direction: None,
         by: None,
+        person_wrote: false,
     }
 }
 
 /// A canvas holding the person's notes `texts`, as n-0, n-1 and so on.
-fn canvas(texts: &[String]) -> (tempfile::TempDir, PathBuf, String) {
+pub(super) fn canvas(texts: &[String]) -> (tempfile::TempDir, PathBuf, String) {
     let dir = tempfile::tempdir().expect("temp dir");
     let root = dir.path().join("moon-island");
     fs::create_dir_all(&root).expect("project");
@@ -59,7 +60,7 @@ fn canvas(texts: &[String]) -> (tempfile::TempDir, PathBuf, String) {
     (dir, root, made.id)
 }
 
-fn rewrite(id: &str, text: String) -> NodeEdit {
+pub(super) fn rewrite(id: &str, text: String) -> NodeEdit {
     NodeEdit {
         id: id.into(),
         title: None,
@@ -71,7 +72,7 @@ fn rewrite(id: &str, text: String) -> NodeEdit {
     }
 }
 
-fn text_of(root: &Path, canvas: &str, node: &str) -> String {
+pub(super) fn text_of(root: &Path, canvas: &str, node: &str) -> String {
     let plan = get(root, canvas).expect("get").plan;
     plan.nodes
         .iter()
@@ -156,7 +157,7 @@ fn agents_cannot_change_a_persons_notes_past_the_keep_limit() {
         }
     }
     let (at, err) = refused.expect("the keep limit refuses");
-    assert!(err.to_string().contains("undo or review"), "{err}");
+    assert!(err.to_string().contains("press Keep"), "{err}");
     assert_eq!(text_of(&root, &id, &format!("n-{at}")), "Mine");
     // Adding the agent's own nodes still works.
     agent::add(

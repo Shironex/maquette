@@ -161,6 +161,7 @@ fn node_of(spec: &NewNode, id: String, agent: &Agent<'_>) -> PlanNode {
         asset: keeps(NodeKind::Asset, &spec.asset),
         direction: keeps(NodeKind::Direction, &spec.direction),
         by: Some(agent.name.to_string()),
+        person_wrote: false,
     }
 }
 

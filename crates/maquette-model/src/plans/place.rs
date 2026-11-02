@@ -144,6 +144,7 @@ mod tests {
             asset: None,
             direction: None,
             by: None,
+            person_wrote: false,
         };
         assert_eq!(rect_of(&node).h, 110);
         node.text = "word ".repeat(200);

@@ -10,7 +10,7 @@ use super::files::{doc, write_plan, writing};
 use super::log::{self, PlanLogEntry};
 use super::ops::{self, Merge, PlanOp};
 use super::summary::{self, ChangeMark};
-use super::{PlanDoc, PlanFile, load_file, normalized, path, validate};
+use super::{PlanDoc, PlanFile, PlanNode, load_file, normalized, path, validate};
 use crate::error::{CoreError, CoreResult};
 use crate::project::now_rfc3339;
 
@@ -48,6 +48,34 @@ pub struct Changed {
 pub(super) struct Undoing {
     pub(super) ids: Vec<String>,
     pub(super) summary: String,
+    /// The summary when everything it would undo was changed since.
+    pub(super) idle: String,
+}
+
+/// Whether two states of a node say the same (where it sits aside).
+fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
+    a.kind == b.kind
+        && a.title == b.title
+        && a.text == b.text
+        && a.image == b.image
+        && a.url == b.url
+        && a.asset == b.asset
+        && a.direction == b.direction
+}
+
+/// Marks who wrote each agent node's content last: a person's write sets
+/// [`PlanNode::person_wrote`], an agent's clears it, and a write that left
+/// the content alone keeps what the file says.
+fn mark_writers(current: &PlanFile, next: &mut PlanFile, person: bool) {
+    for node in next.nodes.iter_mut().filter(|n| n.by.is_some()) {
+        if let Some(was) = current.nodes.iter().find(|c| c.id == node.id) {
+            node.person_wrote = if same_content(was, node) {
+                was.person_wrote
+            } else {
+                person
+            };
+        }
+    }
 }
 
 /// A log line for `ops` written by `writer`.
@@ -65,6 +93,7 @@ fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, undoing: Option<Undoing>) -> 
         mark,
         ops,
         undoes,
+        keeps: Vec::new(),
         trimmed: false,
     }
 }
@@ -80,8 +109,12 @@ pub(super) fn note(project_dir: &Path, id: &str, entry: &PlanLogEntry) {
 /// Refuses an agent's write whose undo the log could not keep: a line over
 /// [`log::LINE_MAX_BYTES`], or a change to a person's content once the
 /// keepers would pass [`log::KEEP_MAX_BYTES`]. So a person's earlier text
-/// is never lost to trimming or rotation.
+/// is never lost to trimming or rotation. An undo is never refused: it
+/// holds nothing of a person's and frees what it undoes.
 fn keep_room(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<()> {
+    if !entry.undoes.is_empty() {
+        return Ok(());
+    }
     let len = log::line_len(entry)?;
     if len > log::LINE_MAX_BYTES {
         return Err(CoreError::Invalid(format!(
@@ -93,10 +126,9 @@ fn keep_room(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<(
     if !log::is_keeper(entry, &BTreeSet::new()) {
         return Ok(());
     }
-    let held = log::keeper_bytes(&log::entries(project_dir, id)?);
-    if held + u64::try_from(len + 1).unwrap_or(u64::MAX) > log::KEEP_MAX_BYTES {
+    if log::held_after(project_dir, id, entry, len)? > log::KEEP_MAX_BYTES {
         return Err(CoreError::Invalid(format!(
-            "The change log already keeps {} MB of undo for agent changes to a person's nodes, the most it keeps. Ask the person to undo or review agent changes in the Changes panel; adding new nodes still works.",
+            "The change log already keeps {} MB of undo for agent changes to a person's content, the most it keeps. Ask the person to undo them or press Keep (or Keep run) in the Changes panel, which frees that room; undo_run of your own changes frees it too, and adding new nodes still works.",
             log::KEEP_MAX_BYTES / 1024 / 1024
         )));
     }
@@ -118,9 +150,24 @@ pub(super) fn commit(
     next.created = current.created.clone();
     next.preset = current.preset;
     next.edited = current.edited.clone();
+    if undoing.is_none() {
+        mark_writers(&current, &mut next, writer.by.is_none());
+    }
     validate(&next)?;
     if next == current {
-        return Ok((doc(project_dir, id, current), None));
+        let Some(undoing) = undoing else {
+            return Ok((doc(project_dir, id, current), None));
+        };
+        // Everything it would undo was changed since: the line still
+        // releases what it names, so nothing stays held for an undo that
+        // can no longer happen.
+        let idle = Undoing {
+            summary: undoing.idle.clone(),
+            ..undoing
+        };
+        let entry = entry_of(writer, Vec::new(), Some(idle));
+        log::append(project_dir, id, &entry)?;
+        return Ok((doc(project_dir, id, current), Some(entry)));
     }
     let done = ops::diff(&current, &next);
     let entry = entry_of(writer, done, undoing);
@@ -229,16 +276,77 @@ pub fn undo(
             .iter()
             .flat_map(|(_, e)| ops::invert(&e.ops))
             .collect();
-        let summary = match picked.as_slice() {
-            [(_, one)] => format!("Undid: {}", one.summary),
-            many => format!("Undid {} changes", many.len()),
+        let (summary, idle) = match picked.as_slice() {
+            [(_, one)] => (
+                format!("Undid: {}", one.summary),
+                format!("Nothing to undo, already changed: {}", one.summary),
+            ),
+            many => (
+                format!("Undid {} changes", many.len()),
+                format!("Nothing to undo, {} changes already changed", many.len()),
+            ),
         };
         let ids = picked.iter().map(|(_, e)| e.id.clone()).collect();
-        Ok((ops, Some(Undoing { ids, summary })))
+        Ok((ops, Some(Undoing { ids, summary, idle })))
     })
+}
+
+/// Keeps (accepts) the agent changes `ids` as a person: one log line that
+/// releases them, so the room they held for undo is free again. The canvas
+/// does not change, and each stays undoable while it is among the newest
+/// lines.
+///
+/// # Errors
+///
+/// Fails when the canvas is gone, a change is not in the log or holds
+/// nothing of a person's that is still kept for undo, or the log cannot be
+/// written.
+pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
+    if ids.is_empty() {
+        return Err(CoreError::Invalid("Name the changes to keep.".into()));
+    }
+    let _lock = writing();
+    load_file(&path(project_dir, id)?)?;
+    let all = log::entries(project_dir, id)?;
+    let released = log::released_ids(&all);
+    let mut picked: Vec<&PlanLogEntry> = Vec::new();
+    for want in ids {
+        let entry = all
+            .iter()
+            .find(|e| &e.id == want)
+            .ok_or_else(|| CoreError::NotFound(format!("the change {want} in the log")))?;
+        if !log::is_keeper(entry, &released) {
+            return Err(CoreError::Invalid(format!(
+                "The change {want} has nothing to keep: it is not an agent's change to your content, or it was undone or kept already."
+            )));
+        }
+        if !picked.iter().any(|e| e.id == entry.id) {
+            picked.push(entry);
+        }
+    }
+    let summary = match picked.as_slice() {
+        [one] => format!("Kept: {}", one.summary),
+        many => format!("Kept {} agent changes", many.len()),
+    };
+    let entry = PlanLogEntry {
+        id: log::new_id("c"),
+        at: now_rfc3339(),
+        by: None,
+        run: None,
+        summary,
+        mark: ChangeMark::Keep,
+        ops: Vec::new(),
+        undoes: Vec::new(),
+        keeps: picked.iter().map(|e| e.id.clone()).collect(),
+        trimmed: false,
+    };
+    log::append(project_dir, id, &entry)?;
+    Ok(entry)
 }
 
 #[cfg(test)]
 mod keep_tests;
+#[cfg(test)]
+mod release_tests;
 #[cfg(test)]
 mod tests;

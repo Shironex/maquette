@@ -35,6 +35,7 @@ fn note(id: &str, x: i32, y: i32) -> PlanNode {
         asset: None,
         direction: None,
         by: None,
+        person_wrote: false,
     }
 }
 

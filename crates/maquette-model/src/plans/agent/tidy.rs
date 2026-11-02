@@ -59,6 +59,11 @@ pub fn remove(
                     whose(node.by.as_ref())
                 ));
             }
+            if node.person_wrote {
+                return refuse(format!(
+                    "A person wrote in the node {want} last, so it is theirs now. Agents never remove a person's work; ask the person to remove it."
+                ));
+            }
             for edge in plan
                 .edges
                 .iter()
