@@ -37,4 +37,35 @@ describe('a spend row', () => {
     expect(row).toHaveTextContent('Running');
     expect(row).toHaveTextContent('est.30');
   });
+
+  it("says who approved an agent's send, when and from where", () => {
+    const at = new Date(2026, 10, 1, 14, 2, 31).getTime();
+    render(
+      <ul>
+        <SpendRow
+          spend={{
+            ...spend,
+            decision: {
+              v: 1,
+              atMs: at,
+              approval: 'approval-3',
+              kind: 'send-to-3d',
+              decision: 'approved',
+              by: { source: 'floating-card', input: 'pointer', windowFocused: false },
+              project: 'frostveil',
+              jobs: ['veil-gate-3'],
+              requestedAtMs: at - 22_000,
+            },
+          }}
+          now={NOW}
+          project="Frostveil"
+        />
+      </ul>
+    );
+    const who = screen.getByText('approved 14:02 in the floating card');
+    expect(who).toHaveAttribute(
+      'title',
+      expect.stringContaining('The system reported the Maquette window was not focused')
+    );
+  });
 });

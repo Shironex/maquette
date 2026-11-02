@@ -2,7 +2,9 @@
 
 use crate::mcp::tools::ToolError;
 use maquette_core::pipeline::history::now_ms;
-use maquette_core::providers::ledger::{self, ImageSpend, images::month_start_ms};
+use maquette_core::providers::ledger::{
+    self, DecisionRecord, ImageSpend, decisions, images::month_start_ms,
+};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
@@ -28,7 +30,7 @@ pub struct CreditsArgs {
 #[tool_router(router = credits_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get the credits: each provider's balance (asked live, a free call; skipped without a saved key), totals for the last 7 and 30 days with the share spent on redos, and the most recent paid sends from the local ledger with provider, task id, settings, credits charged (\"estimated\" when the provider has not reported yet), outcome and whether it was a redo. openaiImages has the Lab's OpenAI Image API dollars: monthToDateUsd (this local calendar month, every project), capUsd, leftUsd, pendingUsd (jobs queued or waiting for approval), imagesThisMonth, the quality, perImageUsd (what an image has cost lately, the figure the cap check uses) and the most recent image lines (projectMonthUsd too when project is given). Reads only; nothing is spent.",
+        description = "Get the credits: each provider's balance (asked live, a free call; skipped without a saved key), totals for the last 7 and 30 days with the share spent on redos, and the most recent paid sends from the local ledger with provider, task id, settings, credits charged (\"estimated\" when the provider has not reported yet), outcome, whether it was a redo and decision (who approved an agent's send: when, the card, the input and the window's focus). decisions lists the latest answers to approvals, denied and cancelled ones too. openaiImages has the Lab's OpenAI Image API dollars: monthToDateUsd (this local calendar month, every project), capUsd, leftUsd, pendingUsd (jobs queued or waiting for approval), imagesThisMonth, the quality, perImageUsd (what an image has cost lately, the figure the cap check uses) and the most recent image lines (projectMonthUsd too when project is given). Reads only; nothing is spent.",
         annotations(read_only_hint = true)
     )]
     async fn get_credits(&self, Parameters(args): Parameters<CreditsArgs>) -> Out {
@@ -48,17 +50,30 @@ impl McpTools {
                 let limit = args.limit.map_or(20, |n| n as usize).min(MAX_SPENDS);
                 let recent: Vec<Value> = spends.iter().take(limit).map(to_value).collect();
                 let images = openai_images(host, args.project.as_deref(), limit)?;
+                let mut decided = decisions_of(host);
+                decided.retain(|d| args.project.as_deref().is_none_or(|p| d.project == p));
+                let answers: Vec<Value> = decided.iter().rev().take(limit).map(to_value).collect();
                 Ok(json!({
                     "balances": balances,
                     "totals": to_value(totals),
                     "spends": recent,
                     "more": spends.len().saturating_sub(limit),
+                    "decisions": answers,
                     "openaiImages": images,
                 }))
             })
             .await;
         respond(found)
     }
+}
+
+/// Every answer to an approval in the open workspace, oldest first; none
+/// when the log is missing or cannot be read.
+pub(super) fn decisions_of(host: &dyn Host) -> Vec<DecisionRecord> {
+    workspace(host)
+        .ok()
+        .and_then(|(root, _)| decisions::read(&root).ok())
+        .unwrap_or_default()
 }
 
 fn usd(n: f64) -> f64 {

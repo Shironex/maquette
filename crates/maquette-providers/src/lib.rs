@@ -136,6 +136,8 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<DownloadMatch>()
         .register::<Balance>()
         .register::<Spend>()
+        .register::<ledger::DecisionRecord>()
+        .register::<ledger::DecidedBy>()
         .register::<SpendOutcome>()
         .register::<Ledger>()
         .register::<ServiceTotals>()

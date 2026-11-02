@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { commands, errorMessage, type Approval } from '@/ipc/client';
+import { commands, errorMessage, type Approval, type DecidedBy } from '@/ipc/client';
 import { settleOpen } from '@/state/agents';
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
@@ -203,9 +203,9 @@ function useRestPose(approval: Approval) {
       }
       if (asset) useAvatarStore.getState().open(project, asset, version ?? null);
     },
-    deny: async () => {
+    deny: async (by: DecidedBy) => {
       if (approval.kind === 'rig-doctor') {
-        await useAgentsStore.getState().decide(approval.id, false);
+        await useAgentsStore.getState().decide(approval.id, false, by);
         return;
       }
       if (!asset) return;

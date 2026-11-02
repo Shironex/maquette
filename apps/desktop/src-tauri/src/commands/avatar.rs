@@ -13,11 +13,13 @@ use maquette_core::avatar::springs::{Chained, FoundSprings, SpringsMode};
 use maquette_core::avatar::{self, AvatarSpec};
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::project;
+use maquette_core::providers::ledger::{DecidedBy, DecisionSource};
 use tauri::{AppHandle, Manager as _, State};
 
 use super::CommandResult;
 use super::pipeline::Pipelines;
 use crate::mcp::Agents;
+use crate::mcp::hub::Approval;
 use crate::session::Session;
 
 /// Which asset (and version) a call is about.
@@ -214,9 +216,11 @@ pub fn avatar_decide(
         springs: SpringsMode::default(),
     };
     let decided = with_request(&session, &target, |req| export::decide(req, approve))?;
-    if let Some(waiting) = agents.hub.rest_pose_for(&decided.project, &decided.asset) {
-        agents.hub.decide(&waiting.id, approve);
-    }
+    settle_waiting(
+        &agents,
+        agents.hub.rest_pose_for(&decided.project, &decided.asset),
+        approve,
+    );
     Ok(decided)
 }
 
@@ -245,9 +249,11 @@ pub fn avatar_decide_reweight(
     let decided = with_request(&session, &target, |req| {
         export::decide_reweight(req, approve)
     })?;
-    if let Some(waiting) = agents.hub.reweight_for(&decided.project, &decided.asset) {
-        agents.hub.decide(&waiting.id, approve);
-    }
+    settle_waiting(
+        &agents,
+        agents.hub.reweight_for(&decided.project, &decided.asset),
+        approve,
+    );
     Ok(decided)
 }
 
@@ -310,10 +316,23 @@ pub fn avatar_decide_springs(
     let decided = with_request(&session, &target, |req| {
         export::decide_springs(req, approve)
     })?;
-    if let Some(waiting) = agents.hub.springs_for(&decided.project, &decided.asset) {
-        agents.hub.decide(&waiting.id, approve);
-    }
+    settle_waiting(
+        &agents,
+        agents.hub.springs_for(&decided.project, &decided.asset),
+        approve,
+    );
     Ok(decided)
+}
+
+/// Settles the card an agent's request for this step raised, if any.
+fn settle_waiting(agents: &Agents, waiting: Option<Approval>, approve: bool) {
+    let Some(waiting) = waiting else {
+        return;
+    };
+    let by = DecidedBy::from(DecisionSource::Avatar);
+    if let Err(err) = agents.hub.decide_by(&waiting.id, approve, by) {
+        tracing::warn!(error = ?err, "could not settle an avatar approval");
+    }
 }
 
 #[cfg(test)]

@@ -9,15 +9,17 @@ pub mod server;
 pub mod tool_names;
 pub mod tools;
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use maquette_core::providers::ledger::{DecisionRecord, decisions};
 use maquette_core::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
 
 use self::host::Host;
-use self::hub::{Approval, Hub, McpCall};
+use self::hub::{Approval, DecisionLog, Hub, McpCall};
 use crate::commands::CommandResult;
 use crate::commands::site::gate::{StartGate, Starter, check as check_start};
 use crate::events::McpUpdate;
@@ -171,6 +173,21 @@ impl Agents {
         if let Some(running) = self.lock().running.take() {
             running.stop();
         }
+    }
+}
+
+/// Answers to approvals go to `approvals.jsonl` in the workspace that was
+/// open when each question was raised.
+pub struct WorkspaceLog(pub AppHandle);
+
+impl DecisionLog for WorkspaceLog {
+    fn place(&self) -> Option<PathBuf> {
+        let session = self.0.try_state::<Session>()?;
+        session.workspace().ok().map(|(root, _)| root)
+    }
+
+    fn write(&self, place: &Path, record: &DecisionRecord) -> Result<(), String> {
+        decisions::append(place, record).map_err(|e| e.to_string())
     }
 }
 

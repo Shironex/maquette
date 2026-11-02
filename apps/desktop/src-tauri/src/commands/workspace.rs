@@ -1,3 +1,4 @@
+use maquette_core::providers::ledger::DecisionSource;
 use maquette_core::workspace::sync::SyncConflict;
 use maquette_core::{CoreError, RootInspection, WorkspaceConfig, workspace};
 use serde::Serialize;
@@ -49,6 +50,8 @@ pub fn workspace_create(
 ) -> CommandResult<WorkspaceSnapshot> {
     let root = session.expand(&root);
     let config = workspace::create(&root, &config)?;
+    // What waits belongs to the workspace it was asked in.
+    agents.hub.expire_all(DecisionSource::WorkspaceChanged);
     session.set_workspace(root.clone(), config.clone())?;
     super::agents::sync(&app, &session, &agents);
     snapshot(&session, &root, &config)
@@ -71,6 +74,8 @@ pub fn workspace_open(
     if !force && let Some(lock) = crate::workspace_lock::held_elsewhere(&session, &root) {
         return Err(crate::workspace_lock::in_use(&lock));
     }
+    // What waits belongs to the workspace it was asked in.
+    agents.hub.expire_all(DecisionSource::WorkspaceChanged);
     session.set_workspace(root.clone(), config.clone())?;
     super::agents::sync(&app, &session, &agents);
     snapshot(&session, &root, &config)

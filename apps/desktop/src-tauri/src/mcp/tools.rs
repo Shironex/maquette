@@ -323,28 +323,55 @@ fn describe(args: Option<&serde_json::Map<String, Value>>) -> String {
     line
 }
 
-/// The status word and error text of a result, for the activity list.
-fn outcome(result: &Result<CallToolResponse, ErrorData>) -> (CallOutcome, Option<String>) {
+/// What a result tells the activity list.
+struct Logged {
+    outcome: CallOutcome,
+    message: Option<String>,
+    /// The approval a waiting result raised.
+    approval: Option<String>,
+}
+
+/// The approval id a waiting result names, on its own or on its first job.
+fn approval_of(value: &Value) -> Option<String> {
+    ["/approval/id", "/jobs/0/approval/id"]
+        .iter()
+        .find_map(|at| value.pointer(at).and_then(Value::as_str))
+        .map(str::to_string)
+}
+
+/// The status word, error text and approval of a result.
+fn outcome(result: &Result<CallToolResponse, ErrorData>) -> Logged {
+    let done = |outcome, message| Logged {
+        outcome,
+        message,
+        approval: None,
+    };
     match result {
-        Err(err) => (CallOutcome::Error, Some(err.message.to_string())),
-        Ok(CallToolResponse::Complete(done)) => {
-            let text = done.content.iter().find_map(|c| match c {
+        Err(err) => done(CallOutcome::Error, Some(err.message.to_string())),
+        Ok(CallToolResponse::Complete(answer)) => {
+            let text = answer.content.iter().find_map(|c| match c {
                 ContentBlock::Text(t) => Some(t.text.clone()),
                 _ => None,
             });
-            if done.is_error == Some(true) {
-                return (CallOutcome::Error, text.map(errors::message_of));
+            if answer.is_error == Some(true) {
+                return done(CallOutcome::Error, text.map(errors::message_of));
             }
-            let status = text
+            let value = text
                 .as_deref()
-                .and_then(|t| serde_json::from_str::<Value>(t).ok())
+                .and_then(|t| serde_json::from_str::<Value>(t).ok());
+            let status = value
+                .as_ref()
                 .and_then(|v| v.get("status").and_then(Value::as_str).map(str::to_string));
             match status {
-                Some(s) if s == WAITING => (CallOutcome::Waiting, Some(s)),
-                other => (CallOutcome::Ok, other),
+                Some(s) if s == WAITING => Logged {
+                    outcome: CallOutcome::Waiting,
+                    message: Some(s),
+                    approval: value.as_ref().and_then(approval_of),
+                },
+                other => done(CallOutcome::Ok, other),
             }
         }
-        Ok(_) => (CallOutcome::Ok, None),
+        Ok(_) => done(CallOutcome::Ok, None),
     }
 }
 
@@ -370,10 +397,17 @@ impl ServerHandler for McpTools {
             .tool_router
             .call(ToolCallContext::new(self, request, context))
             .await;
-        let (kind, message) = outcome(&result);
+        let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
         let ms = started.elapsed().as_millis() as f64;
-        self.hub.log_call(&tool, detail, kind, message, ms);
+        self.hub.log_waiting_call(
+            &tool,
+            detail,
+            logged.outcome,
+            logged.message,
+            ms,
+            logged.approval,
+        );
         result
     }
 }

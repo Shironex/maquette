@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Approval } from '@/ipc/client';
+import { commands, type Approval } from '@/ipc/client';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
@@ -22,6 +22,29 @@ function approval(id: string) {
 }
 
 describe('an approval card', () => {
+  it('tells the app which card answered and what pressed it', async () => {
+    await openAgentSession('batch');
+    const decide = vi.spyOn(commands, 'mcpDecide');
+    const { unmount } = render(<ApprovalCard approval={approval('approval-2')} floating />);
+    await userEvent.click(screen.getByRole('button', { name: 'Approve and send 3' }));
+    expect(decide).toHaveBeenCalledWith(
+      'approval-2',
+      true,
+      // jsdom's events are never trusted; a real click in the app is.
+      expect.objectContaining({ source: 'floating-card', input: 'pointer', trusted: false })
+    );
+    unmount();
+    await openAgentSession('images');
+    render(<ApprovalCard approval={approval('approval-3')} />);
+    screen.getByRole('button', { name: 'Deny' }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(decide).toHaveBeenLastCalledWith(
+      'approval-3',
+      false,
+      expect.objectContaining({ source: 'agents-panel', input: 'keyboard' })
+    );
+  });
+
   it('lists a batch send and approves it through the server', async () => {
     const calls = await openAgentSession('batch');
     render(<ApprovalCard approval={approval('approval-2')} />);

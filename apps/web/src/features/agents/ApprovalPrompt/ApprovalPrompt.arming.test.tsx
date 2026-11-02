@@ -78,7 +78,11 @@ describe('arming Approve', () => {
     fireEvent.click(approve(card));
     expect(decide).not.toHaveBeenCalled();
     fireEvent.click(within(card).getByRole('button', { name: 'Deny' }));
-    expect(decide).toHaveBeenCalledWith('approval-2', false);
+    expect(decide).toHaveBeenCalledWith(
+      'approval-2',
+      false,
+      expect.objectContaining({ source: 'floating-card' })
+    );
   });
 
   it('holds again when a card is hidden and reviewed again, however long after', async () => {

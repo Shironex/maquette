@@ -12,6 +12,7 @@ use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::{PipelineEvent, PipelineRunner, RunSink};
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::pipeline::{self, StepDef, StepKind};
+use maquette_core::providers::ledger::{DecidedBy, DecisionInput, DecisionSource, decisions};
 use maquette_core::providers::{
     Endpoints, JobState, MemoryStore, Options, ProviderId, ProviderJobs, SecretStore as _,
 };
@@ -21,8 +22,8 @@ use maquette_core::{
     project, workspace,
 };
 use maquette_desktop_lib::mcp::host::Host;
-use maquette_desktop_lib::mcp::hub::ApprovalKind;
 use maquette_desktop_lib::mcp::hub::Hub;
+use maquette_desktop_lib::mcp::hub::{ApprovalKind, CallOutcome, DecisionLog};
 use maquette_desktop_lib::mcp::tool_names;
 use maquette_desktop_lib::mcp::{Agents, ensure_token};
 use maquette_desktop_lib::session::Session;
@@ -34,6 +35,22 @@ use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig
 use serde_json::{Value, json};
 
 use super::support::{call, raw_call, text};
+
+/// Answers land in the fixture workspace's approvals.jsonl, as in the app.
+struct WorkspaceFile(std::path::PathBuf);
+
+impl DecisionLog for WorkspaceFile {
+    fn place(&self) -> Option<std::path::PathBuf> {
+        Some(self.0.clone())
+    }
+    fn write(
+        &self,
+        place: &Path,
+        record: &maquette_core::providers::ledger::DecisionRecord,
+    ) -> Result<(), String> {
+        decisions::append(place, record).map_err(|e| e.to_string())
+    }
+}
 
 struct TestHost {
     session: Session,
@@ -256,6 +273,9 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         materials_changes: std::sync::atomic::AtomicUsize::new(0),
         prepare_changes: std::sync::atomic::AtomicUsize::new(0),
     });
+    // Answers land in the workspace's approvals.jsonl, as in the app.
+    let (root, _) = host.session.workspace().expect("workspace");
+    hub.set_log(WorkspaceFile(root));
     // Port 0 so the test never collides with a running app; the app itself
     // listens on the configured 4791.
     let token = ensure_token(&host.session).expect("token");
@@ -736,8 +756,35 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(refused.is_error, Some(true));
     assert!(text(&refused).contains("lowpoly"), "{}", text(&refused));
 
+    // Nothing an agent can call answers it: cancelling is refused, and
+    // reading it shows no decision yet.
+    let cancel = call(&client, "cancel_provider_jobs", json!({ "ids": [job_id] })).await;
+    assert_eq!(cancel["refused"], json!(1), "{cancel}");
+    let waiting = call(&client, "get_provider_job", json!({ "id": job_id })).await;
+    assert_eq!(waiting["status"], json!("waiting for approval"));
+    assert_eq!(waiting["decision"], Value::Null);
+    assert_eq!(hub.approvals().len(), 1, "still waiting for a person");
+    assert_eq!(
+        host.studio.get(&job_id).expect("job").state,
+        JobState::Approval
+    );
+    let raised = hub
+        .calls()
+        .into_iter()
+        .find(|c| c.tool == "send_to_3d" && c.outcome != CallOutcome::Error)
+        .expect("logged");
+    assert_eq!(raised.outcome, CallOutcome::Waiting);
+    assert_eq!(raised.approval.as_deref(), Some(approvals[0].id.as_str()));
+
     // Denied in the app: nothing was sent, nothing spent.
-    assert!(hub.decide(&approvals[0].id, false));
+    let by = DecidedBy {
+        input: Some(DecisionInput::Pointer),
+        trusted: Some(true),
+        window_focused: Some(true),
+        window_visible: Some(true),
+        ..DecidedBy::from(DecisionSource::FloatingCard)
+    };
+    assert_eq!(hub.decide_by(&approvals[0].id, false, by), Ok(()));
     let deadline = Instant::now() + Duration::from_secs(5);
     let denied = loop {
         let job = call(&client, "get_provider_job", json!({ "id": job_id })).await;
@@ -752,6 +799,28 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         json!("Denied in Maquette. Nothing was spent.")
     );
     assert!(hub.approvals().is_empty());
+    // Who answered, from where and how, for the agent to read.
+    assert_eq!(denied["decision"]["decision"], json!("denied"), "{denied}");
+    assert_eq!(denied["decision"]["by"]["source"], json!("floating-card"));
+    assert_eq!(denied["decision"]["by"]["input"], json!("pointer"));
+    assert_eq!(denied["decision"]["by"]["windowFocused"], json!(true));
+    assert_eq!(denied["decision"]["provider"], json!("Tripo"));
+    let credits = call(&client, "get_credits", json!({ "balance": false })).await;
+    let answers = credits["decisions"].as_array().expect("decisions");
+    assert_eq!(answers[0]["jobs"], json!([job_id]), "{credits}");
+    assert!(
+        answers
+            .iter()
+            .all(|d| d["decision"] != json!("approved") || d["kind"] == json!("ship")),
+        "no send or round was approved: {credits}"
+    );
+    let raised = hub
+        .calls()
+        .into_iter()
+        .find(|c| c.tool == "send_to_3d" && c.approval.is_some())
+        .expect("logged");
+    assert_eq!(raised.outcome, CallOutcome::Ok, "the row stops waiting");
+    assert_eq!(raised.message.as_deref(), Some("Denied in the app"));
 
     // By hand needs no approval: the handoff folder is there at once.
     let by_hand = call(
@@ -995,11 +1064,14 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         tools_called.contains(&"connect"),
         "the refused request is listed"
     );
+    // A run that waited reads as answered once someone answered it.
+    assert!(calls.iter().any(|c| c.tool == "run_pipeline"
+        && c.approval.is_some()
+        && c.outcome == CallOutcome::Ok
+        && c.message.as_deref() == Some("Approved in the app")));
     assert!(
-        calls
-            .iter()
-            .any(|c| c.tool == "run_pipeline"
-                && c.message.as_deref() == Some("waiting for approval"))
+        !calls.iter().any(|c| c.outcome == CallOutcome::Waiting),
+        "no row stays waiting after its answer"
     );
 
     client.cancel().await.expect("close");

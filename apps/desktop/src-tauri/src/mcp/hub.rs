@@ -3,9 +3,8 @@
 //! for a person.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Condvar, Mutex, MutexGuard};
-use std::time::Duration;
+use std::path::PathBuf;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use maquette_core::avatar::normalize::NormalizeSheets;
 use maquette_core::pipeline::StepDef;
@@ -48,6 +47,10 @@ pub struct McpCall {
     pub outcome: CallOutcome,
     pub message: Option<String>,
     pub duration_ms: f64,
+    /// The approval a `waiting` call raised. Once it is answered the call
+    /// reads as done, with the answer as its message.
+    #[serde(default)]
+    pub approval: Option<String>,
 }
 
 /// What an agent asked that waits for a person.
@@ -167,6 +170,12 @@ struct Inner {
     preview_refused: HashMap<String, PreviewAsk>,
     /// Page preview: approvals taken back because the question changed.
     preview_withdrawn: HashSet<String>,
+    /// Where each waiting approval's answer is written, captured when it
+    /// was raised.
+    places: HashMap<String, Option<PathBuf>>,
+    /// Why a yes to a waiting approval was refused (its record could not
+    /// be written).
+    unrecorded: HashMap<String, String>,
 }
 
 /// Shared between the server's tools, the run gate and the app.
@@ -174,6 +183,7 @@ pub struct Hub {
     inner: Mutex<Inner>,
     decided: Condvar,
     on_change: Box<dyn Fn() + Send + Sync>,
+    log: Mutex<Option<Arc<dyn DecisionLog>>>,
 }
 
 impl Hub {
@@ -183,6 +193,7 @@ impl Hub {
             inner: Mutex::new(Inner::default()),
             decided: Condvar::new(),
             on_change: Box::new(on_change),
+            log: Mutex::new(None),
         }
     }
 
@@ -207,6 +218,19 @@ impl Hub {
         message: Option<String>,
         duration_ms: f64,
     ) {
+        self.log_waiting_call(tool, detail, outcome, message, duration_ms, None);
+    }
+
+    /// [`Hub::log_call`] for a call that raised `approval`.
+    pub fn log_waiting_call(
+        &self,
+        tool: &str,
+        detail: String,
+        outcome: CallOutcome,
+        message: Option<String>,
+        duration_ms: f64,
+        approval: Option<String>,
+    ) {
         {
             let mut inner = self.lock();
             inner.next_call += 1;
@@ -218,6 +242,7 @@ impl Hub {
                 outcome,
                 message,
                 duration_ms,
+                approval,
             };
             inner.calls.push_front(call);
             inner.calls.truncate(MAX_CALLS);
@@ -292,10 +317,12 @@ impl Hub {
     }
 
     fn push(&self, approval: impl FnOnce(String) -> Approval) -> String {
+        let place = self.place_now();
         let id = {
             let mut inner = self.lock();
             inner.next_approval += 1;
             let id = format!("approval-{}", inner.next_approval);
+            inner.places.insert(id.clone(), place);
             inner.approvals.push(approval(id.clone()));
             id
         };
@@ -439,55 +466,11 @@ impl Hub {
             }
         }))
     }
-
-    /// Approves or denies. False when the approval is gone (decided already,
-    /// or its run was cancelled).
-    pub fn decide(&self, approval_id: &str, approve: bool) -> bool {
-        let found = {
-            let mut inner = self.lock();
-            let before = inner.approvals.len();
-            inner.approvals.retain(|a| a.id != approval_id);
-            let found = inner.approvals.len() != before;
-            if found {
-                inner.decisions.insert(approval_id.to_string(), approve);
-            }
-            found
-        };
-        if found {
-            self.decided.notify_all();
-            (self.on_change)();
-        }
-        found
-    }
-
-    /// Blocks until the approval is decided. `None` when the run was
-    /// cancelled first; the approval is then withdrawn.
-    pub fn wait_decision(&self, approval_id: &str, cancelled: &AtomicBool) -> Option<bool> {
-        self.wait_until(approval_id, || cancelled.load(Ordering::SeqCst))
-    }
-
-    /// Like [`Hub::wait_decision`], with any test for "it went away first".
-    pub fn wait_until(&self, approval_id: &str, gone: impl Fn() -> bool) -> Option<bool> {
-        let mut inner = self.lock();
-        loop {
-            if let Some(answer) = inner.decisions.remove(approval_id) {
-                return Some(answer);
-            }
-            if gone() {
-                inner.approvals.retain(|a| a.id != approval_id);
-                drop(inner);
-                (self.on_change)();
-                return None;
-            }
-            inner = self
-                .decided
-                .wait_timeout(inner, Duration::from_millis(100))
-                .map(|(guard, _)| guard)
-                .unwrap_or_else(|p| p.into_inner().0);
-        }
-    }
 }
 
+mod decisions;
+
+pub use decisions::{DecisionLog, Refused};
 mod preview;
 mod rest_pose;
 mod rig;

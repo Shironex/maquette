@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Approval, ShipFile } from '@/ipc/client';
 import { formatBytes, formatK, homePath } from '@/lib/format';
+import { decidedBy } from '@/state/decisions';
 import { shipGroups } from '@/state/game';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
@@ -58,9 +59,9 @@ export function useShipView(project: string) {
   useEffect(() => {
     void loadPlan(project);
   }, [project, runId, loadPlan]);
-  const answer = async (approve: boolean) => {
+  const answer = async (approve: boolean, press?: { detail: number; isTrusted: boolean }) => {
     if (!approval) return;
-    await decide(approval.id, approve);
+    await decide(approval.id, approve, decidedBy('ship-view', press));
     void usePipelineStore.getState().refresh(project);
     void loadPlan(project);
   };

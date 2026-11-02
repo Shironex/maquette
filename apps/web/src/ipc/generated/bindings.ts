@@ -767,10 +767,13 @@ export const commands = {
 	downloadsDismiss: (arrival: string) => __TAURI_INVOKE<Arrival>("downloads_dismiss", { arrival }),
 	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
 	/**
-	 *  Approves or denies what an agent asked: a run's Ship step, or a send to
-	 *  3D that spends credits.
+	 *  Approves or denies what an agent asked: a run's Ship step, a send to 3D
+	 *  that spends credits, an Image API round or a page preview. Only the
+	 *  app's windows call it, never an MCP tool. `by` says which card and what
+	 *  pressed it; the window's focus and visibility are read here from the
+	 *  operating system, and the answer is written to `approvals.jsonl`.
 	 */
-	mcpDecide: (approvalId: string, approve: boolean) => __TAURI_INVOKE<McpStatus>("mcp_decide", { approvalId, approve }),
+	mcpDecide: (approvalId: string, approve: boolean, by: DecidedBy) => __TAURI_INVOKE<McpStatus>("mcp_decide", { approvalId, approve, by }),
 	mcpClearActivity: () => __TAURI_INVOKE<McpStatus>("mcp_clear_activity"),
 	/**  Makes a new token. Agents set up with the old one must be set up again. */
 	mcpRenewToken: () => __TAURI_INVOKE<McpStatus>("mcp_renew_token"),
@@ -2487,6 +2490,117 @@ export type CopiedAsset = {
 /**  Whether a user must credit the author. */
 export type CreditNotation = "required" | "unnecessary";
 
+/**
+ *  Who answered, from where and how. Two kinds of word, kept apart:
+ *  `source`, `input`, `trusted`, `page_focused` and `page_visible` are what
+ *  the app's own page reported with its answer, so they are only as good as
+ *  that page; `window_focused`, `window_visible` and `window_minimized` are
+ *  read by the app from the operating system when the answer arrives, and
+ *  replace anything the page said about them.
+ */
+export type DecidedBy = {
+	/**  Reported by the page for a card's answer; set by the app otherwise. */
+	source: DecisionSource,
+	/**  Reported by the page: what pressed the button. */
+	input?: DecisionInput | null,
+	/**
+	 *  Reported by the page: the browser's `isTrusted` for the click, false
+	 *  when a script made it. True does not prove a person pressed it.
+	 */
+	trusted?: boolean | null,
+	/**  Reported by the page: it had the keyboard focus. */
+	pageFocused?: boolean | null,
+	/**  Reported by the page: it was visible. */
+	pageVisible?: boolean | null,
+	/**  Read from the operating system: the window had the focus. */
+	windowFocused?: boolean | null,
+	windowVisible?: boolean | null,
+	windowMinimized?: boolean | null,
+};
+
+/**  How an approval ended. */
+export type Decision = "approved" | "denied" | 
+/**  Still waiting when Maquette quit or another workspace was opened. */
+"expired" | 
+/**
+ *  It went away before anyone answered: its jobs or its run were
+ *  cancelled, or the question changed under it.
+ */
+"cancelled";
+
+/**  What pressed it, when the window could tell. */
+export type DecisionInput = 
+/**  A mouse, pen or touch press. */
+"pointer" | 
+/**  Enter or Space on the focused button. */
+"keyboard";
+
+/**  One line of `approvals.jsonl`. */
+export type DecisionRecord = {
+	v: number,
+	/**  When it was answered. */
+	atMs: number | null,
+	/**
+	 *  The approval's id in the app, `approval-<n>` (counted again from 1
+	 *  each time the app starts, so read it with `requested_at_ms`).
+	 */
+	approval: string,
+	/**
+	 *  What waited: `send-to-3d`, `image-round`, `ship`, `page-preview`,
+	 *  `rest-pose`, `reweight`, `springs` or `rig-doctor`.
+	 */
+	kind: string,
+	decision: Decision,
+	/**  Where it was answered from, how, and the window at that moment. */
+	by: DecidedBy,
+	project: string,
+	/**  The provider jobs it covered. */
+	jobs?: string[],
+	/**  The Lab jobs of an Image API round. */
+	conceptJobs?: string[],
+	runId?: string | null,
+	/**  Tripo, Meshy or OpenAI Images. */
+	provider?: string | null,
+	/**  The asset's name, or every asset of a batch. */
+	asset?: string | null,
+	/**  Credits it should cost, from the price lists. */
+	estimate?: number | null,
+	/**  Dollars an Image API round should cost. */
+	estimateUsd?: number | null,
+	requestedAtMs: number | null,
+};
+
+/**  Where the answer came from. */
+export type DecisionSource = 
+/**  The approval card floating over every view. */
+"floating-card" | 
+/**  The approval card in Settings > Agents. */
+"agents-panel" | 
+/**  The Ship diff in the Pipeline view of a game project. */
+"ship-view" | 
+/**
+ *  The before and after sheets in the Avatar view, or a card's Deny for
+ *  an avatar step.
+ */
+"avatar" | 
+/**  The Rig doctor: the draft was added, dropped or started over. */
+"rig-doctor" | 
+/**
+ *  The jobs it held left the approval state first: cancelled in Sends
+ *  or the Lab, or by an agent's cancel of its own Lab jobs.
+ */
+"jobs-cancelled" | 
+/**  The run it held was cancelled. */
+"run-cancelled" | 
+/**  A page preview's folder or command changed, so the card was replaced. */
+"question-changed" | 
+/**  Still waiting when Maquette quit. */
+"quit" | 
+/**  Still waiting when another workspace was opened. */
+"workspace-changed" | 
+/**  A caller that did not say. */
+"unknown";
+
 export type DefectKind = 
 /**  Weights alone answer it. */
 "weights-only" | 
@@ -3920,6 +4034,11 @@ export type McpCall = {
 	outcome: CallOutcome,
 	message: string | null,
 	durationMs: number | null,
+	/**
+	 *  The approval a `waiting` call raised. Once it is answered the call
+	 *  reads as done, with the answer as its message.
+	 */
+	approval?: string | null,
 };
 
 /**  Everything Settings > Agents shows. */
@@ -7027,6 +7146,12 @@ export type Spend = {
 	redoOf: string | null,
 	viaAgent: boolean,
 	source: SpendSource,
+	/**
+	 *  Who approved it, when and from where, for a send an agent asked for;
+	 *  none for a send started in the app (its send form was the yes) and
+	 *  for sends from before decisions were kept.
+	 */
+	decision?: DecisionRecord | null,
 };
 
 /**  How a send that spent credits ended. */
