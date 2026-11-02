@@ -9,6 +9,9 @@ use std::path::Path;
 use super::files::{doc, write_plan, writing};
 use super::log::{self, PlanLogEntry};
 use super::ops::{self, Merge, PlanOp};
+use stack::on_top;
+
+mod stack;
 use super::summary::{self, ChangeMark};
 use super::{PlanDoc, PlanFile, PlanNode, load_file, normalized, path, validate};
 use crate::error::{CoreError, CoreResult};
@@ -63,17 +66,13 @@ fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
         && a.direction == b.direction
 }
 
-/// Marks who wrote each agent node's content last: a person's write sets
-/// [`PlanNode::person_wrote`], an agent's clears it, and a write that left
-/// the content alone keeps what the file says.
+/// Marks agent nodes a person wrote in: a person's write to the content
+/// sets [`PlanNode::person_wrote`] and no agent's write clears it, so every
+/// agent change on top of the person's words stays held for undo.
 fn mark_writers(current: &PlanFile, next: &mut PlanFile, person: bool) {
     for node in next.nodes.iter_mut().filter(|n| n.by.is_some()) {
         if let Some(was) = current.nodes.iter().find(|c| c.id == node.id) {
-            node.person_wrote = if same_content(was, node) {
-                was.person_wrote
-            } else {
-                person
-            };
+            node.person_wrote = was.person_wrote || (person && !same_content(was, node));
         }
     }
 }
@@ -270,6 +269,15 @@ pub fn undo(
                 picked.push((at, entry));
             }
         }
+        let names: BTreeSet<&str> = picked.iter().map(|(_, e)| e.id.as_str()).collect();
+        for (at, entry) in &picked {
+            if let Some(later) = on_top(&all, *at, entry, &undone, &names) {
+                return Err(CoreError::Invalid(format!(
+                    "The change {} can not be undone yet: a later agent change ({}, {}) changed the same node or link on top of it. Undo the later change first, or both together.",
+                    entry.id, later.id, later.summary
+                )));
+            }
+        }
         // The log is oldest first: undo the newest first.
         picked.sort_by(|a, b| b.0.cmp(&a.0));
         let ops = picked
@@ -348,5 +356,7 @@ pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogE
 mod keep_tests;
 #[cfg(test)]
 mod release_tests;
+#[cfg(test)]
+mod stack_tests;
 #[cfg(test)]
 mod tests;

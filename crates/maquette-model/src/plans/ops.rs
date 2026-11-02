@@ -77,9 +77,11 @@ fn merge_node(current: &mut PlanNode, before: &PlanNode, after: &PlanNode, merge
         )*};
     }
     field!(x, y, width, title, text, image, url, asset, direction);
-    // Who wrote it last follows the content back on an undo, and is never
-    // a reason to call the operation held.
-    if before.person_wrote != after.person_wrote
+    // Whether a person wrote in it follows the content: it changes only
+    // when every field the operation changes did, and is never a reason to
+    // call the operation held.
+    if !held
+        && before.person_wrote != after.person_wrote
         && (merge == Merge::Mine || current.person_wrote == before.person_wrote)
     {
         current.person_wrote = after.person_wrote;

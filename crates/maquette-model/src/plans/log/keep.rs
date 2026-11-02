@@ -3,15 +3,16 @@
 //! line is released when a later line undoes it (`undoes`, by a person or
 //! the agent) or a person keeps it (`keeps`, Keep in the Changes panel).
 //!
-//! What counts as a person's content follows who wrote it last, not who
+//! What counts as a person's content follows who wrote in it, not who
 //! made the node: a person's node or link (`by` is none), or an agent's
 //! node whose content a person wrote ([`PlanNode::person_wrote`]).
 //!
 //! The sizes of the keepers and of the other lines are kept in memory per
 //! log, so an append neither reads the log again to check the budget nor
 //! to decide whether it must rotate. The index is read again from the file
-//! whenever the file's size or time is not what the last write left (a
-//! sync tool or another app wrote to it).
+//! whenever the file's size or time is not what the last write left, or
+//! the file grew by more than the line just appended (a sync tool or
+//! another app wrote to it meanwhile).
 
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
@@ -160,8 +161,13 @@ pub(super) fn noted(
     before: Stamp,
 ) -> CoreResult<u64> {
     let mut all = INDEX.lock().unwrap_or_else(PoisonError::into_inner);
+    // One look at the file, so a line another app appends after it shows
+    // as a different size on the next write.
+    let now = stamp(file);
     match all.get_mut(file) {
-        Some(index) if index.stamp == before => {
+        // Only our own line landed since the index was right: anything else
+        // (another app appending meanwhile) reads the file again.
+        Some(index) if index.stamp == before && now.0 == before.0 + bytes(len) => {
             for id in releases(entry) {
                 if let Some(size) = index.keepers.remove(id) {
                     index.rest += size;
@@ -172,7 +178,7 @@ pub(super) fn noted(
             } else {
                 index.rest += bytes(len);
             }
-            index.stamp = stamp(file);
+            index.stamp = now;
             Ok(index.rest)
         }
         _ => {

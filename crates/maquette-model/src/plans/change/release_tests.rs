@@ -1,6 +1,6 @@
 //! How the room kept for undo is freed again: Keep, an undo that finds
 //! nothing left to undo, an agent's undo near the limit, and protection
-//! that follows who wrote a node last.
+//! that stays once a person wrote in a node.
 
 use std::path::Path;
 
@@ -184,11 +184,12 @@ fn a_person_writing_in_an_agents_node_makes_it_theirs() {
     let refused = agent::remove(&root, &id, &RESEARCH, std::slice::from_ref(&node), &[])
         .expect_err("theirs now");
     assert!(refused.to_string().contains("ask the person"), "{refused}");
-    // The agent's rewrite of it keeps the person's words for undo.
+    // The agent's rewrite of it keeps the person's words for undo, and the
+    // node stays theirs.
     let rewrite_id = agent_edit(&root, &id, &node, "Agent again".into());
     assert!(held(&root, &id) > 0, "a keeper");
     assert!(
-        !file(&root)
+        file(&root)
             .nodes
             .iter()
             .find(|n| n.id == node)
