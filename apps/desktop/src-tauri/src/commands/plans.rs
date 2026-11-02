@@ -118,8 +118,9 @@ pub fn plan_undo(
 }
 
 /// Keeps (accepts) agent changes as a person: frees the room the log kept
-/// to undo them. The canvas does not change. Refused unless `changes`
-/// names every earlier change it sits on ([`plan_keep_needs`]).
+/// to undo them. The canvas does not change. `changes` are the ones the
+/// person clicked and `confirmed` the earlier ones they confirmed; refused
+/// unless `confirmed` is exactly what [`plan_keep_needs`] lists now.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_keep(
@@ -127,8 +128,10 @@ pub fn plan_keep(
     project: String,
     id: String,
     changes: Vec<String>,
+    confirmed: Vec<String>,
 ) -> CommandResult<()> {
-    plans::keep(&project_dir(&session, &project)?, &id, &changes)?;
+    let dir = project_dir(&session, &project)?;
+    plans::keep_confirmed(&dir, &id, &changes, &confirmed)?;
     Ok(())
 }
 

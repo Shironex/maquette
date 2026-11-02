@@ -10,9 +10,9 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
-    motion, packs, page, parts, paths, pipeline, plan_watch, plans, prepare, project, providers,
-    quit, refs, renders, rig, ship, site, split, thumbs, timeline, toolchain, trash, updater,
-    workspace,
+    motion, packs, page, parts, paths, pipeline, plan_camera, plan_watch, plans, prepare, project,
+    providers, quit, refs, renders, rig, ship, site, split, thumbs, timeline, toolchain, trash,
+    updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
@@ -163,6 +163,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             plans::plan_pick_image,
             plans::plan_open_link,
             plans::plan_links,
+            plan_camera::plan_camera,
+            plan_camera::plan_camera_review,
+            plan_camera::plan_camera_apply,
+            plan_camera::plan_camera_undo_apply,
+            plan_camera::plan_camera_rebase,
             materials::materials_get,
             materials::materials_save,
             avatar::avatar_get,
