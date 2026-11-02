@@ -268,6 +268,11 @@ file, `scripts/check-skills.mjs` judges the skills by it, and the `tools-documen
 it. A new tool goes into its `tools/` file and the instructions; then commit the regenerated
 `tool-names.txt` and name the tool in the README and the docs page.
 
+`tools/plans.rs` and `tools/plan_edits.rs` hold the nine planning canvas tools. They go through
+`maquette_core::plans` (see Planning canvases), and each write ends in `Host::plan_changed`, which
+emits `PlanChanged` so an open canvas reloads and keeps the person's unsaved edits. Answers are short
+on purpose: ids, counts and one line per node, with `full` for whole texts.
+
 `tools/built.rs` adds, rebuilds and lists built assets through `commands/built.rs`, the same
 helpers the Board's commands use. Builds go through one `maquette_core::built::Builder` for the
 whole app, so a build an agent starts and one from the Board queue behind each other, and
@@ -997,15 +1002,66 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   only moves when the content changes, so a save with nothing new writes the same bytes. A save
   keeps the file's name (only Rename changes it) and is refused for a removed canvas. A file over
   8 MB lists as broken without being read.
+- **Changes, not snapshots.** A person's save, an agent's tool and an undo all go through
+  `plans::change` (`change.rs`): it takes the lock, reads the file as it is now, lays a list of
+  operations over it and writes the result with the same checks and size cap, then appends one line
+  to the change log. The operations (`ops.rs`) are by node and edge id: add, remove, or change fields
+  with the value before and after. `diff` finds the operations between two canvases, `apply` lays
+  them over a third field by field, and `invert` turns a list around, which is all an undo is. So
+  two writers never write over each other: each sends what it changed, and the other's work stays.
+  The web side's `plan_apply` (it replaced the whole canvas save) sends the operations between the
+  canvas the view last had from the file and what it shows, and returns what the file now holds.
+- **Agents.** `plans/agent.rs` is what the nine canvas tools call (`list_canvases`, `get_canvas`,
+  `get_changes` read; `create_canvas`, `add_nodes`, `update_nodes`, `remove_nodes`, `layout_canvas`
+  and `undo_run` write). Each write names the agent as `by` (the `agent` argument, else the MCP
+  client's name, one line, at most 64 characters) and may name a `run` to group calls. At most 100
+  nodes and links per call, and everything is checked before anything is written. An agent may add
+  anything and edit or move any node, a person's too, since the log keeps what it said before. It
+  never removes what it did not make: a person's or another agent's node or link is refused with a
+  reason, and so is a node that has a link someone else drew. `place.rs` puts a node without `x` and
+  `y` in a column right of the `near` node (or right of everything), clear of every other node by a
+  gap, never stacked at 0, 0, with node sizes guessed as the view guesses them before a node has
+  drawn. `layout_canvas` moves only the agent's own nodes that overlap another, to a free spot beside
+  the node they link to. Nodes already clear and a person's nodes stay.
+- **Change log.** Each canvas has `plans/<id>.log.jsonl`, one JSON line per write (`log.rs`): id, time,
+  `by` (null for a person), `run`, a one line summary (`summary.rs`), the operations as written and the
+  lines an undo took back. It is only appended to, so a sync tool sends the new lines and the canvas
+  file stays small. Past 1 MiB the oldest lines go in one atomic rewrite that keeps the newest half. A
+  line over 128 KiB keeps its summary but drops its operations (`trimmed`) and can no longer be undone.
+  A line that does not read (a write cut short, a sync conflict copy) is skipped. The log moves to the
+  trash with its canvas.
+- **Undo.** `plans::undo` inverts the operations of the lines named and lays them over the canvas as
+  it is now, carefully: a field changed since stays as it was left, and a node a person edited since
+  is kept and counted. An agent may undo only its own lines (`undo_run`, by `run` or by change ids);
+  a person's undo (`plan_undo`, the Changes panel's Undo and Undo run) may take back any. An undo is
+  itself a logged change. The view's own Mod+Z, Shift+Mod+Z and Mod+Y undo and redo a person's edits
+  in the open canvas (`state/plan-history.ts`, 100 edits deep) the same way, as inverted operations,
+  so an agent's write that landed in between is not undone with them.
+- **Watching.** `commands/plan_watch.rs` watches the project's `plans/` folder while a canvas is open
+  (`plan_watch`; one watcher per folder, shared by every window, the four newest folders stay) and
+  emits `PlanChanged` with the canvas id after the file or its log has been quiet for 250 ms, so a
+  write by an agent, another window or a sync from another computer reaches the view. MCP writes also
+  call `Host::plan_changed`, so the app does not wait for the watcher.
+- **Person, agent and outside edits.** `state/plans-sync.ts` keeps the canvas as the file last held
+  it (the base). A save sends the operations between the base and the flow; the answer becomes the
+  new base, with edits made while it saved laid over it again. Its own writes read back as the base,
+  so they never reload in a loop. When the file changes from outside and the person has no unsaved
+  edits, it simply shows. When they do, the two are merged by node id (`state/plan-ops.ts`): the
+  person's edits are laid over the new file, and only when both changed the same field of the same
+  node does the canvas ask Keep mine or Use theirs, with autosave waiting until then. An agent's
+  write shows a toast, the nodes an outside write added or edited carry an "added" or "edited"
+  badge, and an agent's nodes have a blue ring. The Changes panel (`features/plan/PlanChanges`,
+  `state/plan-log.ts`) groups the log into runs and filters All, Agents or Mine.
 - **Leaving.** The web store waits for a save on its way and saves the latest edits before Back,
   another canvas, another project or quitting. When that save fails the canvas stays open and asks:
   try again, stay, or leave without saving; that dialog is the only message, no notice repeats it.
 - **Pictures.** `images.rs` links a picture already inside the project by its relative path and
   copies one from elsewhere into `plans/images/<name>-<hash>.<ext>` once.
 - **Remove.** The file moves to `<workspace>/trash/<project>/plans/`; copied pictures stay.
-- **Edges.** The Tauri commands are in `commands/plans.rs`. The web state is
-  `apps/web/src/state/plans.ts` (file to React Flow and back) and `use-plans-store.ts` (saves a
-  moment after each change), the view is `features/plan` on `@xyflow/react`, and mock mode serves
+- **Edges.** The Tauri commands are in `commands/plans.rs` (`plan_apply`, `plan_log` and `plan_undo`
+  beside list, get, create, rename and remove). The web state is
+  `apps/web/src/state/plans.ts` (file to React Flow and back), `use-plans-store.ts` (saves a
+  moment after each change) and `plans-sync.ts`, the view is `features/plan` on `@xyflow/react`, and mock mode serves
   demo canvases with `?plans=demo`.
 
 ## About and updates
