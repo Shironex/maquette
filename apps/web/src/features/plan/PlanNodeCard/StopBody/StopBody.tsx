@@ -5,7 +5,7 @@ import { useStopBody } from './StopBody.hooks';
 /**
  * The body of a camera stop node: its place in the tour, its field of
  * view, the poster render (or a frame saying there is none yet), its name
- * and one quiet note (first view, last, was stop 4, new angle).
+ * and one quiet note (first view, last, moved from stop 4, still stop 2, new angle).
  */
 export default function StopBody({ node }: { node: PlanNode }) {
   const v = useStopBody(node);

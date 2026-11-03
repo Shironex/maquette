@@ -49,7 +49,24 @@ describe('StopBody', () => {
     unmount();
     render(<StopBody node={nodes[2]!} />);
     expect(screen.getByText('Proposal 1')).toBeInTheDocument();
-    expect(screen.getByText('was stop 2')).toBeInTheDocument();
+    expect(screen.getByText('moved from stop 2')).toBeInTheDocument();
     expect(screen.getByText('No render yet')).toBeInTheDocument();
+  });
+
+  it('says a proposal stop kept its place, or is a new angle', () => {
+    usePlanCameraStore.setState({
+      view: {
+        main: ['a', 'b'],
+        lines: [{ nodes: ['q', 'p'], agent: 'Camera agent', problem: null }],
+        posters: [],
+        doc: { plan: { nodes } },
+      } as unknown as CameraView,
+    });
+    const { unmount } = render(<StopBody node={nodes[2]!} />);
+    expect(screen.getByText('Proposal 2')).toBeInTheDocument();
+    expect(screen.getByText('still stop 2')).toBeInTheDocument();
+    unmount();
+    render(<StopBody node={nodes[3]!} />);
+    expect(screen.getByText('new angle')).toBeInTheDocument();
   });
 });
