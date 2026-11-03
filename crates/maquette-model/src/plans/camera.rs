@@ -343,7 +343,9 @@ pub fn line_of(
 
 /// The project's camera plan, made from `layout.json` the first time: one
 /// stop node per stop, joined in tour order, as the person's main line.
-/// `by` names an agent that made it in the log; a person passes none.
+/// `by` names an agent that made it in the log; a person passes none. A
+/// change log found on the id with no canvas belongs to another canvas, so
+/// it moves into `plans/history/` first and the plan starts its own.
 ///
 /// # Errors
 ///
@@ -359,6 +361,9 @@ pub fn ensure(project_dir: &Path, by: Option<&str>) -> CoreResult<PlanDoc> {
         // A canvas from before the id was kept for the camera plan: it moves, never blocks.
         let moved = super::files::move_aside(project_dir, &plan)?;
         tracing::info!("moved the canvas on the camera plan's id to {moved}");
+    } else if let Some(kept) = super::files::set_aside_stray_log(project_dir)? {
+        // No canvas, yet a log: another canvas's history, never the new plan's.
+        tracing::warn!("a change log with no canvas on the camera plan's id moved to {kept}");
     }
     let stops = layout::load(project_dir)?.stops;
     // The line mirrors layout.json, the person's, whoever opened it first.
