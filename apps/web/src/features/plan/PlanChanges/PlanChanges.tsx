@@ -17,6 +17,7 @@ const MARK_ICON: Record<ChangeMark, IconName> = {
   keep: 'check',
   apply: 'upload-simple',
   rebase: 'git-branch',
+  propose: 'question',
 };
 
 const KEEP_TIP =

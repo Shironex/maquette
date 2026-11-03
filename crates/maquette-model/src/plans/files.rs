@@ -259,6 +259,8 @@ pub(super) fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -
         undoes: Vec::new(),
         trimmed: false,
         applied: None,
+        proposes: None,
+        resolves: Vec::new(),
         keeps: Vec::new(),
     }
 }

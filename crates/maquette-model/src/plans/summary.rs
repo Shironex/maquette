@@ -27,6 +27,8 @@ pub enum ChangeMark {
     Apply,
     /// The camera plan was brought up to a changed `layout.json`.
     Rebase,
+    /// An agent asked the person to remove nodes.
+    Propose,
 }
 
 fn kind_name(kind: NodeKind) -> &'static str {

@@ -76,6 +76,7 @@ pub mod overlap;
 mod person;
 mod place;
 pub mod presets;
+pub mod removal;
 mod settings;
 pub mod summary;
 pub mod text;

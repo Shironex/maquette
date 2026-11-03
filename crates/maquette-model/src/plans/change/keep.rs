@@ -127,6 +127,8 @@ fn keep_locked(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanL
         keeps: picked.iter().map(|e| e.id.clone()).collect(),
         trimmed: false,
         applied: None,
+        proposes: None,
+        resolves: Vec::new(),
     };
     log::append(project_dir, id, &entry)?;
     Ok(entry)

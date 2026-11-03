@@ -35,6 +35,7 @@ pub fn set_auto_layout(project_dir: &Path, id: &str, on: bool) -> CoreResult<Cha
             ops,
             Say::Line {
                 summary: summary.into(),
+                resolves: Vec::new(),
             },
         ))
     })
@@ -80,6 +81,12 @@ pub fn mark_fine(project_dir: &Path, id: &str, a: &str, b: &str) -> CoreResult<C
             },
         });
         let summary = format!("Marked as fine: {} and {}", node_name(na), node_name(nb));
-        Ok((ops, Say::Line { summary }))
+        Ok((
+            ops,
+            Say::Line {
+                summary,
+                resolves: Vec::new(),
+            },
+        ))
     })
 }

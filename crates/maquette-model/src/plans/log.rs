@@ -32,6 +32,8 @@
 //!   [`LOG_KEEP_BYTES`] of the rest. A person's own line over
 //!   [`LINE_MAX_BYTES`] keeps its summary but drops its operations
 //!   (`trimmed`); the canvas holds what it wrote.
+//! - An agent's removal proposal ([`super::removal`]) stays until the person
+//!   accepts or dismisses it, whatever its age.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -48,7 +50,7 @@ use super::summary::ChangeMark;
 mod keep;
 use super::{PLANS_DIR, is_plan_id};
 use crate::error::{CoreError, CoreResult};
-pub use keep::{is_keeper, keeper_bytes, protected_node, released_ids};
+pub use keep::{is_keeper, is_open_proposal, keeper_bytes, protected_node, released_ids};
 
 pub const LOG_SUFFIX: &str = ".log.jsonl";
 /// Past this size the oldest lines go.
@@ -94,6 +96,14 @@ pub struct PlanLogEntry {
     /// back only while the file is still as the Apply left it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applied: Option<super::camera::Applied>,
+    /// An agent asking the person to remove nodes it may not remove itself
+    /// ([`super::removal`]). The log keeps it until a person's line names it
+    /// in `resolves`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposes: Option<super::removal::Removal>,
+    /// The removal proposals this person's line accepted or dismissed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resolves: Vec<String>,
 }
 
 /// A log line as the Changes panel and agents read it: no operations.
@@ -255,7 +265,8 @@ pub fn append(project_dir: &Path, id: &str, entry: &PlanLogEntry) -> CoreResult<
 }
 
 /// Once the other lines pass [`LOG_MAX_BYTES`], keeps every keeper
-/// ([`is_keeper`]) and the newest other lines that fit in
+/// ([`is_keeper`]), every removal proposal not answered yet and the newest
+/// other lines that fit in
 /// [`LOG_KEEP_BYTES`]; lines that do not read go.
 fn trim(file: &Path) -> CoreResult<()> {
     let text = read_tail(file, READ_MAX_BYTES)?;
@@ -265,9 +276,10 @@ fn trim(file: &Path) -> CoreResult<()> {
         .collect();
     let all: Vec<PlanLogEntry> = parsed.iter().map(|(_, e)| e.clone()).collect();
     let undone = released_ids(&all);
+    let held = |e: &PlanLogEntry| is_keeper(e, &undone) || is_open_proposal(e, &undone);
     let rest: u64 = parsed
         .iter()
-        .filter(|(_, e)| !is_keeper(e, &undone))
+        .filter(|(_, e)| !held(e))
         .map(|(l, _)| u64::try_from(l.len() + 1).unwrap_or(u64::MAX))
         .sum();
     if rest <= LOG_MAX_BYTES {
@@ -277,7 +289,7 @@ fn trim(file: &Path) -> CoreResult<()> {
     let mut kept: Vec<&str> = Vec::new();
     let mut size = 0u64;
     for (line, entry) in parsed.iter().rev() {
-        if is_keeper(entry, &undone) {
+        if held(entry) {
             kept.push(line);
             continue;
         }

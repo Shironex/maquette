@@ -1252,6 +1252,15 @@ export type Artifact = {
 	bytes: number | null,
 };
 
+/**  One node an agent asks to remove, as it was when asked. */
+export type AskedNode = {
+	id: string,
+	/**  Its name when asked, for the person to read once it changed or went. */
+	name: string,
+	/**  [`content_key`] of the node when asked. */
+	key: string,
+};
+
 /**  The aspect ratio asked for in the prompt. */
 export type Aspect = "16:9" | "3:2" | "1:1" | "3:4" | "9:16";
 
@@ -2312,7 +2321,9 @@ export type ChangeMark = "add" | "edit" | "move" | "remove" |
 /**  A person applied the camera plan to `layout.json`. */
 "apply" | 
 /**  The camera plan was brought up to a changed `layout.json`. */
-"rebase";
+"rebase" | 
+/**  An agent asked the person to remove nodes. */
+"propose";
 
 export type Check = {
 	id: string,
@@ -5657,6 +5668,14 @@ export type PlanLogEntry_Deserialize = {
 	 *  back only while the file is still as the Apply left it.
 	 */
 	applied?: Applied | null,
+	/**
+	 *  An agent asking the person to remove nodes it may not remove itself
+	 *  ([`super::removal`]). The log keeps it until a person's line names it
+	 *  in `resolves`.
+	 */
+	proposes?: Removal | null,
+	/**  The removal proposals this person's line accepted or dismissed. */
+	resolves?: string[],
 };
 
 /**  One write to a canvas. */
@@ -5683,6 +5702,14 @@ export type PlanLogEntry_Serialize = {
 	 *  back only while the file is still as the Apply left it.
 	 */
 	applied?: Applied | null,
+	/**
+	 *  An agent asking the person to remove nodes it may not remove itself
+	 *  ([`super::removal`]). The log keeps it until a person's line names it
+	 *  in `resolves`.
+	 */
+	proposes?: Removal | null,
+	/**  The removal proposals this person's line accepted or dismissed. */
+	resolves?: string[],
 };
 
 /**  A log line as the Changes panel and agents read it: no operations. */
@@ -6335,6 +6362,13 @@ export type RefsView = {
 	directions: Direction[],
 	/**  Their jobs, oldest first. */
 	jobs: ConceptJob[],
+};
+
+/**  What a removal proposal asks, as its log line keeps it. */
+export type Removal = {
+	nodes: AskedNode[],
+	/**  Why, in the agent's words; may be empty. */
+	reason?: string,
 };
 
 /**  One asset of a remove. */

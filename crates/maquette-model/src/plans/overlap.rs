@@ -207,7 +207,14 @@ fn card_words(node: &PlanNode, starters: &BTreeSet<String>) -> Option<Vec<(Overl
 /// same key.
 pub fn pair_key(a: &PlanNode, b: &PlanNode) -> String {
     let (a, b) = if a.id <= b.id { (a, b) } else { (b, a) };
-    let text = format!("{}\n{}\u{0}{}\n{}", a.title, a.text, b.title, b.text);
+    fnv(&format!(
+        "{}\n{}\u{0}{}\n{}",
+        a.title, a.text, b.title, b.text
+    ))
+}
+
+/// FNV-1a over `text` as UTF-8, as eight hex digits.
+pub(super) fn fnv(text: &str) -> String {
     let mut hash: u32 = 0x811c_9dc5;
     for byte in text.bytes() {
         hash ^= u32::from(byte);

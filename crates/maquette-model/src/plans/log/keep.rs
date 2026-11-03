@@ -31,12 +31,23 @@ pub fn protected_node(node: &PlanNode) -> bool {
     node.by.is_none() || node.person_wrote
 }
 
-/// The lines `entry` releases: those it undoes and those it keeps.
+/// The lines `entry` releases: those it undoes, those it keeps and the
+/// removal proposals it answers.
 fn releases(entry: &PlanLogEntry) -> impl Iterator<Item = &String> {
-    entry.undoes.iter().chain(entry.keeps.iter())
+    entry
+        .undoes
+        .iter()
+        .chain(entry.keeps.iter())
+        .chain(entry.resolves.iter())
 }
 
-/// The ids some line undid or kept.
+/// Whether `entry` is a removal proposal no line in `released` answered:
+/// the log keeps it, apart from the keepers' budget, until the person does.
+pub fn is_open_proposal(entry: &PlanLogEntry, released: &BTreeSet<String>) -> bool {
+    entry.proposes.is_some() && !released.contains(&entry.id)
+}
+
+/// The ids some line undid, kept or answered.
 pub fn released_ids(entries: &[PlanLogEntry]) -> BTreeSet<String> {
     entries.iter().flat_map(|e| releases(e).cloned()).collect()
 }
@@ -86,10 +97,12 @@ pub(super) fn stamp(file: &Path) -> Stamp {
     fs::metadata(file).map_or((0, None), |m| (m.len(), m.modified().ok()))
 }
 
-/// The keepers' sizes by id and the other lines' total, for one log.
+/// The keepers' sizes by id, the open proposals' and the other lines'
+/// total, for one log.
 struct Index {
     stamp: Stamp,
     keepers: HashMap<String, u64>,
+    proposals: HashMap<String, u64>,
     rest: u64,
 }
 
@@ -117,11 +130,14 @@ fn build(file: &Path) -> CoreResult<Index> {
     let mut index = Index {
         stamp,
         keepers: HashMap::new(),
+        proposals: HashMap::new(),
         rest: 0,
     };
     for (len, entry) in parsed {
         if is_keeper(&entry, &released) {
             index.keepers.insert(entry.id, len);
+        } else if is_open_proposal(&entry, &released) {
+            index.proposals.insert(entry.id, len);
         } else {
             index.rest += len;
         }
@@ -176,12 +192,18 @@ pub(super) fn noted(
         // (another app appending meanwhile) reads the file again.
         Some(index) if index.stamp == before && now.0 == before.0 + bytes(written) => {
             for id in releases(entry) {
-                if let Some(size) = index.keepers.remove(id) {
+                let size = index
+                    .keepers
+                    .remove(id)
+                    .or_else(|| index.proposals.remove(id));
+                if let Some(size) = size {
                     index.rest += size;
                 }
             }
             if keeper && is_keeper(entry, &BTreeSet::new()) {
                 index.keepers.insert(entry.id.clone(), bytes(len));
+            } else if entry.proposes.is_some() {
+                index.proposals.insert(entry.id.clone(), bytes(len));
             } else {
                 index.rest += bytes(len);
             }

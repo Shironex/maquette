@@ -66,8 +66,11 @@ pub(super) enum Say {
     /// An undo of earlier lines.
     Undo(Undoing),
     /// Its own summary, for a change its operations do not say well (a
-    /// person's setting).
-    Line { summary: String },
+    /// person's setting), and the removal proposals it answers.
+    Line {
+        summary: String,
+        resolves: Vec<String>,
+    },
 }
 
 /// Whether two states of a node say the same (where it sits aside).
@@ -95,10 +98,15 @@ fn mark_writers(current: &PlanFile, next: &mut PlanFile, person: bool) {
 
 /// A log line for `ops` written by `writer`.
 fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, say: Say) -> PlanLogEntry {
-    let (summary, mark, undoes) = match say {
-        Say::Ops => (summary::summary(&ops), summary::mark(&ops), Vec::new()),
-        Say::Undo(u) => (u.summary, ChangeMark::Undo, u.ids),
-        Say::Line { summary } => (summary, summary::mark(&ops), Vec::new()),
+    let (summary, mark, undoes, resolves) = match say {
+        Say::Ops => (
+            summary::summary(&ops),
+            summary::mark(&ops),
+            Vec::new(),
+            Vec::new(),
+        ),
+        Say::Undo(u) => (u.summary, ChangeMark::Undo, u.ids, Vec::new()),
+        Say::Line { summary, resolves } => (summary, summary::mark(&ops), Vec::new(), resolves),
     };
     PlanLogEntry {
         id: log::new_id("c"),
@@ -112,6 +120,8 @@ fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, say: Say) -> PlanLogEntry {
         keeps: Vec::new(),
         trimmed: false,
         applied: None,
+        proposes: None,
+        resolves,
     }
 }
 
