@@ -76,12 +76,13 @@ impl ProviderJobs {
     pub fn clear_finished(&self, project: &str) -> CoreResult<()> {
         let saving = self.shared.saving();
         self.shared.still_open(&saving, None)?;
-        self.shared.jobs().retain(|e| {
+        let mut jobs = self.shared.jobs();
+        jobs.retain(|e| {
             e.stored.job.project != project
                 || e.stored.job.state.is_active()
                 || e.stored.job.state == JobState::Inbox
         });
-        persist(&self.shared, &saving, project);
+        persist(&self.shared, &saving, &jobs, project);
         Ok(())
     }
 
@@ -112,49 +113,44 @@ impl ProviderJobs {
         {
             return 0;
         }
-        let copied = {
-            let mut jobs = self.shared.jobs();
-            let sources: Vec<Stored> = jobs
+        let mut jobs = self.shared.jobs();
+        let sources: Vec<Stored> = jobs
+            .iter()
+            .filter(|e| e.stored.job.project == from && e.stored.job.asset == asset)
+            .filter(|e| !e.stored.job.state.is_active() && e.stored.job.state != JobState::Inbox)
+            .map(|e| e.stored.clone())
+            .collect();
+        for source in &sources {
+            let id = next_id(&jobs, &dir, &copy.id);
+            let mut job = source.job.clone();
+            job.id = id;
+            job.project = to.to_string();
+            job.asset.clone_from(&copy.id);
+            job.asset_name.clone_from(&copy.name);
+            job.batch = None;
+            job.images = job
+                .images
                 .iter()
-                .filter(|e| e.stored.job.project == from && e.stored.job.asset == asset)
-                .filter(|e| {
-                    !e.stored.job.state.is_active() && e.stored.job.state != JobState::Inbox
+                .map(|image| {
+                    refs.iter()
+                        .find(|(old, _)| old == image)
+                        .map_or_else(|| image.clone(), |(_, new)| new.clone())
                 })
-                .map(|e| e.stored.clone())
                 .collect();
-            for source in &sources {
-                let id = next_id(&jobs, &dir, &copy.id);
-                let mut job = source.job.clone();
-                job.id = id;
-                job.project = to.to_string();
-                job.asset.clone_from(&copy.id);
-                job.asset_name.clone_from(&copy.name);
-                job.batch = None;
-                job.images = job
-                    .images
-                    .iter()
-                    .map(|image| {
-                        refs.iter()
-                            .find(|(old, _)| old == image)
-                            .map_or_else(|| image.clone(), |(_, new)| new.clone())
-                    })
-                    .collect();
-                jobs.push(Entry {
-                    stored: Stored {
-                        job,
-                        chain: source.chain.clone(),
-                    },
-                    stop: Arc::new(StopFlag::default()),
-                    thread: false,
-                    cancelled: false,
-                });
-            }
-            sources.len()
-        };
-        if copied > 0 {
-            persist(&self.shared, &saving, to);
+            jobs.push(Entry {
+                stored: Stored {
+                    job,
+                    chain: source.chain.clone(),
+                },
+                stop: Arc::new(StopFlag::default()),
+                thread: false,
+                cancelled: false,
+            });
         }
-        copied
+        if !sources.is_empty() {
+            persist(&self.shared, &saving, &jobs, to);
+        }
+        sources.len()
     }
 
     /// Fills `link` on inbox items that came from a send, and moves a By

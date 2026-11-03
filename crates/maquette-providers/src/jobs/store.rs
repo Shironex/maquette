@@ -7,7 +7,7 @@ use std::path::Path;
 
 use super::spend;
 use super::{
-    CLOSED_WHILE_SENDING, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
+    CLOSED_WHILE_SENDING, Entry, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
     ProviderEvent, Saving, Shared, Stored, Workspace, snapshot,
 };
 use crate::error::{CoreError, CoreResult};
@@ -104,11 +104,15 @@ fn read(project_dir: &Path) -> Vec<Stored> {
     }
 }
 
-/// Writes a project's jobs. Keeps the newest finished ones only.
+/// Writes a project's jobs from `jobs`, the list as the caller changed it.
+/// Keeps the newest finished ones only.
 ///
 /// The caller holds `saving` from its change to the list until here, so
-/// close cannot clear the list in between.
-pub(super) fn persist(shared: &Shared, _saving: &Saving<'_>, project: &str) {
+/// close cannot clear the list in between. It also holds the jobs lock
+/// from its change through this write, so nobody reads a job's new state
+/// (a send seen as finished, say) before it is on disk: another open of
+/// the workspace, or the next start, would otherwise load the old state.
+pub(super) fn persist(shared: &Shared, _saving: &Saving<'_>, jobs: &[Entry], project: &str) {
     #[cfg(test)]
     {
         let hook = shared
@@ -126,9 +130,6 @@ pub(super) fn persist(shared: &Shared, _saving: &Saving<'_>, project: &str) {
     let Ok(dir) = workspace.project_dir(project) else {
         return;
     };
-    // Written under the jobs lock as well, so whoever reads a job's new
-    // state also finds it on disk.
-    let jobs = shared.jobs();
     let mine: Vec<Stored> = jobs
         .iter()
         .filter(|e| e.stored.job.project == project)
@@ -210,7 +211,7 @@ fn change_job(
 ) -> CoreResult<()> {
     // A change that is not saved (progress) need not wait for a write.
     let saving = save.then(|| shared.saving());
-    let (job, project, before, after) = {
+    let (job, before, after) = {
         let mut jobs = shared.jobs();
         // Checked under the jobs lock, which close holds to empty the list
         // and forget the workspace, so the list is still this generation's.
@@ -225,16 +226,16 @@ fn change_job(
             .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
         let before = spend::before(&entry.stored);
         change(&mut entry.stored)?;
-        (
-            snapshot(&entry.stored),
-            entry.stored.job.project.clone(),
-            before,
-            entry.stored.clone(),
-        )
+        let job = snapshot(&entry.stored);
+        let after = entry.stored.clone();
+        // Still under the jobs lock: the new state is on disk before
+        // anyone can read it.
+        if let Some(saving) = &saving {
+            persist(shared, saving, &jobs, &after.job.project);
+        }
+        (job, before, after)
     };
-    if let Some(saving) = saving {
-        persist(shared, &saving, &project);
-    }
+    drop(saving);
     shared.emit(ProviderEvent::Job { job: Box::new(job) });
     if spend {
         spend::record(shared, &before, &after);

@@ -168,6 +168,54 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
 }
 
 #[test]
+fn a_saved_change_is_on_disk_before_anyone_reads_it() {
+    let root = tempfile::tempdir().expect("dir");
+    let (jobs, _, path) = one_job(root.path());
+
+    // The save parks right after its change until the test lets it go.
+    let (changed_tx, changed) = mpsc::channel();
+    let (release, release_rx) = mpsc::channel::<()>();
+    *jobs.shared.before_save.lock().expect("hook") = Some(Box::new(move || {
+        changed_tx.send(()).expect("changed");
+        release_rx.recv().expect("released");
+    }));
+    let saving = {
+        let shared = Arc::clone(&jobs.shared);
+        std::thread::spawn(move || {
+            update(&shared, "lantern-1", true, |s| {
+                s.job.message = Some("on disk first".to_string());
+                Ok(())
+            })
+        })
+    };
+    changed.recv().expect("the save changed the job");
+
+    // A reader while the save is parked, as a finished job is read and
+    // another open of the workspace then loads the file.
+    let (read_tx, read) = mpsc::channel();
+    let reader = {
+        let jobs = jobs.clone();
+        let path = path.clone();
+        std::thread::spawn(move || {
+            let message = jobs.get("lantern-1").expect("job").message;
+            let saved = fs::read_to_string(&path).expect("read");
+            read_tx.send((message, saved)).expect("read");
+        })
+    };
+    let early = read.recv_timeout(Duration::from_millis(200));
+    release.send(()).expect("release");
+    saving.join().expect("save thread").expect("saved");
+    reader.join().expect("reader");
+    let (message, saved) = early.unwrap_or_else(|_| read.recv().expect("read"));
+
+    assert_eq!(message.as_deref(), Some("on disk first"));
+    assert!(
+        saved.contains("on disk first"),
+        "the job read as changed while its file still had the old state: {saved}"
+    );
+}
+
+#[test]
 fn clearing_finished_jobs_after_close_writes_nothing() {
     let root = tempfile::tempdir().expect("dir");
     let (jobs, _, path) = one_job(root.path());
