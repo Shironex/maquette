@@ -811,12 +811,19 @@ anything, and the app is the only caller: no MCP tool removes or restores a proj
 - **Refusals.** It is refused with the reason while work runs in the project: a pipeline run or
   queued run, a built asset building, concept images queued or generating, or a send that is not
   over (waiting for approval, queued, being made, waiting for a By hand model). The page preview dev
-  server is stopped and the plan file watchers are dropped.
+  server is stopped and the plan file watchers are dropped. The dialog greys out Remove project
+  with the reason.
+- **Moves.** Every folder moves with `maquette_base::fs::move_tree`: a rename, tried again on
+  Windows while a file is held open. It copies and removes only across volumes, and when that
+  removal stops partway it keeps both folders and the error names them. A failed rename moves
+  nothing.
 - **Files.** The project folder moves to `<workspace>/trash/_projects/<id>-<date>-<time>/` as
   `project/` (its own asset and canvas trash stays inside, under `trash/`), with a `removed.json`
   beside it. The site or game repo is never touched, and providers.json keeps the sends' records.
 - **Restore.** It moves the folder back and is refused when a project with the same id exists
-  again. There is no permanent delete, as the asset trash has none.
+  again. The check and the move share a lock with `project::create`, so a new project cannot claim
+  the folder in between. A repo path that comes back is marked as set by an agent, so its dev
+  command waits for a person again. There is no permanent delete, as the asset trash has none.
 - **Agents.** A removed project is left out of `list_projects`, and a tool given its id fails with
   not-found, saying it was removed to the workspace trash and only a person can restore it.
 - **Edges.** The Tauri commands are in `commands/project_trash.rs`. The web state is
