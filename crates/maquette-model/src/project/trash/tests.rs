@@ -49,7 +49,8 @@ fn a_removed_project_waits_in_the_trash_and_comes_back_whole() {
 
     repos::set(root, "moon-island", None);
     let back = restore_project(root, &layout, &removed.trash).expect("restore");
-    assert_eq!(back, "moon-island");
+    assert_eq!(back.id, "moon-island");
+    assert!(back.repo_put_back, "the caller marks it for a person");
     assert_eq!(
         fs::read(folder.join("refs").join("bowl.png")).expect("ref back"),
         b"png"
@@ -127,4 +128,24 @@ fn the_projects_trash_folder_is_no_project_trash() {
             .code(),
         "invalid"
     );
+}
+
+#[test]
+fn restore_refuses_a_folder_a_create_has_just_claimed() {
+    let (dir, layout) = workspace();
+    let root = dir.path();
+    create(root, &layout, new("Moon Island")).expect("create");
+    let removed = remove_project(root, &layout, "moon-island").expect("remove");
+    // A create claims the slug with an empty folder before it writes anything.
+    let claimed = root.join("projects").join("moon-island");
+    fs::create_dir(&claimed).expect("claim");
+
+    let err = restore_project(root, &layout, &removed.trash).expect_err("taken");
+    assert!(err.to_string().contains("in the workspace again"));
+    assert_eq!(
+        fs::read_dir(&claimed).expect("read").count(),
+        0,
+        "left as claimed"
+    );
+    assert!(root.join(&removed.path).join("project").is_dir());
 }

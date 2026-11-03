@@ -65,6 +65,14 @@ pub struct RemovedProject {
     pub path: String,
 }
 
+/// Taken while a project folder is claimed: by a create picking its slug
+/// and by a restore checking its id is free and moving the folder back.
+static CLAIMS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(super) fn claim_turn() -> std::sync::MutexGuard<'static, ()> {
+    CLAIMS.lock().unwrap_or_else(|p| p.into_inner())
+}
+
 fn trash_root(root: &Path) -> PathBuf {
     root.join(TRASH_DIR).join(PROJECTS_TRASH)
 }
@@ -95,14 +103,36 @@ fn free_id(dir: &Path, id: &str) -> String {
         .unwrap_or(base)
 }
 
-/// Moves a folder: a rename tried again on Windows while a file in it is
-/// held open (a sync tool, a virus scanner, the search indexer), else a
-/// copy and a removal (another volume).
-fn move_folder(from: &Path, to: &Path) -> CoreResult<()> {
-    if maquette_base::fs::rename_retrying(from, to).is_ok() {
-        return Ok(());
+/// A folder move that failed. `partial` says the folder was copied in full
+/// to another volume but the source could not be fully removed: both stay,
+/// and nothing that holds either may be deleted.
+struct MoveFailed {
+    error: CoreError,
+    partial: bool,
+}
+
+impl From<MoveFailed> for CoreError {
+    fn from(failed: MoveFailed) -> Self {
+        failed.error
     }
-    maquette_base::fs::move_tree(from, to).map_err(|e| CoreError::io(from, e))
+}
+
+/// Moves a folder with [`maquette_base::fs::move_tree`]: a rename tried
+/// again on Windows while a file in it is held open, a copy only to another
+/// volume, and never a deleted copy.
+fn move_folder(from: &Path, to: &Path) -> Result<(), MoveFailed> {
+    maquette_base::fs::move_tree(from, to).map_err(|err| {
+        match maquette_base::fs::partial_move(&err) {
+            Some(partial) => MoveFailed {
+                error: CoreError::Invalid(format!("Nothing is lost: {partial}.")),
+                partial: true,
+            },
+            None => MoveFailed {
+                error: CoreError::io(from, err),
+                partial: false,
+            },
+        }
+    })
 }
 
 fn read_record(dir: &Path) -> CoreResult<Record> {
@@ -161,16 +191,26 @@ pub fn remove_project(root: &Path, layout: &FolderLayout, id: &str) -> CoreResul
         drop_dir();
         return Err(err);
     }
-    if let Err(err) = move_folder(&from, &dir.join(FOLDER)) {
-        drop_dir();
-        return Err(err);
+    if let Err(failed) = move_folder(&from, &dir.join(FOLDER)) {
+        // A partial move left the whole project in the trash folder: keep it.
+        if !failed.partial {
+            drop_dir();
+        }
+        return Err(failed.error);
     }
     if record.own_trash
-        && let Err(err) = move_folder(&own, &dir.join(OWN_TRASH))
+        && let Err(failed) = move_folder(&own, &dir.join(OWN_TRASH))
     {
+        if failed.partial {
+            // Its trash is whole in the removed project's folder; the
+            // project stays removed and the error names what is left.
+            return Err(failed.error);
+        }
+        let err = failed.error;
         if let Err(back) = move_folder(&dir.join(FOLDER), &from) {
             return Err(CoreError::Invalid(format!(
-                "The project's trash could not move ({err}), and the project, already in the workspace trash, could not come back ({back}). Use Restore in Removed projects."
+                "The project's trash could not move ({err}), and the project, already in the workspace trash, could not come back ({}). Use Restore in Removed projects.",
+                back.error
             )));
         }
         drop_dir();
@@ -209,15 +249,26 @@ pub fn is_removed(root: &Path, id: &str) -> bool {
     list_removed(root).is_ok_and(|all| all.iter().any(|p| p.id == id))
 }
 
+/// What [`restore_project`] put back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Restored {
+    pub id: String,
+    /// True when the repo path the project had was written back. Nobody
+    /// confirmed it just now, so the caller marks it as set by an agent:
+    /// its dev command waits for a person again.
+    pub repo_put_back: bool,
+}
+
 /// Puts the removed project `trash` back where it was, with its own trash.
 /// Refused when a project with its id is there again: nothing is written
-/// over.
+/// over. The check and the move hold the claim turn a create takes, so a
+/// new project cannot take the folder in between.
 ///
 /// # Errors
 ///
 /// Fails when there is no such removed project, its id is taken, or a
 /// folder cannot move back.
-pub fn restore_project(root: &Path, layout: &FolderLayout, trash: &str) -> CoreResult<String> {
+pub fn restore_project(root: &Path, layout: &FolderLayout, trash: &str) -> CoreResult<Restored> {
     if !is_single_segment(trash) {
         return Err(CoreError::NotFound(format!("the removed project {trash}")));
     }
@@ -225,6 +276,7 @@ pub fn restore_project(root: &Path, layout: &FolderLayout, trash: &str) -> CoreR
     let record = read_record(&dir)?;
     let to = super::dir(root, layout, &record.id)?;
     let own = project_trash(root, layout, &record.id)?;
+    let claim = claim_turn();
     if to.exists() {
         return Err(CoreError::Invalid(format!(
             "A project with the id {} is in the workspace again, so {} stays in the trash. Remove that project first to restore this one.",
@@ -242,23 +294,29 @@ pub fn restore_project(root: &Path, layout: &FolderLayout, trash: &str) -> CoreR
     let parent = projects_dir(root, layout);
     fs::create_dir_all(&parent).map_err(|e| CoreError::io(&parent, e))?;
     move_folder(&dir.join(FOLDER), &to)?;
+    drop(claim);
     // The folder is kept when the project's own trash could not come back,
     // so nothing in it is lost; it no longer lists as a removed project.
     let kept = own_back
         && move_folder(&own_from, &own)
             .inspect_err(|err| {
-                tracing::warn!(error = %err, "the project's own trash stayed in the removed project's folder");
+                tracing::warn!(error = %err.error, "the project's own trash stayed in the removed project's folder");
             })
             .is_err();
-    if let Some(path) = record.site_repo
-        && repos::get(root, &record.id).is_none()
-    {
-        repos::set(root, &record.id, Some(path));
-    }
+    let repo_put_back = match record.site_repo {
+        Some(path) if repos::get(root, &record.id).is_none() => {
+            repos::set(root, &record.id, Some(path));
+            true
+        }
+        _ => false,
+    };
     if !kept && let Err(err) = fs::remove_dir_all(&dir) {
         tracing::warn!(error = %err, "could not clear a restored project's trash folder");
     }
-    Ok(record.id)
+    Ok(Restored {
+        id: record.id,
+        repo_put_back,
+    })
 }
 
 /// The error for a project id that is not in the workspace: it names the

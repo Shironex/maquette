@@ -10,8 +10,10 @@
 //! and a restore finds it again. What is safe to stop is stopped: the site's
 //! dev server when it serves this project, and the canvas file watchers.
 
+use maquette_core::app_state::RepoSetBy;
 use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::PipelineRunner;
+use maquette_core::project::repos;
 use maquette_core::project::trash::{self, RemovedProject};
 use maquette_core::providers::ProviderJobs;
 use maquette_core::site::preview::{ServerState, SitePreview};
@@ -26,6 +28,7 @@ use super::pipeline::Pipelines;
 use super::plan_watch::PlanWatch;
 use super::providers::Studio;
 use super::site::Preview;
+use super::site::gate::mark_repo;
 use super::{CommandResult, invalid};
 use crate::session::Session;
 
@@ -165,10 +168,22 @@ pub(crate) fn remove(
     })
 }
 
-/// Puts the removed project `trash` back and opens it.
+/// Puts the removed project `trash` back and opens it. A repo path that
+/// comes back with it is marked as set by an agent: nobody confirmed it
+/// now, so its dev command waits for a person again.
 pub(crate) fn restore(session: &Session, trash_id: &str) -> CommandResult<WorkspaceSnapshot> {
     let (root, config) = session.workspace()?;
-    let id = trash::restore_project(&root, &config.layout, trash_id)?;
+    let _turn = session.repo_turn();
+    let restored = trash::restore_project(&root, &config.layout, trash_id)?;
+    let id = restored.id;
+    if restored.repo_put_back
+        && let Err(err) = mark_repo(session, &root, &id, RepoSetBy::Agent)
+    {
+        // Unmarked, the repo could run unasked: leave it out instead.
+        repos::set(&root, &id, None);
+        session.save_repos(&root)?;
+        return Err(err);
+    }
     session.save_repos(&root)?;
     let (root, config) = session.update_config(|c| c.current_project = Some(id))?;
     snapshot(session, &root, &config)

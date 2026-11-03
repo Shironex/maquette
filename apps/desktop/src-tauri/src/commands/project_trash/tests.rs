@@ -139,3 +139,36 @@ fn the_next_project_is_the_one_after_else_before() {
     assert_eq!(next_open(&rows[..1], "alpha"), None);
     assert_eq!(next_open(&rows, "nope"), None);
 }
+
+#[test]
+fn a_restored_repo_waits_for_a_person_again() {
+    let world = World::new(&["Moon Island"]);
+    let (root, _) = world.session.workspace().expect("ws");
+    let key = repos::root_key(&root);
+    repos::set(&root, "moon-island", Some("/code/site".into()));
+    mark_repo(&world.session, &root, "moon-island", RepoSetBy::Person).expect("mark");
+    world.session.save_repos(&root).expect("save");
+    assert!(
+        !world
+            .session
+            .app_state()
+            .repo_set_by_agent(&key, "moon-island")
+    );
+
+    let done = world.remove("moon-island").expect("remove");
+    repos::set(&root, "moon-island", None);
+    world.session.save_repos(&root).expect("save");
+    restore(&world.session, &done.removed.trash).expect("restore");
+
+    assert_eq!(
+        repos::get(&root, "moon-island").as_deref(),
+        Some("/code/site")
+    );
+    assert!(
+        world
+            .session
+            .app_state()
+            .repo_set_by_agent(&key, "moon-island"),
+        "nobody confirmed the repo it came back with"
+    );
+}
