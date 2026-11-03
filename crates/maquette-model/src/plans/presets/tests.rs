@@ -298,7 +298,7 @@ fn seeds_json_matches_the_seeds() {
     let file =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/plans/presets/seeds.json");
     let now = seeds_json();
-    if std::env::var_os("MAQUETTE_BLESS_SEEDS").is_some() {
+    if bless_seeds(std::env::var("MAQUETTE_BLESS_SEEDS").ok().as_deref()) {
         let text = serde_json::to_string_pretty(&now).expect("json") + "\n";
         std::fs::write(&file, text).expect("write");
     }
@@ -308,4 +308,18 @@ fn seeds_json_matches_the_seeds() {
         kept, now,
         "run with MAQUETTE_BLESS_SEEDS=1 to write seeds.json again"
     );
+}
+
+/// Only `MAQUETTE_BLESS_SEEDS=1` writes `seeds.json` again; `0`, empty or
+/// anything else leaves it alone.
+fn bless_seeds(value: Option<&str>) -> bool {
+    value == Some("1")
+}
+
+#[test]
+fn only_one_blesses_the_seeds() {
+    assert!(bless_seeds(Some("1")));
+    for other in [None, Some("0"), Some(""), Some("true"), Some("yes")] {
+        assert!(!bless_seeds(other), "{other:?}");
+    }
 }
