@@ -12,6 +12,10 @@
 //!   from. Both are left out when absent, so a version 2 file needs nothing
 //!   added; one that already holds either is refused, since version 2 has no
 //!   room for them. A canvas without stops is still written as version 2.
+//! - **3 to 4:** a person's canvas settings, `autoLayout` (written only
+//!   when off) and `fine` (Game mechanics overlaps marked as fine). Both are
+//!   left out when unused, so a version 3 file needs nothing added; one that
+//!   holds either is refused. A canvas without them keeps its version.
 
 use serde_json::{Map, Value};
 
@@ -62,6 +66,7 @@ pub fn to_current(mut value: Value) -> CoreResult<Value> {
         match version {
             1 => v1_to_v2(&mut value)?,
             2 => v2_to_v3(&value)?,
+            3 => v3_to_v4(&value)?,
             _ => return invalid("The canvas file has a version this Maquette never wrote."),
         }
         version += 1;
@@ -105,6 +110,17 @@ fn v2_to_v3(value: &Value) -> CoreResult<()> {
                 "The canvas file says version 2 but holds a node of kind {kind:?} or a camera stop, which version 2 has no room for."
             )));
         }
+    }
+    Ok(())
+}
+
+fn v3_to_v4(value: &Value) -> CoreResult<()> {
+    let settings = value.get("autoLayout").is_some_and(|v| !v.is_null())
+        || value.get("fine").is_some_and(|v| !v.is_null());
+    if settings {
+        return invalid(
+            "The canvas file says version 3 or older but holds canvas settings (autoLayout or fine), which only version 4 has room for.",
+        );
     }
     Ok(())
 }

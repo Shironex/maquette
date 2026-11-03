@@ -71,6 +71,12 @@ export function invertOps(ops: readonly PlanOp[]): PlanOp[] {
         return { op: 'set-edge', before: op.after, after: op.before };
       case 'set-camera':
         return { op: 'set-camera', before: op.after, after: op.before };
+      case 'set-auto-layout':
+        return { op: 'set-auto-layout', before: op.after, after: op.before };
+      case 'mark-fine':
+        return { op: 'unmark-fine', mark: op.mark };
+      case 'unmark-fine':
+        return { op: 'mark-fine', mark: op.mark };
     }
   });
 }
@@ -102,6 +108,8 @@ export function applyOps(
   let nodes = [...plan.nodes];
   let edges = [...plan.edges];
   let camera = plan.camera;
+  let autoLayout = plan.autoLayout ?? true;
+  let fine = [...(plan.fine ?? [])];
   let skipped = 0;
   const nodeAt = (id: string) => nodes.findIndex(n => n.id === id);
   const edgeAt = (id: string) => edges.findIndex(e => e.id === id);
@@ -165,10 +173,28 @@ export function applyOps(
         if (merge === 'careful' && !deepEqual(camera ?? null, op.before)) return false;
         camera = op.after;
         return true;
+      case 'set-auto-layout':
+        if (merge === 'careful' && autoLayout !== op.before) return false;
+        autoLayout = op.after;
+        return true;
+      case 'mark-fine': {
+        const at = fine.findIndex(m => m.a === op.mark.a && m.b === op.mark.b);
+        if (at >= 0 && merge === 'careful') return false;
+        if (at >= 0) fine[at] = op.mark;
+        else fine.push(op.mark);
+        return true;
+      }
+      case 'unmark-fine': {
+        const before = fine.length;
+        fine = fine.filter(m => !deepEqual(m, op.mark));
+        return fine.length < before;
+      }
     }
   };
   for (const op of ops) if (!one(op)) skipped += 1;
-  return { plan: { ...plan, nodes, edges, camera }, skipped };
+  const settings = { ...(autoLayout ? {} : { autoLayout }), ...(fine.length ? { fine } : {}) };
+  const { autoLayout: _on, fine: _fine, ...rest } = plan;
+  return { plan: { ...rest, ...settings, nodes, edges, camera }, skipped };
 }
 
 /**

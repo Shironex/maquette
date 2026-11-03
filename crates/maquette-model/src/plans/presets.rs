@@ -235,6 +235,16 @@ fn seed_of(preset: PlanPreset, target: ProjectTarget) -> Seed {
     }
 }
 
+/// The words a Game mechanics starter card holds on its lines until a
+/// person writes their own (`what the player does most`), which the overlap
+/// check leaves out.
+pub fn starter_values() -> impl Iterator<Item = &'static str> {
+    MECHANICS
+        .iter()
+        .flat_map(|c| c.text.lines())
+        .filter_map(|line| line.split_once(": ").map(|(_, value)| value))
+}
+
 /// The preset's name as the app shows it.
 pub fn label(preset: PlanPreset) -> &'static str {
     match preset {

@@ -32,6 +32,10 @@ pub struct PlanDoc {
     pub plan: PlanFile,
     /// A picture's stored path to its absolute path here.
     pub images: BTreeMap<String, String>,
+    /// A Game mechanics canvas's overlaps ([`super::overlap`]), read from
+    /// the canvas each time; left out when there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overlaps: Vec<super::overlap::Overlap>,
 }
 
 /// A line in the list of a project's canvases.
@@ -101,6 +105,7 @@ pub(super) fn doc(project_dir: &Path, id: &str, plan: PlanFile) -> PlanDoc {
         id: id.to_string(),
         file: file_of(id),
         images: images::paths_of(project_dir, &plan),
+        overlaps: super::overlap::overlaps(&plan),
         plan,
     }
 }
@@ -273,12 +278,15 @@ pub fn save(project_dir: &Path, id: &str, plan: &PlanFile) -> CoreResult<PlanDoc
     let _lock = writing();
     let current = load_file(&path(project_dir, id)?)?;
     let writer = change::Writer::PERSON;
-    // The camera base moves only with a rebase or an Apply.
+    // The camera base moves only with a rebase or an Apply, and the settings
+    // only with their own changes.
     let plan = PlanFile {
         camera: current.camera.clone(),
+        auto_layout: current.auto_layout,
+        fine: current.fine.clone(),
         ..plan.clone()
     };
-    Ok(change::commit(project_dir, id, current, &plan, &writer, None)?.0)
+    Ok(change::commit(project_dir, id, current, &plan, &writer, change::Say::Ops)?.0)
 }
 
 /// Renames the canvas `id`. The file and its id stay, so links to it from

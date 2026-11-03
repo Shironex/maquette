@@ -3107,6 +3107,15 @@ export type FindingLevel =
 /**  What the export drops or leaves out. */
 "note";
 
+/**  A pair of cards the person marked as fine, for their words as they were. */
+export type FineMark = {
+	/**  The two node ids, `a` before `b`. */
+	a: string,
+	b: string,
+	/**  [`pair_key`] of the two cards when marked. */
+	key: string,
+};
+
 /**  One finger's curl at rest. */
 export type FingerCurl = {
 	/**  The finger with its side, such as `leftIndex`. */
@@ -4979,6 +4988,21 @@ export type OpenAiKeyTest = {
 	message: string,
 };
 
+/**  Two system cards that share a main word on one line. */
+export type Overlap = {
+	/**  The two node ids, `a` before `b`. */
+	a: string,
+	b: string,
+	part: OverlapPart,
+	/**  The main word they share. */
+	word: string,
+	/**  The person marked this pair as fine for the words they hold now. */
+	fine: boolean,
+};
+
+/**  Which line of two system cards says the same. */
+export type OverlapPart = "verb" | "look" | "input";
+
 /**
  *  An export pack changed: a model started, passed, warned or failed, or
  *  the pack waits, zips or is done. The Library's pack sheet follows it.
@@ -5492,6 +5516,11 @@ export type PlanDoc_Deserialize = {
 	plan: PlanFile_Deserialize,
 	/**  A picture's stored path to its absolute path here. */
 	images: { [key in string]: string },
+	/**
+	 *  A Game mechanics canvas's overlaps ([`super::overlap`]), read from
+	 *  the canvas each time; left out when there are none.
+	 */
+	overlaps?: Overlap[],
 };
 
 /**
@@ -5505,6 +5534,11 @@ export type PlanDoc_Serialize = {
 	plan: PlanFile_Serialize,
 	/**  A picture's stored path to its absolute path here. */
 	images: { [key in string]: string },
+	/**
+	 *  A Game mechanics canvas's overlaps ([`super::overlap`]), read from
+	 *  the canvas each time; left out when there are none.
+	 */
+	overlaps?: Overlap[],
 };
 
 export type PlanEdge = {
@@ -5536,6 +5570,17 @@ export type PlanFile_Deserialize = {
 	 *  since shows and can be compared or rebased, never written over.
 	 */
 	camera?: CameraBase | null,
+	/**
+	 *  The person's "Auto layout after agents" switch, on unless turned off:
+	 *  off, agents' writes leave their nodes where they put them and
+	 *  `layout_canvas` is refused. Written only when off (version 4).
+	 */
+	autoLayout?: boolean,
+	/**
+	 *  Game mechanics overlaps the person marked as fine, each for the two
+	 *  cards' words as they were. Written only when there are some (version 4).
+	 */
+	fine?: FineMark[],
 };
 
 export type PlanFile_Serialize = {
@@ -5554,6 +5599,17 @@ export type PlanFile_Serialize = {
 	 *  since shows and can be compared or rebased, never written over.
 	 */
 	camera?: CameraBase | null,
+	/**
+	 *  The person's "Auto layout after agents" switch, on unless turned off:
+	 *  off, agents' writes leave their nodes where they put them and
+	 *  `layout_canvas` is refused. Written only when off (version 4).
+	 */
+	autoLayout?: boolean,
+	/**
+	 *  Game mechanics overlaps the person marked as fine, each for the two
+	 *  cards' words as they were. Written only when there are some (version 4).
+	 */
+	fine?: FineMark[],
 };
 
 /**  A picture ready for an image node. */
@@ -5739,28 +5795,40 @@ export type PlanNode_Serialize = {
 export type PlanOp = PlanOp_Serialize | PlanOp_Deserialize;
 
 /**  One change to one node or edge. */
-export type PlanOp_Deserialize = ({ op: "add-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never } | 
+export type PlanOp_Deserialize = ({ op: "add-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never; mark?: never } | 
 /**  The node as it was when removed. */
-({ op: "remove-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never } | 
+({ op: "remove-node"; node: PlanNode_Deserialize }) & { after?: never; before?: never; edge?: never; mark?: never } | 
 /**  Only the fields that differ between `before` and `after` change. */
-({ op: "set-node"; before: PlanNode_Deserialize; after: PlanNode_Deserialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never } | 
+({ op: "set-node"; before: PlanNode_Deserialize; after: PlanNode_Deserialize }) & { edge?: never; mark?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; mark?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; mark?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; mark?: never; node?: never } | 
 /**
  *  The camera plan's base: the `layout.json` stops it was built,
  *  rebased or applied from. Only a person's rebase or Apply writes it.
  */
-({ op: "set-camera"; before: CameraBase | null; after: CameraBase | null }) & { edge?: never; node?: never };
+({ op: "set-camera"; before: CameraBase | null; after: CameraBase | null }) & { edge?: never; mark?: never; node?: never } | 
+/**  The person's "Auto layout after agents" switch. */
+({ op: "set-auto-layout"; before: boolean; after: boolean }) & { edge?: never; mark?: never; node?: never } | 
+/**  A pair of system cards the person marked as fine. */
+({ op: "mark-fine"; mark: FineMark }) & { after?: never; before?: never; edge?: never; node?: never } | 
+/**  A fine mark taken back (an undo, or a card of the pair gone). */
+({ op: "unmark-fine"; mark: FineMark }) & { after?: never; before?: never; edge?: never; node?: never };
 
 /**  One change to one node or edge. */
-export type PlanOp_Serialize = ({ op: "add-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never } | 
+export type PlanOp_Serialize = ({ op: "add-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never; mark?: never } | 
 /**  The node as it was when removed. */
-({ op: "remove-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never } | 
+({ op: "remove-node"; node: PlanNode_Serialize }) & { after?: never; before?: never; edge?: never; mark?: never } | 
 /**  Only the fields that differ between `before` and `after` change. */
-({ op: "set-node"; before: PlanNode_Serialize; after: PlanNode_Serialize }) & { edge?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; node?: never } | 
+({ op: "set-node"; before: PlanNode_Serialize; after: PlanNode_Serialize }) & { edge?: never; mark?: never; node?: never } | ({ op: "add-edge"; edge: PlanEdge }) & { after?: never; before?: never; mark?: never; node?: never } | ({ op: "remove-edge"; edge: PlanEdge }) & { after?: never; before?: never; mark?: never; node?: never } | ({ op: "set-edge"; before: PlanEdge; after: PlanEdge }) & { edge?: never; mark?: never; node?: never } | 
 /**
  *  The camera plan's base: the `layout.json` stops it was built,
  *  rebased or applied from. Only a person's rebase or Apply writes it.
  */
-({ op: "set-camera"; before: CameraBase | null; after: CameraBase | null }) & { edge?: never; node?: never };
+({ op: "set-camera"; before: CameraBase | null; after: CameraBase | null }) & { edge?: never; mark?: never; node?: never } | 
+/**  The person's "Auto layout after agents" switch. */
+({ op: "set-auto-layout"; before: boolean; after: boolean }) & { edge?: never; mark?: never; node?: never } | 
+/**  A pair of system cards the person marked as fine. */
+({ op: "mark-fine"; mark: FineMark }) & { after?: never; before?: never; edge?: never; node?: never } | 
+/**  A fine mark taken back (an undo, or a card of the pair gone). */
+({ op: "unmark-fine"; mark: FineMark }) & { after?: never; before?: never; edge?: never; node?: never };
 
 /**
  *  What a canvas started from. Presets only set the starting content;

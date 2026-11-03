@@ -11,6 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::camera::CameraBase;
+use super::overlap::FineMark;
 use super::{PlanEdge, PlanFile, PlanNode};
 
 /// One change to one node or edge.
@@ -44,6 +45,19 @@ pub enum PlanOp {
     SetCamera {
         before: Option<CameraBase>,
         after: Option<CameraBase>,
+    },
+    /// The person's "Auto layout after agents" switch.
+    SetAutoLayout {
+        before: bool,
+        after: bool,
+    },
+    /// A pair of system cards the person marked as fine.
+    MarkFine {
+        mark: FineMark,
+    },
+    /// A fine mark taken back (an undo, or a card of the pair gone).
+    UnmarkFine {
+        mark: FineMark,
     },
 }
 
@@ -223,6 +237,32 @@ fn apply_one(plan: &mut PlanFile, op: &PlanOp, merge: Merge) -> bool {
             plan.camera.clone_from(after);
             true
         }
+        PlanOp::SetAutoLayout { before, after } => {
+            if merge == Merge::Careful && plan.auto_layout != *before {
+                return false;
+            }
+            plan.auto_layout = *after;
+            true
+        }
+        PlanOp::MarkFine { mark } => {
+            match plan
+                .fine
+                .iter()
+                .position(|m| m.a == mark.a && m.b == mark.b)
+            {
+                Some(_) if merge == Merge::Careful => return false,
+                Some(at) => plan.fine[at] = mark.clone(),
+                None => plan.fine.push(mark.clone()),
+            }
+            true
+        }
+        PlanOp::UnmarkFine { mark } => match plan.fine.iter().position(|m| m == mark) {
+            Some(at) => {
+                plan.fine.remove(at);
+                true
+            }
+            None => false,
+        },
     }
 }
 
@@ -269,6 +309,18 @@ pub fn diff(from: &PlanFile, to: &PlanFile) -> Vec<PlanOp> {
             after: to.camera.clone(),
         });
     }
+    if from.auto_layout != to.auto_layout {
+        ops.push(PlanOp::SetAutoLayout {
+            before: from.auto_layout,
+            after: to.auto_layout,
+        });
+    }
+    for mark in from.fine.iter().filter(|m| !to.fine.contains(m)) {
+        ops.push(PlanOp::UnmarkFine { mark: mark.clone() });
+    }
+    for mark in to.fine.iter().filter(|m| !from.fine.contains(m)) {
+        ops.push(PlanOp::MarkFine { mark: mark.clone() });
+    }
     ops
 }
 
@@ -293,6 +345,12 @@ pub fn invert(ops: &[PlanOp]) -> Vec<PlanOp> {
                 before: after,
                 after: before,
             },
+            PlanOp::SetAutoLayout { before, after } => PlanOp::SetAutoLayout {
+                before: after,
+                after: before,
+            },
+            PlanOp::MarkFine { mark } => PlanOp::UnmarkFine { mark },
+            PlanOp::UnmarkFine { mark } => PlanOp::MarkFine { mark },
         })
         .collect()
 }

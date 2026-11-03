@@ -63,6 +63,8 @@ fn touched(entry: &PlanLogEntry) -> BTreeSet<Key<'_>> {
             PlanOp::SetCamera { .. } => {
                 out.insert((Of::Camera, "", WHOLE));
             }
+            // The person's own settings: no agent change ever sets them.
+            PlanOp::SetAutoLayout { .. } | PlanOp::MarkFine { .. } | PlanOp::UnmarkFine { .. } => {}
         }
     }
     out

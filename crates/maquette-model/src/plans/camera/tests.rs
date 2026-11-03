@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use super::*;
 use crate::plans::ops::{self, Merge, PlanOp};
-use crate::plans::{PLAN_VERSION, PLAN_VERSION_PLAIN, create, get, remove, save};
+use crate::plans::{PLAN_VERSION_CAMERA, PLAN_VERSION_PLAIN, create, get, remove, save};
 
 pub(super) fn stop(id: &str, x: f32) -> LayoutStop {
     let mut name = id.to_string();
@@ -63,7 +63,7 @@ fn the_camera_plan_is_built_from_layout_json_in_tour_order() {
     let made = ensure(&s.root, None).expect("camera plan");
     assert_eq!(made.id, CAMERA_PLAN_ID);
     let plan = &made.plan;
-    assert_eq!(plan.version, PLAN_VERSION);
+    assert_eq!(plan.version, PLAN_VERSION_CAMERA);
     assert_eq!(
         main_ids(plan),
         ["porch", "schedule", "browser", "moon", "pullback"]

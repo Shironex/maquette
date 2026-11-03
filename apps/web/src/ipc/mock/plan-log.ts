@@ -49,6 +49,8 @@ const partsOf = (op: PlanOp): string[] => {
     return FIELDS.filter(f => op.before[f] !== op.after[f]).map(f => `node:${op.after.id}:${f}`);
   if (op.op === 'add-node' || op.op === 'remove-node') return [`node:${op.node.id}:*`];
   if (op.op === 'set-camera') return ['camera::*'];
+  // The person's own settings: no agent change ever sets them.
+  if (op.op === 'set-auto-layout' || op.op === 'mark-fine' || op.op === 'unmark-fine') return [];
   return [`link:${op.op === 'set-edge' ? op.after.id : op.edge.id}:*`];
 };
 

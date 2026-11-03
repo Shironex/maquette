@@ -57,6 +57,19 @@ pub(super) struct Undoing {
     pub(super) idle: String,
 }
 
+/// What a change's log line says beside its operations.
+#[derive(Debug, Clone, Default)]
+pub(super) enum Say {
+    /// A summary of its operations.
+    #[default]
+    Ops,
+    /// An undo of earlier lines.
+    Undo(Undoing),
+    /// Its own summary, for a change its operations do not say well (a
+    /// person's setting).
+    Line { summary: String },
+}
+
 /// Whether two states of a node say the same (where it sits aside).
 fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
     a.kind == b.kind
@@ -81,10 +94,11 @@ fn mark_writers(current: &PlanFile, next: &mut PlanFile, person: bool) {
 }
 
 /// A log line for `ops` written by `writer`.
-fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, undoing: Option<Undoing>) -> PlanLogEntry {
-    let (summary, mark, undoes) = match undoing {
-        None => (summary::summary(&ops), summary::mark(&ops), Vec::new()),
-        Some(u) => (u.summary, ChangeMark::Undo, u.ids),
+fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, say: Say) -> PlanLogEntry {
+    let (summary, mark, undoes) = match say {
+        Say::Ops => (summary::summary(&ops), summary::mark(&ops), Vec::new()),
+        Say::Undo(u) => (u.summary, ChangeMark::Undo, u.ids),
+        Say::Line { summary } => (summary, summary::mark(&ops), Vec::new()),
     };
     PlanLogEntry {
         id: log::new_id("c"),
@@ -146,19 +160,19 @@ pub(super) fn commit(
     current: PlanFile,
     next: &PlanFile,
     writer: &Writer<'_>,
-    undoing: Option<Undoing>,
+    say: Say,
 ) -> CoreResult<(PlanDoc, Option<PlanLogEntry>)> {
     let mut next = normalized(next);
     next.name = current.name.clone();
     next.created = current.created.clone();
     next.preset = current.preset;
     next.edited = current.edited.clone();
-    if undoing.is_none() {
+    if !matches!(say, Say::Undo(_)) {
         mark_writers(&current, &mut next, writer.by.is_none());
     }
     validate(&next)?;
     if next == current {
-        let Some(undoing) = undoing else {
+        let Say::Undo(undoing) = say else {
             return Ok((doc(project_dir, id, current), None));
         };
         // Everything it would undo was changed since: the line still
@@ -168,12 +182,12 @@ pub(super) fn commit(
             summary: undoing.idle.clone(),
             ..undoing
         };
-        let entry = entry_of(writer, Vec::new(), Some(idle));
+        let entry = entry_of(writer, Vec::new(), Say::Undo(idle));
         log::append(project_dir, id, &entry)?;
         return Ok((doc(project_dir, id, current), Some(entry)));
     }
     let done = ops::diff(&current, &next);
-    let entry = entry_of(writer, done, undoing);
+    let entry = entry_of(writer, done, say);
     if writer.by.is_some() {
         keep_room(project_dir, id, &entry)?;
     }
@@ -197,20 +211,21 @@ pub fn change(
     writer: &Writer<'_>,
     make: impl FnOnce(&PlanFile) -> CoreResult<Vec<PlanOp>>,
 ) -> CoreResult<Changed> {
-    change_with(project_dir, id, writer, |plan| Ok((make(plan)?, None)))
+    change_with(project_dir, id, writer, |plan| Ok((make(plan)?, Say::Ops)))
 }
 
-fn change_with(
+/// [`change`] whose `make` also says what its log line says.
+pub(super) fn change_with(
     project_dir: &Path,
     id: &str,
     writer: &Writer<'_>,
-    make: impl FnOnce(&PlanFile) -> CoreResult<(Vec<PlanOp>, Option<Undoing>)>,
+    make: impl FnOnce(&PlanFile) -> CoreResult<(Vec<PlanOp>, Say)>,
 ) -> CoreResult<Changed> {
     let _lock = writing();
     let current = load_file(&path(project_dir, id)?)?;
-    let (ops, undoing) = make(&current)?;
+    let (ops, say) = make(&current)?;
     let applied = ops::apply(&current, &ops, writer.merge);
-    let (doc, entry) = commit(project_dir, id, current, &applied.plan, writer, undoing)?;
+    let (doc, entry) = commit(project_dir, id, current, &applied.plan, writer, say)?;
     Ok(Changed {
         doc,
         entry,
@@ -318,7 +333,7 @@ pub fn undo(
             ),
         };
         let ids = picked.iter().map(|(_, e)| e.id.clone()).collect();
-        Ok((ops, Some(Undoing { ids, summary, idle })))
+        Ok((ops, Say::Undo(Undoing { ids, summary, idle })))
     })
 }
 

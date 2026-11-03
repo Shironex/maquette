@@ -120,4 +120,22 @@ describe('plan history', () => {
       h = record(h, diffPlans(base, withNode(base, 'n-01', { x: i + 1 })));
     expect(h.past).toHaveLength(HISTORY_MAX);
   });
+
+  it('turns the canvas settings around as the core does', () => {
+    const base = demoCombat();
+    const mark = { a: 'n-01', b: 'n-02', key: '0a1b2c3d' };
+    const ops = [
+      { op: 'set-auto-layout', before: true, after: false },
+      { op: 'mark-fine', mark },
+    ] as const;
+    const done = applyOps(base, ops, 'mine');
+    expect(done.plan.autoLayout).toBe(false);
+    expect(done.plan.fine).toEqual([mark]);
+    const back = applyOps(done.plan, invertOps(ops), 'careful');
+    expect(back.skipped).toBe(0);
+    expect(back.plan).toEqual(base);
+    // A mark made again for new words stays through a careful undo.
+    const again = { ...done.plan, fine: [{ ...mark, key: 'ffff0000' }] };
+    expect(applyOps(again, invertOps(ops), 'careful').plan.fine).toHaveLength(1);
+  });
 });

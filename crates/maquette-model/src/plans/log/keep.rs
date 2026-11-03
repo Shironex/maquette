@@ -56,7 +56,12 @@ pub fn is_keeper(entry: &PlanLogEntry, released: &BTreeSet<String>) -> bool {
             PlanOp::SetEdge { before, .. } | PlanOp::RemoveEdge { edge: before } => {
                 before.by.is_none()
             }
-            PlanOp::AddNode { .. } | PlanOp::AddEdge { .. } | PlanOp::SetCamera { .. } => false,
+            PlanOp::AddNode { .. }
+            | PlanOp::AddEdge { .. }
+            | PlanOp::SetCamera { .. }
+            | PlanOp::SetAutoLayout { .. }
+            | PlanOp::MarkFine { .. }
+            | PlanOp::UnmarkFine { .. } => false,
         })
 }
 

@@ -153,9 +153,9 @@ fn versions_that_are_missing_odd_or_newer_are_refused() {
             "{odd}"
         );
     }
-    match version_of(&json!({"version": 4})) {
+    match version_of(&json!({"version": 5})) {
         Err(CoreError::UnsupportedVersion { found, supported }) => {
-            assert_eq!((found, supported), (4, PLAN_VERSION));
+            assert_eq!((found, supported), (5, PLAN_VERSION));
         }
         other => panic!("expected a version error, got {other:?}"),
     }
@@ -169,7 +169,7 @@ fn a_file_from_a_newer_maquette_is_never_written_back() {
     let file = dir.path().join(&made.file);
     let newer = fs::read_to_string(&file)
         .expect("read")
-        .replace("\"version\": 2", "\"version\": 4")
+        .replace("\"version\": 2", "\"version\": 5")
         .replace(
             "\"nodes\": []",
             "\"nodes\": [{ \"id\": \"n-1\", \"kind\": \"sketch\" }]",
@@ -188,7 +188,7 @@ fn a_file_from_a_newer_maquette_is_never_written_back() {
         listed[0]
             .problem
             .as_deref()
-            .is_some_and(|m| m.contains('4')),
+            .is_some_and(|m| m.contains('5')),
         "{:?}",
         listed[0].problem
     );
@@ -200,7 +200,7 @@ fn a_version_2_file_opens_as_it_is_and_one_holding_stops_is_refused() {
     let mut v2 = to_current(v1).expect("v1 to current");
     v2["version"] = json!(2);
     let lifted = to_current(v2.clone()).expect("v2 lifts");
-    assert_eq!(lifted["version"], json!(3));
+    assert_eq!(lifted["version"], json!(PLAN_VERSION));
     assert_eq!(
         lifted["nodes"], v2["nodes"],
         "a v2 file needs nothing added"
@@ -215,4 +215,51 @@ fn a_version_2_file_opens_as_it_is_and_one_holding_stops_is_refused() {
     camera["camera"] = json!({ "stops": [] });
     let refused = to_current(camera).expect_err("a camera plan in v2");
     assert!(refused.to_string().contains("camera plan"), "{refused}");
+}
+
+#[test]
+fn canvas_settings_need_version_4_and_only_while_used() {
+    let v1: Value = serde_json::from_str(V1_FILE).expect("json");
+    let mut v3 = to_current(v1).expect("v1 to current");
+    v3["version"] = json!(3);
+    for (field, value) in [("autoLayout", json!(false)), ("fine", json!([]))] {
+        let mut early = v3.clone();
+        early[field] = value;
+        let refused = to_current(early).expect_err("settings in v3");
+        assert!(refused.to_string().contains("version 4"), "{refused}");
+    }
+    assert_eq!(to_current(v3).expect("v3 lifts")["version"], json!(4));
+
+    let dir = tempfile::tempdir().expect("temp dir");
+    let made = create(dir.path(), "Ideas", PlanPreset::Brainstorm).expect("create");
+    let mut off = made.plan.clone();
+    off.auto_layout = false;
+    let saved = save(dir.path(), &made.id, &off).expect("save");
+    assert_eq!(saved.plan.version, 2, "a save never sets the switch");
+    let changed = crate::plans::change(dir.path(), &made.id, &crate::plans::Writer::PERSON, |_| {
+        Ok(vec![crate::plans::ops::PlanOp::SetAutoLayout {
+            before: true,
+            after: false,
+        }])
+    })
+    .expect("switch off");
+    assert_eq!(changed.doc.plan.version, PLAN_VERSION);
+    let text = fs::read_to_string(dir.path().join(&made.file)).expect("read");
+    assert!(text.contains("\"autoLayout\": false"), "{text}");
+    let reopened = crate::plans::get(dir.path(), &made.id).expect("get");
+    assert!(!reopened.plan.auto_layout);
+    let undone = crate::plans::undo(
+        dir.path(),
+        &made.id,
+        &[changed.entry.expect("line").id],
+        None,
+        None,
+    )
+    .expect("undo");
+    assert_eq!(undone.doc.plan.version, 2, "back on, back to version 2");
+    assert!(
+        !fs::read_to_string(dir.path().join(&made.file))
+            .expect("read")
+            .contains("autoLayout")
+    );
 }
