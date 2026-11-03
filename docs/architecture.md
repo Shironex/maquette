@@ -994,12 +994,16 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   app's New canvas and `create_canvas`) writes them through the usual checks, normalisation and
   size cap as the canvas's first log line, an add for each node and link under the person or the
   agent that made it, so one undo takes them all back. That line has no run; `create_canvas`
-  answers with its change id for `undo_run`. When it cannot be logged the new canvas is removed
-  again, so no starter is left without an undo. The field was there since version 2, so a
+  answers with its change id for `undo_run`. A blank canvas writes no line and its answer has no
+  `change`, as there is nothing to undo. When the line cannot be logged the new canvas is removed
+  again (retrying while Windows holds the file, `base::fs::remove_retrying`), and a torn first
+  line left in its log goes too, so the slug stays free for the next try. When the canvas still
+  cannot be removed, the line is appended once more, so no starter is left without an undo. The field was there since version 2, so a
   seeded canvas stays version 2. The view's New canvas dialog and the empty list pick the preset
   (`features/plan/PresetPicker`, names in `state/plan-presets.ts`), the list shows it on each
   card and row, and mock mode keeps a copy of the seeds (`ipc/mock/plan-presets.ts`). `presets/seeds.json` holds
-  the core's seeds as data, kept equal to them by a Rust test, and the mock's test compares its
+  the core's seeds as data, kept equal to them by a Rust test (which rewrites the file only when
+  `MAQUETTE_BLESS_SEEDS` is `1`), and the mock's test compares its
   seeds with it card for card: order, places, text and links.
 - **Links.** An `asset` or `direction` node keeps only the id: no name, picture, version or state.
   `maquette_core::plan_links` reads them live each time the canvas asks (`plan_links`): an asset's
@@ -1122,6 +1126,22 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   write shows a toast, the nodes an outside write added or edited carry an "added" or "edited"
   badge, and an agent's nodes have a blue ring. The Changes panel (`features/plan/PlanChanges`,
   `state/plan-log.ts`) groups the log into runs and filters All, Agents or Mine.
+- **A canvas replaced on disk.** When the open canvas's file is swapped for another under the same
+  id (its `created` differs: removed and made again, by an agent or another computer), the view
+  opens the new one afresh and says so when nothing was unsaved; with unsaved edits it saves
+  nothing over the new file and says to copy what is needed and open it again from the list.
+- **Rail, empty states and minimum size.** The rail lists the three canvases of the open project
+  opened or edited last under Plan (`state/plan-recent.ts`, `state/use-plan-recent-store.ts`,
+  `NavRail`'s `subs`): the list is read when the project opens and when a canvas it does not know
+  changes or opens; a known canvas that changes is read alone (`plan_get`); the canvas open now
+  takes its time from the Plan view's copy, so autosaves read nothing; and the Plan view's own
+  list is taken when newer. When the person last had each canvas open is kept on this computer per
+  workspace and project, and one edited since (an agent, a sync) carries a dot, never the canvas
+  open now. Below 960 pixels of canvas width the minimap folds into a Map button under the zoom
+  (`state/plan-view.ts`), and the first fit and Fit leave room for the add bar, the zoom and the
+  map. The empty list and an empty canvas offer each way to start with its button and a prompt to
+  copy for an agent (`features/plan/AgentPrompt`); the camera plan with no stops points at Add
+  stop, and its panel says when a stop has no render yet. Everything works at 1120 by 720.
 - **Leaving.** The web store waits for a save on its way and saves the latest edits before Back,
   another canvas, another project or quitting. When that save fails the canvas stays open and asks:
   try again, stay, or leave without saving; that dialog is the only message, no notice repeats it.
@@ -1141,7 +1161,11 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   `ensure` makes it from `layout.json` the first time it is opened, as the person's line. The id
   `camera-plan` is kept for it: a new canvas named "Camera plan" gets the next free suffix, and a
   canvas file from before that sits on the id is moved to a free id with its log (and a log line
-  saying so) instead of blocking the camera plan. The main
+  saying so) instead of blocking the camera plan. A log left on the id with no canvas is kept and
+  the plan made again onto it when any line shows the camera plan (made as it, an Apply or rebase,
+  its base, a stop node): its file deleted by hand, or a sync bringing the log first. A log that
+  clearly belongs to another canvas (a remove whose moves all failed) is set aside to
+  `plans/history/camera-plan-<stamp>-stray.log.jsonl` first, so the new plan never inherits it. The main
   line, the one Apply writes, is the chain with the most person stops, then the longest, then the
   leftmost; other chains are agents' proposals or stops set aside. Edits in the canvas and its side
   panel (`features/plan/CameraPanel`) save to the plan file only.
@@ -1154,12 +1178,17 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   person's. It is all or nothing: the plan and its log line are checked (validity, file size, a
   line short enough to keep its operations) before `layout.json` is written, and when the plan or
   line still fails to write, `layout.json` is put back from the kept copy and the copy removed. An
-  undo reads the kept copy only from inside `plans/history/`. Its undo (`undo_apply`, Undo on that line in the Changes panel) puts the old file back
+  undo reads the kept copy only from inside `plans/history/`. The line records `layout.json`'s key
+  after the Apply as the file is stored (`layout::stored`: current version, clips tidied), so the
+  undo still matches when the file had been edited by hand before the Apply. Its undo (`undo_apply`, Undo on that line in the Changes panel) puts the old file back
   only while `layout.json` is still what the Apply wrote; the general undo refuses Apply lines. When
   `layout.json` changes underneath, the view says the plan is based on an older one and offers
   Compare (a dry `rebase`), Rebase (takes outside changes the person did not also make, reports the
   clashes) and Start over (replaces only the main line; proposals and stops set aside stay); Apply
-  waits until one is chosen, and neither side is overwritten silently. Each is one person's change,
+  waits until one is chosen, and neither side is overwritten silently. The view and the dry rebase
+  carry `layoutKey`, and Rebase or Start over sends back the key of what the person saw; when
+  `layout.json` changed again since, nothing is rebased and the comparison says to review again.
+  Each is one person's change,
   refused with nothing written when its undo line would be too long to keep its operations.
   The facade `plan_camera.rs` in maquette-core adds each stop's poster render; the commands are in
   `commands/plan_camera.rs`. Agents have three tools of their own (`mcp/tools/plan_camera.rs`):

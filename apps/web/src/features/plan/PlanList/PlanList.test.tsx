@@ -18,6 +18,8 @@ describe('PlanList', () => {
     const recent = screen.getByRole('region', { name: 'Recent canvases' });
     const cards = within(recent).getAllByRole('button');
     expect(cards[0]).toHaveAccessibleName(/^Combat ideas Brainstorm 6 nodes/);
+    // A long name may end in an ellipsis; hovering shows all of it.
+    expect(within(cards[1]!).getByTitle('Boss: Frost Warden')).toBeInTheDocument();
     await userEvent.type(screen.getByRole('textbox', { name: 'Find a canvas' }), 'story');
     const table = screen.getByRole('region', { name: 'All canvases' });
     expect(within(table).getAllByRole('row')).toHaveLength(2);
@@ -32,6 +34,10 @@ describe('PlanList', () => {
   it('makes a new canvas from the empty list', async () => {
     await renderList(null);
     expect(screen.getByText('Plan with canvases')).toBeInTheDocument();
+    // Or an agent starts one from a prompt to copy.
+    expect(screen.getByRole('region', { name: 'Or let an agent start one' })).toHaveTextContent(
+      'using the Plan tools'
+    );
     await userEvent.click(screen.getByRole('button', { name: 'New canvas' }));
     await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), 'Lantern festival');
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));

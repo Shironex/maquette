@@ -54,6 +54,11 @@ export default function CameraCompare() {
         {none && !report.clashes.length ? (
           <p className="text-[12.5px] text-fg-dim">A rebase only moves the plan&apos;s base.</p>
         ) : null}
+        {v.error ? (
+          <p role="alert" className="text-[12.5px] text-danger">
+            {v.error}
+          </p>
+        ) : null}
         <p className="text-[12px] text-fg-mute">
           Rebase keeps your edits and takes the rest from layout.json. Start over replaces only the
           main line with the stops in layout.json now; proposals and stops you set aside stay.
@@ -62,12 +67,20 @@ export default function CameraCompare() {
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
         <Button onClick={v.close}>Cancel</Button>
-        <Button variant="danger" disabled={v.busy} onClick={v.startOver}>
-          Start over
-        </Button>
-        <Button variant="primary" loading={v.busy} onClick={v.rebase}>
-          Rebase
-        </Button>
+        {v.error ? (
+          <Button variant="primary" icon="arrow-clockwise" onClick={v.reviewAgain}>
+            Review again
+          </Button>
+        ) : (
+          <>
+            <Button variant="danger" disabled={v.busy} onClick={v.startOver}>
+              Start over
+            </Button>
+            <Button variant="primary" loading={v.busy} onClick={v.rebase}>
+              Rebase
+            </Button>
+          </>
+        )}
       </div>
     </Sheet>
   );

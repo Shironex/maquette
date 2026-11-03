@@ -17,7 +17,8 @@ const placeNote = (from: number | null, to: number | null, added: boolean) =>
  */
 export default function CameraPanel({ onClose, hidden }: { onClose: () => void; hidden: boolean }) {
   const v = useCameraPanel();
-  const diff = v.review?.diff;
+  const review = v.review;
+  const diff = review?.diff;
   const order = (diff?.stops ?? [])
     .filter(s => !s.removed)
     .map(s => (
@@ -124,9 +125,22 @@ export default function CameraPanel({ onClose, hidden }: { onClose: () => void; 
         <section aria-label="Order after Apply" className="flex flex-col gap-1.5">
           <h3 className="text-[13px] font-semibold text-fg">
             Order after Apply
-            <span className="ml-1.5 font-normal text-fg-mute">{order.length} stops</span>
+            <span className="ml-1.5 font-normal text-fg-mute">
+              {order.length} {order.length === 1 ? 'stop' : 'stops'}
+            </span>
           </h3>
           {order.length ? <ol className="flex flex-col gap-1 text-[12.5px]">{order}</ol> : null}
+          {review && !order.length ? (
+            <p className="text-[12.5px] text-fg-dim">
+              No stops yet. Add stop puts the first one in the tour, or an agent can propose one.
+            </p>
+          ) : null}
+          {v.unrendered ? (
+            <p className="text-[12px] text-fg-mute">
+              {v.unrendered === 1 ? 'One stop has' : `${v.unrendered} stops have`} no render yet.
+              The pipeline&apos;s Capture posters step renders each stop after Apply.
+            </p>
+          ) : null}
           {gone.length ? (
             <p className="text-[12px] text-danger">Removed: {gone.join(', ')}</p>
           ) : null}

@@ -25,7 +25,8 @@ export const THEME_NAMES = {
     "focus",
     "scrim",
     "clay-line",
-    "studio"
+    "studio",
+    "agent"
   ],
   "text": [
     "onboarding-title",

@@ -216,6 +216,31 @@ pub(super) fn move_aside(project_dir: &Path, plan: &PlanFile) -> CoreResult<Stri
     Ok(to)
 }
 
+/// Moves a change log left on the camera plan's id without its canvas
+/// (a move aside whose log could not follow and whose canvas could not come
+/// back) into `plans/history/`, so the camera plan made next never inherits
+/// another canvas's history. The caller holds the canvas lock, has seen
+/// that no canvas file is on the id and that the log is not the camera
+/// plan's own. Answers with where the log went.
+pub(super) fn set_aside_stray_log(project_dir: &Path) -> CoreResult<Option<String>> {
+    let id = super::camera::CAMERA_PLAN_ID;
+    let from = log::path(project_dir, id)?;
+    if !from.exists() {
+        return Ok(None);
+    }
+    let folder = dir(project_dir).join(super::camera::HISTORY_DIR);
+    fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
+    let stamp: String = now_rfc3339().chars().filter(char::is_ascii_digit).collect();
+    let name = format!("{id}-{stamp}-stray{}", log::LOG_SUFFIX);
+    let to = folder.join(&name);
+    maquette_base::fs::rename_retrying(&from, &to).map_err(|e| CoreError::io(&from, e))?;
+    Ok(Some(format!(
+        "{}/{}/{name}",
+        super::PLANS_DIR,
+        super::camera::HISTORY_DIR
+    )))
+}
+
 /// A log line that changed no node: a canvas made or renamed.
 pub(super) fn plain_entry(by: Option<&str>, summary: String, mark: ChangeMark) -> PlanLogEntry {
     PlanLogEntry {

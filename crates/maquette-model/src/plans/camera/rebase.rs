@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 use super::super::files::writing;
 use super::super::{EdgeKind, PlanDoc, PlanFile, load_file, path};
 use super::apply::{person_line, write_person};
-use super::{CameraBase, STEP_X, lead, line_of, main_chain, stop_node, stop_of};
-use crate::error::CoreResult;
+use super::{CameraBase, STEP_X, layout_key, lead, line_of, main_chain, stop_node, stop_of};
+use crate::error::{CoreError, CoreResult};
 use crate::layout::{self, LayoutStop};
 use crate::plans::summary::ChangeMark;
 
@@ -50,6 +50,9 @@ pub struct RebaseReport {
     pub clashes: Vec<String>,
     /// The log line, once written.
     pub change: Option<String>,
+    /// The key of the `layout.json` this report was made against: give it
+    /// back to the rebase, which refuses when the file changed since.
+    pub layout_key: String,
 }
 
 fn find<'a>(stops: &'a [LayoutStop], id: &str) -> Option<&'a LayoutStop> {
@@ -287,25 +290,38 @@ pub fn started_over(plan: &PlanFile, now: &[LayoutStop]) -> PlanFile {
 
 /// Rebases (or starts over) the camera plan `id` on `layout.json` as it is
 /// now, as the person. With `dry` nothing is written and the report says
-/// what would happen.
+/// what would happen. `seen` is the layout key of the comparison the person
+/// saw (the report's or the camera view's): a rebase refuses, writing
+/// nothing, when `layout.json` changed since, so what it takes in is what
+/// was shown.
 ///
 /// # Errors
 ///
-/// Fails when the canvas or `layout.json` cannot be read, or the result
-/// does not validate or cannot be written.
+/// Refuses when `layout.json` changed since `seen`; fails when the canvas
+/// or `layout.json` cannot be read, or the result does not validate or
+/// cannot be written.
 pub fn rebase(
     project_dir: &Path,
     id: &str,
     mode: RebaseMode,
     dry: bool,
+    seen: Option<&str>,
 ) -> CoreResult<(PlanDoc, RebaseReport)> {
     let _lock = writing();
     let current = load_file(&path(project_dir, id)?)?;
-    let now = layout::load(project_dir)?.stops;
+    let layout = layout::load(project_dir)?;
+    let key = layout_key(&layout);
+    if !dry && seen.is_some_and(|k| k != key) {
+        return Err(CoreError::Invalid(
+            "layout.json changed since this comparison was shown, so nothing was rebased. Review again to see the changes as they are now.".into(),
+        ));
+    }
+    let now = layout.stops;
     let (next, mut report) = match mode {
         RebaseMode::Rebase => rebased(&current, &now),
         RebaseMode::StartOver => (started_over(&current, &now), RebaseReport::default()),
     };
+    report.layout_key = key;
     if dry {
         return Ok((super::super::files::doc(project_dir, id, current), report));
     }

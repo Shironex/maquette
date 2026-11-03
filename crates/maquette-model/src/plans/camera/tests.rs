@@ -410,3 +410,53 @@ fn a_log_left_without_its_canvas_counts_as_taken() {
         "the orphan log is left alone"
     );
 }
+
+#[test]
+fn a_log_stranded_on_the_camera_plan_id_is_set_aside_not_inherited() {
+    let s = site(&["porch", "moon"]);
+    // A move aside whose log could not follow and whose canvas could not come back
+    // leaves another canvas's history on the id, with no canvas file.
+    let ideas = create(&s.root, "Ideas", crate::plans::PlanPreset::Brainstorm).expect("create");
+    let stray = fs::read_to_string(s.root.join(format!("plans/{}.log.jsonl", ideas.id)))
+        .expect("ideas log");
+    fs::write(s.root.join("plans/camera-plan.log.jsonl"), &stray).expect("stray log");
+    let made = ensure(&s.root, None).expect("camera plan");
+    assert!(made.plan.camera.is_some());
+    let own = crate::plans::log::lines(&s.root, CAMERA_PLAN_ID, 5).expect("log");
+    assert_eq!(own.len(), 1, "{own:?}");
+    assert!(
+        own[0].summary.starts_with("Made the camera plan"),
+        "{own:?}"
+    );
+    let kept: Vec<String> = fs::read_dir(s.root.join("plans/history"))
+        .expect("history")
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    assert_eq!(kept.len(), 1, "{kept:?}");
+    assert!(kept[0].starts_with("camera-plan-") && kept[0].ends_with("-stray.log.jsonl"));
+    let text = fs::read_to_string(s.root.join("plans/history").join(&kept[0])).expect("kept");
+    assert_eq!(text, stray, "the stray history is kept whole");
+}
+
+#[test]
+fn the_camera_plans_own_log_is_kept_when_only_its_file_is_gone() {
+    let s = site(&["porch", "moon"]);
+    ensure(&s.root, None).expect("camera plan");
+    let before = fs::read_to_string(s.root.join("plans/camera-plan.log.jsonl")).expect("log");
+    // Deleted by hand, or a sync that brings the log before the canvas file.
+    fs::remove_file(s.root.join("plans/camera-plan.plan.json")).expect("remove");
+    let made = ensure(&s.root, None).expect("made again");
+    assert!(made.plan.camera.is_some());
+    let after = fs::read_to_string(s.root.join("plans/camera-plan.log.jsonl")).expect("log");
+    assert!(
+        after.starts_with(&before),
+        "the plan's history stays in place"
+    );
+    let own = crate::plans::log::lines(&s.root, CAMERA_PLAN_ID, 5).expect("log");
+    assert_eq!(own.len(), 2, "{own:?}");
+    assert!(
+        !s.root.join("plans/history").exists(),
+        "nothing was set aside"
+    );
+}

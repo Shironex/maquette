@@ -4,6 +4,8 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { usePlanRecentStore } from '@/state/use-plan-recent-store';
+import { usePlansStore } from '@/state/use-plans-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { useRigStore } from '@/state/use-rig-store';
 import type { RigRecord } from '@/ipc/client';
@@ -16,12 +18,19 @@ afterEach(async () => {
   await act(async () => undefined);
   clearMocks();
   window.localStorage.clear();
+  usePlanRecentStore.getState().start(null, null);
+  usePlansStore.setState(usePlansStore.getInitialState(), true);
   usePipelineStore.setState({ view: null });
   useProjectsStore.setState({ list: [], menuOpen: false, dialog: null });
 });
 
-async function renderShell() {
-  const handle = await openMockWorkspace();
+async function renderShell(plans?: string) {
+  const handle = await openMockWorkspace(
+    'configured',
+    ...([undefined, undefined, undefined, undefined, undefined, undefined, undefined] as const),
+    ...([undefined, undefined, undefined, undefined, undefined, undefined, undefined] as const),
+    plans
+  );
   // The shell listens to the backend's events.
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>), {
     shouldMockEvents: true,
@@ -73,5 +82,22 @@ describe('the app shell', () => {
   it('starts the status bar with the local worker', async () => {
     await renderShell();
     expect(screen.getByText('Local worker connected')).toBeVisible();
+  });
+
+  it('lists the canvases opened or edited last under Plan, and opens one from there', async () => {
+    const rail = await renderShell('demo');
+    const recent = await within(rail).findByRole('list', { name: 'Recent canvases' });
+    const entries = await within(recent).findAllByRole('button');
+    expect(entries).toHaveLength(3);
+    expect(within(rail).getByRole('button', { name: /^Plan/ })).toHaveTextContent('4');
+    await userEvent.click(within(recent).getByRole('button', { name: 'Boss arena' }));
+    expect(useAppStore.getState().view).toBe('plan');
+    await waitFor(() => expect(usePlansStore.getState().open?.id).toBe('boss-arena'));
+    expect(
+      await within(recent).findByRole('button', { name: 'Boss arena', current: 'page' })
+    ).toBeInTheDocument();
+    // A collapsed rail shows the icons only.
+    await userEvent.click(within(rail).getByRole('button', { name: 'Collapse the sidebar' }));
+    expect(within(rail).queryByRole('list', { name: 'Recent canvases' })).toBeNull();
   });
 });

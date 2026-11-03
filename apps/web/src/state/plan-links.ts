@@ -27,6 +27,8 @@ export interface LinkView {
   action: { to: LinkAction; label: string };
   /** The node's asset or direction is not in the project. */
   gone: boolean;
+  /** What to do about a gone one, in a sentence. */
+  help?: string;
 }
 
 /** The asset and direction ids a canvas links, each once, sorted. */
@@ -112,6 +114,7 @@ export function assetView(link: AssetLink | undefined): LinkView {
         detail: link.id,
         action: { to: 'board', label: 'Open Board' },
         gone: true,
+        help: 'Restore it from Removed on the Board, or delete this node.',
       };
   }
 }
@@ -157,6 +160,7 @@ export function directionView(link: DirectionLink | undefined): LinkView {
         tone: 'none',
         detail: link.id,
         gone: true,
+        help: 'It was removed from the Lab. Delete this node, or link another direction.',
       };
   }
 }

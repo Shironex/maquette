@@ -315,3 +315,31 @@ fn a_failed_undo_never_rolls_back_over_a_newer_layout() {
         applied.after
     );
 }
+
+#[test]
+fn an_apply_over_a_hand_edited_layout_can_still_be_undone() {
+    let s = site(&["porch", "schedule", "moon"]);
+    // By hand: an older version and a clip choice that only says ship, which a write tidies away.
+    let file = s.root.join("layout.json");
+    let mut raw: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&file).expect("layout")).expect("json");
+    raw["version"] = serde_json::json!(0);
+    raw["clips"] = serde_json::json!({ "lantern": { "idle": { "ship": true } } });
+    fs::write(&file, serde_json::to_string_pretty(&raw).expect("text")).expect("hand edit");
+    plan_line(&s.root, &["porch", "moon", "schedule"]);
+    let shown = review(&s.root, CAMERA_PLAN_ID).expect("review");
+    let (_, entry) =
+        apply(&s.root, CAMERA_PLAN_ID, &shown.layout_key, &shown.plan_key).expect("apply");
+    // The after key is the file as stored, not the layout handed to the write.
+    let stored = layout::load(&s.root).expect("layout");
+    assert!(stored.clips.is_empty(), "the write tidied the clip away");
+    assert_eq!(entry.applied.expect("applied").after, layout_key(&stored));
+    undo_apply(&s.root, CAMERA_PLAN_ID, &entry.id).expect("undo works");
+    let ids: Vec<String> = layout::load(&s.root)
+        .expect("layout")
+        .stops
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
+    assert_eq!(ids, ["porch", "schedule", "moon"]);
+}

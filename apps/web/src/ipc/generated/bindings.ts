@@ -436,9 +436,11 @@ export const commands = {
 	/**
 	 *  Brings the plan up to `layout.json` as it is now (or starts its main
 	 *  line over from it). With `dry` nothing is written: the report says what
-	 *  a rebase would take, keep and could not settle.
+	 *  a rebase would take, keep and could not settle. `layout_key` is the key
+	 *  of the comparison the person saw; a rebase refuses when `layout.json`
+	 *  changed since.
 	 */
-	planCameraRebase: (project: string, mode: RebaseMode, dry: boolean) => __TAURI_INVOKE<CameraRebased_Serialize>("plan_camera_rebase", { project, mode, dry }),
+	planCameraRebase: (project: string, mode: RebaseMode, dry: boolean, layoutKey: string | null) => __TAURI_INVOKE<CameraRebased_Serialize>("plan_camera_rebase", { project, mode, dry, layoutKey }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears
@@ -2196,6 +2198,11 @@ export type CameraView_Deserialize = {
 	stale: boolean,
 	/**  What changed in `layout.json` since: from the plan's base to now. */
 	outside: StopDiff,
+	/**
+	 *  The key of the `layout.json` this view was read from, which a rebase
+	 *  or start over from the view gives back so it refuses a newer file.
+	 */
+	layoutKey: string,
 };
 
 export type CameraView_Serialize = {
@@ -2214,6 +2221,11 @@ export type CameraView_Serialize = {
 	stale: boolean,
 	/**  What changed in `layout.json` since: from the plan's base to now. */
 	outside: StopDiff,
+	/**
+	 *  The key of the `layout.json` this view was read from, which a rebase
+	 *  or start over from the view gives back so it refuses a newer file.
+	 */
+	layoutKey: string,
 };
 
 /**  What Cancel would do, so the UI can say it before you press it. */
@@ -6190,6 +6202,11 @@ export type RebaseReport = {
 	clashes: string[],
 	/**  The log line, once written. */
 	change: string | null,
+	/**
+	 *  The key of the `layout.json` this report was made against: give it
+	 *  back to the rebase, which refuses when the file changed since.
+	 */
+	layoutKey: string,
 };
 
 /**  The recipe kept for a prop: the request without its project and asset. */

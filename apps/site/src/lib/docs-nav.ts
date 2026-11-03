@@ -26,6 +26,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
     label: 'Views',
     slugs: [
       'docs/views/board',
+      'docs/views/plan',
       'docs/views/inbox',
       'docs/views/rig-doctor',
       'docs/views/lab',

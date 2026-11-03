@@ -20,7 +20,7 @@ const FROSTVEIL = { project: 'frostveil' };
 async function openCamera(open, viewport) {
   const page = await open('&scenario=configured&plans=demo', '#/plan', viewport);
   await page.getByRole('region', { name: 'Pinned' }).waitFor();
-  await page.getByRole('button', { name: /^Camera plan/ }).click();
+  await page.getByRole('region', { name: 'Pinned' }).getByRole('button').click();
   await page.getByRole('main', { name: 'Camera plan canvas' }).waitFor();
   await page.getByRole('region', { name: 'Order after Apply' }).getByText('Arrival').waitFor();
   await page.waitForTimeout(700);

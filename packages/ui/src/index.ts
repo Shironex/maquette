@@ -87,6 +87,7 @@ export {
   type NavRailItem,
   type NavRailPlanned,
   type NavRailProps,
+  type NavRailSub,
 } from './components/shell/NavRail';
 export { ProjectSwitcher, type ProjectSwitcherProps } from './components/shell/ProjectSwitcher';
 export {

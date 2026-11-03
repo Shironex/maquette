@@ -49,6 +49,9 @@ pub struct CameraView {
     pub stale: bool,
     /// What changed in `layout.json` since: from the plan's base to now.
     pub outside: StopDiff,
+    /// The key of the `layout.json` this view was read from, which a rebase
+    /// or start over from the view gives back so it refuses a newer file.
+    pub layout_key: String,
 }
 
 /// The project's camera plan as the canvas shows it, made from
@@ -87,6 +90,7 @@ pub fn view(project_dir: &Path) -> crate::CoreResult<CameraView> {
         .map(|(stop, poster)| StopPoster { stop, poster })
         .collect();
     Ok(CameraView {
+        layout_key: camera::layout_key(&layout),
         stale: camera::is_stale(plan, &layout),
         outside: camera::diff_stops(&base, &layout.stops, &[]),
         problem: main.as_ref().and_then(|m| m.problem.clone()),

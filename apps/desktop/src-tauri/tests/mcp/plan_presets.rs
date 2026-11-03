@@ -86,6 +86,10 @@ async fn an_agent_starts_canvases_from_presets() {
     .await;
     assert_eq!(blank["preset"], json!("brainstorm"));
     assert_eq!(blank["nodes"], json!(0));
+    assert!(
+        blank.get("change").is_none(),
+        "a blank canvas has nothing to undo, so no change id: {blank}"
+    );
     let alias = call(
         &client,
         "create_canvas",

@@ -25,6 +25,7 @@ use sha2::{Digest, Sha256};
 
 use super::files::{doc, plain_entry, write_plan, writing};
 use super::log::new_id;
+use super::ops::PlanOp;
 use super::summary::ChangeMark;
 use super::{EdgeKind, NodeKind, PlanDoc, PlanEdge, PlanFile, PlanNode, PlanPreset, Side, dir};
 use crate::error::{CoreError, CoreResult};
@@ -343,7 +344,11 @@ pub fn line_of(
 
 /// The project's camera plan, made from `layout.json` the first time: one
 /// stop node per stop, joined in tour order, as the person's main line.
-/// `by` names an agent that made it in the log; a person passes none.
+/// `by` names an agent that made it in the log; a person passes none. A
+/// change log found on the id with no canvas is the plan's own when any line
+/// shows it (its file deleted by hand, or a sync bringing the log first):
+/// the plan is made again onto it. A log that clearly belongs to another
+/// canvas moves into `plans/history/` first and the plan starts its own.
 ///
 /// # Errors
 ///
@@ -359,6 +364,13 @@ pub fn ensure(project_dir: &Path, by: Option<&str>) -> CoreResult<PlanDoc> {
         // A canvas from before the id was kept for the camera plan: it moves, never blocks.
         let moved = super::files::move_aside(project_dir, &plan)?;
         tracing::info!("moved the canvas on the camera plan's id to {moved}");
+    } else if !own_log(project_dir)? {
+        // No canvas, yet another canvas's log: kept aside, never the new plan's.
+        if let Some(kept) = super::files::set_aside_stray_log(project_dir)? {
+            tracing::warn!(
+                "a change log of another canvas on the camera plan's id moved to {kept}"
+            );
+        }
     }
     let stops = layout::load(project_dir)?.stops;
     // The line mirrors layout.json, the person's, whoever opened it first.
@@ -380,6 +392,29 @@ pub fn ensure(project_dir: &Path, by: Option<&str>) -> CoreResult<PlanDoc> {
     );
     super::change::note(project_dir, CAMERA_PLAN_ID, &line);
     Ok(doc(project_dir, CAMERA_PLAN_ID, plan))
+}
+
+/// Whether the change log on the camera plan's id is the plan's own: no log
+/// or no readable line counts as its own (nothing to inherit), else a line
+/// must show the camera plan (made as it, an Apply or rebase, its base, or a
+/// stop node). Only a log with readable lines and none of those is another
+/// canvas's.
+fn own_log(project_dir: &Path) -> CoreResult<bool> {
+    let entries = super::log::entries(project_dir, CAMERA_PLAN_ID)?;
+    if entries.is_empty() {
+        return Ok(true);
+    }
+    let stop = |n: &PlanNode| n.kind == NodeKind::Stop;
+    Ok(entries.iter().any(|e| {
+        e.summary.starts_with("Made the camera plan")
+            || matches!(e.mark, ChangeMark::Apply | ChangeMark::Rebase)
+            || e.ops.iter().any(|op| match op {
+                PlanOp::SetCamera { .. } => true,
+                PlanOp::AddNode { node } | PlanOp::RemoveNode { node } => stop(node),
+                PlanOp::SetNode { before, after } => stop(before) || stop(after),
+                _ => false,
+            })
+    }))
 }
 
 /// True when the plan was based on other stops than `layout` has now.

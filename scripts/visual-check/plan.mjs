@@ -13,12 +13,14 @@
  * to them), the Changes panel at full and minimum size, the confirm when a
  * Keep would take earlier changes along, and the choice
  * when an edit from another computer meets an unsaved edit to the same
- * note. Then the presets (plan-presets.mjs). Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
+ * note. Then the presets (plan-presets.mjs), and the empty states and the
+ * minimum size (plan-polish.mjs). Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
  * every save failing); the mock only commands `mock_plan_agent` and
  * `mock_plan_outside` make the outside writes.
  */
 
 import { cameraShots } from './plan-camera.mjs';
+import { polishShots } from './plan-polish.mjs';
 import { presetShots } from './plan-presets.mjs';
 
 const SMALL = { width: 1120, height: 720 };
@@ -30,9 +32,13 @@ async function plans(open, viewport, mode = 'demo') {
   return page;
 }
 
+/** A canvas's button in the list's table (the rail lists the recent ones by name too). */
+const inTable = (page, name) =>
+  page.getByRole('region', { name: 'All canvases' }).getByRole('button', { name, exact: true });
+
 /** Opens Combat ideas and waits for its pictures. */
 async function combat(page) {
-  await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+  await inTable(page, 'Combat ideas').click();
   await page.getByRole('main', { name: 'Combat ideas canvas' }).waitFor();
   await page.getByRole('img', { name: 'Veil gate at night' }).waitFor();
   await page.waitForTimeout(600);
@@ -40,7 +46,7 @@ async function combat(page) {
 
 /** Opens Boss: Frost Warden and waits for the live read of its links. */
 async function boss(page) {
-  await page.getByRole('button', { name: 'Boss: Frost Warden', exact: true }).click();
+  await inTable(page, 'Boss: Frost Warden').click();
   await page.getByRole('main', { name: 'Boss: Frost Warden canvas' }).waitFor();
   await page.getByRole('group', { name: 'Asset: Elsheria' }).waitFor();
   await page.getByRole('group', { name: 'Asset: Asset not found' }).waitFor();
@@ -221,4 +227,5 @@ export async function planShots({ open, shot }) {
   await historyShots(open, shot);
   await cameraShots({ open, shot });
   await presetShots({ open, shot });
+  await polishShots({ open, shot });
 }
