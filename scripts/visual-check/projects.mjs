@@ -37,7 +37,7 @@ export async function projectsShots({ open, shot }) {
     await page.waitForTimeout(300);
     await shot(page, `project-empty-strip${suffix}`);
 
-    // Frostveil has a send that is not over: Remove is refused, with why.
+    // Frostveil has a send that is not over: Remove project is greyed out, with why.
     await switcher(page).click();
     await page.getByRole('menuitemradio', { name: /^Frostveil/ }).click();
     await page
@@ -51,8 +51,10 @@ export async function projectsShots({ open, shot }) {
     await page.getByRole('menuitem', { name: 'Remove Frostveil' }).click();
     const busy = page.getByRole('dialog', { name: 'Remove Frostveil?' });
     await busy.waitFor();
-    await busy.getByRole('button', { name: 'Remove project' }).click();
-    await busy.getByRole('alert').waitFor();
+    const refused = busy.locator('button[aria-disabled="true"]', { hasText: 'Remove project' });
+    await refused.waitFor();
+    await refused.hover();
+    await page.getByRole('tooltip').waitFor();
     await shot(page, `project-remove-refused${suffix}`);
     await busy.getByRole('button', { name: 'Cancel' }).click();
 

@@ -603,8 +603,8 @@ export const cases = [
       await page.locator('[aria-haspopup=menu]').first().click();
       await page.getByRole('menuitem', { name: 'Remove Frostveil' }).click();
       const dialog = page.getByRole('dialog', { name: 'Remove Frostveil?' });
-      await dialog.getByRole('button', { name: 'Remove project' }).click();
-      await dialog.getByRole('alert').waitFor();
+      await dialog.getByRole('note').waitFor();
+      await dialog.locator('button[aria-disabled="true"]', { hasText: 'Remove project' }).waitFor();
     },
   },
   {
@@ -639,6 +639,7 @@ export const cases = [
       await panel.getByText('1 found', { exact: true }).waitFor();
       await page.getByRole('button', { name: /^Mark as fine: Sigils and Runes/ }).click();
       await page.getByRole('button', { name: /^Overlaps\s*,\s*2\s*marked as fine$/ }).waitFor();
+      await panel.getByText('2 marked as fine', { exact: true }).waitFor();
     },
   },
 ];

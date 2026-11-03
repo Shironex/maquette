@@ -86,6 +86,10 @@ export async function extrasShots({ open, shot }) {
     // Every overlap marked as fine: the button keeps a quiet count.
     await page.getByRole('button', { name: /^Mark as fine: Sigils and Runes/ }).click();
     await page.getByRole('button', { name: /^Overlaps\s*,\s*2\s*marked as fine$/ }).waitFor();
+    await page
+      .getByRole('complementary', { name: 'Overlaps' })
+      .getByText('2 marked as fine', { exact: true })
+      .waitFor();
     await page.waitForTimeout(400);
     await shot(page, `plan-overlap-all-fine${suffix}`);
     await page.context().close();
