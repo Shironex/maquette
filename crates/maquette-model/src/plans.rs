@@ -203,7 +203,8 @@ pub struct PlanNode {
     /// On an agent's node: a person moved it, so auto layout and
     /// `layout_canvas` leave it where they put it. Only placement: it keeps
     /// nothing else. Set by the core on a person's write that moves it, never
-    /// cleared by an agent's, written only when true (still version 2).
+    /// cleared by an agent's, written only when true, so it does not raise
+    /// the file's version.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub person_placed: bool,
     /// A stop node's camera stop (id, name, position, target, field of view

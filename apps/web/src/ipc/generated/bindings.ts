@@ -5821,7 +5821,8 @@ export type PlanNode_Deserialize = {
 	 *  On an agent's node: a person moved it, so auto layout and
 	 *  `layout_canvas` leave it where they put it. Only placement: it keeps
 	 *  nothing else. Set by the core on a person's write that moves it, never
-	 *  cleared by an agent's, written only when true (still version 2).
+	 *  cleared by an agent's, written only when true, so it does not raise
+	 *  the file's version.
 	 */
 	personPlaced?: boolean,
 	/**
@@ -5868,7 +5869,8 @@ export type PlanNode_Serialize = {
 	 *  On an agent's node: a person moved it, so auto layout and
 	 *  `layout_canvas` leave it where they put it. Only placement: it keeps
 	 *  nothing else. Set by the core on a person's write that moves it, never
-	 *  cleared by an agent's, written only when true (still version 2).
+	 *  cleared by an agent's, written only when true, so it does not raise
+	 *  the file's version.
 	 */
 	personPlaced?: boolean,
 	/**
