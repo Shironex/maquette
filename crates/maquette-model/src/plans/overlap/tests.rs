@@ -347,3 +347,30 @@ fn a_full_canvas_of_look_alike_cards_stays_quick() {
         started.elapsed()
     );
 }
+
+#[test]
+fn a_read_again_answers_from_the_last_check_until_the_words_change() {
+    let mut plan = combat();
+    let first = overlaps(&plan);
+    assert_eq!(cache::answer(&plan, |_| panic!("checked again")), first);
+    // A move, a link or a rename of the canvas reads nothing the check reads.
+    plan.nodes[0].x = 640;
+    plan.name = "Combat, moved".into();
+    assert_eq!(cache::answer(&plan, |_| panic!("checked again")), first);
+    // New words, a node more or a fine mark is a new check.
+    let key = cache::key_of(&plan);
+    plan.nodes[1].title = "Rune chains".into();
+    assert_ne!(cache::key_of(&plan), key);
+    plan.nodes[1].title = "Rune combos".into();
+    plan.nodes[2].text = "Verb: draw\nLook: red sparks\nInput: hold right mouse".into();
+    assert_ne!(overlaps(&plan), first);
+    let (a, b) = (plan.nodes[3].clone(), plan.nodes[4].clone());
+    let before = cache::key_of(&plan);
+    plan.fine = vec![FineMark {
+        a: a.id.clone(),
+        b: b.id.clone(),
+        key: pair_key(&a, &b),
+    }];
+    assert_ne!(cache::key_of(&plan), before);
+    assert_eq!(overlaps(&plan), find(&plan));
+}
