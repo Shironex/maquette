@@ -27,3 +27,6 @@ showcase-out/
 
 # Astro writes generated types here.
 .astro/
+
+# Written by apps/site/scripts/sync-release.mjs at build time.
+apps/site/src/content/release.generated.json

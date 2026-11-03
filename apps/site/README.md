@@ -64,7 +64,7 @@ The script opens the built page in headless Chromium with `?capture`, which hide
 
 ## Releases
 
-The Download section reads the `release` object in `src/content/copy.ts` (version, date, file names, byte sizes). A new release is an edit to that object.
+The Download section reads the `release` object in `src/content/copy.ts`. Its version, date and the two installer sizes come from the latest published GitHub release: `scripts/sync-release.mjs` runs before `astro build` and, when `SITE_RELEASE_SYNC=1` (the pages workflow sets it), writes the git-ignored `src/content/release.generated.json`. The release workflow starts the pages workflow after it publishes, so a release needs no site edit. Without the variable, with no network or when the API fails, the build logs why and uses the checked-in `src/content/release.json`, which is only a fallback. Bump it now and then so a local build shows a recent release.
 
 ## Placeholders
 

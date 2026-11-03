@@ -2,7 +2,7 @@
  * The page's words, kept apart from layout so the tour panels, the timeline
  * and the pipeline section stay in step. Plain and short; no dashes.
  */
-import tauri from '../../../desktop/src-tauri/tauri.conf.json';
+import checkedIn from './release.json';
 import { withBase } from '../lib/with-base';
 import type { StopId } from '../scene/manifest';
 
@@ -299,13 +299,26 @@ export const PROOF = {
 } as const;
 
 /**
- * The published release the Download section links to. A new release is this
- * object: the date and the two byte sizes (the version comes from package.json). The URLs follow
- * from them; `latest/download/<file>` would break, as the file name carries the version.
+ * The published release the Download section links to. `release.json` holds
+ * the checked-in values (the last release when they were set). A build that
+ * runs `scripts/sync-release.mjs` with SITE_RELEASE_SYNC=1 writes
+ * `release.generated.json` from the latest GitHub release, and that wins when
+ * present. The URLs follow from the version; `latest/download/<file>` would
+ * break, as the file name carries the version.
  */
 const REPO_URL = 'https://github.com/Shironex/maquette';
-/** Read from tauri.conf.json, which bump-version.mjs keeps in step, so the links cannot lag the app. */
-const VERSION: string = tauri.version;
+interface ReleaseData {
+  version: string;
+  date: string;
+  macBytes: number;
+  windowsBytes: number;
+}
+const generated = import.meta.glob<ReleaseData>('./release.generated.json', {
+  eager: true,
+  import: 'default',
+});
+const data: ReleaseData = generated['./release.generated.json'] ?? checkedIn;
+const VERSION = data.version;
 const DOWNLOAD_BASE = `${REPO_URL}/releases/download/v${VERSION}`;
 
 /** Bytes as megabytes with one decimal ("13.9 MB"). */
@@ -315,18 +328,18 @@ export function formatMegabytes(bytes: number): string {
 
 export const release = {
   version: VERSION,
-  date: '1 Nov 2026',
+  date: data.date,
   notesUrl: `${REPO_URL}/releases/tag/v${VERSION}`,
   allUrl: `${REPO_URL}/releases`,
   mac: {
     file: `Maquette_${VERSION}_aarch64.dmg`,
-    bytes: 20_166_876,
+    bytes: data.macBytes,
     note: 'Apple silicon',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_aarch64.dmg`,
   },
   windows: {
     file: `Maquette_${VERSION}_x64-setup.exe`,
-    bytes: 15_743_646,
+    bytes: data.windowsBytes,
     note: 'x64',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_x64-setup.exe`,
   },

@@ -20,7 +20,7 @@
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\" \"apps/site/scripts/**/*.test.mjs\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "rust:fmt": "cargo fmt --all --check",
