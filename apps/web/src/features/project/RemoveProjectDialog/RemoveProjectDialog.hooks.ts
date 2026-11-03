@@ -24,11 +24,16 @@ export function useRemoveProjectDialog() {
   if (!asking || !project) return null;
   const activity = row?.activity;
   const running = Boolean(activity?.run || activity?.concepts || activity?.sends);
+  // Work running in it, or a remove the core refused: asking again cannot
+  // help until the dialog opens again with that work over.
+  const refusedBecause =
+    error ?? (running ? 'Work is running in this project. Remove it once that is over.' : null);
   return {
     project,
     busy,
     error,
     running,
+    refusedBecause,
     repo: project.siteRepoName ?? null,
     game: project.target === 'game',
     confirm: async () => setError(await remove(project.id)),

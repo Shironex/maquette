@@ -4,7 +4,8 @@ import { useRemoveProjectDialog } from './RemoveProjectDialog.hooks';
 /**
  * Asks before Remove project: names it, says its folder goes to the
  * workspace trash and can come back, and that the repo it ships to stays.
- * Work running in it refuses the remove; the core says what to wait for.
+ * Work running in it refuses the remove; the core says what to wait for,
+ * and Remove project stays greyed out with that reason.
  */
 export default function RemoveProjectDialog() {
   const v = useRemoveProjectDialog();
@@ -20,6 +21,8 @@ export default function RemoveProjectDialog() {
           label: 'Remove project',
           variant: 'danger',
           loading: v.busy,
+          disabled: v.refusedBecause !== null,
+          disabledReason: v.refusedBecause ?? undefined,
           onClick: () => void v.confirm(),
         },
         { label: 'Cancel', onClick: v.cancel },
@@ -41,7 +44,7 @@ export default function RemoveProjectDialog() {
       </p>
       {v.running ? (
         <p role="note" className="mt-3 text-amber">
-          Work is running in this project. Remove waits until it is over or cancelled.
+          Work is running in this project. Remove project works again once it is over or cancelled.
         </p>
       ) : null}
       {v.error ? (

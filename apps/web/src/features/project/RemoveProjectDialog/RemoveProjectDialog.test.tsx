@@ -41,16 +41,35 @@ describe('RemoveProjectDialog', () => {
     expect(useProjectTrashStore.getState().removed.map(r => r.id)).toEqual(['frost-cathedral']);
   });
 
-  it('says why when work running in the project refuses the remove, and keeps it', async () => {
+  it('greys out Remove project with why while work runs in the project', async () => {
     render(<RemoveProjectDialog />);
     useProjectTrashStore.getState().ask('frostveil');
     await screen.findByRole('dialog');
     await vi.waitFor(() =>
       expect(screen.getByRole('note')).toHaveTextContent('Work is running in this project')
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Remove project' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not over in Frostveil/);
+    const remove = screen.getByRole('button', { name: 'Remove project' });
+    expect(remove).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(remove);
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(useAppStore.getState().workspace?.projects.some(p => p.id === 'frostveil')).toBe(true);
+  });
+
+  it('says why when the core refuses the remove, and greys the button out', async () => {
+    // The switcher's rows never say that work runs in it, so only the core can.
+    const load = useProjectsStore.getState().load;
+    useProjectsStore.setState({ load: async () => {} });
+    try {
+      render(<RemoveProjectDialog />);
+      useProjectTrashStore.getState().ask('frostveil');
+      await userEvent.click(await screen.findByRole('button', { name: 'Remove project' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent(/not over in Frostveil/);
+      const remove = screen.getByRole('button', { name: 'Remove project' });
+      expect(remove).toHaveAttribute('aria-disabled', 'true');
+      expect(useAppStore.getState().workspace?.projects.some(p => p.id === 'frostveil')).toBe(true);
+    } finally {
+      useProjectsStore.setState({ load });
+    }
   });
 
   it('changes nothing on Cancel', async () => {
