@@ -6,7 +6,7 @@
  */
 import { Button, Icon, IconButton, InlineBanner, SegmentedControl, Select } from '@maquette/ui';
 import type { ProviderId, SpendSource } from '@/ipc/client';
-import { formatAgo } from '@/lib/format';
+import { counted, formatAgo } from '@/lib/format';
 import { SOURCE_LABEL, formatCredits, shareText, spendKey } from '@/state/credits';
 import { SectionTitle } from '../SectionTitle';
 import { Sheet } from '@/features/common/Sheet';
@@ -80,7 +80,7 @@ export default function CreditsSheet() {
     {
       label: 'Redo share',
       value: shareText(totals.redoShare),
-      sub: `${totals.redos} of ${totals.sends} sends`,
+      sub: `${totals.redos} of ${counted(totals.sends, 'send')}`,
     },
   ].map(s => (
     <div

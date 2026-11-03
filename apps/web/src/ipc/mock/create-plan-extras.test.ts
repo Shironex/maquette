@@ -39,11 +39,19 @@ describe('mock canvas extras', () => {
     expect(open?.nodes).toEqual([
       { id: 'n-06', name: 'Does the veil read on a phone screen?', state: 'here' },
     ]);
+    // A link count the person did not see is refused, and the proposal waits.
+    await expect(
+      run('plan_answer_removal', { ...COMBAT, created, proposal: open?.id, remove: true, links: 2 })
+    ).rejects.toMatchObject({
+      code: 'invalid',
+      message: expect.stringContaining('not the 2 shown'),
+    });
     const done = await run<PlanDoc>('plan_answer_removal', {
       ...COMBAT,
       created,
       proposal: open?.id,
       remove: true,
+      links: 0,
     });
     expect(done.plan.nodes.some(n => n.id === 'n-06')).toBe(false);
     expect(await run<RemovalProposal[]>('plan_proposals', COMBAT)).toEqual([]);

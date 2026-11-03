@@ -5,6 +5,10 @@ use std::io::{self, Write};
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+mod moving;
+
+pub use moving::{PartialMove, crosses_devices, move_tree, partial_move};
+
 /// Writes generated `text` to `path` atomically, only when it differs, and
 /// says whether it wrote. A current file keeps its modified time, so nothing
 /// that watches it rebuilds, and whoever reads it never sees it half written.
@@ -58,15 +62,24 @@ fn write_and_rename(tmp: &Path, path: &Path, bytes: &[u8]) -> io::Result<()> {
     rename_retrying(tmp, path)
 }
 
+/// True on Windows for the refusals a file held open for a moment gives:
+/// access denied (5), a sharing violation (32) or a lock violation (33).
+fn busy(err: &io::Error) -> bool {
+    cfg!(windows)
+        && (err.kind() == io::ErrorKind::PermissionDenied
+            || matches!(err.raw_os_error(), Some(5 | 32 | 33)))
+}
+
 /// `fs::rename`, tried a few more times on Windows while the target is
 /// held open: a sync tool, a virus scanner or the search indexer reading
-/// the old file makes the replace fail with "access denied" for a moment.
+/// the old file makes the replace fail with "access denied" or a sharing
+/// violation for a moment.
 pub fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
     const WAITS_MS: [u64; 5] = [20, 50, 100, 200, 400];
     let mut result = fs::rename(from, to);
     for wait in WAITS_MS {
         match &result {
-            Err(err) if cfg!(windows) && err.kind() == io::ErrorKind::PermissionDenied => {
+            Err(err) if busy(err) => {
                 std::thread::sleep(std::time::Duration::from_millis(wait));
                 result = fs::rename(from, to);
             }
@@ -88,7 +101,7 @@ pub fn remove_retrying(path: &Path) -> io::Result<()> {
     let mut result = gone(fs::remove_file(path));
     for wait in WAITS_MS {
         match &result {
-            Err(err) if cfg!(windows) && err.kind() == io::ErrorKind::PermissionDenied => {
+            Err(err) if busy(err) => {
                 std::thread::sleep(std::time::Duration::from_millis(wait));
                 result = gone(fs::remove_file(path));
             }
@@ -230,6 +243,11 @@ pub fn clear_dir_contents(path: &Path) -> io::Result<u64> {
 /// subfolders. Symlinks are skipped.
 pub fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
     fs::create_dir(to)?;
+    copy_contents(from, to)
+}
+
+/// Copies what is inside the folder `from` into the existing folder `to`.
+fn copy_contents(from: &Path, to: &Path) -> io::Result<()> {
     for entry in fs::read_dir(from)? {
         let entry = entry?;
         let kind = entry.file_type()?;
@@ -239,31 +257,6 @@ pub fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
         } else if kind.is_file() {
             fs::copy(entry.path(), &target)?;
         }
-    }
-    Ok(())
-}
-
-/// Moves the folder `from` to `to` (which must not exist). A rename when it
-/// can; otherwise (another volume, or Windows refusing to rename a folder
-/// with a file open in it) a copy and then a removal. When the removal
-/// fails the copy is removed again, so the folder ends up in one place.
-pub fn move_tree(from: &Path, to: &Path) -> io::Result<()> {
-    if to.exists() {
-        return Err(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            format!("{} already exists", to.display()),
-        ));
-    }
-    if fs::rename(from, to).is_ok() {
-        return Ok(());
-    }
-    if let Err(err) = copy_tree(from, to) {
-        let _ = fs::remove_dir_all(to);
-        return Err(err);
-    }
-    if let Err(err) = fs::remove_dir_all(from) {
-        let _ = fs::remove_dir_all(to);
-        return Err(err);
     }
     Ok(())
 }

@@ -70,3 +70,9 @@ export function shortPath(path: string, segments = 3): string {
 
 /** A path with forward slashes, whichever system wrote it. */
 export const slashed = (path: string) => path.replaceAll('\\', '/');
+
+/** "image" for 1, else "images": the word a count of `n` takes. */
+export const noun = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
+
+/** "1 image", "3 images", "0 images". */
+export const counted = (n: number, one: string, many?: string) => `${n} ${noun(n, one, many)}`;

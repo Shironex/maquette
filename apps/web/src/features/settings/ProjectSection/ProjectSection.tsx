@@ -1,8 +1,13 @@
-import { PathField, TextField, cn } from '@maquette/ui';
+import { Button, PathField, TextField, cn } from '@maquette/ui';
 import { gameOf } from '@/state/game';
 import { Panel } from '@/features/common/Panel';
 import { ACTIVE } from '../sections';
-import { useDevCommand, useModelFolder, useProjectSection } from './ProjectSection.hooks';
+import {
+  useDevCommand,
+  useModelFolder,
+  useProjectSection,
+  useRemoveProject,
+} from './ProjectSection.hooks';
 import type { ProjectSectionProps } from './ProjectSection.types';
 
 export default function ProjectSection({ active }: ProjectSectionProps) {
@@ -10,6 +15,7 @@ export default function ProjectSection({ active }: ProjectSectionProps) {
   const dev = useDevCommand(project?.id ?? null, project?.siteRepo ?? null);
   const game = gameOf(project);
   const folder = useModelFolder(project?.id ?? null, game?.modelsDir ?? '');
+  const askRemove = useRemoveProject();
   if (!project) return null;
 
   return (
@@ -68,6 +74,14 @@ export default function ProjectSection({ active }: ProjectSectionProps) {
           }}
         />
       )}
+      <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+        <p className="m-0 text-meta text-fg-mute">
+          Moves the project folder to the workspace trash. The repo stays as it is.
+        </p>
+        <Button size="sm" variant="danger" icon="trash" onClick={() => askRemove(project.id)}>
+          Remove project
+        </Button>
+      </div>
     </Panel>
   );
 }

@@ -16,7 +16,7 @@ returns and `canvas` the id `list_canvases` returns.
 
 Call `get_started` first. It says whether a workspace is open, which tools work, which keys are saved
 (true or false, never a value), every project with its stage, the gates only a person can pass, and
-a `next` list. No project to work in: `create_project` makes one and spends nothing. If the Maquette
+a `next` list; it is short, and `detail: true` gives every row and gate. No project to work in: `create_project` (`target` is `website` or `game`) makes one and spends nothing. No tool removes a project; a removed project's id fails with not-found, and only a person restores it. If the Maquette
 tools fail with `ECONNREFUSED`, the app is closed or its server is off: ask the person to open
 Maquette and turn the server on in Settings > Agents. An error names its `code`, and `fix` and
 `tryTool` when they help; `personOnly` means ask the person instead of trying again.
@@ -77,7 +77,7 @@ in the app: agents may propose a tour, never apply one.
 - `update_nodes`: only the fields given change (title, text, url, x, y, width). If the person
   edits the same field before their canvas saves, their value wins.
 - `layout_canvas`: moves your overlapping nodes to a free spot beside the node they link to. A
-  person's nodes, and yours a person wrote in, never move. The x and y you give are kept. While
+  person's nodes, yours a person wrote in and yours a person dragged (`personPlaced`) never move, and naming one is refused; give an explicit x and y to move it. The x and y you give are kept. While
   Auto layout after agents is on (the default), `update_nodes` moves your edited nodes you gave no
   x or y clear in the same change (`autoLayout.moved` in the answer); when the person turns it
   off, `layout_canvas` is refused, so place nodes with x and y.

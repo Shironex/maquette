@@ -1,6 +1,8 @@
 import { Logo, NavRail, TrafficLights, cn } from '@maquette/ui';
 import { CHROME } from '@/ipc/runtime';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
+import { RemoveProjectDialog } from '@/features/project/RemoveProjectDialog';
+import { RemovedProjectsDialog } from '@/features/project/RemovedProjectsDialog';
 import { GameImportDialog } from '@/features/game/GameImportDialog';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { ArrivalPicker } from '@/features/providers/ArrivalPicker';
@@ -99,6 +101,8 @@ export default function AppShell() {
       <DownloadsMatches />
       <ArrivalPicker />
       <NewProjectDialog onClosed={focusSwitcher} />
+      <RemoveProjectDialog />
+      <RemovedProjectsDialog />
       <GameImportDialog />
       <LibraryDialogs />
       <QuickView />

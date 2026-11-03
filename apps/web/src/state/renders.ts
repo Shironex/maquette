@@ -3,7 +3,7 @@
  * from, the file a style writes and the sums the views show. Pure; the
  * core plans and writes every file.
  */
-import { formatBytes } from '@/lib/format';
+import { formatBytes, noun } from '@/lib/format';
 import type {
   LoopFormat,
   RenderFile,
@@ -183,7 +183,7 @@ export function rowState(item: RenderItem): { label: string; tone: RowTone } {
 export function renderStatusLine(record: RenderRecord | null): string | null {
   if (record?.state !== 'running') return null;
   const { done, total } = progressOf(record);
-  return `Rendering ${Math.min(done + 1, total)} of ${total} files`;
+  return `Rendering ${Math.min(done + 1, total)} of ${total} ${noun(total, 'file')}`;
 }
 
 /** Turns "/a/b/exports/renders" and a folder into the path the panel shows. */

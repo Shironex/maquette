@@ -4,7 +4,7 @@ import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, EmptyState, Icon, SegmentedControl, Select, cn } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { BakeBackNote } from '../BakeBackNote';
-import { formatK } from '@/lib/format';
+import { counted, formatK } from '@/lib/format';
 import { badge } from '../badge';
 import { PartActions, PartsList } from './PartsList';
 import { MaterialPanel } from '../MaterialPanel';
@@ -81,7 +81,7 @@ export default function PartsPanel() {
               {found
                 ? oneMesh
                   ? 'One mesh: it moves only as a whole'
-                  : `${found.rows.length} parts${found.split ? ' · split in Blender' : ''}`
+                  : `${counted(found.rows.length, 'part')}${found.split ? ' · split in Blender' : ''}`
                 : p.busy
                   ? p.splitting
                     ? 'Splitting a copy in Blender...'

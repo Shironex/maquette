@@ -2,7 +2,7 @@
 
 Call `get_started` first. It says whether a workspace is open, which tools work, which keys are saved
 (true or false, never a value), every project with its stage, the gates only a person can pass, and
-a `next` list. No project to work in: `create_project` makes one and spends nothing. If the Maquette
+a `next` list; it is short, and `detail: true` gives every row and gate. No project to work in: `create_project` (`target` is `website` or `game`) makes one and spends nothing. No tool removes a project; a removed project's id fails with not-found, and only a person restores it. If the Maquette
 tools fail with `ECONNREFUSED`, the app is closed or its server is off: ask the person to open
 Maquette and turn the server on in Settings > Agents. An error names its `code`, and `fix` and
 `tryTool` when they help; `personOnly` means ask the person instead of trying again.

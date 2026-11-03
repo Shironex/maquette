@@ -381,3 +381,11 @@ fn the_recent_average_uses_measured_lines_at_the_same_quality() {
     assert!((newest - 0.05).abs() < 1e-12, "{newest}");
     assert_eq!(recent_average_usd(&lines, ImageQuality::Low), None);
 }
+
+#[test]
+fn no_images_this_month_is_plain_zero_dollars() {
+    let spent = month_to_date(&[], NOW);
+    assert_eq!(spent, 0.0);
+    assert!(spent.is_sign_positive(), "never -0.0");
+    assert_eq!(serde_json::json!(spent).to_string(), "0.0");
+}

@@ -86,6 +86,27 @@ describe('the Next step strip', () => {
     );
   });
 
+  it('counts only the Inbox models of this project, none on an empty one', async () => {
+    await withAssets([]);
+    useFirstRunTips.setState({ hidden: true });
+    const linked = (project: string) => ({ id: `${project}.glb`, link: { project }, aim: null });
+    act(() =>
+      useInboxStore.setState({
+        snapshot: { items: [linked('other'), linked('other'), { id: 'loose.glb' }] } as never,
+      })
+    );
+    render(<NextStepStrip />);
+    expect(screen.getByRole('region', { name: 'Next step' })).not.toHaveTextContent('Inbox');
+    act(() =>
+      useInboxStore.setState({
+        snapshot: { items: [linked('frostveil'), linked('other')] } as never,
+      })
+    );
+    expect(screen.getByRole('region', { name: 'Next step' })).toHaveTextContent(
+      '1 model waits in the Inbox'
+    );
+  });
+
   it('keeps a dismissal to its own project', async () => {
     await withAssets(['refs']);
     render(<NextStepStrip />);

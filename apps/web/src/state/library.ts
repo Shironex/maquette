@@ -14,7 +14,7 @@ import type {
   LibraryView,
   ProjectManifest,
 } from '@/ipc/client';
-import { formatAgo, formatBytes, formatK } from '@/lib/format';
+import { formatAgo, formatBytes, formatK, noun } from '@/lib/format';
 import { matchesQuery, parseQuery } from './library-query';
 
 export const SOURCE_LABEL: Record<LibrarySource, string> = {
@@ -226,7 +226,7 @@ export function creditLine(item: LibraryItem): { text: string; saved: boolean } 
   const spent = item.spent ?? 0;
   if (saved > 0) return { text: `${formatK(saved)} saved by reuse`, saved: true };
   const source = latestOf(item)?.source;
-  if (spent > 0) return { text: `${formatK(spent)} credits`, saved: false };
+  if (spent > 0) return { text: `${formatK(spent)} ${noun(spent, 'credit')}`, saved: false };
   if (source === 'built') return { text: 'no credits, built', saved: false };
   if (source === 'by-hand') return { text: 'no credits, by hand', saved: false };
   return { text: 'no credits', saved: false };
@@ -234,7 +234,7 @@ export function creditLine(item: LibraryItem): { text: string; saved: boolean } 
 
 /** "Tripo · 30 credits · 2 days ago". */
 export function versionLine(v: LibraryVersion, nowMs: number): string {
-  const credits = v.credits ? ` · ${formatK(v.credits)} credits` : '';
+  const credits = v.credits ? ` · ${formatK(v.credits)} ${noun(v.credits, 'credit')}` : '';
   return `${SOURCE_LABEL[v.source]}${credits} · ${formatAgo(Date.parse(v.createdAt), nowMs)}`;
 }
 

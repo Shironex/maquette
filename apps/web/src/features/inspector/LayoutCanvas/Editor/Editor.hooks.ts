@@ -23,6 +23,7 @@ import { useEditorCamera } from './use-editor-camera';
 import { useEditorGizmo } from './use-editor-gizmo';
 import { useEditorScene } from './use-editor-scene';
 import { LOAD_AT_ONCE, inTurns, uploadTextures } from './load-in-turns';
+import { counted } from '@/lib/format';
 
 /**
  * Loads every model once, a few at a time with turns for the window between,
@@ -78,7 +79,7 @@ export function useHolders(
         fail(
           failed === list.length
             ? 'The models did not load.'
-            : `${failed} of ${list.length} models did not load.`
+            : `${failed} of ${counted(list.length, 'model')} did not load.`
         );
       }
       setHolders(made);

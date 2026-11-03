@@ -67,7 +67,11 @@ fn budgets_line(settings: &PackSettings) -> String {
 /// The README a pack carries.
 pub(super) fn readme(record: &PackRecord, items: &[&PackItem]) -> String {
     let s = &record.settings;
-    let mut text = format!("{}, {} models\n\n", record.name, items.len());
+    let models = match items.len() {
+        1 => "1 model".to_string(),
+        n => format!("{n} models"),
+    };
+    let mut text = format!("{}, {models}\n\n", record.name);
     let texture = if s.texture == 0 {
         "textures as they were".to_string()
     } else {

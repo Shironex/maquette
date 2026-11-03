@@ -62,6 +62,7 @@ fn job(id: &str, asset_name: &str, created_at_ms: f64) -> ProviderJob {
         split: None,
         studio: None,
         retexture: None,
+        denied: false,
     }
 }
 

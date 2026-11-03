@@ -1,4 +1,5 @@
 import { useRoundSummary } from './RoundSummary.hooks';
+import { counted } from '@/lib/format';
 
 function Stat({ label, value, note }: { label: string; value: number; note: string }) {
   return (
@@ -26,7 +27,7 @@ export default function RoundSummary() {
       <Stat
         label="Redo sent"
         value={round.redoSent}
-        note={credits > 0 ? `${credits} credits` : 'no credits known'}
+        note={credits > 0 ? counted(credits, 'credit') : 'no credits known'}
       />
       <Stat label="Discarded" value={round.discarded} note="kept 30 days" />
       <Stat label="Still waiting" value={waiting} note={waiting === 1 ? 'send' : 'sends'} />

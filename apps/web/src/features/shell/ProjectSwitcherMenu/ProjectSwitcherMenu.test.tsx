@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { isSwitcherShortcut, switchNote } from '@/state/projects';
 import { useAppStore } from '@/state/use-app-store';
 import { useProjectsStore } from '@/state/use-projects-store';
+import { useProjectTrashStore } from '@/state/use-project-trash-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
 import { ProjectSwitcherMenu } from '.';
@@ -47,6 +48,19 @@ describe('the project switcher', () => {
     expect(useAppStore.getState().workspace?.config.currentProject).toBe('frost-cathedral');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(anchor.current).toHaveFocus();
+  });
+
+  it('offers Remove for the open project and the Removed projects list', async () => {
+    await openMockWorkspace();
+    renderMenu();
+    useProjectsStore.getState().openMenu();
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove Frostveil' }));
+    expect(useProjectTrashStore.getState().asking).toBe('frostveil');
+    expect(screen.queryByRole('menu')).toBeNull();
+    useProjectsStore.getState().openMenu();
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Removed projects' }));
+    expect(useProjectTrashStore.getState().listOpen).toBe(true);
+    useProjectTrashStore.setState({ asking: null, listOpen: false });
   });
 
   it('closes on Escape and gives focus back to the switcher', async () => {

@@ -4,7 +4,7 @@
  * table and dots as before and after a split.
  */
 import type { InspectModel, ModelParts, ProviderJob, RealSize, SizeAxis } from '@/ipc/client';
-import { formatBytes, formatK } from '@/lib/format';
+import { counted, formatBytes, formatK } from '@/lib/format';
 import { num, type Stop } from './inspector';
 import { PROVIDER_LABEL } from './providers';
 import { betterOf, checksLine, checksTrouble, type CompareRow } from './parts-compare';
@@ -57,7 +57,7 @@ export function creditsOf(job: ProviderJob | null): number | null {
 /** "30 credits", or null when no send made it. */
 export function creditsNote(job: ProviderJob | null): string | null {
   const credits = creditsOf(job);
-  return credits === null ? null : `${credits} credits`;
+  return credits === null ? null : counted(credits, 'credit');
 }
 
 /** The model's longest side in metres, 0 when unmeasured. */

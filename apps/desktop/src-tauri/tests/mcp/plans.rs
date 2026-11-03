@@ -124,6 +124,7 @@ async fn an_agent_plans_beside_a_person_and_undoes_its_run() {
         direction: None,
         by: None,
         person_wrote: false,
+        person_placed: false,
         stop: None,
     };
     plans::change(&moon, "hero-ideas", &Writer::PERSON, |_| {

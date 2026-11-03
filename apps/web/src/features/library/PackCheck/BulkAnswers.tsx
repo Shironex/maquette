@@ -1,6 +1,7 @@
 import { Button } from '@maquette/ui';
 import type { PackDecision } from '@/ipc/client';
 import type { WarningGroup } from '@/state/packs';
+import { counted } from '@/lib/format';
 
 export interface BulkAnswersProps {
   groups: readonly WarningGroup[];
@@ -17,7 +18,7 @@ export default function BulkAnswers({ groups, busy, onDecide }: BulkAnswersProps
       <div
         key={g.kind}
         role="group"
-        aria-label={`${g.label}, ${count} models`}
+        aria-label={`${g.label}, ${counted(count, 'model')}`}
         className="flex flex-col gap-2 rounded-card border border-line bg-raised p-3"
       >
         <span className="text-meta text-fg-dim">

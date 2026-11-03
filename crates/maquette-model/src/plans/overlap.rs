@@ -235,12 +235,19 @@ type Word = (OverlapPart, String);
 
 /// The overlaps of a Game mechanics canvas, in node id order, each marked
 /// fine when the person marked its pair for the words it holds now. Other
-/// presets have none. Each card is paired only with the cards after it, a
-/// card at a time, so the work stops once [`MAX_OVERLAPS`] are found.
+/// presets have none, and skip the check. A canvas whose cards' words and
+/// marks did not change since a recent check gets that answer again
+/// ([`cache`]).
 pub fn overlaps(plan: &PlanFile) -> Vec<Overlap> {
     if plan.preset != PlanPreset::Mechanics {
         return Vec::new();
     }
+    cache::answer(plan, find)
+}
+
+/// The check itself. Each card is paired only with the cards after it, a
+/// card at a time, so the work stops once [`MAX_OVERLAPS`] are found.
+fn find(plan: &PlanFile) -> Vec<Overlap> {
     let starters: BTreeSet<String> = presets::starter_values().map(str::to_lowercase).collect();
     let mut cards: BTreeMap<&str, (&PlanNode, Vec<Word>)> = BTreeMap::new();
     for node in &plan.nodes {
@@ -325,6 +332,8 @@ pub(super) fn check_fine(plan: &PlanFile) -> CoreResult<()> {
     }
     Ok(())
 }
+
+mod cache;
 
 #[cfg(test)]
 mod tests;

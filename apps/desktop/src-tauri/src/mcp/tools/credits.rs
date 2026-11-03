@@ -76,8 +76,10 @@ pub(super) fn decisions_of(host: &dyn Host) -> Vec<DecisionRecord> {
         .unwrap_or_default()
 }
 
+/// Dollars to a tenth of a cent. Adding 0.0 turns -0.0 (an empty sum, or a
+/// tiny negative rounded) into 0.0, so an answer never says -0.0.
 fn usd(n: f64) -> f64 {
-    (n * 1000.0).round() / 1000.0
+    (n * 1000.0).round() / 1000.0 + 0.0
 }
 
 /// The month's OpenAI image dollars against the cap, from `credits.jsonl`.

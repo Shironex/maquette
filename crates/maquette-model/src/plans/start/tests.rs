@@ -32,6 +32,7 @@ fn node(id: &str, kind: NodeKind, x: i32, y: i32, by: Option<&str>) -> PlanNode 
         direction: None,
         by: by.map(str::to_string),
         person_wrote: false,
+        person_placed: false,
         stop: None,
     }
 }

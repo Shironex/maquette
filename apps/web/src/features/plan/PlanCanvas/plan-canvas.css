@@ -297,6 +297,12 @@
   font: 500 11px/1 var(--font-mono);
 }
 
+/* Every overlap is marked as fine: the count stays, without the call to look. */
+.plan-count-quiet {
+  background: var(--bg-hover);
+  color: var(--text-dim);
+}
+
 /* Bottom middle, between the zoom controls and the minimap, so it never covers nodes that just came. */
 .plan-toast {
   position: absolute;

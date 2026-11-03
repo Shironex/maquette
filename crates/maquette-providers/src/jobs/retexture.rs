@@ -182,6 +182,7 @@ impl ProviderJobs {
             retexture: Some(RetextureJob {
                 from_version: request.version,
             }),
+            denied: false,
         };
         let stored = Stored {
             job: job.clone(),

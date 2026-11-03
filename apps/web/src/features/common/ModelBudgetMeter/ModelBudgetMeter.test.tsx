@@ -21,7 +21,7 @@ describe('ModelBudgetMeter', () => {
       />
     );
     expect(
-      screen.getByRole('meter', { name: 'Game budget, 0 of 1 models over' })
+      screen.getByRole('meter', { name: 'Game budget, 0 of 1 model over' })
     ).toBeInTheDocument();
   });
 });

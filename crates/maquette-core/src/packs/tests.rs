@@ -520,7 +520,7 @@ fn finishing_writes_the_readme_manifest_sheet_and_zip_of_what_passes() {
     let mut record = done_record(dir.path());
     let taken: Vec<&PackItem> = record.items.iter().take(1).collect();
     let text = readme(&record, &taken);
-    assert!(text.starts_with("village-props, 1 models"));
+    assert!(text.starts_with("village-props, 1 model\n"));
     assert!(text.contains("Format    OBJ, Y up, metres, real size"));
     assert!(
         text.contains("Budget    props 3,000, characters as they are, scenes 20,000"),

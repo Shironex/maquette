@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  counted,
+  noun,
   formatAgo,
   formatBytes,
   formatClock,
@@ -53,5 +55,14 @@ describe('formatAgo in days', () => {
   it('switches to days after two days', () => {
     expect(formatAgo(0, 47 * 3_600_000)).toBe('47 h ago');
     expect(formatAgo(0, 144 * 3_600_000)).toBe('6 days ago');
+  });
+});
+
+describe('counted', () => {
+  it('says 1 image, never 1 images', () => {
+    expect(counted(1, 'image')).toBe('1 image');
+    expect(counted(0, 'image')).toBe('0 images');
+    expect(counted(3, 'image')).toBe('3 images');
+    expect(noun(2, 'is', 'are')).toBe('are');
   });
 });

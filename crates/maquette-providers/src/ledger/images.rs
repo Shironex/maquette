@@ -85,7 +85,9 @@ pub fn month_to_date(images: &[ImageSpend], now_ms: f64) -> f64 {
         .iter()
         .filter(|s| s.at_ms >= start && s.at_ms <= now_ms + 60_000.0)
         .map(|s| s.usd.max(0.0))
-        .sum()
+        .sum::<f64>()
+        // An empty sum of floats is -0.0; dollars never show a minus sign.
+        + 0.0
 }
 
 /// How many of the newest measured images [`recent_average_usd`] averages.

@@ -7,6 +7,7 @@ import { fileUrl } from '@/ipc/files';
 import { BACKDROP, castShadows, frameCamera, gltfLoader, studioRig } from '../../studio';
 import type { AssembleStageProps, StagePart } from '../AssembleStage.types';
 import { pivotPoint, placeHolder, placeOf } from './place';
+import { counted } from '@/lib/format';
 
 type PlacerProps = Omit<AssembleStageProps, 'className'>;
 
@@ -55,7 +56,7 @@ function useHolders(
     ).then(results => {
       if (!alive) return;
       const failed = results.filter(r => r.status === 'rejected').length;
-      if (failed > 0) fail(`${failed} of ${results.length} parts did not load.`);
+      if (failed > 0) fail(`${failed} of ${counted(results.length, 'part')} did not load.`);
       setHolders(made);
     });
     return () => {

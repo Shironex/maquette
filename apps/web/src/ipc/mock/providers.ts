@@ -29,6 +29,7 @@ import { over, studioOf } from './studio-of';
 import { clock } from '@/lib/clock';
 import type { Args } from './backend-options';
 import { createKeyStore } from './create-key-store';
+import { deniedCardBack, deniedJob } from './denied-card-back';
 import { handoffCard } from './handoff-card';
 import { jobFactory } from './job-factory';
 import { labRefs } from './lab-fixtures';
@@ -363,14 +364,10 @@ export function createFakeProviders({
       put({ ...job, state: 'queued', message: null });
       setTimeout(() => run(job.id), 400);
     } else {
-      put({
-        ...job,
-        state: 'cancelled',
-        finishedAtMs: clock.nowMs(),
-        message: 'Denied in Maquette. Nothing was spent.',
-        cancel: 'none',
-      });
-      touch(job, 'queued');
+      put(deniedJob(job, clock.nowMs()));
+      // Its card goes back to Refs while it has no model, as the core does.
+      const back = saveProject(deniedCardBack(project(job.project), job, jobs));
+      emit?.({ type: 'project', project: back });
     }
   };
 

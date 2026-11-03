@@ -190,6 +190,7 @@ fn node_of(spec: &NewNode, id: String, agent: &Agent<'_>) -> PlanNode {
         direction: keeps(NodeKind::Direction, &spec.direction),
         by: Some(agent.name.to_string()),
         person_wrote: false,
+        person_placed: false,
         stop: None,
     }
 }

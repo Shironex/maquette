@@ -39,6 +39,7 @@ fn card(id: &str, x: i32, title: &str, text: &str) -> PlanNode {
         direction: None,
         by: None,
         person_wrote: false,
+        person_placed: false,
         stop: None,
     }
 }

@@ -87,11 +87,15 @@ fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
 
 /// Marks agent nodes a person wrote in: a person's write to the content
 /// sets [`PlanNode::person_wrote`] and no agent's write clears it, so every
-/// agent change on top of the person's words stays held for undo.
+/// agent change on top of the person's words stays held for undo. A
+/// person's move sets [`PlanNode::person_placed`], which only keeps auto
+/// layout off the node.
 fn mark_writers(current: &PlanFile, next: &mut PlanFile, person: bool) {
     for node in next.nodes.iter_mut().filter(|n| n.by.is_some()) {
         if let Some(was) = current.nodes.iter().find(|c| c.id == node.id) {
             node.person_wrote = was.person_wrote || (person && !same_content(was, node));
+            node.person_placed =
+                was.person_placed || (person && (was.x, was.y) != (node.x, node.y));
         }
     }
 }

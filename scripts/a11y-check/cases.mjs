@@ -607,4 +607,52 @@ export const cases = [
       await page.getByRole('searchbox', { name: 'Find a project' }).waitFor();
     },
   },
+  {
+    name: 'remove project refused',
+    query: CONFIGURED,
+    hash: '#/board',
+    async ready(page) {
+      await boardReady(page);
+      await page.locator('[aria-haspopup=menu]').first().click();
+      await page.getByRole('menuitem', { name: 'Remove Frostveil' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Remove Frostveil?' });
+      await dialog.getByRole('note').waitFor();
+      await dialog.locator('button[aria-disabled="true"]', { hasText: 'Remove project' }).waitFor();
+    },
+  },
+  {
+    name: 'removed projects',
+    query: CONFIGURED,
+    hash: '#/board',
+    async ready(page) {
+      await boardReady(page);
+      const switcher = page.locator('[aria-haspopup=menu]').first();
+      await switcher.click();
+      await page.getByRole('menuitemradio', { name: /^Elsheria showcase/ }).click();
+      await page.getByRole('heading', { name: 'Elsheria showcase' }).waitFor();
+      await switcher.click();
+      await page.getByRole('menuitem', { name: 'Remove Elsheria showcase' }).click();
+      const ask = page.getByRole('dialog', { name: 'Remove Elsheria showcase?' });
+      await ask.getByRole('button', { name: 'Remove project' }).click();
+      await ask.waitFor({ state: 'detached' });
+      await switcher.click();
+      await page.getByRole('menuitem', { name: 'Removed projects' }).click();
+      await page.getByRole('button', { name: 'Restore Elsheria showcase' }).waitFor();
+    },
+  },
+  {
+    name: 'plan overlaps all marked as fine',
+    query: `${CONFIGURED}&plans=systems`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCanvas(page, 'Combat systems');
+      await page.getByRole('button', { name: /^Overlaps/ }).click();
+      const panel = page.getByRole('complementary', { name: 'Overlaps' });
+      await page.getByRole('button', { name: /^Mark as fine: Dash and Frost veil/ }).click();
+      await panel.getByText('1 found', { exact: true }).waitFor();
+      await page.getByRole('button', { name: /^Mark as fine: Sigils and Runes/ }).click();
+      await page.getByRole('button', { name: /^Overlaps\s*,\s*2\s*marked as fine$/ }).waitFor();
+      await panel.getByText('2 marked as fine', { exact: true }).waitFor();
+    },
+  },
 ];
