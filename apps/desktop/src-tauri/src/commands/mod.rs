@@ -34,6 +34,7 @@ pub mod plan_watch;
 pub mod plans;
 pub mod prepare;
 pub mod project;
+pub mod project_trash;
 pub mod providers;
 pub mod quit;
 pub mod refs;

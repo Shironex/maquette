@@ -64,6 +64,12 @@ export const commands = {
 	projectUpdate: (id: string, name: string, siteRepo: string | null) => __TAURI_INVOKE<ProjectManifest>("project_update", { id, name, siteRepo }),
 	projectInspectRepo: (path: string) => __TAURI_INVOKE<RepoInspection>("project_inspect_repo", { path }),
 	projectScanImport: (path: string) => __TAURI_INVOKE<ImportScan>("project_scan_import", { path }),
+	/**  Moves a project to the workspace trash. Refused while work runs in it. */
+	projectRemove: (id: string) => __TAURI_INVOKE<ProjectRemoved>("project_remove", { id }),
+	/**  The projects in the workspace trash, newest first. */
+	projectRemovedList: () => __TAURI_INVOKE<RemovedProject[]>("project_removed_list"),
+	/**  Puts a removed project back and opens it. */
+	projectRestore: (trash: string) => __TAURI_INVOKE<WorkspaceSnapshot>("project_restore", { trash }),
 	/**
 	 *  What New project shows for a game repo: CMake, the model folder, the
 	 *  format and the loader.
@@ -6170,6 +6176,15 @@ export type ProjectManifest = {
 	assets?: Asset[],
 };
 
+/**
+ *  What Remove project did: the project as the trash keeps it, and the
+ *  workspace after it, open on another project or on none.
+ */
+export type ProjectRemoved = {
+	removed: RemovedProject,
+	workspace: WorkspaceSnapshot,
+};
+
 /**  One row of the project switcher. */
 export type ProjectSummary = {
 	id: string,
@@ -6456,6 +6471,20 @@ export type RemoveState = "removed" |
 "not-found" | 
 /**  Something is still working on it; `reason` says what to do. */
 "refused";
+
+/**  One removed project in the trash, newest first in [`list_removed`]. */
+export type RemovedProject = {
+	/**  The trash id [`restore_project`] takes. */
+	trash: string,
+	/**  The project's id and name when it was removed. */
+	id: string,
+	name: string,
+	target: ProjectTarget,
+	removedAt: string,
+	assets: number,
+	/**  Relative to the workspace, with `/` separators. */
+	path: string,
+};
 
 /**  Where a still's camera stands. */
 export type RenderCamera = "front" | "three-quarter" | "side";

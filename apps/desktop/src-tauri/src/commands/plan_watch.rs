@@ -29,6 +29,26 @@ const MAX_FOLDERS: usize = 4;
 #[derive(Default)]
 pub struct PlanWatch(Mutex<Vec<(PathBuf, InboxWatcher)>>);
 
+impl PlanWatch {
+    /// Stops watching every folder under `project_dir`, before the project
+    /// moves (Windows refuses to move a folder something watches).
+    pub fn forget_under(&self, project_dir: &Path) {
+        let gone: Vec<InboxWatcher> = {
+            let mut folders = self
+                .0
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let (kept, gone): (Vec<_>, Vec<_>) = folders
+                .drain(..)
+                .partition(|(dir, _)| !dir.starts_with(project_dir));
+            *folders = kept;
+            gone.into_iter().map(|(_, w)| w).collect()
+        };
+        // Dropped outside the lock: a watcher's thread may be mid event.
+        drop(gone);
+    }
+}
+
 /// The canvas id a changed path in `plans/` belongs to, when it is a
 /// canvas file or a change log.
 pub fn canvas_of(path: &Path) -> Option<String> {
