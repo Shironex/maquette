@@ -170,7 +170,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
     let made = call(
         &client,
         "create_project",
-        json!({ "name": "Moon Island", "kind": "website", "template": "room" }),
+        json!({ "name": "Moon Island", "target": "website", "template": "room" }),
     )
     .await;
     assert_eq!(made["project"]["id"], "moon-island");

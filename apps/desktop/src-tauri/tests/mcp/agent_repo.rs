@@ -54,7 +54,7 @@ async fn only_a_real_repo_outside_the_workspace_is_taken() {
     call(
         &client,
         "create_project",
-        json!({ "name": "Web", "kind": "website" }),
+        json!({ "name": "Web", "target": "website" }),
     )
     .await;
     let (root, config) = host.session.workspace().expect("ws");
@@ -135,7 +135,7 @@ async fn a_bad_value_leaves_the_new_repo_and_the_old_one_alone() {
     call(
         &client,
         "create_project",
-        json!({ "name": "Web", "kind": "website" }),
+        json!({ "name": "Web", "target": "website" }),
     )
     .await;
     let (root, config) = host.session.workspace().expect("ws");
@@ -189,7 +189,7 @@ async fn the_repo_stays_put_while_a_run_is_going() {
     call(
         &client,
         "create_project",
-        json!({ "name": "Web", "kind": "website" }),
+        json!({ "name": "Web", "target": "website" }),
     )
     .await;
     let (root, config) = host.session.workspace().expect("ws");
@@ -252,7 +252,7 @@ async fn a_linked_repo_is_saved_as_the_folder_itself() {
     call(
         &client,
         "create_project",
-        json!({ "name": "Web", "kind": "website" }),
+        json!({ "name": "Web", "target": "website" }),
     )
     .await;
     let (root, config) = host.session.workspace().expect("ws");
@@ -293,7 +293,7 @@ async fn a_game_settings_call_with_a_bad_value_does_not_move_the_repo() {
     call(
         &client,
         "create_project",
-        json!({ "name": "Crypt", "kind": "game" }),
+        json!({ "name": "Crypt", "target": "game" }),
     )
     .await;
     let (root, config) = host.session.workspace().expect("ws");
@@ -327,7 +327,7 @@ async fn a_ship_plan_runs_no_git_in_a_repo_an_agent_chose() {
     call(
         &client,
         "create_project",
-        json!({ "name": "Crypt", "kind": "game" }),
+        json!({ "name": "Crypt", "target": "game" }),
     )
     .await;
     // The fixture is real: a plain git status does run the filter, even with

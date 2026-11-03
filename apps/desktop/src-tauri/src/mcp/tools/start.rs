@@ -27,10 +27,10 @@ mod tests;
 
 use next::{Facts, ProjectFacts, next_steps};
 
-/// The kind of project to make.
+/// Where the project ships, as list_projects says it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-pub enum KindArg {
+pub enum TargetArg {
     /// Ships a 3D scene or models to a site repo.
     Website,
     /// Ships models into a game repo.
@@ -42,8 +42,10 @@ pub enum KindArg {
 pub struct CreateProjectArgs {
     /// The project's name. A name another project has, or that makes the same id, is refused.
     pub name: String,
-    /// website or game.
-    pub kind: KindArg,
+    /// website or game, the target list_projects answers with. `kind` is
+    /// still read as another name for it.
+    #[serde(alias = "kind")]
+    pub target: TargetArg,
     /// A website template id such as floating-diorama (the default), room or character-showcase,
     /// or a game template id as get_game lists them, such as prop-set (none by default).
     pub template: Option<String>,
@@ -70,7 +72,7 @@ fn website_template(template: Option<&str>) -> Result<ProjectTemplate, String> {
             "The imported template starts from a folder of Blender files: a person picks it in New project in the app. Use a template such as floating-diorama here.".to_string(),
         ),
         Some(ProjectTemplate::GameImport) => {
-            Err("game-import is for games. Pass kind game.".to_string())
+            Err("game-import is for games. Pass target game.".to_string())
         }
         Some(found) => Ok(found),
         None => Err(format!(
@@ -118,13 +120,13 @@ fn new_project(
         .map(|r| checked_repo(host.session(), r))
         .transpose()?;
     let site_repo = repo.as_ref().map(|r| r.display().to_string());
-    let (template, target, game) = match args.kind {
-        KindArg::Website => (
+    let (template, target, game) = match args.target {
+        TargetArg::Website => (
             website_template(args.template.as_deref())?,
             ProjectTarget::Website,
             None,
         ),
-        KindArg::Game => {
+        TargetArg::Game => {
             let found = repo.as_deref().map(inspect_game_repo).unwrap_or_default();
             (
                 ProjectTemplate::GameImport,
@@ -382,7 +384,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make a project, as New project in the app does: name, kind (website or game), optional template and optional site repo (the game repo for a game). A name another project has is refused, nothing is overwritten, and there is no tool that deletes a project. The app's open project stays as it is, unless none was open. Spends nothing and needs no approval. Returns the project and next."
+        description = "Make a project, as New project in the app does: name, target (website or game, as list_projects says it; kind is read as another name for it), optional template and optional site repo (the game repo for a game). A name another project has is refused and nothing is overwritten. No tool removes a project: a person removes one to the workspace trash in the app. The app's open project stays as it is, unless none was open. Spends nothing and needs no approval. Returns the project and next."
     )]
     async fn create_project(&self, Parameters(args): Parameters<CreateProjectArgs>) -> Out {
         let found = self
