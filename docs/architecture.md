@@ -268,7 +268,7 @@ file, `scripts/check-skills.mjs` judges the skills by it, and the `tools-documen
 it. A new tool goes into its `tools/` file and the instructions; then commit the regenerated
 `tool-names.txt` and name the tool in the README and the docs page.
 
-`tools/plans.rs` and `tools/plan_edits.rs` hold the nine planning canvas tools. They go through
+`tools/plans.rs`, `tools/plan_edits.rs` and `tools/plan_extras.rs` hold the eleven general planning canvas tools (`propose_removal` and `start_from_node` in the last). They go through
 `maquette_core::plans` (see Planning canvases), and each write ends in `Host::plan_changed`, which
 emits `PlanChanged` so an open canvas reloads and keeps the person's unsaved edits. Answers are short
 on purpose: ids, counts and one line per node, with `full` for whole texts.
@@ -1031,9 +1031,9 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   two writers never write over each other: each sends what it changed, and the other's work stays.
   The web side's `plan_apply` (it replaced the whole canvas save) sends the operations between the
   canvas the view last had from the file and what it shows, and returns what the file now holds.
-- **Agents.** `plans/agent.rs` is what the nine general canvas tools call (`list_canvases`, `get_canvas`,
+- **Agents.** `plans/agent.rs` is what the general canvas tools call (`list_canvases`, `get_canvas`,
   `get_changes` read; `create_canvas`, `add_nodes`, `update_nodes`, `remove_nodes`, `layout_canvas`
-  and `undo_run` write). Each write names the agent as `by` (the `agent` argument, else the MCP
+  and `undo_run` write; `propose_removal` and `start_from_node` are under Extras below). Each write names the agent as `by` (the `agent` argument, else the MCP
   client's name, one line, at most 64 characters) and may name a `run` to group calls. At most 100
   nodes and links per call, and everything is checked before anything is written. An agent may add
   anything and edit or move any node, a person's too, since the log keeps what it said before. It
@@ -1103,6 +1103,43 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   itself a logged change. The view's own Mod+Z, Shift+Mod+Z and Mod+Y undo and redo a person's edits
   in the open canvas (`state/plan-history.ts`, 100 edits deep) the same way, as inverted operations,
   so an agent's write that landed in between is not undone with them.
+- **Extras.** Four additions, each a logged change the person can undo, with the person's side in
+  `commands/plan_extras.rs` and the web side in `state/use-plan-extras-store.ts`:
+  - _Removal proposals_ (`plans/removal.rs`). `propose_removal` asks the person to remove nodes an
+    agent may not remove. It writes no operations: the ask is a log line with `proposes` (each node's
+    id, name and a key of its content without its place, and the reason), so plain canvases need no
+    new version. Rotation keeps an open ask, outside the keepers' budget, and at most 50 wait per
+    canvas. `removal::open` lists them with each node `here`, `changed` or `gone`, and the ask is
+    stale when any is not `here`. Only the person answers (`plan_answer_removal`): Remove writes the
+    person's own change (the nodes and their links), refused when stale, and Keep it writes a line
+    with no operations; both carry `resolves`. No MCP tool answers an ask, and `undo_run` refuses it.
+    The Changes panel shows open asks first (`features/plan/RemovalAsks`), the nodes carry an "asked
+    to remove" badge, and the footer says agents never delete a person's nodes, they ask.
+  - _Start from a node_ (`plans/start.rs`). `start_from` copies the node and the nodes one link away
+    (with the links among them, fresh ids, the node at 0, 0, authorship kept) into a new canvas
+    through the usual create path, as its first line, under the person or the agent. The source
+    never changes. Asset and direction nodes stay links, a stop never starts one and linked stops
+    are left out, the preset follows the source (a brainstorm from the camera plan), and the camera
+    plan's id stays reserved. The view offers it over the selected node (`NodeToolbar`).
+  - _Auto layout after agents._ `autoLayout` on the canvas, on unless the person turns it off
+    (`settings.rs`, a `set-auto-layout` operation). While on, `add_nodes` and `update_nodes` end with
+    `agent/tidy.rs`'s tidy of that call's own overlapping nodes, logged as a line of its own ("Moved
+    N nodes with auto layout") so the person can undo it apart from the write; a person's nodes never
+    move. While off, nothing is tidied and `layout_canvas` is refused.
+  - _Overlaps_ (`plans/overlap.rs`). On a Game mechanics canvas, two note cards whose `Verb:`,
+    `Look:` or `Input:` lines share a main word overlap: the first content word of a verb, the last
+    of a look, each key of an input with the gesture left out, lower case, plurals read as singular,
+    starter wording left out. `PlanDoc.overlaps` carries them on every read and `get_canvas` shows
+    them to agents. Mark as fine (`plan_mark_fine`, the person's only) stores `fine` marks keyed by an
+    FNV-1a hash of both cards' titles and texts, so a flag comes back once either card's words
+    change. `overlap/cases.json` holds the cases the core and the mock's copy (`ipc/mock/plan-overlap.ts`)
+    are both tested on. The view flags the cards and lists the pairs in the Overlaps panel
+    (`features/plan/OverlapsPanel`).
+
+  `autoLayout` (written only when off) and `fine` (only when not empty) make a file version 4; a
+  file that uses neither stays version 2 (3 with a camera plan), so an older app still opens it, and
+  one that does is refused by an older app rather than having them dropped.
+
 - **Watching.** `commands/plan_watch.rs` watches the project's `plans/` folder while a canvas is open
   (`plan_watch`; one watcher per folder, shared by every window, the four newest folders stay; a
   project with no `plans/` folder yet answers false and the view asks again once it has a canvas)
