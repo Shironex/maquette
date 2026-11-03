@@ -21,6 +21,7 @@ use crate::commands::image_api;
 use crate::commands::project::{checked_repo, create_in_workspace, summaries};
 use crate::mcp::host::Host;
 
+mod compact;
 mod next;
 #[cfg(test)]
 mod tests;
@@ -53,6 +54,15 @@ pub struct CreateProjectArgs {
     /// absolute or starting with ~, outside the workspace. It can be set later
     /// (set_ship_settings siteRepo, set_game_settings repo).
     pub site_repo: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetStartedArgs {
+    /// true adds every tool's version and hint, each project's template, repo,
+    /// stages and activity, the image backend's settings and every gate a
+    /// person passes, the approvals too. Left out, the answer is short.
+    pub detail: Option<bool>,
 }
 
 const WEBSITE_DEFAULT: ProjectTemplate = ProjectTemplate::FloatingDiorama;
@@ -225,7 +235,8 @@ fn stage_counts(manifest: &ProjectManifest) -> Value {
     Value::Object(counts)
 }
 
-/// What only a person can get past, as far as this computer says now.
+/// What only a person can get past, as far as this computer says now: the
+/// approvals that always wait for a person, then [`blocking_gates`].
 fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<Value> {
     let gate = |what: &str, place: &str| json!({ "gate": what, "where": place });
     let mut out = vec![
@@ -258,6 +269,15 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
             "Settings > Image generation",
         ),
     ];
+    out.extend(blocking_gates(reports, keys));
+    out
+}
+
+/// The gates that stand in the way on this computer right now: a missing
+/// key, Blender or Codex.
+fn blocking_gates(reports: &[ToolReport], keys: &Keys) -> Vec<Value> {
+    let gate = |what: &str, place: &str| json!({ "gate": what, "where": place });
+    let mut out = Vec::new();
     if keys.tripo == Some(false) && keys.meshy == Some(false) {
         out.push(gate(
             "Save a Tripo or Meshy API key, or use provider by-hand for free",
@@ -298,17 +318,18 @@ fn read_keys(host: &dyn Host) -> Keys {
     }
 }
 
-fn started(host: &dyn Host) -> Result<Value, ToolError> {
+fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
     let reports = host.tool_reports();
     let tools: Vec<Value> = reports.iter().map(tool_value).collect();
     let Ok((root, config)) = host.session().workspace() else {
         let next = next_steps(&Facts::no_workspace());
-        return Ok(json!({
+        let full = json!({
             "workspace": Value::Null,
             "toolchain": tools,
             "projects": [],
             "next": next,
-        }));
+        });
+        return Ok(if detail { full } else { compact::compact(full) });
     };
     let keys = read_keys(host);
     let image = image_api::status_with(
@@ -360,7 +381,7 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         inbox: inbox_count,
         project: facts.into_iter().nth(current),
     });
-    Ok(json!({
+    let full = json!({
         "workspace": host.session().display(&root),
         "toolchain": tools,
         "keys": { "tripo": keys.tripo, "meshy": keys.meshy, "openai": keys.openai },
@@ -368,19 +389,22 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         "askBeforeShipping": ask,
         "inboxModels": inbox_count,
         "projects": projects,
-        "personGates": gates(&reports, &keys, ask),
+        "openProject": config.current_project,
+        "personGates": if detail { gates(&reports, &keys, ask) } else { blocking_gates(&reports, &keys) },
         "next": next,
-    }))
+    });
+    Ok(if detail { full } else { compact::compact(full) })
 }
 
 #[tool_router(router = start_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start here: read where things stand on this computer. The workspace, each tool of the toolchain (found, missing or broken, with its version and how to fix it), whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backend, Ask before shipping, the inbox count, every project with its target and stage (empty, or the earliest stage an asset is at), the gates only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. Works with no workspace open. Reads only; spends nothing.",
+        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every approval a person gives. Works with no workspace open. Reads only; spends nothing.",
         annotations(read_only_hint = true)
     )]
-    async fn get_started(&self) -> Out {
-        respond(self.blocking(|host, _| started(host)).await)
+    async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
+        let detail = args.detail.unwrap_or(false);
+        respond(self.blocking(move |host, _| started(host, detail)).await)
     }
 
     #[tool(
