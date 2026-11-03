@@ -90,3 +90,24 @@ export function renamed(before: readonly PlanSummary[], after: readonly PlanSumm
   const names = new Map(before.map(p => [p.id, p.name]));
   return after.filter(p => names.has(p.id) && names.get(p.id) !== p.name).map(p => p.id);
 }
+
+/**
+ * A list read (`read`, from read number `at`) laid over what the rail shows
+ * (`shown`): a canvas a newer read already put on the list (`from` holds the
+ * read each one came from) keeps that entry, and every other canvas takes
+ * the read's and notes `at` in `from`. Canvases missing from the read go.
+ */
+export function newerOf(
+  shown: readonly PlanSummary[],
+  read: readonly PlanSummary[],
+  from: Map<string, number>,
+  at: number
+): PlanSummary[] {
+  const now = new Map(shown.map(p => [p.id, p]));
+  return read.map(p => {
+    const kept = now.get(p.id);
+    if (kept && (from.get(p.id) ?? 0) > at) return kept;
+    from.set(p.id, at);
+    return p;
+  });
+}

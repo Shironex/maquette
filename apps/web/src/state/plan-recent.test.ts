@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanSummary } from '@/ipc/client';
-import { recentCanvases, renamed, seenFrom, seenKey, seeing } from './plan-recent';
+import { newerOf, recentCanvases, renamed, seenFrom, seenKey, seeing } from './plan-recent';
 
 const plan = (id: string, edited: string, more: Partial<PlanSummary> = {}): PlanSummary => ({
   id,
@@ -64,5 +64,21 @@ describe('recent canvases on the rail', () => {
     const after = list.map(p => (p.id === 'boss-arena' ? { ...p, name: 'Warden arena' } : p));
     expect(renamed(list, after)).toEqual(['boss-arena']);
     expect(renamed([], after)).toEqual([]);
+  });
+
+  it('keeps a canvas a newer read put on the list when an older list read answers', () => {
+    const from = new Map<string, number>([['boss-arena', 5]]);
+    const shown = list.map(p => (p.id === 'boss-arena' ? { ...p, name: 'Warden arena' } : p));
+    // A list read that started as read 3 answers after read 5 patched the arena.
+    const merged = newerOf(shown, list, from, 3);
+    expect(merged.find(p => p.id === 'boss-arena')?.name).toBe('Warden arena');
+    expect(from.get('combat-ideas')).toBe(3);
+    // A list read started after the patch takes the arena as listed.
+    expect(newerOf(merged, list, from, 6).find(p => p.id === 'boss-arena')?.name).toBe(
+      list.find(p => p.id === 'boss-arena')?.name
+    );
+    expect(from.get('boss-arena')).toBe(6);
+    // A canvas missing from the read goes.
+    expect(newerOf(merged, list.slice(1), from, 7)).toHaveLength(list.length - 1);
   });
 });
