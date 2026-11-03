@@ -146,6 +146,7 @@ mod tests {
             direction: None,
             by: None,
             person_wrote: false,
+            person_placed: false,
             stop: None,
         };
         assert_eq!(rect_of(&node).h, 110);

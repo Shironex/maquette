@@ -280,6 +280,7 @@ pub fn seed(
             direction: None,
             by: by.clone(),
             person_wrote: false,
+            person_placed: false,
             stop: None,
         })
         .collect();

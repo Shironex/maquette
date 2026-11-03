@@ -68,8 +68,8 @@ export const noteRename = () => {
 /** Whether an outside write changed what `before` says (its text or links), not only where it sits. */
 const editedOutside = (before: PlanNode, after: PlanNode) =>
   !deepEqual(
-    { ...before, x: 0, y: 0, personWrote: false },
-    { ...after, x: 0, y: 0, personWrote: false }
+    { ...before, x: 0, y: 0, personWrote: false, personPlaced: false },
+    { ...after, x: 0, y: 0, personWrote: false, personPlaced: false }
   );
 
 const notifyFailed = (title: string, error: unknown) =>

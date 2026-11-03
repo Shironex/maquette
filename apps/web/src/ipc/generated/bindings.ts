@@ -5817,6 +5817,13 @@ export type PlanNode_Deserialize = {
 	 */
 	personWrote?: boolean,
 	/**
+	 *  On an agent's node: a person moved it, so auto layout and
+	 *  `layout_canvas` leave it where they put it. Only placement: it keeps
+	 *  nothing else. Set by the core on a person's write that moves it, never
+	 *  cleared by an agent's, written only when true (still version 2).
+	 */
+	personPlaced?: boolean,
+	/**
 	 *  A stop node's camera stop (id, name, position, target, field of view
 	 *  and models), as `layout.json` would keep it. Only in the camera plan.
 	 */
@@ -5856,6 +5863,13 @@ export type PlanNode_Serialize = {
 	 *  only when true, so files without it read as false and stay version 2.
 	 */
 	personWrote?: boolean,
+	/**
+	 *  On an agent's node: a person moved it, so auto layout and
+	 *  `layout_canvas` leave it where they put it. Only placement: it keeps
+	 *  nothing else. Set by the core on a person's write that moves it, never
+	 *  cleared by an agent's, written only when true (still version 2).
+	 */
+	personPlaced?: boolean,
 	/**
 	 *  A stop node's camera stop (id, name, position, target, field of view
 	 *  and models), as `layout.json` would keep it. Only in the camera plan.

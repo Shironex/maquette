@@ -305,6 +305,7 @@ pub fn stop_node(stop: &LayoutStop, x: i32, y: i32, by: Option<&str>) -> PlanNod
         direction: None,
         by: by.map(str::to_string),
         person_wrote: false,
+        person_placed: false,
         stop: Some(Box::new(stop.clone())),
     }
 }

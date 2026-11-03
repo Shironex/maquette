@@ -1,6 +1,7 @@
 //! An agent removing what it made and tidying its own nodes; a person's
 //! nodes and links are never removed or moved, and neither is an agent's
-//! node a person wrote in last.
+//! node a person wrote in last. One a person only moved stays where they
+//! put it.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -97,9 +98,9 @@ pub fn remove(
 }
 
 /// Whether `node` is the agent's to move: made under its name, and not
-/// written in by a person since.
+/// written in or moved by a person since.
 fn movable(node: &PlanNode, agent: &Agent<'_>) -> bool {
-    node.by.as_deref() == Some(agent.name) && !protected_node(node)
+    node.by.as_deref() == Some(agent.name) && !protected_node(node) && !node.person_placed
 }
 
 /// The agent's nodes (all of them, or those in `only`) that overlap another
@@ -191,6 +192,11 @@ pub fn layout(
         for want in only {
             match plan.nodes.iter().find(|n| &n.id == want) {
                 Some(n) if movable(n, agent) => {}
+                Some(n) if n.by.as_deref() == Some(agent.name) && !protected_node(n) => {
+                    return refuse(format!(
+                        "A person moved the node {want}, so it stays where they put it. Layout never moves what a person placed."
+                    ));
+                }
                 Some(n) if n.by.as_deref() == Some(agent.name) => {
                     return refuse(format!(
                         "A person wrote in the node {want} last, so it is theirs now. Layout never moves a person's work."

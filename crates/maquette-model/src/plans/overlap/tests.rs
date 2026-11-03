@@ -24,6 +24,7 @@ fn card(id: &str, title: &str, text: &str) -> PlanNode {
         direction: None,
         by: None,
         person_wrote: false,
+        person_placed: false,
         stop: None,
     }
 }

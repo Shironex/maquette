@@ -109,6 +109,12 @@ fn merge_node(current: &mut PlanNode, before: &PlanNode, after: &PlanNode, merge
     {
         current.person_wrote = after.person_wrote;
     }
+    if !held
+        && before.person_placed != after.person_placed
+        && (merge == Merge::Mine || current.person_placed == before.person_placed)
+    {
+        current.person_placed = after.person_placed;
+    }
     held
 }
 
