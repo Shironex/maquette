@@ -3,6 +3,7 @@ import { commands, errorMessage, type PageSettings } from '@/ipc/client';
 import { homePath } from '@/lib/format';
 import { useAppStore } from '@/state/use-app-store';
 import { useGameStore } from '@/state/use-game-store';
+import { useProjectTrashStore } from '@/state/use-project-trash-store';
 
 /** The open project's name and site repo fields, saved on commit. */
 export function useProjectSection() {
@@ -132,4 +133,9 @@ export function useModelFolder(project: string | null, saved: string) {
     if (!next || !(await saveSettings(project, { modelsDir: next }))) setValue(saved);
   };
   return { value, setValue, save };
+}
+
+/** Opens the Remove project question for a project. */
+export function useRemoveProject() {
+  return useProjectTrashStore(s => s.ask);
 }

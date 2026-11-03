@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { commands } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
+import { useProjectTrashStore } from '@/state/use-project-trash-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { ProjectSection } from '.';
 
@@ -20,6 +21,14 @@ describe('the project settings', () => {
     await waitFor(() =>
       expect(useAppStore.getState().workspace?.project?.name).toBe('Frostveil at dusk')
     );
+  });
+
+  it('asks before Remove project', async () => {
+    await openMockWorkspace();
+    render(<ProjectSection active />);
+    await userEvent.click(screen.getByRole('button', { name: 'Remove project' }));
+    expect(useProjectTrashStore.getState().asking).toBe('frostveil');
+    useProjectTrashStore.setState({ asking: null });
   });
 
   it('shows nothing without an open project', async () => {

@@ -3,6 +3,7 @@ import { useNow } from '@/lib/useNow';
 import { useAppStore } from '@/state/use-app-store';
 import { activityLabel, projectMeta, switchNote } from '@/state/projects';
 import { useProjectsStore } from '@/state/use-projects-store';
+import { useProjectTrashStore } from '@/state/use-project-trash-store';
 import { projectThumb } from '@/features/common/projectArt';
 
 /** The menu's rows, note and actions, or null while it is closed. */
@@ -12,6 +13,8 @@ export function useProjectSwitcherMenu(anchorRef: RefObject<HTMLButtonElement | 
   const close = useProjectsStore(s => s.closeMenu);
   const switchTo = useProjectsStore(s => s.switchTo);
   const openDialog = useProjectsStore(s => s.openDialog);
+  const askRemove = useProjectTrashStore(s => s.ask);
+  const openRemoved = useProjectTrashStore(s => s.openList);
   const workspace = useAppStore(s => s.workspace);
   const now = useNow(60_000);
   if (!open || !workspace) return null;
@@ -44,6 +47,9 @@ export function useProjectSwitcherMenu(anchorRef: RefObject<HTMLButtonElement | 
     })),
     note: switchNote(rows.find(p => p.id === currentId)) ?? undefined,
     openDialog,
+    current: rows.find(p => p.id === currentId) ?? null,
+    askRemove,
+    openRemoved,
     select: (id: string) => {
       void switchTo(id);
       anchorRef.current?.focus();
