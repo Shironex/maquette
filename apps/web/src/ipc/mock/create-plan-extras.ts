@@ -111,7 +111,7 @@ export function createPlanExtras(deps: ExtrasDeps) {
       const plan = existing(project, id);
       return openOnes(project, id).map(e => view(e, plan));
     },
-    plan_answer_removal: ({ project, id, created, proposal, remove }: Args) => {
+    plan_answer_removal: ({ project, id, created, proposal, remove, links }: Args) => {
       const current = existing(project, id);
       sameCanvas(current, created);
       const shown = view(findOpen(project, id, proposal), current);
@@ -136,6 +136,11 @@ export function createPlanExtras(deps: ExtrasDeps) {
         fail(
           'invalid',
           'A node of this proposal changed or went since the agent asked, so nothing was removed. Keep it, or ask the agent to propose again.'
+        );
+      if (typeof links === 'number' && links !== shown.links)
+        fail(
+          'invalid',
+          `Remove would now take ${shown.links === 1 ? '1 link' : `${shown.links} links`} with the nodes, not the ${links} shown, so nothing was removed. Look at the proposal again and answer.`
         );
       const gone = new Set(shown.nodes.map(x => x.id));
       const ops: PlanOp[] = [

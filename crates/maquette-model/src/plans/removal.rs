@@ -153,6 +153,15 @@ fn view(entry: &PlanLogEntry, plan: &PlanFile) -> Option<RemovalProposal> {
     })
 }
 
+/// "1 link", "3 links".
+fn links_text(n: u32) -> String {
+    if n == 1 {
+        "1 link".to_string()
+    } else {
+        format!("{n} links")
+    }
+}
+
 /// The links touching the proposed nodes still on the canvas.
 fn links_of(plan: &PlanFile, views: &[AskedNodeView]) -> u32 {
     let ids: BTreeSet<&str> = views.iter().map(|v| v.id.as_str()).collect();
@@ -298,13 +307,15 @@ fn find_open<'a>(entries: &'a [PlanLogEntry], proposal: &str) -> CoreResult<&'a 
 /// # Errors
 ///
 /// Refuses a proposal that is not open, or is stale (a node changed or went
-/// since it was asked), and another canvas than the one opened (`created`,
-/// [`super::same_canvas`]); fails as [`super::change`].
+/// since it was asked), another canvas than the one opened (`created`,
+/// [`super::same_canvas`]) and, when `links` is the count the person saw,
+/// a proposal whose links changed since; fails as [`super::change`].
 pub fn accept(
     project_dir: &Path,
     id: &str,
     proposal: &str,
     created: Option<&str>,
+    links: Option<u32>,
 ) -> CoreResult<Changed> {
     change_with(project_dir, id, &Writer::PERSON, |plan| {
         super::same_canvas(plan, created)?;
@@ -316,6 +327,14 @@ pub fn accept(
             return Err(CoreError::Invalid(
                 "A node of this proposal changed or went since the agent asked, so nothing was removed. Keep it, or ask the agent to propose again.".into(),
             ));
+        }
+        if let Some(seen) = links
+            && seen != shown.links
+        {
+            return Err(CoreError::Invalid(format!(
+                "Remove would now take {} with the nodes, not the {seen} shown, so nothing was removed. Look at the proposal again and answer.",
+                links_text(shown.links)
+            )));
         }
         let mut ops = Vec::new();
         let mut gone = BTreeSet::new();

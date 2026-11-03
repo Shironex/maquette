@@ -455,9 +455,10 @@ export const commands = {
 	/**
 	 *  Answers a removal proposal as the person: `remove` takes the nodes off
 	 *  (with their links) as the person's undoable change, refused when the
-	 *  proposal went stale; otherwise "Keep it" leaves the canvas as it is.
+	 *  proposal went stale or its links are no longer the `links` the person
+	 *  saw; otherwise "Keep it" leaves the canvas as it is.
 	 */
-	planAnswerRemoval: (project: string, id: string, created: string, proposal: string, remove: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_answer_removal", { project, id, created, proposal, remove }),
+	planAnswerRemoval: (project: string, id: string, created: string, proposal: string, remove: boolean, links: number | null) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_answer_removal", { project, id, created, proposal, remove, links }),
 	/**
 	 *  Makes a canvas from the node `node` of `source` and the nodes linked to
 	 *  it, as the person's first change there. The source does not change.

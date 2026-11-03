@@ -40,6 +40,18 @@ describe('the canvas extras store', () => {
     expect(useAppStore.getState().notice?.title).toBe('The nodes were not removed');
   });
 
+  it('refuses Remove when its links changed since the panel showed them, and shows them again', async () => {
+    const proposal = await asked();
+    // A link was drawn after the panel read the proposal: it still says 0.
+    const shown = { ...proposal, links: 1 };
+    usePlanExtrasStore.setState({ proposals: [shown] });
+    expect(await usePlanExtrasStore.getState().answer(proposal.id, true)).toBe(false);
+    expect(useAppStore.getState().notice?.detail).toContain('not the 1 shown');
+    expect(usePlansStore.getState().open?.plan.nodes.some(n => n.id === 'n-06')).toBe(true);
+    expect(usePlanExtrasStore.getState().proposals[0]?.links).toBe(0);
+    expect(await usePlanExtrasStore.getState().answer(proposal.id, true)).toBe(true);
+  });
+
   it('waits for an answer to an outside change before writing', async () => {
     const proposal = await asked();
     const doc = await commands.planGet(COMBAT.project, COMBAT.id);
