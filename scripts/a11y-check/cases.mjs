@@ -30,9 +30,16 @@ async function openQueue(page) {
 }
 
 async function openCameraPlan(page) {
-  await page.getByRole('button', { name: /^Camera plan/ }).click();
+  await page.getByRole('region', { name: 'Pinned' }).getByRole('button').click();
   await page.getByRole('region', { name: 'Order after Apply' }).getByText('Arrival').waitFor();
 }
+
+/** Opens a canvas from the list's table (the rail lists the recent ones by name too). */
+const openCanvas = (page, name) =>
+  page
+    .getByRole('region', { name: 'All canvases' })
+    .getByRole('button', { name, exact: true })
+    .click();
 
 const cameraInvoke = (page, cmd) =>
   page.evaluate(c => window.__TAURI_INTERNALS__.invoke(c, { project: 'frostveil' }), cmd);
@@ -181,7 +188,7 @@ export const cases = [
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await openCanvas(page, 'Combat ideas');
       await page.getByRole('group', { name: 'Note: Frost veil' }).waitFor();
     },
   },
@@ -190,7 +197,7 @@ export const cases = [
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await openCanvas(page, 'Combat ideas');
       await page.getByRole('button', { name: /^Link/ }).click();
       await page.getByRole('dialog', { name: 'Add a link' }).waitFor();
     },
@@ -215,11 +222,31 @@ export const cases = [
     ready: page => page.getByRole('radiogroup', { name: 'Start from' }).waitFor(),
   },
   {
+    name: 'plan empty canvas',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCanvas(page, 'Boss arena');
+      await page.getByRole('region', { name: 'Or ask an agent to start it' }).waitFor();
+    },
+  },
+  {
+    name: 'plan recent canvases on the rail',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      const recent = page.getByRole('list', { name: 'Recent canvases' });
+      await recent.getByRole('button', { name: 'Combat ideas' }).click();
+      await recent.locator('[aria-current="page"]').waitFor();
+      await page.getByRole('group', { name: 'Note: Frost veil' }).waitFor();
+    },
+  },
+  {
     name: 'plan asset links',
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Boss: Frost Warden', exact: true }).click();
+      await openCanvas(page, 'Boss: Frost Warden');
       await page.getByRole('group', { name: 'Asset: Asset not found' }).waitFor();
     },
   },
@@ -228,7 +255,7 @@ export const cases = [
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Boss: Frost Warden', exact: true }).click();
+      await openCanvas(page, 'Boss: Frost Warden');
       await page.getByRole('button', { name: /^Asset/ }).click();
       await page
         .getByRole('dialog', { name: 'Link assets' })
@@ -241,7 +268,7 @@ export const cases = [
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await openCanvas(page, 'Combat ideas');
       await page.getByRole('group', { name: 'Note: Frost veil' }).waitFor();
       await page.waitForTimeout(50);
       await page.evaluate(() =>
@@ -267,7 +294,7 @@ export const cases = [
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await openCanvas(page, 'Combat ideas');
       await page.getByRole('group', { name: 'Note: Frost veil' }).dblclick();
       await page.getByRole('textbox', { name: 'Note text' }).fill('Mine, not saved yet');
       await page.keyboard.press('Control+Enter');
@@ -287,7 +314,7 @@ export const cases = [
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',
     async ready(page) {
-      await page.getByRole('button', { name: 'Combat ideas', exact: true }).click();
+      await openCanvas(page, 'Combat ideas');
       await page.getByRole('group', { name: 'Note: Frost veil' }).dblclick();
       await page.getByRole('textbox', { name: 'Note text' }).fill('Mine, not saved yet');
       await page.keyboard.press('Control+Enter');
@@ -325,6 +352,18 @@ export const cases = [
       await page.getByRole('region', { name: 'Order after Apply' }).getByText('new stop').waitFor();
       await page.getByRole('button', { name: 'Apply to layout.json' }).click();
       await page.getByRole('dialog', { name: 'Apply to layout.json' }).waitFor();
+    },
+  },
+  {
+    name: 'camera plan with no stops',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('region', { name: 'Pinned' }).waitFor();
+      await cameraInvoke(page, 'mock_layout_bare');
+      await page.getByRole('region', { name: 'Pinned' }).getByRole('button').click();
+      await page.getByRole('region', { name: 'No camera stops yet' }).waitFor();
+      await page.getByText(/^No stops yet/).waitFor();
     },
   },
   {
