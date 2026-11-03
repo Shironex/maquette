@@ -22,6 +22,9 @@ import { useRenderStore } from '@/state/use-render-store';
 import { useTimelineStore } from '@/state/use-timeline-store';
 import { usePathsStore } from '@/state/use-paths-store';
 import { usePageStore } from '@/state/use-page-store';
+import { CHANGED_MARK, recentCanvases } from '@/state/plan-recent';
+import { usePlanRecentStore } from '@/state/use-plan-recent-store';
+import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useGameStore } from '@/state/use-game-store';
@@ -83,16 +86,37 @@ export function useAppShell() {
   const toggleMenu = useProjectsStore(s => s.toggleMenu);
   const summary = useProjectsStore(s => s.list.find(p => p.id === projectId));
   const { collapsed, toggleRail } = useRailCollapsed();
+  const canvases = usePlanRecentStore(s => s.list);
+  const seen = usePlanRecentStore(s => s.seen);
+  const openCanvas = usePlansStore(s => (s.project === projectId ? (s.open?.id ?? null) : null));
+  useEffect(
+    () => usePlanRecentStore.getState().start(workspace?.root ?? null, projectId),
+    [workspace?.root, projectId]
+  );
   const mac = PLATFORM === 'mac';
   const shortcut = switcherShortcut(mac);
   useSwitcherShortcut(mac, toggleMenu);
 
+  // Plan lists the canvases opened or edited last; a click opens one in the Plan view.
+  const subs = recentCanvases(canvases, seen).map(c => ({
+    id: c.id,
+    label: c.name,
+    current: view === 'plan' && openCanvas === c.id,
+    mark: c.changed ? CHANGED_MARK : undefined,
+    onSelect: () => {
+      setView('plan');
+      void usePlanRecentStore.getState().open(c.id);
+    },
+  }));
+  const plan = { count: canvases.length || undefined, subs, subsLabel: 'Recent canvases' };
   const items = toolViewsFor(project?.target).map(v =>
-    v.id === 'inbox' && inboxCount > 0
-      ? { ...v, badge: inboxCount }
-      : (v.id === 'pipeline' && running) || (v.id === 'lab' && generating)
-        ? { ...v, live: true }
-        : v
+    v.id === 'plan'
+      ? { ...v, ...plan }
+      : v.id === 'inbox' && inboxCount > 0
+        ? { ...v, badge: inboxCount }
+        : (v.id === 'pipeline' && running) || (v.id === 'lab' && generating)
+          ? { ...v, live: true }
+          : v
   );
   const libraries = LIBRARY_VIEWS.map(v => ({
     ...v,
@@ -265,6 +289,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.pageServerChanged.listen(e => onPageServer(e.payload)),
       events.codexUsageUpdate.listen(e => useCodexUsageStore.getState().apply(e.payload)),
       events.imageSettingsChanged.listen(e => onImageSettings(e.payload)),
+      events.planChanged.listen(e => usePlanRecentStore.getState().onChanged(e.payload.project)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
