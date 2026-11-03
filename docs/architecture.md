@@ -1132,8 +1132,10 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   nothing over the new file and says to copy what is needed and open it again from the list.
 - **Rail, empty states and minimum size.** The rail lists the three canvases of the open project
   opened or edited last under Plan (`state/plan-recent.ts`, `state/use-plan-recent-store.ts`,
-  `NavRail`'s `subs`): read when the project opens, a moment after a `PlanChanged`, and from the
-  Plan view's own list. When the person last had each canvas open is kept on this computer per
+  `NavRail`'s `subs`): the list is read when the project opens and when a canvas it does not know
+  changes or opens; a known canvas that changes is read alone (`plan_get`); the canvas open now
+  takes its time from the Plan view's copy, so autosaves read nothing; and the Plan view's own
+  list is taken when newer. When the person last had each canvas open is kept on this computer per
   workspace and project, and one edited since (an agent, a sync) carries a dot, never the canvas
   open now. Below 960 pixels of canvas width the minimap folds into a Map button under the zoom
   (`state/plan-view.ts`), and the first fit and Fit leave room for the add bar, the zoom and the
@@ -1159,9 +1161,11 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   `ensure` makes it from `layout.json` the first time it is opened, as the person's line. The id
   `camera-plan` is kept for it: a new canvas named "Camera plan" gets the next free suffix, and a
   canvas file from before that sits on the id is moved to a free id with its log (and a log line
-  saying so) instead of blocking the camera plan. A log left on the id with no canvas (a remove
-  whose moves all failed) is set aside to `plans/history/camera-plan-<stamp>-stray.log.jsonl`
-  first, so the new plan never inherits its lines. The main
+  saying so) instead of blocking the camera plan. A log left on the id with no canvas is kept and
+  the plan made again onto it when any line shows the camera plan (made as it, an Apply or rebase,
+  its base, a stop node): its file deleted by hand, or a sync bringing the log first. A log that
+  clearly belongs to another canvas (a remove whose moves all failed) is set aside to
+  `plans/history/camera-plan-<stamp>-stray.log.jsonl` first, so the new plan never inherits it. The main
   line, the one Apply writes, is the chain with the most person stops, then the longest, then the
   leftmost; other chains are agents' proposals or stops set aside. Edits in the canvas and its side
   panel (`features/plan/CameraPanel`) save to the plan file only.
