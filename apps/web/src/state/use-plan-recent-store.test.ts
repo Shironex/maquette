@@ -75,6 +75,19 @@ describe('the rail recent canvases', () => {
     stop();
   });
 
+  it('never marks the canvas open now, even when an agent changes it', async () => {
+    const { store, stop } = await rail();
+    await recent().open('combat-ideas');
+    vi.advanceTimersByTime(1000);
+    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas' });
+    vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    await vi.waitFor(() =>
+      expect(recent().list.find(p => p.id === 'combat-ideas')?.nodes).toBeGreaterThan(6)
+    );
+    expect(shown().find(c => c.id === 'combat-ideas')?.changed).toBe(false);
+    stop();
+  });
+
   it('keeps each workspace and project to its own seen times', async () => {
     await rail('/mock/one');
     await recent().open('opening-story');

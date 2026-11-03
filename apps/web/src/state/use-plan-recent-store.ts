@@ -3,8 +3,8 @@
  * canvases (read when the project opens, again a moment after a canvas
  * changes, an agent's write or a sync, and taken from the Plan view
  * whenever its list is newer) and when the person last had each one open.
- * Opening or leaving a canvas, and renaming one here, counts as seeing it;
- * a canvas edited since is marked. Switching workspace or project starts
+ * Opening or leaving a canvas, renaming one here and any change while it
+ * is open count as seeing it; a canvas edited since is marked. Switching workspace or project starts
  * over with that project's own times.
  */
 import { create } from 'zustand';
@@ -59,7 +59,10 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
     const before = get().list;
     set({ list });
     // A rename here moves the canvas's edited time; it is not a change to mark.
-    see(renamed(before, list), list);
+    // Nor is a change to the canvas open now: the person sees it as it lands.
+    const plans = usePlansStore.getState();
+    const open = plans.project === get().project && plans.open ? [plans.open.id] : [];
+    see([...renamed(before, list), ...open], list);
   };
 
   // The Plan view's own reads, opens and leaves keep the rail in step without asking again.
