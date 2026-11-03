@@ -47,7 +47,7 @@ On Windows, the same `claude mcp add` line works in PowerShell. Then ask the age
 
 ## The first call
 
-An agent starts with `get_started`. It works in a brand new setup and reads the workspace, the tools, whether each key is saved (true or false, never the value), every project with its stage, the gates only you can pass and a `next` list of what to do now. With no project yet, `create_project` makes one; it spends nothing and needs no approval.
+An agent starts with `get_started`. It works in a brand new setup and reads the workspace, the tools, whether each key is saved (true or false, never the value), every project with its stage, the gates only you can pass and a `next` list of what to do now. The answer is short; `detail: true` gives every toolchain row and gate. With no project yet, `create_project` makes one; it spends nothing and needs no approval.
 
 Everything still works without API keys: By hand sends and built assets cost nothing. `get_started` and the errors say so when a key, the Codex sign in or Blender is missing, because only you can fix those.
 
@@ -57,7 +57,7 @@ These rules hold in the app. They are not a sandbox: see the last point.
 
 - Blender only runs headless. No tool opens its window.
 - There is no screenshot or screen capture tool.
-- A send to Tripo or Meshy always waits for you to Approve in the app before any credit is spent, whatever other settings say. Deny cancels the job.
+- A send to Tripo or Meshy always waits for you to Approve in the app before any credit is spent, whatever other settings say. Deny cancels the job: it shows Denied on the job, the card says "Denied, not sent to <provider>", and the card goes back from the 3D model column to Refs when it has no model and no other send of it is on its way or in the Inbox. Nothing is spent.
 - A round of Lab images on OpenAI Images that an agent asks for waits for you to Approve in the app, with what it should cost, before anything is sent. Deny cancels its jobs. Codex rounds and rounds you start in the Lab do not ask.
 - No tool approves or denies anything. Only a person in the app answers: Approve and Deny on an approval card or in a game's Ship view, the before and after sheets in the Avatar view, and adding or dropping a draft in the Rig doctor. A card's Approve is held for a moment after the card opens, arrives or moves, so a stray click does nothing.
 - Every answer is kept in `approvals.jsonl` next to `credits.jsonl`: approve, deny, a cancel before anyone answered, and what was still waiting when Maquette quit, with the time, the asset, provider and cost, where it came from and the input (mouse or keyboard) as the app's own page reported them, and whether the window was focused, visible or minimised as the operating system reported it. A yes that cannot be written is refused, so nothing paid goes out without its record. Opening another workspace expires what waits. The Credits sheet shows who approved each paid send an agent asked for.

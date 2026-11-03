@@ -268,6 +268,8 @@ file, `scripts/check-skills.mjs` judges the skills by it, and the `tools-documen
 it. A new tool goes into its `tools/` file and the instructions; then commit the regenerated
 `tool-names.txt` and name the tool in the README and the docs page.
 
+`tools/start.rs` (with `start/compact.rs`) holds `get_started` and `create_project`. `get_started` is short by default (counts, the toolchain as working, of and problems, the image backend, projects, blocking gates, next steps, the open project) and `detail: true` returns every toolchain row and every gate. `create_project` takes `target`, with `kind` as another name.
+
 `tools/plans.rs`, `tools/plan_edits.rs` and `tools/plan_extras.rs` hold the eleven general planning canvas tools (`propose_removal` and `start_from_node` in the last). They go through
 `maquette_core::plans` (see Planning canvases), and each write ends in `Host::plan_changed`, which
 emits `PlanChanged` so an open canvas reloads and keeps the person's unsaved edits. Answers are short
@@ -801,6 +803,26 @@ into a GLB headless through the `ScriptRunner` port it is handed, and hands it t
   `commands/trash.rs`; the MCP tools are in `mcp/tools/trash.rs`. The web state is
   `apps/web/src/state/trash.ts` and `use-trash-store.ts`.
 
+## Removing a project
+
+`project/trash.rs` in `maquette-model` moves a whole project out of the workspace without deleting
+anything, and the app is the only caller: no MCP tool removes or restores a project.
+
+- **Refusals.** It is refused with the reason while work runs in the project: a pipeline run or
+  queued run, a built asset building, concept images queued or generating, or a send that is not
+  over (waiting for approval, queued, being made, waiting for a By hand model). The page preview dev
+  server is stopped and the plan file watchers are dropped.
+- **Files.** The project folder moves to `<workspace>/trash/_projects/<id>-<date>-<time>/` as
+  `project/` (its own asset and canvas trash stays inside, under `trash/`), with a `removed.json`
+  beside it. The site or game repo is never touched, and providers.json keeps the sends' records.
+- **Restore.** It moves the folder back and is refused when a project with the same id exists
+  again. There is no permanent delete, as the asset trash has none.
+- **Agents.** A removed project is left out of `list_projects`, and a tool given its id fails with
+  not-found, saying it was removed to the workspace trash and only a person can restore it.
+- **Edges.** The Tauri commands are in `commands/project_trash.rs`. The web state is
+  `state/use-project-trash-store.ts`, with `RemoveProjectDialog` and `RemovedProjectsDialog` in
+  `features/project`. Removing the open project opens the next in the switcher.
+
 ## Built assets
 
 `maquette_core::built` owns them. `add.rs` copies the script and helpers into `<project>/built/`
@@ -1040,7 +1062,7 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
   never removes a person's node or link, an agent node a person wrote in, nor a node that has a
   link someone else drew: each is refused with a reason. Whether a person wrote in a node is in the
   file: an agent node whose content (kind, title, text, picture, address, asset or direction) a
-  person wrote carries `personWrote: true`. The core sets it when a person writes the content (a
+  person wrote carries `personWrote: true`. A node an agent made that a person dragged carries `personPlaced: true`, written only when true like `personWrote`; auto layout and `layout_canvas` never move it, and `layout_canvas` naming it is refused. The agent may still move it with an explicit `x` and `y`. The core sets `personWrote` when a person writes the content (a
   move does not count) and no agent write clears it, so every agent change on top of the person's
   words stays a keeper. It is written only when true, so files without it read as before and stay
   version 2. An older app ignores it and drops it on its next save there; after that an agent may
@@ -1112,7 +1134,7 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
     canvas, 20 under one agent name. `removal::open` lists them with each node `here`, `changed` or `gone`, and the ask is
     stale when any is not `here`. Only the person answers (`plan_answer_removal`): Remove writes the
     person's own change (the nodes and their links, the card saying how many links go, drawn since
-    the ask too), refused when stale, and Keep it writes a line with no operations; both carry
+    the ask too), refused when stale or when the count of links changed since the person saw it, and Keep it writes a line with no operations; both carry
     `resolves`. Like a save, every answer and setting from the app names the opened canvas's
     `created` (`same_canvas`), so it never lands on another canvas that took the id. No MCP tool answers an ask, and `undo_run` refuses it.
     The Changes panel shows open asks first (`features/plan/RemovalAsks`), the nodes carry an "asked
@@ -1127,7 +1149,7 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
     (`settings.rs`, a `set-auto-layout` operation). While on, `update_nodes` moves the agent's edited
     nodes the call gave no x or y that now overlap another clear, inside the same change, so the
     write stays one line with one undo (`autoLayout.moved`). A position the agent gives is kept, and
-    a person's nodes, or an agent's node a person wrote in, never move (here or in `layout_canvas`).
+    a person's nodes, or an agent's node a person wrote in or moved, never move (here or in `layout_canvas`).
     `add_nodes` already places nodes without x and y clear. While off, nothing is tidied and
     `layout_canvas` is refused.
   - _Overlaps_ (`plans/overlap.rs`). On a Game mechanics canvas, two note cards whose `Verb:`,
@@ -1138,7 +1160,9 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
     FNV-1a hash of both cards' titles and texts, so a flag comes back once either card's words
     change. `overlap/cases.json` holds the cases the core and the mock's copy (`ipc/mock/plan-overlap.ts`)
     are both tested on. The view flags the cards and lists the pairs in the Overlaps panel
-    (`features/plan/OverlapsPanel`).
+    (`features/plan/OverlapsPanel`). The button keeps a count while any overlap exists: the ones to
+    look at, or (muted) the ones marked as fine when every one is. The checks are cached per change
+    of the cards' words.
 
   `autoLayout` (written only when off) and `fine` (only when not empty) make a file version 4; a
   file that uses neither stays version 2 (3 with a camera plan), so an older app still opens it, and
