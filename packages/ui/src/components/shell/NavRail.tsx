@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 import { Tooltip } from '../feedback/Tooltip';
@@ -14,6 +14,24 @@ export interface NavRailItem<T extends string = string> {
   live?: boolean;
   /** A plain count after the label, for example a library's size. */
   count?: number;
+  /**
+   * A few entries under the item while the rail is open, for example the
+   * canvases opened last under Plan. Hidden while it is collapsed.
+   */
+  subs?: readonly NavRailSub[];
+  /** Names the list of `subs` for screen readers: "Recent canvases". */
+  subsLabel?: string;
+}
+
+/** One entry under a rail item, such as a recent canvas. */
+export interface NavRailSub {
+  id: string;
+  label: string;
+  /** The entry open now. */
+  current?: boolean;
+  /** Shows a dot, read out as this: "changed since you last opened it". */
+  mark?: string;
+  onSelect: () => void;
 }
 
 /** Views under a heading of their own, for example Libraries. */
@@ -132,6 +150,35 @@ function RailLabel<T extends string>({ item }: { item: NavRailItem<T> }) {
   );
 }
 
+function SubList({ item }: { item: NavRailItem }) {
+  const rows = (item.subs ?? []).map(sub => (
+    <li key={sub.id}>
+      <button
+        type="button"
+        title={sub.label}
+        aria-current={sub.current ? 'page' : undefined}
+        onClick={sub.onSelect}
+        className={cn(
+          'flex h-7 w-full cursor-pointer items-center gap-2 rounded-control pr-2.5 pl-9 text-left text-[12.5px] text-fg-mute transition-colors duration-120 hover:bg-hover hover:text-fg',
+          sub.current && 'bg-hover text-fg'
+        )}
+      >
+        <span className="min-w-0 truncate">{sub.label}</span>
+        {sub.mark ? (
+          <span className="ml-auto size-[7px] flex-none rounded-full bg-[#9fb4d8]">
+            <span className="sr-only">, {sub.mark}</span>
+          </span>
+        ) : null}
+      </button>
+    </li>
+  ));
+  return (
+    <ul aria-label={item.subsLabel ?? `Recent in ${item.label}`} className="flex flex-col">
+      {rows}
+    </ul>
+  );
+}
+
 function Heading({ title, collapsed }: { title: string; collapsed?: boolean }) {
   return collapsed ? (
     <div className="mx-2 mt-2 mb-1.5 border-t border-line" />
@@ -187,13 +234,10 @@ export function NavRail<T extends string>({
   const plannedRows = planned?.map(p => <PlannedRow key={p.id} item={p} collapsed={collapsed} />);
   const buttons = (list: readonly NavRailItem<T>[]) =>
     list.map(it => (
-      <RailButton
-        key={it.id}
-        item={it}
-        current={it.id === value}
-        collapsed={collapsed}
-        onChange={onChange}
-      />
+      <Fragment key={it.id}>
+        <RailButton item={it} current={it.id === value} collapsed={collapsed} onChange={onChange} />
+        {!collapsed && it.subs?.length ? <SubList item={it} /> : null}
+      </Fragment>
     ));
   const groupBlocks = groups?.map(g => (
     <div key={g.title} role="group" aria-label={g.title} className="flex flex-col gap-1">

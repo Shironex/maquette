@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -460,6 +460,42 @@ describe('NavRail', () => {
     expect(animations).toHaveTextContent('132');
     await userEvent.click(screen.getByRole('button', { name: /Models/ }));
     expect(onChange).toHaveBeenCalledWith('library');
+  });
+
+  it("lists an item's recent entries under it while open, by name and with their mark", async () => {
+    const opened: string[] = [];
+    const subs = [
+      { id: 'camera-plan', label: 'Camera plan', mark: 'changed since you last opened it' },
+      { id: 'hero', label: 'Hero section ideas with a very long name', current: true },
+    ].map(s => ({ ...s, onSelect: () => opened.push(s.id) }));
+    const items = [
+      { id: 'board', label: 'Board', icon: 'squares-four' as const },
+      {
+        id: 'plan',
+        label: 'Plan',
+        icon: 'graph' as const,
+        count: 5,
+        subs,
+        subsLabel: 'Recent canvases',
+      },
+    ];
+    const footer = { id: 'settings', label: 'Settings', icon: 'gear-six' as const };
+    const { rerender } = render(
+      <NavRail items={items} footer={footer} value="plan" onChange={vi.fn()} />
+    );
+    const list = screen.getByRole('list', { name: 'Recent canvases' });
+    const camera = within(list).getByRole('button', {
+      name: 'Camera plan, changed since you last opened it',
+    });
+    const hero = within(list).getByRole('button', { name: /^Hero section ideas/ });
+    expect(hero).toHaveAttribute('aria-current', 'page');
+    expect(hero).toHaveAttribute('title', 'Hero section ideas with a very long name');
+    // By keyboard: Tab reaches the entries after Plan, and Enter opens one.
+    camera.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(opened).toEqual(['camera-plan']);
+    rerender(<NavRail items={items} footer={footer} value="plan" onChange={vi.fn()} collapsed />);
+    expect(screen.queryByRole('list', { name: 'Recent canvases' })).toBeNull();
   });
 });
 
