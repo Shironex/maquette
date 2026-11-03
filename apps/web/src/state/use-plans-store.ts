@@ -122,11 +122,11 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       }
     },
 
-    create: async name => {
+    create: async (name, preset = 'brainstorm') => {
       const project = get().project;
       if (!project || !(await settle({ to: 'list' }))) return null;
       try {
-        const doc = await commands.planCreate(project, name);
+        const doc = await commands.planCreate(project, name, preset);
         take(doc);
         await get().loadList(project);
         return doc.id;

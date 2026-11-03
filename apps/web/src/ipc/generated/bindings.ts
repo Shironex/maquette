@@ -348,10 +348,10 @@ export const commands = {
 	planList: (project: string) => __TAURI_INVOKE<PlanSummary[]>("plan_list", { project }),
 	planGet: (project: string, id: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_get", { project, id }),
 	/**
-	 *  Makes an empty canvas. Presets only set the starting content, which a
-	 *  later version fills in; every canvas starts blank for now.
+	 *  Makes a canvas from `preset`, with its starter notes for the project's
+	 *  target (a game or a website), as the person's first change.
 	 */
-	planCreate: (project: string, name: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_create", { project, name }),
+	planCreate: (project: string, name: string, preset: PlanPreset) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_create", { project, name, preset }),
 	/**
 	 *  Writes a person's edits: the operations between the canvas the view
 	 *  last had from the file and what it shows now, laid over the file as it

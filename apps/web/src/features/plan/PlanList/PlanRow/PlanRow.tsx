@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react';
 import { IconButton, TextField } from '@maquette/ui';
 import type { PlanSummary } from '@/ipc/client';
+import { PRESET_NAME } from '@/state/plan-presets';
 
 export interface PlanRowProps {
   plan: PlanSummary;
@@ -16,7 +17,8 @@ export interface PlanRowProps {
 }
 
 /**
- * One canvas in the table: its name (or the rename field), node count,
+ * One canvas in the table: its name (or the rename field), the preset it
+ * started from (the camera plan says so instead), node count,
  * when it was edited, its file, and Rename and Remove. A file that could
  * not be read shows why and can only be removed.
  */
@@ -57,6 +59,9 @@ export default function PlanRow(props: PlanRowProps) {
   return (
     <tr className="h-11 border-t border-line text-fg-dim">
       <td className="truncate py-1 pl-3">{name}</td>
+      <td className="truncate px-2">
+        {plan.camera ? 'Camera plan' : plan.preset ? PRESET_NAME[plan.preset] : null}
+      </td>
       <td className="px-2 text-right font-mono">{plan.nodes}</td>
       <td className="truncate px-2">{props.edited}</td>
       <td className="truncate px-2 font-mono text-[11.5px] text-fg-mute">{plan.file}</td>

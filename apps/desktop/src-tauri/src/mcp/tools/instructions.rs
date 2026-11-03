@@ -16,7 +16,7 @@ TOOL GROUPS
 [project] Projects, assets, the scene layout, copying assets, the asset trash.
 [lab] Concept images, their jobs, the style board, picks to the Board, the image backends, Codex usage.
 [refs] An asset's reference views: reading and tagging them, drawing missing ones, cleaning backgrounds.
-[plan] Planning canvases: read them, add and arrange nodes, the change log, a website's camera plan. Agents never remove a person's nodes.
+[plan] Planning canvases: make one from a preset (brainstorm blank, story or mechanics), read them, add and arrange nodes, the change log, a website's camera plan. Agents never remove a person's nodes.
 [send] Sending refs to Tripo or Meshy or by hand, redos, splits, credits, By hand handoffs and downloads.
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.
 [prepare] Real size, fix-ups, parts, materials, assembling props, comparing versions.

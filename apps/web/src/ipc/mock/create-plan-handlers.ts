@@ -16,7 +16,15 @@
  * `mock_plan_outside` changes a node's text as another computer's sync
  * would; both tell the view as the folder watcher does.
  */
-import type { ChangeMark, PlanDoc, PlanFile, PlanImage, PlanOp, PlanSummary } from '../client';
+import type {
+  ChangeMark,
+  PlanDoc,
+  PlanFile,
+  PlanImage,
+  PlanOp,
+  PlanPreset,
+  PlanSummary,
+} from '../client';
 import { clock } from '@/lib/clock';
 import { applyOps, diffPlans, invertOps } from '@/state/plan-ops';
 import { CAMERA_PLAN_ID } from '@/state/plan-camera';
@@ -27,6 +35,7 @@ import { createPlanLinks, type PlanLinkDeps } from './create-plan-links';
 import { GENERATED_POOL } from './lab-fixtures';
 import { demoCanvases, demoLog, note, type Canvases } from './plan-fixtures';
 import { createMockLogs, summaryOf } from './plan-log';
+import { madeLine, seededPlan } from './plan-presets';
 
 /** The agent `mock_plan_agent` writes as. */
 const AGENT = 'Research agent';
@@ -202,31 +211,18 @@ export function createPlanHandlers(
     plan_list: ({ project }: Args) =>
       sortById([...canvases(project)].map(([id, plan]) => summary(id, plan))),
     plan_get: ({ project, id }: Args) => doc(project, String(id), existing(project, id)),
-    plan_create: ({ project, name }: Args) => {
+    plan_create: ({ project, name, preset }: Args) => {
       const trimmed = checkName(String(name));
       const all = canvases(project);
       const base = slugOf(trimmed);
       let id = base;
       // The camera plan's id is kept for it, as the core keeps it.
       for (let n = 2; all.has(id) || id === CAMERA_PLAN_ID; n += 1) id = `${base}-${n}`;
-      const now = clock.now().toISOString();
-      const plan: PlanFile = {
-        version: 2,
-        name: trimmed,
-        preset: 'brainstorm',
-        created: now,
-        edited: now,
-        nodes: [],
-        edges: [],
-      };
+      const target = deps.live.projects().find(p => p.id === String(project))?.target ?? 'website';
+      const start = (preset ?? 'brainstorm') as PlanPreset;
+      const plan = seededPlan(trimmed, start, target, clock.now());
       all.set(id, plan);
-      logs.append(project, id, {
-        by: null,
-        run: null,
-        ops: [],
-        summary: `Made the canvas ${trimmed}`,
-        mark: 'create',
-      });
+      logs.append(project, id, { by: null, run: null, mark: 'create', ...madeLine(plan) });
       return doc(project, id, plan);
     },
     plan_apply: ({ project, id, created, ops }: Args) => {

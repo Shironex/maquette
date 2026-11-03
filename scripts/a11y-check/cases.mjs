@@ -196,6 +196,25 @@ export const cases = [
     },
   },
   {
+    name: 'plan new canvas dialog',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await page.getByRole('button', { name: 'New canvas' }).first().click();
+      const dialog = page.getByRole('dialog', { name: 'New canvas' });
+      await dialog
+        .locator('label')
+        .filter({ hasText: /^Story/ })
+        .click();
+    },
+  },
+  {
+    name: 'plan empty list presets',
+    query: `${CONFIGURED}&plans=none`,
+    hash: '#/plan',
+    ready: page => page.getByRole('radiogroup', { name: 'Start from' }).waitFor(),
+  },
+  {
     name: 'plan asset links',
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',

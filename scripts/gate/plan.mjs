@@ -26,6 +26,8 @@ const WHOLE_GATE = [
   'crates/maquette-preview/src/frame/shim.js',
   // Vitest (state/plan-text.test.ts) keeps the view's trim set equal to this one.
   'crates/maquette-model/src/plans/text.rs',
+  // Vitest (ipc/mock/plan-presets.test.ts) keeps the mock's starter notes equal to these.
+  'crates/maquette-model/src/plans/presets/seeds.json',
   // The site's copy and docs read the app's version; so do the release scripts.
   'apps/desktop/src-tauri/tauri.conf.json',
   // Written by the Rust tests; the script tests and the meta lint read it.

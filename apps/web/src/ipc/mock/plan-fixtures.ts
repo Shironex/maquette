@@ -172,6 +172,7 @@ export function demoCanvases(): Canvases {
     edges: [],
   });
   const story = blank('Opening story', '2026-10-26T18:00:00.000Z');
+  story.preset = 'story';
   story.nodes = [note('n-01', 0, 0, 'The Warden wakes and the gate shuts.', 'Beat 1')];
   return new Map([
     ['combat-ideas', demoCombat()],

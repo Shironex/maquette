@@ -2,8 +2,10 @@ import { Button, EmptyState, Icon, InlineBanner, TextField, TopBar } from '@maqu
 import { SectionLabel } from '@/features/common/SectionLabel';
 import type { PlanSummary } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
+import { PRESET_NAME } from '@/state/plan-presets';
 import { contentLine } from '@/state/plans';
 import { NewCanvasDialog } from '../NewCanvasDialog';
+import { PresetPicker, PresetTag } from '../PresetPicker';
 import { RemoveCanvasDialog } from '../RemoveCanvasDialog';
 import { usePlanList } from './PlanList.hooks';
 import { PlanRow } from './PlanRow';
@@ -39,8 +41,11 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
         </span>
       </span>
       <span className="flex flex-col gap-1 px-3 pt-2.5 pb-3">
-        {/* The spaces keep the card's name readable ("Combat ideas 6 nodes ..."). */}
-        <span className="truncate text-[13.5px] font-semibold text-fg">{plan.name}</span>{' '}
+        {/* The spaces keep the card's name readable ("Combat ideas Story 6 nodes ..."). */}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[13.5px] font-semibold text-fg">{plan.name}</span>{' '}
+          {plan.preset ? <PresetTag>{PRESET_NAME[plan.preset]}</PresetTag> : null}
+        </span>{' '}
         <span className="truncate font-mono text-[11.5px] text-fg-mute">{contentLine(plan)}</span>{' '}
         <span className="text-meta text-fg-dim">Edited {edited(plan, v.now)}</span>
       </span>
@@ -84,9 +89,22 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
     />
   ));
   const newButton = (
-    <Button variant="primary" icon="plus" tooltip="Makes an empty canvas" onClick={v.startNew}>
+    <Button
+      variant="primary"
+      icon="plus"
+      tooltip="Makes a canvas from a preset"
+      onClick={() => v.making.open()}
+    >
       New canvas
     </Button>
+  );
+  const firstCanvas = (
+    <div className="flex w-full flex-col gap-3">
+      <PresetPicker value={v.making.start} onChange={v.making.setStart} />
+      <Button variant="primary" icon="plus" onClick={() => v.making.open(v.making.start)}>
+        {`Create ${PRESET_NAME[v.making.start]} canvas`}
+      </Button>
+    </div>
   );
   return (
     <>
@@ -122,9 +140,9 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
           <div className="grid flex-1 place-items-center">
             <EmptyState
               icon="graph"
-              title="No canvases yet"
-              body="A canvas is a board of notes, pictures and links to plan with. Each one is a file in plans/ in the project folder."
-              action={newButton}
+              title="Plan with canvases"
+              body="Notes, pictures, links and your assets in one place. Agents can add to it, and you see every change they make."
+              action={firstCanvas}
             />
           </div>
         ) : null}
@@ -147,6 +165,7 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
             <table className="w-full table-fixed border-collapse text-[12.5px]">
               <colgroup>
                 <col />
+                <col className="w-[132px]" />
                 <col className="w-[72px]" />
                 <col className="w-[132px]" />
                 <col className="w-[34%]" />
@@ -155,6 +174,7 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
               <thead>
                 <tr className="text-[11px] font-semibold tracking-[0.04em] text-fg-mute uppercase">
                   <th className="py-1.5 pl-3 text-left font-semibold">Name</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Preset</th>
                   <th className="px-2 py-1.5 text-right font-semibold">Nodes</th>
                   <th className="px-2 py-1.5 text-left font-semibold">Edited</th>
                   <th className="px-2 py-1.5 text-left font-semibold">File</th>
@@ -166,7 +186,7 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
               <tbody>
                 {v.found.length === 0 ? (
                   <tr className="border-t border-line">
-                    <td colSpan={5} className="py-2.5 pl-3 text-fg-mute">
+                    <td colSpan={6} className="py-2.5 pl-3 text-fg-mute">
                       No canvas is called that.
                     </td>
                   </tr>
@@ -177,7 +197,9 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
           </section>
         ) : null}
       </main>
-      {v.making ? <NewCanvasDialog onClose={v.closeNew} /> : null}
+      {v.making.preset ? (
+        <NewCanvasDialog preset={v.making.preset} onClose={v.making.close} />
+      ) : null}
       {v.removing ? <RemoveCanvasDialog plan={v.removing} onClose={v.closeRemove} /> : null}
     </>
   );

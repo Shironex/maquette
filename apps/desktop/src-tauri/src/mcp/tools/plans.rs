@@ -56,7 +56,9 @@ pub struct CreateCanvasArgs {
     pub project: String,
     /// The canvas name, one line, up to 120 characters. Its id is made from it.
     pub name: String,
-    /// brainstorm (default), story or mechanics.
+    /// What the canvas starts with: brainstorm (blank, the default; blank is
+    /// accepted too), story (beats left to right, characters above, places
+    /// below) or mechanics (one card per system with its verb, look and input).
     pub preset: Option<String>,
     /// Your name as people see it in the canvas and its change log, such as "Research agent".
     /// Defaults to your MCP client's name.
@@ -71,6 +73,21 @@ pub(super) fn project_dir(
     let (root, config) = workspace(host)?;
     let manifest = project::load(&root, &config.layout, id)?;
     Ok((project::dir(&root, &config.layout, id)?, manifest))
+}
+
+/// The preset an agent names: `brainstorm` (also `blank`, or none),
+/// `story` or `mechanics`, else refused with the list.
+pub(super) fn preset_of(given: Option<&str>) -> Result<PlanPreset, ToolError> {
+    let named = given.map(|g| g.trim().to_ascii_lowercase());
+    match named.as_deref() {
+        None | Some("blank" | "brainstorm") => Ok(PlanPreset::Brainstorm),
+        Some("story") => Ok(PlanPreset::Story),
+        Some("mechanics") => Ok(PlanPreset::Mechanics),
+        Some(_) => Err(ToolError::from(format!(
+            "{} is not a preset. Use brainstorm (blank, the default), story or mechanics.",
+            given.unwrap_or_default().trim()
+        ))),
+    }
 }
 
 /// The agent's name for `by`: the one given, else the MCP client's title
@@ -268,7 +285,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make an empty planning canvas in a project, as Plan > New canvas does; writes one file, plans/<id>.plan.json. Answers with its id.",
+        description = "Make a planning canvas in a project, as Plan > New canvas does; writes one file, plans/<id>.plan.json. preset sets only the start, every canvas holds every kind of node: brainstorm (blank, the default), story (starter notes for beats left to right joined in order, characters above and places below, worded for a game or a website by the project's target) or mechanics (a card per system with its verb, look and input, and a note on keeping them apart). Preset names are not case sensitive. The starter notes carry your name and are one change in the log with no run, so the person can undo them at once and you can undo_run them by the change id this answers with. Answers with its id, the preset, the node and link counts and change.",
         annotations(idempotent_hint = false)
     )]
     async fn create_canvas(
@@ -279,18 +296,17 @@ impl McpTools {
         let agent = agent_name(args.agent.as_deref(), &peer);
         let found = self
             .blocking(move |host, _| {
-                let (dir, _) = project_dir(host, &args.project)?;
-                let preset = match args.preset.as_deref() {
-                    None => PlanPreset::Brainstorm,
-                    Some(p) => serde_json::from_value(json!(p)).map_err(|_| {
-                        ToolError::from(format!(
-                            "{p} is not a preset: brainstorm, story or mechanics."
-                        ))
-                    })?,
-                };
-                let made = plans::create_by(&dir, &args.name, preset, Some(&agent))?;
+                let (dir, manifest) = project_dir(host, &args.project)?;
+                let preset = preset_of(args.preset.as_deref())?;
+                let changed =
+                    plans::create_seeded(&dir, &args.name, preset, manifest.target, Some(&agent))?;
+                let made = changed.doc;
                 host.plan_changed(&args.project, &made.id);
-                Ok(json!({ "id": made.id, "file": made.file }))
+                Ok(json!({
+                    "id": made.id, "file": made.file, "preset": made.plan.preset,
+                    "nodes": made.plan.nodes.len(), "links": made.plan.edges.len(),
+                    "change": changed.entry.map(|e| e.id),
+                }))
             })
             .await;
         respond(found)

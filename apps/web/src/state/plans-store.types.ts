@@ -1,7 +1,7 @@
 /** The Plan view store's shape, shared by the store and its sync half (`plans-sync.ts`). */
 import type { Connection, EdgeChange, NodeChange } from '@xyflow/react';
 import type { StoreApi } from 'zustand';
-import type { NodeKind, PlanDoc, PlanSummary } from '@/ipc/client';
+import type { NodeKind, PlanDoc, PlanPreset, PlanSummary } from '@/ipc/client';
 import type { History } from './plan-history';
 import type { FlowEdge, FlowNode, NodeFields } from './plans';
 
@@ -53,8 +53,8 @@ export interface PlansStore {
   setArrived: (ids: string[]) => void;
   clearMarks: () => void;
   loadList: (project: string) => Promise<void>;
-  /** Makes a canvas and opens it; its id, or null when refused. */
-  create: (name: string) => Promise<string | null>;
+  /** Makes a canvas from a preset (blank by default) and opens it; its id, or null when refused. */
+  create: (name: string, preset?: PlanPreset) => Promise<string | null>;
   rename: (id: string, name: string) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   openCanvas: (id: string) => Promise<void>;

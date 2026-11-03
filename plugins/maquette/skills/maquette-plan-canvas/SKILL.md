@@ -45,7 +45,12 @@ in the app: agents may propose a tour, never apply one.
 ## 1. Read the canvas
 
 1. `list_canvases` `{ project }`: ids, names, node and link counts, when each last changed. No
-   canvas yet and the person wants one: `create_canvas` `{ project, name }`.
+   canvas yet and the person wants one: `create_canvas` `{ project, name, preset }`. The preset
+   only sets the start: `brainstorm` (blank, the default), `story` (beats left to right with
+   characters above and places below, worded for a game or a website) or `mechanics` (a card per
+   system with its verb, look and input). The starter notes are guidance under your name and one
+   change in the log with no run (the answer's `change` id is what `undo_run` takes); fill them in
+   with `update_nodes` or leave them for the person to replace.
 2. `get_canvas` `{ project, canvas }`: nodes with id, kind, title, text cut at 120 characters,
    x and y, and `by` (absent for a person's node), and the links. Pass `full: true` or `nodes`
    for the whole text of a few nodes.

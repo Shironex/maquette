@@ -41,17 +41,20 @@ pub fn plan_get(
     Ok(plans::get(&project_dir(&session, &project)?, &id)?)
 }
 
-/// Makes an empty canvas. Presets only set the starting content, which a
-/// later version fills in; every canvas starts blank for now.
+/// Makes a canvas from `preset`, with its starter notes for the project's
+/// target (a game or a website), as the person's first change.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_create(
     session: State<'_, Session>,
     project: String,
     name: String,
+    preset: PlanPreset,
 ) -> CommandResult<PlanDoc> {
-    let dir = project_dir(&session, &project)?;
-    Ok(plans::create(&dir, &name, PlanPreset::Brainstorm)?)
+    let (root, config) = session.workspace()?;
+    let manifest = project::load(&root, &config.layout, &project)?;
+    let dir = project::dir(&root, &config.layout, &project)?;
+    Ok(plans::create_seeded(&dir, &name, preset, manifest.target, None)?.doc)
 }
 
 /// Writes a person's edits: the operations between the canvas the view

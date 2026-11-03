@@ -139,7 +139,7 @@ These look at the workspace and change nothing.
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                                                                                        | Nothing | No       |
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                                                                                            | Nothing | No       |
 | [`get_retarget_review`](#get_retarget_review)         | A model's last retarget review and the library clips baked into it                                                                                                                                                                                                     | Nothing | No       |
-| [`create_canvas`](#create_canvas)                     | Makes an empty planning canvas in a project                                                                                                                                                                                                                            |
+| [`create_canvas`](#create_canvas)                     | Makes a planning canvas in a project, blank or from the Story or Game mechanics preset                                                                                                                                                                                 |
 | [`add_nodes`](#add_nodes)                             | Adds nodes and links to a planning canvas, placed beside a node, clear of the others                                                                                                                                                                                   |
 | [`update_nodes`](#update_nodes)                       | Edits or moves nodes on a planning canvas; only the fields given change                                                                                                                                                                                                |
 | [`remove_nodes`](#remove_nodes)                       | Removes nodes and links the agent added; a person's work is refused                                                                                                                                                                                                    |
@@ -1265,7 +1265,15 @@ Reads a canvas's change log, newest first. Every write by a person or an agent i
 
 `writes files`
 
-Makes an empty planning canvas, as Plan > New canvas does. It writes one file, `plans/<id>.plan.json`, and answers with the id, which is made from the name.
+Makes a planning canvas, as Plan > New canvas does. It writes one file, `plans/<id>.plan.json`, and answers with the id (made from the name), the preset and how many nodes and links it starts with.
+
+A preset only sets the start; every canvas holds every kind of node, and the camera plan is built in, never a preset:
+
+- `brainstorm` (the default, `blank` is accepted too): an empty canvas.
+- `story`: eight notes and seven links: four beats left to right joined in order, two characters above and two places below, each linked to the beat it first shows in. A game project's notes talk about the player, a website's about the visitor and the scroll.
+- `mechanics`: a card per system (core action, movement, defence), each with a verb, a look and an input line, and a note on keeping systems apart.
+
+Preset names are not case sensitive. The starter notes carry your name as `by` and are the canvas's first change, with no run, so the person can undo them all at once from the Changes panel, and you can with `undo_run` and the `change` id this answers with. They are plain guidance for the person to replace. When that change cannot be logged the canvas is removed again and the call fails. An unknown preset is refused with the list, and nothing is written.
 
 | Argument  | Type   | Required | What                                                                                                                |
 | --------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -1275,11 +1283,18 @@ Makes an empty planning canvas, as Plan > New canvas does. It writes one file, `
 | `agent`   | string | no       | Your name as people see it in the canvas and its log, such as `Research agent`. Defaults to your MCP client's name. |
 
 ```json
-{ "project": "moon-island", "name": "Night story", "preset": "story" }
+{ "project": "frost-game", "name": "Act 1", "preset": "story" }
 ```
 
 ```json
-{ "id": "night-story", "file": "plans/night-story.plan.json" }
+{
+  "id": "act-1",
+  "file": "plans/act-1.plan.json",
+  "preset": "story",
+  "nodes": 8,
+  "links": 7,
+  "change": "c-mh8k2f4a001"
+}
 ```
 
 ### add_nodes

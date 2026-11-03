@@ -13,12 +13,13 @@
  * to them), the Changes panel at full and minimum size, the confirm when a
  * Keep would take earlier changes along, and the choice
  * when an edit from another computer meets an unsaved edit to the same
- * note. Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
+ * note. Then the presets (plan-presets.mjs). Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
  * every save failing); the mock only commands `mock_plan_agent` and
  * `mock_plan_outside` make the outside writes.
  */
 
 import { cameraShots } from './plan-camera.mjs';
+import { presetShots } from './plan-presets.mjs';
 
 const SMALL = { width: 1120, height: 720 };
 
@@ -219,4 +220,5 @@ export async function planShots({ open, shot }) {
   await assetShots(open, shot);
   await historyShots(open, shot);
   await cameraShots({ open, shot });
+  await presetShots({ open, shot });
 }

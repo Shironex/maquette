@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { PlanSummary } from '@/ipc/client';
+import type { PlanPreset, PlanSummary } from '@/ipc/client';
 import { useNow } from '@/lib/useNow';
 import { trimText } from '@/state/plan-text';
 import { byEdited, findPlans } from '@/state/plans';
@@ -12,8 +12,8 @@ import { usePlansStore } from '@/state/use-plans-store';
 export const RECENT = 4;
 
 /**
- * The canvas list: the search, the Recent row, inline rename, and which
- * dialog is open (New canvas or Remove).
+ * The canvas list: the search, the Recent row, inline rename, the preset
+ * picked in an empty list, and which dialog is open (New canvas or Remove).
  */
 export function usePlanList(list: readonly PlanSummary[]) {
   const openCanvas = usePlansStore(s => s.openCanvas);
@@ -22,7 +22,8 @@ export function usePlanList(list: readonly PlanSummary[]) {
   const website = useAppStore(s => s.workspace?.project?.target !== 'game');
   const openCamera = usePlanCameraStore(s => s.open);
   const [query, setQuery] = useState('');
-  const [making, setMaking] = useState(false);
+  const [making, setMaking] = useState<PlanPreset | null>(null);
+  const [start, setStart] = useState<PlanPreset>('brainstorm');
   const [removing, setRemoving] = useState<PlanSummary | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const now = useNow(30_000);
@@ -43,9 +44,15 @@ export function usePlanList(list: readonly PlanSummary[]) {
     setQuery,
     found,
     recent,
-    making,
-    startNew: () => setMaking(true),
-    closeNew: () => setMaking(false),
+    making: {
+      /** The preset the New canvas dialog opens with, or null while it is shut. */
+      preset: making,
+      open: (preset: PlanPreset = 'brainstorm') => setMaking(preset),
+      close: () => setMaking(null),
+      /** The preset picked in the empty list, before New canvas opens. */
+      start,
+      setStart,
+    },
     removing,
     askRemove: (plan: PlanSummary) => setRemoving(plan),
     closeRemove: () => setRemoving(null),
