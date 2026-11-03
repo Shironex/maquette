@@ -689,6 +689,12 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(credits["openaiImages"]["capUsd"], json!(10));
     assert_eq!(credits["openaiImages"]["monthToDateUsd"], json!(0.0));
     assert!(
+        !credits["openaiImages"]["monthToDateUsd"]
+            .to_string()
+            .starts_with('-'),
+        "never -0.0: {credits}"
+    );
+    assert!(
         credits["openaiImages"]["pendingUsd"]
             .as_f64()
             .is_some_and(|u| u > 0.0),
