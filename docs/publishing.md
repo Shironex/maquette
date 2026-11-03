@@ -99,13 +99,13 @@ Every workflow lives in `.github/workflows/`, pins each action to a full commit 
 is in a comment next to it, and Dependabot bumps both), and asks for the least permissions it
 needs.
 
-| Workflow        | Runs on                                                                        | Jobs (check names)                                                                                         |
-| --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `ci.yml`        | pull requests, pushes to `main`                                                | `lint · format`, `typecheck`, `test · web`, `build · site`, `rust · macos-latest`, `rust · windows-latest` |
-| `pr-title.yml`  | pull requests (title and every new commit)                                     | `pr title`                                                                                                 |
-| `pr-labels.yml` | pull requests                                                                  | `area labels`, `issue labels`                                                                              |
-| `release.yml`   | pushed `v*` tags, or by hand as a dry run                                      | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
-| `pages.yml`     | pushes to `main` that touch the site, after a release is published, or by hand | `build · pages`, `deploy · pages`                                                                          |
+| Workflow        | Runs on                                                                      | Jobs (check names)                                                                                         |
+| --------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `ci.yml`        | pull requests, pushes to `main`                                              | `lint · format`, `typecheck`, `test · web`, `build · site`, `rust · macos-latest`, `rust · windows-latest` |
+| `pr-title.yml`  | pull requests (title and every new commit)                                   | `pr title`                                                                                                 |
+| `pr-labels.yml` | pull requests                                                                | `area labels`, `issue labels`                                                                              |
+| `release.yml`   | pushed `v*` tags, or by hand as a dry run                                    | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
+| `pages.yml`     | pushes to `main` that touch the site, a dispatch after `publish`, or by hand | `build · pages`, `deploy · pages`                                                                          |
 
 - **`ci.yml`** is `pnpm gate` split into parallel jobs, uncached and with `cargo test`. The Node jobs run on Linux; the Rust jobs
   (clippy with warnings denied, then `cargo test`) run on macOS and Windows, the systems the app
@@ -309,6 +309,7 @@ The checklist stays for reference; keep it for the next key or repository change
    the updater skips). The last step of `publish` starts `pages.yml`, which rebuilds the landing
    page from the published release, so its Download card shows the new version, date and sizes
    without a PR. Check the `pages` run turned green; rerun it by hand if not.
+   A release published by hand in the GitHub UI starts nothing: run Actions > pages > Run workflow on `main`.
 
 If a build fails, fix it on `main`, bump to the next patch version and tag again; never move a
 tag that was pushed. Rerunning the failed jobs of the same run is fine while the release is still

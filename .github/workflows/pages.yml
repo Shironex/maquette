@@ -8,8 +8,10 @@
 #
 # The build reads the version, date and installer sizes of the Download card
 # from the latest published release (apps/site/scripts/sync-release.mjs). The
-# release workflow starts this workflow once it has published, since a release
-# published with GITHUB_TOKEN does not fire a `release` event by itself.
+# release workflow starts this workflow on main once it has published. There is
+# no `release` trigger on purpose: it would run on the tag ref, which the
+# github-pages environment does not admit (main only), and build the tag's code.
+# A release published by hand in the GitHub UI needs a manual run on main.
 
 name: pages
 
@@ -26,10 +28,6 @@ on:
       - pnpm-workspace.yaml
       - .nvmrc
       - .github/workflows/pages.yml
-  # A release published by hand in the GitHub UI. One published by the release
-  # workflow fires no event (GITHUB_TOKEN), so that workflow dispatches this one.
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
