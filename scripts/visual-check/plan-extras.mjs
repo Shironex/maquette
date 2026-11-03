@@ -49,6 +49,12 @@ export async function extrasShots({ open, shot }) {
 
     await page.getByRole('button', { name: /^Auto layout/ }).click();
     await page.getByRole('button', { name: /^Auto layout/, pressed: false }).waitFor();
+    // A person's runs start folded: unfold the newest to show the switch's line.
+    await page
+      .getByRole('group', { name: 'You, 1 change' })
+      .first()
+      .getByRole('button', { name: 'Show the changes' })
+      .click();
     await page.getByText('Turned auto layout after agents off').waitFor();
     await page.waitForTimeout(300);
     await shot(page, `plan-auto-off${suffix}`);
@@ -70,7 +76,10 @@ export async function extrasShots({ open, shot }) {
     await page.waitForTimeout(300);
     await shot(page, `plan-overlaps${suffix}`);
     await page.getByRole('button', { name: /^Mark as fine: Dash and Frost veil/ }).click();
-    await page.getByText('1 found').waitFor();
+    await page
+      .getByRole('complementary', { name: 'Overlaps' })
+      .getByText('1 found', { exact: true })
+      .waitFor();
     await page.waitForTimeout(400);
     await shot(page, `plan-overlap-fine${suffix}`);
     await page.context().close();
