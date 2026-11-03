@@ -125,7 +125,9 @@ export default function CameraPanel({ onClose, hidden }: { onClose: () => void; 
         <section aria-label="Order after Apply" className="flex flex-col gap-1.5">
           <h3 className="text-[13px] font-semibold text-fg">
             Order after Apply
-            <span className="ml-1.5 font-normal text-fg-mute">{order.length} stops</span>
+            <span className="ml-1.5 font-normal text-fg-mute">
+              {order.length} {order.length === 1 ? 'stop' : 'stops'}
+            </span>
           </h3>
           {order.length ? <ol className="flex flex-col gap-1 text-[12.5px]">{order}</ol> : null}
           {review && !order.length ? (
