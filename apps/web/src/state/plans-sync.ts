@@ -27,7 +27,7 @@ import { deepEqual } from '@/lib/deepEqual';
 import { useAppStore } from './use-app-store';
 import { EMPTY_HISTORY, record, takeRedo, takeUndo } from './plan-history';
 import { applyOps, conflictsOf, diffPlans, rebase } from './plan-ops';
-import { flowFrom, planOf, samePlan } from './plans';
+import { flowEdgesOf, flowFrom, flowNodesOf, planOf, samePlan } from './plans';
 import type { GetPlans, PlansStore, SetPlans } from './plans-store.types';
 
 /** How long after the last change the canvas saves, in milliseconds. */
@@ -37,6 +37,10 @@ export const SAVE_FAILED = 'The canvas was not saved';
 /** Why unsaved edits stay unsaved when another canvas took the open one's id. */
 export const REPLACED =
   'This canvas was replaced on disk since it was opened, so your edits were not saved. Open it again from the Plan list; copy anything you need first.';
+/** Said when another canvas took the open one's id and there was nothing unsaved to lose. */
+export const REOPENED = 'This canvas was replaced on disk';
+export const REOPENED_DETAIL =
+  'Another canvas took its file, so it opened again as it is now. The one you had may be in the Plan list under another name.';
 
 /** Why nothing saves while the outside change waits for its answer. */
 export const ANSWER_FIRST = 'The canvas changed outside';
@@ -248,10 +252,26 @@ export function createSync(set: SetPlans, get: GetPlans) {
         const base = get().open;
         const local = draft();
         if (base?.id !== doc.id || !local) return;
-        if (doc.plan.created !== base.plan.created && !samePlan(local, base.plan)) {
+        if (doc.plan.created !== base.plan.created) {
           // Another canvas took this id (one moved aside for the camera plan): never merge into it.
           clearTimeout(timer);
-          set({ saveError: REPLACED, dirty: true });
+          if (!samePlan(local, base.plan)) {
+            set({ saveError: REPLACED, dirty: true });
+            return;
+          }
+          // Nothing unsaved: the canvas there now opens afresh, the camera plan with its panel.
+          reset(doc.plan);
+          set({
+            open: doc,
+            nodes: flowNodesOf(doc.plan),
+            edges: flowEdgesOf(doc.plan),
+            images: doc.images,
+            saveError: null,
+            dirty: false,
+          });
+          useAppStore
+            .getState()
+            .notify({ status: 'info', title: REOPENED, detail: REOPENED_DETAIL });
           return;
         }
         if (samePlan(doc.plan, base.plan)) {

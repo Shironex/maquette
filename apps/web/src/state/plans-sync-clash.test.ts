@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { clearMocks, openPlans } from '@/test/open-plan';
-import { ANSWER_FIRST, RELOAD_RETRY_MS, REPLACED } from './plans-sync';
+import { ANSWER_FIRST, RELOAD_RETRY_MS, REOPENED, REPLACED } from './plans-sync';
 import { useAppStore } from './use-app-store';
 import { NOTHING_TO_UNDO, usePlanLogStore } from './use-plan-log-store';
 import { SAVE_DELAY, usePlansStore } from './use-plans-store';
@@ -261,6 +261,32 @@ describe('when another canvas takes the open one id', () => {
     expect(plans().outside).toBeNull();
     expect(flowNode('n-01')?.data.node.text).toBe('Mine');
     expect(plans().open?.plan.created).toBe(real.plan.created);
+  });
+
+  it('with nothing unsaved, opens the canvas there now afresh and says so', async () => {
+    await openPlans();
+    await plans().openCanvas('combat-ideas');
+    plans().updateNode('n-01', { text: 'Mine' });
+    expect(await plans().save()).toBe(true);
+    const real = await commands.planGet('frostveil', 'combat-ideas');
+    const other = {
+      ...real.plan,
+      name: 'Camera plan',
+      created: '2030-01-01T00:00:00Z',
+      nodes: real.plan.nodes.slice(0, 1),
+      edges: [],
+    };
+    vi.spyOn(commands, 'planGet').mockResolvedValue({ ...real, plan: other });
+    const notify = vi.spyOn(useAppStore.getState(), 'notify');
+    await plans().reload();
+    expect(plans().saveError).toBeNull();
+    expect(plans().dirty).toBe(false);
+    expect(plans().open?.plan.created).toBe('2030-01-01T00:00:00Z');
+    expect(plans().nodes.map(n => n.id)).toEqual([other.nodes[0]!.id]);
+    // Opened afresh: no undo into the other canvas, no added or edited badges.
+    expect(plans().history.past).toHaveLength(0);
+    expect(plans().marks).toEqual({});
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ title: REOPENED }));
   });
 
   it('the save itself is refused when the file was made at another time', async () => {
