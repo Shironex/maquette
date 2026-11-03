@@ -378,7 +378,10 @@ impl McpTools {
         annotations(read_only_hint = true)
     )]
     async fn get_started(&self) -> Out {
-        respond(self.blocking(|host, _| started(host)).await)
+        respond(
+            self.blocking(|host, _| started(host).map(|v| super::groups::with_off_line(v, host)))
+                .await,
+        )
     }
 
     #[tool(

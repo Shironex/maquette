@@ -8,6 +8,7 @@ mod animations;
 mod bake;
 mod built;
 mod game;
+mod groups;
 mod handshake;
 mod inbox;
 mod lab_jobs;

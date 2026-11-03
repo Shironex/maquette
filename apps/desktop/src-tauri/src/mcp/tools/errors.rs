@@ -151,6 +151,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Check the project id; list_projects gives every id.",
             "list_projects",
         )),
+        super::groups::GROUP_OFF => Some(person(
+            "Ask the person to turn the group on in Settings > Agents in the Maquette app. No tool can. get_started names the groups that are off.",
+            Some("get_started"),
+        )),
         _ => None,
     }
 }

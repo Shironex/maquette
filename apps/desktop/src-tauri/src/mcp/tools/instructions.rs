@@ -11,7 +11,7 @@ START HERE
 3. Follow the next list in an answer. An error carries code, and fix and tryTool when they help.
 Every tool's description starts with its group in brackets, and tools that work on a project take its id as project.
 
-TOOL GROUPS
+TOOL GROUPS (Settings > Agents may turn off any but start and project, so a tool named here may be missing: toolGroupsOff in get_started names them; ask the person.)
 [start] get_started, create_project.
 [project] Projects, assets, the scene layout, copying assets, the asset trash.
 [lab] Concept images, their jobs, the style board, picks to the Board, the image backends, Codex usage.
@@ -26,7 +26,7 @@ TOOL GROUPS
 [library] Models kept outside any project. It copies, never links, and spends nothing.
 [animation] The clip library and baking clips onto a rigged model. Mixamo clips stay on this computer.
 [export] Export packs for other engines and render styles: headless Blender, no credits.
-[avatar-rig] VRM avatars and the rig doctor. Settings > Agents can turn this group off.
+[avatar-rig] VRM avatars and the rig doctor.
 
 WAITS FOR A PERSON (in the Maquette app, no tool can answer; poll, and never start the work again)
 - Spending: send_to_3d, send_batch_to_3d, redo_inbox_model, redo_inbox_models and split_with_provider on Tripo or Meshy (follow with get_provider_job).
