@@ -20,4 +20,5 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<SiteFolders>()
         .register::<BlendFile>()
         .register::<ImportScan>()
+        .register::<super::trash::RemovedProject>()
 }

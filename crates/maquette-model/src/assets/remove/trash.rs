@@ -79,6 +79,11 @@ pub fn project_trash(root: &Path, layout: &FolderLayout, project: &str) -> CoreR
     if !is_single_segment(project) {
         return Err(CoreError::NotFound(format!("the project {project}")));
     }
+    if project == crate::project::trash::PROJECTS_TRASH {
+        return Err(CoreError::Invalid(format!(
+            "The workspace trash keeps removed projects in {TRASH_DIR}/{project}, so a project folder with that name has no trash of its own. Rename the folder."
+        )));
+    }
     Ok(root.join(TRASH_DIR).join(project))
 }
 

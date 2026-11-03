@@ -16,6 +16,7 @@ mod import;
 mod register;
 pub mod repos;
 mod slug;
+pub mod trash;
 
 // The clock lives in the base crate; these keep the old paths.
 pub use import::{
@@ -267,7 +268,7 @@ fn load_raw(workspace_root: &Path, layout: &FolderLayout, id: &str) -> CoreResul
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
-            return Err(CoreError::NotFound(format!("the project {id}")));
+            return Err(trash::missing(workspace_root, id));
         }
         Err(err) => return Err(CoreError::io(&path, err)),
     };
