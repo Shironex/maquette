@@ -161,11 +161,21 @@ async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off(
     assert_eq!(config.agents.rules.tool_groups_off, vec!["avatar-rig"]);
     let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
     session.set_workspace(root.clone(), config).expect("set");
-    // A settings save writes the group list and drops the old switch.
+    // A settings save writes the group list and, for one release, the old
+    // switch beside it for a computer that still runs the version before.
     session.update_config(|_| {}).expect("save");
     let text = std::fs::read_to_string(&file).expect("read");
-    assert!(!text.contains("avatarRigTools"), "{text}");
-    assert!(text.contains("avatar-rig"), "{text}");
+    let saved: Value = serde_json::from_str(&text).expect("json");
+    assert_eq!(
+        saved["agents"]["rules"]["avatarRigTools"],
+        json!(false),
+        "{text}"
+    );
+    assert_eq!(
+        saved["agents"]["rules"]["toolGroupsOff"],
+        json!(["avatar-rig"]),
+        "{text}"
+    );
 
     let (client, server, _host) = serve(session).await;
     let listed = names(&client).await;

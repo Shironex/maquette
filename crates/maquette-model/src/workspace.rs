@@ -284,13 +284,23 @@ pub fn open(root: &Path) -> CoreResult<WorkspaceConfig> {
             supported: CONFIG_VERSION,
         });
     }
-    let text = fold_legacy_tripo(&text).map_err(|e| CoreError::json(&path, e))?;
+    let text = fold_legacy_tripo(&text)
+        .and_then(|text| fold_legacy_avatar_switch(&text))
+        .map_err(|e| CoreError::json(&path, e))?;
     let mut config: WorkspaceConfig =
         from_json_with_defaults(&text).map_err(|e| CoreError::json(&path, e))?;
     config.version = CONFIG_VERSION;
     validate(&config)?;
     ensure_layout(root, &config.layout)?;
     Ok(config)
+}
+
+/// Files from before the tool groups kept one `avatarRigTools` switch; its
+/// meaning moves into `toolGroupsOff` unless the file already has the list.
+fn fold_legacy_avatar_switch(text: &str) -> Result<String, serde_json::Error> {
+    let mut root: serde_json::Value = serde_json::from_str(text)?;
+    agent_rules::read_legacy_switch(&mut root);
+    serde_json::to_string(&root)
 }
 
 /// Older configs kept one `tripo` block. Its values move to where they
@@ -363,7 +373,12 @@ fn ensure_layout(root: &Path, layout: &FolderLayout) -> CoreResult<()> {
 pub fn save(root: &Path, config: &WorkspaceConfig) -> CoreResult<()> {
     validate(config)?;
     let path = root.join(CONFIG_FILE);
-    write_json(&path, config)
+    // For one release the old avatar and rig switch is written beside the
+    // group list, for a computer synced to this workspace that still runs
+    // the version before the groups.
+    let mut value = serde_json::to_value(config).map_err(|e| CoreError::json(&path, e))?;
+    agent_rules::write_legacy_switch(&mut value, &config.agents.rules);
+    write_json(&path, &value)
 }
 
 /// True when `name` is one plain folder name, safe to join onto a root.

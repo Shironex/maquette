@@ -1,13 +1,17 @@
 //! The rules agents work under, and the MCP tool groups they are not
 //! offered. Files from before the groups carried one switch for the avatar
-//! and rig tools; reading one turns that switch into its group.
+//! and rig tools. Reading a file turns that switch into its group, and for
+//! one release a save still writes the switch beside the list, so a copy of
+//! the workspace synced to a computer that runs the version before the
+//! groups keeps its meaning.
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// The group the old `avatarRigTools` switch stood for.
 pub const AVATAR_RIG_GROUP: &str = "avatar-rig";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentRules {
     pub blender_headless_only: bool,
@@ -38,33 +42,33 @@ impl AgentRules {
     }
 }
 
-/// The rules as a file holds them, old or new.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Saved {
-    blender_headless_only: bool,
-    never_capture_screen: bool,
-    ask_before_shipping: bool,
-    #[serde(default)]
-    tool_groups_off: Vec<String>,
-    /// The switch before the groups: false left the avatar and rig tools out.
-    #[serde(default)]
-    avatar_rig_tools: Option<bool>,
+const SWITCH: &str = "avatarRigTools";
+const LIST: &str = "toolGroupsOff";
+
+fn rules_of(config: &mut Value) -> Option<&mut serde_json::Map<String, Value>> {
+    config.get_mut("agents")?.get_mut("rules")?.as_object_mut()
 }
 
-impl<'de> Deserialize<'de> for AgentRules {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let saved = Saved::deserialize(deserializer)?;
-        let mut off = saved.tool_groups_off;
-        if saved.avatar_rig_tools == Some(false) && !off.iter().any(|id| id == AVATAR_RIG_GROUP) {
-            off.push(AVATAR_RIG_GROUP.to_string());
-        }
-        Ok(Self {
-            blender_headless_only: saved.blender_headless_only,
-            never_capture_screen: saved.never_capture_screen,
-            ask_before_shipping: saved.ask_before_shipping,
-            tool_groups_off: off,
-        })
+/// Reading: a file with the list uses the list and ignores the switch. A
+/// file with only the switch (from before the groups) gets the list the
+/// switch stood for: false means the avatar and rig group is off.
+pub(super) fn read_legacy_switch(config: &mut Value) {
+    let Some(rules) = rules_of(config) else {
+        return;
+    };
+    let switch = rules.remove(SWITCH);
+    if !rules.contains_key(LIST) && switch == Some(Value::Bool(false)) {
+        rules.insert(LIST.to_string(), Value::from(vec![AVATAR_RIG_GROUP]));
+    }
+}
+
+/// Writing: the switch beside the list, false when the group is off.
+pub(super) fn write_legacy_switch(config: &mut Value, rules: &AgentRules) {
+    if let Some(map) = rules_of(config) {
+        map.insert(
+            SWITCH.to_string(),
+            Value::Bool(!rules.is_off(AVATAR_RIG_GROUP)),
+        );
     }
 }
 
@@ -74,30 +78,27 @@ mod tests {
 
     use super::*;
 
-    fn read(value: serde_json::Value) -> AgentRules {
-        serde_json::from_value(value).expect("rules")
+    fn file(rules: Value) -> Value {
+        let mut rules = rules;
+        for key in [
+            "blenderHeadlessOnly",
+            "neverCaptureScreen",
+            "askBeforeShipping",
+        ] {
+            rules[key] = json!(true);
+        }
+        json!({ "agents": { "rules": rules } })
     }
 
-    const SAFETY: [(&str, bool); 3] = [
-        ("blenderHeadlessOnly", true),
-        ("neverCaptureScreen", true),
-        ("askBeforeShipping", true),
-    ];
-
-    fn with(extra: serde_json::Value) -> serde_json::Value {
-        let mut value = json!({});
-        for (key, on) in SAFETY {
-            value[key] = json!(on);
-        }
-        for (key, v) in extra.as_object().expect("object") {
-            value[key] = v.clone();
-        }
-        value
+    fn read(rules: Value) -> AgentRules {
+        let mut config = file(rules);
+        read_legacy_switch(&mut config);
+        serde_json::from_value(config["agents"]["rules"].clone()).expect("rules")
     }
 
     #[test]
     fn the_old_switch_off_turns_the_avatar_and_rig_group_off() {
-        let rules = read(with(json!({ "avatarRigTools": false })));
+        let rules = read(json!({ "avatarRigTools": false }));
         assert_eq!(rules.tool_groups_off, vec![AVATAR_RIG_GROUP]);
         assert!(rules.is_off(AVATAR_RIG_GROUP));
     }
@@ -105,25 +106,44 @@ mod tests {
     #[test]
     fn the_old_switch_on_or_missing_offers_every_group() {
         for extra in [json!({ "avatarRigTools": true }), json!({})] {
-            assert!(read(with(extra)).tool_groups_off.is_empty());
+            assert!(read(extra).tool_groups_off.is_empty());
         }
     }
 
     #[test]
-    fn the_new_list_wins_and_the_group_is_named_once() {
-        let rules = read(with(json!({
-            "avatarRigTools": false,
-            "toolGroupsOff": ["game", "avatar-rig"],
-        })));
-        assert_eq!(rules.tool_groups_off, vec!["game", "avatar-rig"]);
+    fn the_list_wins_when_both_keys_are_present() {
+        let both = read(json!({ "avatarRigTools": false, "toolGroupsOff": ["game"] }));
+        assert_eq!(both.tool_groups_off, vec!["game"]);
+        assert!(!both.is_off(AVATAR_RIG_GROUP));
+        let empty = read(json!({ "avatarRigTools": false, "toolGroupsOff": [] }));
+        assert!(empty.tool_groups_off.is_empty());
+        let on = read(json!({ "avatarRigTools": true, "toolGroupsOff": ["avatar-rig"] }));
+        assert_eq!(on.tool_groups_off, vec![AVATAR_RIG_GROUP]);
     }
 
     #[test]
-    fn a_save_writes_the_list_and_never_the_old_switch() {
-        let migrated = read(with(json!({ "avatarRigTools": false })));
-        let saved = serde_json::to_value(&migrated).expect("value");
-        assert!(saved.get("avatarRigTools").is_none(), "{saved}");
-        assert_eq!(saved["toolGroupsOff"], json!(["avatar-rig"]));
-        assert_eq!(read(saved), migrated);
+    fn a_save_writes_the_switch_beside_the_list_and_it_reads_back() {
+        for off in [
+            vec![],
+            vec!["game".to_string()],
+            vec!["game".to_string(), "avatar-rig".to_string()],
+        ] {
+            let rules = AgentRules {
+                tool_groups_off: off,
+                ..AgentRules::default()
+            };
+            let mut saved =
+                json!({ "agents": { "rules": serde_json::to_value(&rules).expect("value") } });
+            assert!(saved["agents"]["rules"].get(SWITCH).is_none());
+            write_legacy_switch(&mut saved, &rules);
+            assert_eq!(
+                saved["agents"]["rules"][SWITCH],
+                json!(!rules.is_off(AVATAR_RIG_GROUP))
+            );
+            read_legacy_switch(&mut saved);
+            let back: AgentRules =
+                serde_json::from_value(saved["agents"]["rules"].clone()).expect("rules");
+            assert_eq!(back, rules);
+        }
     }
 }
