@@ -51,10 +51,17 @@ function view(query, hash, text, then) {
     await page.goto(`${ORIGIN}/?delay=300&${query}#/${hash}`);
     await page.getByText(text).first().waitFor({ timeout: 60000 });
     if (then) await then(page);
-    // The sample project's own names become the neutral ones the site shows.
-    await page.evaluate(rename);
+    // The sample project's own names become the neutral ones the site shows,
+    // in the app and in any page it frames (the Page view's site).
+    for (const frame of page.frames()) await frame.evaluate(rename);
     await page.mouse.move(1439, 999);
   };
+}
+
+/** The site loads in its frame after the view; wait for it so it is renamed too. */
+async function siteLoaded(page) {
+  const site = page.locator('iframe').first().contentFrame();
+  await site.getByText('A frozen lake you can scroll through.').waitFor();
 }
 
 export default defineConfig({
@@ -151,7 +158,8 @@ export default defineConfig({
       nav: view(
         'scenario=idle&timeline=demo&page=running&library=demo',
         'timeline',
-        'Scroll timeline'
+        'Scroll timeline',
+        siteLoaded
       ),
       delayMs: 2500,
     },
@@ -159,7 +167,12 @@ export default defineConfig({
       id: 'page',
       title: 'Page',
       caption: "Page: the site's own dev server, measured at every camera stop.",
-      nav: view('scenario=idle&page=running&library=demo', 'page', 'Current ship vs this run'),
+      nav: view(
+        'scenario=idle&page=running&library=demo',
+        'page',
+        'Current ship vs this run',
+        siteLoaded
+      ),
       delayMs: 2500,
     },
     {

@@ -30,6 +30,7 @@ export function toWebp(page, png, size) {
 export function rename() {
   const swap = s =>
     s
+      .replace(/FROSTVEIL/g, 'WINTER SPIRE')
       .replace(/Frostveil/g, 'Winter Spire')
       .replace(/frostveil site/g, 'winter spire site')
       .replace(/frostveil/g, 'winter-spire')
