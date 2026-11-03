@@ -155,6 +155,7 @@ pub(super) mod tests {
             split: None,
             studio: None,
             retexture: None,
+            denied: false,
         }
     }
 

@@ -96,11 +96,15 @@ impl ProviderJobs {
             stored.chain.refunded = refunded;
             stored.job.finished_at_ms = Some(now_ms());
             stored.job.message = Some(message.clone());
+            stored.job.denied = deny;
             Ok(())
         })?;
         let job = self
             .get(id)
             .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+        if deny {
+            settle::put_back(&self.shared, &job.project, &job.asset);
+        }
         settle::settle_asset(&self.shared, &job.project, &job.asset);
         pump(&self.shared);
         Ok(job)

@@ -396,6 +396,7 @@ fn prepare(
         split: None,
         studio,
         retexture: None,
+        denied: false,
     })
 }
 

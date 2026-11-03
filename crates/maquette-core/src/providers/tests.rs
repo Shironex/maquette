@@ -1556,9 +1556,22 @@ fn an_approval_that_is_denied_never_reaches_the_ledger() {
     let request = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
     let job = jobs.send(&request, true, true).expect("send");
     assert_eq!(job.state, JobState::Approval);
-    jobs.deny(&job.id).expect("deny");
+    assert_eq!(world.asset_status(), (Stage::Tripo, AssetStatus::Queued));
+    let denied = jobs.deny(&job.id).expect("deny");
+    assert!(denied.denied, "the card can say it was denied");
+    assert_eq!(
+        world.asset_status().0,
+        Stage::Refs,
+        "back where it was, out of the 3D model column"
+    );
     assert!(jobs.ledger().expect("ledger").spends.is_empty());
     assert_eq!(server.requests().len(), 0);
+
+    // A cancel is no deny: the card stays where the send put it.
+    let job = jobs.send(&request, true, true).expect("send again");
+    let cancelled = jobs.cancel(&job.id).expect("cancel");
+    assert!(!cancelled.denied);
+    assert_eq!(world.asset_status().0, Stage::Tripo);
 }
 
 #[test]

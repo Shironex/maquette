@@ -425,6 +425,7 @@ fn prepare(
         split: Some(split),
         studio: None,
         retexture: None,
+        denied: false,
     };
     Ok((job, found.file))
 }

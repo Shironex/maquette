@@ -6305,6 +6305,11 @@ export type ProviderJob = {
 	studio?: StudioSettings | null,
 	/**  Set for painting a version again on Meshy; `prompt` holds the words. */
 	retexture?: RetextureJob | null,
+	/**
+	 *  Turned down in Maquette while it waited for approval: nothing went
+	 *  to the provider and nothing was spent.
+	 */
+	denied?: boolean,
 };
 
 /**
