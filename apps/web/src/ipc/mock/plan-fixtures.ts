@@ -161,6 +161,46 @@ export function demoBoss(): PlanFile {
   };
 }
 
+/** Combat systems: a Game mechanics canvas with two overlaps, a shared look and a shared key. */
+export function demoSystems(): PlanFile {
+  const system = (id: string, x: number, y: number, title: string, lines: string[]) =>
+    note(id, x, y, lines.join('\n'), `System: ${title}`);
+  return {
+    version: 2,
+    name: 'Combat systems',
+    preset: 'mechanics',
+    created: at('2026-11-01T10:00:00.000Z'),
+    edited: at('2026-11-02T09:10:00.000Z'),
+    nodes: [
+      system('n-01', 0, 0, 'Strike', ['Verb: strike', 'Look: white arcs', 'Input: left mouse']),
+      system('n-02', 300, 0, 'Sigils', [
+        'Verb: draw to cast',
+        'Look: blue glyph rings',
+        'Input: Q and E',
+      ]),
+      system('n-03', 600, 0, 'Runes', [
+        'Verb: chain hits',
+        'Look: rune rings',
+        'Input: right mouse',
+      ]),
+      system('n-04', 0, 240, 'Dash', ['Verb: evade', 'Look: pale streak', 'Input: tap Shift']),
+      system('n-05', 300, 240, 'Frost veil', [
+        'Verb: slow time',
+        'Look: mist dome',
+        'Input: hold Shift',
+      ]),
+      note(
+        'n-06',
+        600,
+        240,
+        'One verb, one look and one input per system. Two systems that share any of them read as one.',
+        'Keep them apart'
+      ),
+    ],
+    edges: [edge('e-01', 'n-02', 'n-03', 'relates', 'feeds')],
+  };
+}
+
 export function demoCanvases(): Canvases {
   const blank = (name: string, edited: string): PlanFile => ({
     version: 2,

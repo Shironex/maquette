@@ -135,7 +135,7 @@ export function createBackend({
     listed,
     gameState === 'crypt' ? (projects.find(p => p.id === 'crypt-game') ?? null) : null
   );
-  if (plans === 'demo' || plans === 'locked') inbox = aimDemoInbox(inbox);
+  if (plans === 'demo' || plans === 'locked' || plans === 'systems') inbox = aimDemoInbox(inbox);
 
   const prepare = createPrepareHandlers({
     project: id => project(id),

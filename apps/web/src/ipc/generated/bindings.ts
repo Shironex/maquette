@@ -441,6 +441,29 @@ export const commands = {
 	 *  changed since.
 	 */
 	planCameraRebase: (project: string, mode: RebaseMode, dry: boolean, layoutKey: string | null) => __TAURI_INVOKE<CameraRebased_Serialize>("plan_camera_rebase", { project, mode, dry, layoutKey }),
+	/**
+	 *  The removal proposals waiting for the person, oldest first, each marked
+	 *  stale when a node it names changed or went since the agent asked.
+	 */
+	planProposals: (project: string, id: string) => __TAURI_INVOKE<RemovalProposal[]>("plan_proposals", { project, id }),
+	/**
+	 *  Answers a removal proposal as the person: `remove` takes the nodes off
+	 *  (with their links) as the person's undoable change, refused when the
+	 *  proposal went stale; otherwise "Keep it" leaves the canvas as it is.
+	 */
+	planAnswerRemoval: (project: string, id: string, proposal: string, remove: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_answer_removal", { project, id, proposal, remove }),
+	/**
+	 *  Makes a canvas from the node `node` of `source` and the nodes linked to
+	 *  it, as the person's first change there. The source does not change.
+	 */
+	planStartFrom: (project: string, source: string, node: string, name: string | null) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_start_from", { project, source, node, name }),
+	/**  Turns "Auto layout after agents" on or off for the canvas. */
+	planSetAutoLayout: (project: string, id: string, on: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_set_auto_layout", { project, id, on }),
+	/**
+	 *  Marks the overlap of the cards `a` and `b` as fine until either card's
+	 *  words change.
+	 */
+	planMarkFine: (project: string, id: string, a: string, b: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_mark_fine", { project, id, a, b }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears
@@ -1260,6 +1283,22 @@ export type AskedNode = {
 	/**  [`content_key`] of the node when asked. */
 	key: string,
 };
+
+/**  A proposed node as the review shows it. */
+export type AskedNodeView = {
+	id: string,
+	name: string,
+	state: AskedState,
+};
+
+/**  Where a proposed node stands now. */
+export type AskedState = 
+/**  As it was when asked. */
+"here" | 
+/**  Its content changed since. */
+"changed" | 
+/**  No longer on the canvas. */
+"gone";
 
 /**  The aspect ratio asked for in the prompt. */
 export type Aspect = "16:9" | "3:2" | "1:1" | "3:4" | "9:16";
@@ -6369,6 +6408,20 @@ export type Removal = {
 	nodes: AskedNode[],
 	/**  Why, in the agent's words; may be empty. */
 	reason?: string,
+};
+
+/**  A removal proposal waiting for the person. */
+export type RemovalProposal = {
+	/**  The proposal's log line id, which Remove and Keep it name. */
+	id: string,
+	at: string,
+	/**  The agent that asked. */
+	by: string,
+	run: string | null,
+	reason: string,
+	nodes: AskedNodeView[],
+	/**  A node changed or went since it was asked: only Keep it is offered. */
+	stale: boolean,
 };
 
 /**  One asset of a remove. */

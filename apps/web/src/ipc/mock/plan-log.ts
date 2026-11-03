@@ -18,6 +18,10 @@ export interface MockLogEntry {
   ops: PlanOp[];
   undoes: string[];
   keeps?: string[];
+  /** An agent's removal proposal: the nodes as asked, keyed by their content, and why. */
+  proposes?: { nodes: { id: string; name: string; key: string }[]; reason: string };
+  /** The proposals this line answered. */
+  resolves?: string[];
 }
 
 /** Whether `op` changed a person's content: their node or link, or an agent node they wrote in last. */
@@ -114,7 +118,7 @@ export function clipWords(text: string, max = 60): string {
   return `${cut.replace(/[\s,.]+$/, '')}\u2026`;
 }
 
-const nameOf = (node: PlanNode) =>
+export const nameOf = (node: PlanNode) =>
   clipWords(node.title.trim() || node.text.trim().split('\n')[0]?.trim() || node.id);
 
 const counted = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

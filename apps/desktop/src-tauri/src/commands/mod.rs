@@ -29,6 +29,7 @@ pub mod parts;
 pub mod paths;
 pub mod pipeline;
 pub mod plan_camera;
+pub mod plan_extras;
 pub mod plan_watch;
 pub mod plans;
 pub mod prepare;

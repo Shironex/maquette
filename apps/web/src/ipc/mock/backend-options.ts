@@ -126,7 +126,7 @@ export interface BackendOptions {
   timeline?: string | null;
   /** `demo` or `empty`: the Paths editor's paths (see create-paths-handlers.ts). */
   paths?: string | null;
-  /** `demo`: Frostveil's planning canvases; `locked`: the same, every save failing (see create-plan-handlers.ts). */
+  /** `demo`: Frostveil's planning canvases; `locked`: the same, every save failing; `systems`: the same and a Game mechanics canvas (see create-plan-handlers.ts). */
   plans?: string | null;
   /** `slow`: Render previews lands each picture a while after it is asked, as Blender does. */
   previews?: string | null;

@@ -6,7 +6,7 @@
  * canvas changed outside is merged with the person's unsaved edits by
  * [`rebase`]; undo and redo turn a person's operations around.
  */
-import type { PlanEdge, PlanFile, PlanNode, PlanOp } from '@/ipc/client';
+import type { FineMark, PlanEdge, PlanFile, PlanNode, PlanOp } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
 
 /** `mine`: the writer's values win. `careful`: only what still holds the expected value changes. */
@@ -50,6 +50,12 @@ export function diffPlans(from: PlanFile, to: PlanFile): PlanOp[] {
     if (!before) ops.push({ op: 'add-edge', edge });
     else if (!deepEqual(before, edge)) ops.push({ op: 'set-edge', before, after: edge });
   }
+  const [autoFrom, autoTo] = [from.autoLayout ?? true, to.autoLayout ?? true];
+  if (autoFrom !== autoTo) ops.push({ op: 'set-auto-layout', before: autoFrom, after: autoTo });
+  const has = (marks: PlanFile['fine'], m: FineMark) => (marks ?? []).some(x => deepEqual(x, m));
+  for (const mark of from.fine ?? [])
+    if (!has(to.fine, mark)) ops.push({ op: 'unmark-fine', mark });
+  for (const mark of to.fine ?? []) if (!has(from.fine, mark)) ops.push({ op: 'mark-fine', mark });
   return ops;
 }
 
