@@ -19,6 +19,7 @@ mod page;
 mod page_gate;
 mod picks;
 mod plan_camera;
+mod plan_extras;
 mod plan_presets;
 mod plans;
 mod reads;

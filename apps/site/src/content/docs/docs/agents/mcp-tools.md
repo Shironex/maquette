@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 132 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 134 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 Every tool's description starts with its group in brackets: `[start]`, `[project]`, `[lab]`, `[refs]`, `[send]`, `[inbox]`, `[prepare]`, `[built]`, `[pipeline]`, `[game]`, `[library]`, `[animation]`, `[export]` and `[avatar-rig]`. Settings > Agents has a switch for the avatar and rig group: on by default, and off leaves its 7 tools out for the next agent that connects.
 
@@ -145,6 +145,8 @@ These look at the workspace and change nothing.
 | [`remove_nodes`](#remove_nodes)                       | Removes nodes and links the agent added; a person's work is refused                                                                                                                                                                                                    |
 | [`layout_canvas`](#layout_canvas)                     | Moves the agent's own overlapping nodes to free spots                                                                                                                                                                                                                  |
 | [`undo_run`](#undo_run)                               | Undoes the agent's own changes on a planning canvas, a whole run or some changes                                                                                                                                                                                       |
+| [`propose_removal`](#propose_removal)                 | Asks the person to remove nodes the agent may not remove; only the person answers                                                                                                                                                                                      |
+| [`start_from_node`](#start_from_node)                 | Starts a new planning canvas from a node and the nodes linked to it; the source stays                                                                                                                                                                                  |
 | [`propose_camera_plan`](#propose_camera_plan)         | Proposes a camera tour as the agent's own line beside the person's; never touches layout.json                                                                                                                                                                          |
 
 ## Spends credits, Codex usage or dollars, or needs approval
@@ -1197,7 +1199,9 @@ Lists a project's planning canvases: the id every other canvas tool takes as `ca
 
 `read only`
 
-Reads a canvas: each node's id, kind, title, text, `url`, picture path, linked asset (with its live name, stage and version count, or `gone`), Lab direction, `x`, `y`, `by` (the agent that added it, absent for a person) and `personWrote: true` on an agent's node a person wrote in (it is theirs now, and stays theirs), and the links between nodes (`from`, `to`, `kind` when it is not `relates`, `label`, `by`). Texts are cut at 120 characters unless `full`. Read it before `add_nodes` so new nodes go near the right one.
+Reads a canvas: each node's id, kind, title, text, `url`, picture path, linked asset (with its live name, stage and version count, or `gone`), Lab direction, `x`, `y`, `by` (the agent that added it, absent for a person) and `personWrote: true` on an agent's node a person wrote in (it is theirs now, and stays theirs), and the links between nodes (`from`, `to`, `kind` when it is not `relates`, `label`, `by`). Texts are cut at 120 characters unless `full`. It also answers `autoLayout` (the person's Auto layout after agents switch), `overlaps` on a Game mechanics canvas and `proposals`, the removal proposals still waiting for the person. Read it before `add_nodes` so new nodes go near the right one.
+
+An overlap is two system cards (`a`, `b`) whose `Verb:`, `Look:` or `Input:` lines share a main word (`part`, `word`): the first word of a verb that is not a little word like `to` or `the`, the last of a look, each key of an input with the gesture (`tap`, `hold`) left out, plurals read as singular. `fine: true` when the person marked the pair as fine; that holds until either card's title or text changes, and only the person marks it. A proposal lists its `id`, `by`, `reason`, its `nodes` (each `here`, `changed` or `gone`) and `stale` when any node changed or went.
 
 | Argument  | Type     | Required | What                                                  |
 | --------- | -------- | -------- | ----------------------------------------------------- |
@@ -1384,7 +1388,7 @@ Removes nodes and links you added. A node goes with its links. A person's node o
 
 `writes files`
 
-Tidies the nodes you added: each one that overlaps another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes never move. Answers with how many moved.
+Tidies the nodes you added: each one that overlaps another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes never move. Refused when the person turned Auto layout after agents off for the canvas (`autoLayout: false` in `get_canvas`): place nodes with `x` and `y` then. While it is on (the default), `add_nodes` and `update_nodes` tidy your nodes of that call the same way after writing them, as a change of its own (`autoLayout` in their answer: its `change` id and how many `moved`), so the person can undo the tidy apart from the write. Answers with how many moved.
 
 | Argument  | Type     | Required | What                                                 |
 | --------- | -------- | -------- | ---------------------------------------------------- |
@@ -1418,6 +1422,63 @@ Undoes your own changes on a canvas: a whole `run`, or change ids from `get_chan
 
 ```json
 { "undone": 1, "change": "c-mh2k1x9a005", "kept": 0, "nothingChanged": false }
+```
+
+### propose_removal
+
+`writes files`
+
+Asks the person to remove nodes you may not remove yourself: a person's node, or one of yours a person wrote in. The canvas does not change. The person sees the nodes marked and your reason in the Changes panel and answers Keep it or Remove; a Remove is the person's own change, which they can undo. No tool answers a proposal, your own included, and `undo_run` refuses the ask: only the person decides. When a node's title, text or link changes, or it goes, before the person answers, the proposal is stale and Remove is refused (moving a node keeps it current). At most 50 proposals wait per canvas, 100 nodes each; `get_canvas` lists the open ones. Remove your own nodes with `remove_nodes`.
+
+| Argument  | Type     | Required | What                                                        |
+| --------- | -------- | -------- | ----------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                             |
+| `canvas`  | string   | yes      | The canvas id.                                              |
+| `nodes`   | string[] | yes      | The node ids to ask about, 1 to 100.                        |
+| `reason`  | string   | no       | Why, in a sentence the person reads (up to 300 characters). |
+| `agent`   | string   | no       | Your name.                                                  |
+| `run`     | string   | no       | A run id to group several calls.                            |
+
+```json
+{
+  "project": "moon-island",
+  "canvas": "hero-ideas",
+  "nodes": ["n-island"],
+  "reason": "The porch note replaces it."
+}
+```
+
+```json
+{ "proposal": "c-mh2k1x9a006", "summary": "Asked to remove: Old hero idea: the whole island" }
+```
+
+### start_from_node
+
+`writes files`
+
+Starts a new canvas from a node: the node and the nodes linked to it are copied, with the links among them and the node at 0,0, as the new canvas's first change, under your name, which you or the person can undo. The source canvas never changes. Asset and Lab direction nodes stay links by id, and copies keep who made them, so a person's note stays theirs. The new canvas takes the source's preset (a brainstorm when the source is the camera plan) and never the camera plan's id. A camera stop cannot start one, and linked stops are left out (`leftOut`).
+
+| Argument  | Type   | Required | What                                              |
+| --------- | ------ | -------- | ------------------------------------------------- |
+| `project` | string | yes      | The project id.                                   |
+| `canvas`  | string | yes      | The canvas the node is on.                        |
+| `node`    | string | yes      | The node id to start from.                        |
+| `name`    | string | no       | The new canvas's name. Left out, the node's name. |
+| `agent`   | string | no       | Your name.                                        |
+
+```json
+{ "project": "moon-island", "canvas": "hero-ideas", "node": "n-porch", "name": "Porch scene" }
+```
+
+```json
+{
+  "id": "porch-scene",
+  "name": "Porch scene",
+  "preset": "brainstorm",
+  "nodes": 3,
+  "links": 2,
+  "change": "c-mh2k1x9a007"
+}
 ```
 
 ### get_camera_plan
