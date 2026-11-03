@@ -2,6 +2,7 @@ import { NEW_COLLECTION, isClash, summarise } from '@/state/add-many';
 import { useAddManyStore } from '@/state/use-add-many-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useLibraryStore } from '@/state/use-library-store';
+import { counted } from '@/lib/format';
 
 const NONE: never[] = [];
 
@@ -22,7 +23,7 @@ export function useAddManySheet() {
     busy: s.progress !== null,
     clashes: plan?.assets.filter(isClash) ?? [],
     title: plan
-      ? `Add ${plan.assets.length} models from ${plan.projectName}`
+      ? `Add ${counted(plan.assets.length, 'model')} from ${plan.projectName}`
       : 'Add a whole project',
     projectOptions: [
       { value: '', label: 'Pick a project' },

@@ -6,6 +6,7 @@
 import type { Asset, ProviderJob, RemoveOutcome } from '@/ipc/client';
 import { PROVIDER_LABEL } from './providers';
 import type { Notice } from './use-app-store';
+import { counted } from '@/lib/format';
 
 /** The most assets one remove takes; the core says the same. */
 export const MAX_REMOVE = 50;
@@ -67,7 +68,7 @@ export function removedNotice(outcomes: readonly RemoveOutcome[]): Omit<Notice, 
   }
   return {
     status: 'info',
-    title: `Removed ${removed.length} of ${outcomes.length} assets`,
+    title: `Removed ${removed.length} of ${counted(outcomes.length, 'asset')}`,
     detail: `${why}${gone} ${where}`,
   };
 }
@@ -96,7 +97,7 @@ export function restoredNotice(
   }
   return {
     status: 'info',
-    title: `Restored ${back.length} of ${back.length + failed.length} assets`,
+    title: `Restored ${back.length} of ${counted(back.length + failed.length, 'asset')}`,
     detail: failed.join(' '),
   };
 }

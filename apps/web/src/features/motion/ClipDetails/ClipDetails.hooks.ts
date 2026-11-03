@@ -1,6 +1,6 @@
 import type { KeyValueItem } from '@maquette/ui';
 import type { Clip } from '@/ipc/client';
-import { formatBytes } from '@/lib/format';
+import { counted, formatBytes } from '@/lib/format';
 import { isOff, n } from '@/state/motion';
 import { useIsGame } from '@/state/use-budget-check';
 import { currentClip, useMotionStore } from '@/state/use-motion-store';
@@ -29,7 +29,11 @@ export function useClipDetails() {
     { label: 'Length', value: `${clip.frames} f · ${n(clip.duration).toFixed(2)} s`, mono: true },
     { label: 'Rate', value: `${n(clip.fps)} fps`, mono: true },
     { label: 'Keys', value: String(clip.keys), mono: true },
-    { label: 'Channels', value: `${clip.channels} on ${clip.targets} nodes`, mono: true },
+    {
+      label: 'Channels',
+      value: `${clip.channels} on ${counted(clip.targets, 'node')}`,
+      mono: true,
+    },
     { label: 'Root', value: rootText(clip) },
     { label: 'Loop', value: loopText(clip) },
     { label: 'In the source', value: formatBytes(n(clip.bytes)), mono: true },

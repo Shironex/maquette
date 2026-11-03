@@ -16,7 +16,7 @@ import type {
   MeshoptLevel,
   TextureCodec,
 } from '@/ipc/client';
-import { formatBytes } from '@/lib/format';
+import { counted, formatBytes } from '@/lib/format';
 import {
   budgetRows,
   budgetTargetNote,
@@ -357,7 +357,7 @@ export default function ModelPanel({
                 'font-mono text-[13px] tabular-nums',
                 overTotal ? 'text-danger' : 'text-fg'
               )}
-              title={`${view.scene.models} models, ${formatBytes(num(view.scene.bytes))}`}
+              title={`${counted(view.scene.models, 'model')}, ${formatBytes(num(view.scene.bytes))}`}
             >
               {formatMb(totalMb)} <span className="text-fg-mute">/ {formatMb(sceneMb)} MB</span>
             </span>

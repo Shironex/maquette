@@ -8,6 +8,7 @@ import { commands, errorMessage, type Balance, type Ledger } from '@/ipc/client'
 import { clock } from '@/lib/clock';
 import { csvName, filterSpends, spendsCsv, type CreditsFilter } from './credits';
 import { useAppStore } from './use-app-store';
+import { counted } from '@/lib/format';
 
 interface CreditsStore {
   open: boolean;
@@ -77,7 +78,8 @@ export const useCreditsStore = create<CreditsStore>((set, get) => ({
     const spends = filterSpends(ledger.spends, filter);
     try {
       const path = await commands.creditsSaveCsv(spendsCsv(spends), csvName(clock.nowMs()));
-      if (path) notify('done', 'Credits saved as CSV', `${spends.length} sends in ${path}`);
+      if (path)
+        notify('done', 'Credits saved as CSV', `${counted(spends.length, 'send')} in ${path}`);
     } catch (error) {
       notify('failed', 'Could not save the CSV', errorMessage(error));
     }

@@ -135,7 +135,7 @@ export function directionView(link: DirectionLink | undefined): LinkView {
         ...base,
         status: 'Lab round running',
         tone: 'run',
-        detail: `${link.done} of ${link.done + link.pending} images`,
+        detail: `${link.done} of ${plural(link.done + link.pending, 'image', 'images')}`,
       };
     case 'picked':
       return {

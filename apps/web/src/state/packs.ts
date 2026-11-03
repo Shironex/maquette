@@ -14,7 +14,7 @@ import type {
   PackSettings,
   PackSource,
 } from '@/ipc/client';
-import { formatCount } from '@/lib/format';
+import { counted, formatCount } from '@/lib/format';
 
 export const KINDS: readonly AssetKind[] = ['prop', 'character', 'scene'];
 
@@ -283,7 +283,7 @@ export function budgetsLine(s: PackSettings): string {
 export function readme(record: Pick<PackRecord, 'name' | 'settings' | 'items'>): string {
   const s = record.settings;
   const lines = [
-    `${record.name}, ${record.items.length} models`,
+    `${record.name}, ${counted(record.items.length, 'model')}`,
     '',
     `Format    ${FORMAT_LABEL[s.format]}, Y up, ${s.realSize ? 'metres, real size' : 'metres'}`,
     `Pivot     ${s.pivotBottom ? 'bottom centre, on the floor' : 'as each model was made'}`,
@@ -315,7 +315,7 @@ export function packTree(record: PackRecord): TreeRow[] {
   if (s.contactSheet) rows.push({ path: 'contact-sheet.png', note: 'Every model', depth: 1 });
   for (const item of kept) {
     const files = item.files.map(f => f.split('/').pop() ?? f);
-    rows.push({ path: `${item.model.key}/`, note: `${files.length} files`, depth: 1 });
+    rows.push({ path: `${item.model.key}/`, note: counted(files.length, 'file'), depth: 1 });
     for (const f of files) rows.push({ path: f, note: '', depth: 2 });
   }
   return rows;
@@ -347,8 +347,9 @@ export function doneLine(record: PackRecord): string {
     thin ? `${thin} lost thin parts at their budget` : '',
     warned.length > thin ? `${warned.length - thin} carry another warning` : '',
   ].filter(Boolean);
-  let head = `${shipped.length} of ${all} models are in the pack`;
-  if (shipped.length === all && !warned.length) head = `${all} models passed`;
+  let head = `${shipped.length} of ${counted(all, 'model')} are in the pack`;
+  if (shipped.length === all && !warned.length)
+    head = all === 1 ? 'The model passed' : `${all} models passed`;
   else if (clauses.length) head += `, ${clauses.join(' and ')}, kept`;
   return record.message ? `${head}. ${record.message}` : `${head}.`;
 }
