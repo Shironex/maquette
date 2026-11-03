@@ -307,10 +307,12 @@ pub fn apply(
         let mut next = current.clone();
         next.stops = stops;
         layout::prune_stops(&mut next);
+        // The key of the bytes the write stores (version, tidied clips), so the
+        // undo's check matches the file as it reads back, hand edited or not.
         let applied = Applied {
             history: history.clone(),
             before: layout_key(current),
-            after: layout_key(&next),
+            after: layout_key(&layout::stored(&next)),
         };
         let mut entry = person_line(
             format!(

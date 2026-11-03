@@ -196,8 +196,9 @@ static WRITES: Mutex<()> = Mutex::new(());
 /// Reads `layout.json` from disk, applies `change` and writes what comes
 /// back, checked and atomically; a refused layout writes nothing. This is
 /// the only way to write the file, so writers that overlap cannot lose each
-/// other's changes. Returns what was written. `change` must not call this
-/// again.
+/// other's changes. Returns what was written, as [`stored`] shapes it (the
+/// current version, clips that only say "ship" left out), so it reads back
+/// the same. `change` must not call this again.
 ///
 /// # Errors
 ///
@@ -216,18 +217,24 @@ pub fn update(
         )),
     })?;
     let next = change(&current)?;
-    save_file(project_dir, &next)?;
-    Ok(next)
+    save_file(project_dir, &next)
 }
 
-fn save_file(project_dir: &Path, layout: &SceneLayout) -> CoreResult<()> {
-    validate(layout)?;
-    let stored = SceneLayout {
+/// `layout` as a write stores it: the current version, and clip choices
+/// that only say what a clip does anyway (ship) left out.
+pub fn stored(layout: &SceneLayout) -> SceneLayout {
+    SceneLayout {
         version: LAYOUT_VERSION,
         clips: states::tidy_clips(&layout.clips),
         ..layout.clone()
-    };
-    write_json(&path(project_dir), &stored)
+    }
+}
+
+fn save_file(project_dir: &Path, layout: &SceneLayout) -> CoreResult<SceneLayout> {
+    validate(layout)?;
+    let stored = stored(layout);
+    write_json(&path(project_dir), &stored)?;
+    Ok(stored)
 }
 
 fn invalid(message: impl Into<String>) -> CoreError {
