@@ -10,6 +10,7 @@
 import type { Approval, McpCall, McpStatus, RigRecord, WorkspaceConfig } from '../client';
 import { createRigHandlers } from './create-rig-handlers';
 import { clock } from '@/lib/clock';
+import { MOCK_TOOL_GROUPS } from './mock-tool-groups';
 
 type Args = Record<string, unknown>;
 
@@ -241,6 +242,7 @@ export function createFakeAgents({
   const handlers: Record<string, (args: Args) => unknown> = {
     ...rig?.handlers,
     mcp_status: () => status(),
+    mcp_tool_groups: () => MOCK_TOOL_GROUPS,
     mcp_decide: ({ approvalId, approve }) => {
       const game = games?.approvals().find(a => a.id === approvalId);
       if (game) {
