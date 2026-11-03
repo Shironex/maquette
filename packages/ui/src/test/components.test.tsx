@@ -490,12 +490,16 @@ describe('NavRail', () => {
     const hero = within(list).getByRole('button', { name: /^Hero section ideas/ });
     expect(hero).toHaveAttribute('aria-current', 'page');
     expect(hero).toHaveAttribute('title', 'Hero section ideas with a very long name');
+    // Only one element is the page: the open entry, not Plan as well.
+    expect(screen.getByRole('button', { name: /^Plan/ })).not.toHaveAttribute('aria-current');
     // By keyboard: Tab reaches the entries after Plan, and Enter opens one.
     camera.focus();
     await userEvent.keyboard('{Enter}');
     expect(opened).toEqual(['camera-plan']);
     rerender(<NavRail items={items} footer={footer} value="plan" onChange={vi.fn()} collapsed />);
     expect(screen.queryByRole('list', { name: 'Recent canvases' })).toBeNull();
+    // Collapsed, Plan is the page again.
+    expect(screen.getByRole('button', { name: /^Plan/ })).toHaveAttribute('aria-current', 'page');
   });
 });
 

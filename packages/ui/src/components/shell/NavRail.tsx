@@ -77,11 +77,14 @@ const RAIL_BUTTON =
 function RailButton<T extends string>({
   item,
   current,
+  subCurrent = false,
   collapsed,
   onChange,
 }: {
   item: NavRailItem<T>;
   current: boolean;
+  /** One of its recent entries is the page open now, so it carries `aria-current` instead. */
+  subCurrent?: boolean;
   collapsed?: boolean;
   onChange: (id: T) => void;
 }) {
@@ -96,7 +99,7 @@ function RailButton<T extends string>({
     <Tooltip label={item.label} side="right" disabled={!collapsed}>
       <button
         type="button"
-        aria-current={current ? 'page' : undefined}
+        aria-current={current && !subCurrent ? 'page' : undefined}
         aria-label={collapsed ? `${item.label}${extra}` : undefined}
         onClick={() => onChange(item.id)}
         className={cn(
@@ -168,10 +171,7 @@ function SubList({ item }: { item: NavRailItem }) {
           {sub.mark ? <span className="sr-only">, {sub.mark}</span> : null}
         </span>
         {sub.mark ? (
-          <span
-            aria-hidden="true"
-            className="ml-auto size-[7px] flex-none rounded-full bg-[#9fb4d8]"
-          />
+          <span aria-hidden="true" className="ml-auto size-[7px] flex-none rounded-full bg-agent" />
         ) : null}
       </button>
     </li>
@@ -239,7 +239,13 @@ export function NavRail<T extends string>({
   const buttons = (list: readonly NavRailItem<T>[]) =>
     list.map(it => (
       <Fragment key={it.id}>
-        <RailButton item={it} current={it.id === value} collapsed={collapsed} onChange={onChange} />
+        <RailButton
+          item={it}
+          current={it.id === value}
+          subCurrent={!collapsed && Boolean(it.subs?.some(sub => sub.current))}
+          collapsed={collapsed}
+          onChange={onChange}
+        />
         {!collapsed && it.subs?.length ? <SubList item={it} /> : null}
       </Fragment>
     ));
