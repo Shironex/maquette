@@ -310,23 +310,38 @@ fn the_auto_layout_switch_is_a_logged_change() {
 
 #[test]
 fn a_full_canvas_of_look_alike_cards_stays_quick() {
+    // Counted, not timed, so a slow or busy machine can not fail it. The
+    // check before the caps paired every card with every other on all of
+    // its words: here about 600 million looks (some 10 s and 450 MB).
     let keys: Vec<String> = (0..300).map(|k| format!("k{k}")).collect();
     let text = format!("Verb: dash\nLook: rings\nInput: {}", keys.join(", "));
+    let nodes = crate::plans::MAX_NODES;
     let mut plan = PlanFile::new("Systems", PlanPreset::Mechanics);
-    plan.nodes = (0..crate::plans::MAX_NODES)
+    plan.nodes = (0..nodes)
         .map(|i| card(&format!("n-{i:04}"), "System", &text))
         .collect();
-    let started = std::time::Instant::now();
-    let found = overlaps(&plan);
+    let mut work = Work::default();
+    let found = find_counted(&plan, &mut work);
     assert_eq!(found.len(), MAX_OVERLAPS);
     assert_eq!(
         (found[0].a.as_str(), found[0].b.as_str()),
         ("n-0000", "n-0001")
     );
     assert_eq!(found[0].word, "dash");
-    let first = started.elapsed();
+    assert_eq!(
+        work,
+        Work {
+            // Each card has 302 words and keeps the first 32.
+            most_words: MAX_CARD_WORDS,
+            // The first card's pairs already reach the cap: it stops there.
+            cards: 1,
+            // Its 32 words, each shared with every later card.
+            pairs: MAX_CARD_WORDS * (nodes - 1),
+        }
+    );
 
-    // Only the last two cards share a word: every card is read once.
+    // Only the last two cards share a word: every card is read once, and
+    // only that pair is looked at.
     for (i, node) in plan.nodes.iter_mut().enumerate() {
         node.text = format!(
             "Verb: v{i}\nLook: l{i}\nInput: {}",
@@ -335,16 +350,16 @@ fn a_full_canvas_of_look_alike_cards_stays_quick() {
     }
     let last = plan.nodes.len() - 1;
     plan.nodes[last].text = plan.nodes[last - 1].text.clone();
-    let started = std::time::Instant::now();
-    let found = overlaps(&plan);
+    let mut work = Work::default();
+    let found = find_counted(&plan, &mut work);
     assert_eq!(found.len(), 3, "verb, look and input");
-    // Generous for a debug build on a slow runner; a release build takes a
-    // small part of it.
-    let limit = std::time::Duration::from_secs(4);
-    assert!(
-        first < limit && started.elapsed() < limit,
-        "took {first:?} and {:?}",
-        started.elapsed()
+    assert_eq!(
+        work,
+        Work {
+            most_words: MAX_CARD_WORDS,
+            cards: nodes,
+            pairs: MAX_CARD_WORDS,
+        }
     );
 }
 

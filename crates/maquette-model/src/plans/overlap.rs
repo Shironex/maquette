@@ -245,9 +245,27 @@ pub fn overlaps(plan: &PlanFile) -> Vec<Overlap> {
     cache::answer(plan, find)
 }
 
+/// What one check did, counted so a test can hold the check to its bounds
+/// on any machine, however fast.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+struct Work {
+    /// Cards walked as the first card of a pair.
+    cards: usize,
+    /// The most main words one card kept.
+    most_words: usize,
+    /// Pairs of cards looked at through a word they share.
+    pairs: usize,
+}
+
 /// The check itself. Each card is paired only with the cards after it, a
 /// card at a time, so the work stops once [`MAX_OVERLAPS`] are found.
 fn find(plan: &PlanFile) -> Vec<Overlap> {
+    find_counted(plan, &mut Work::default())
+}
+
+/// [`find`], adding what it did to `work`.
+fn find_counted(plan: &PlanFile, work: &mut Work) -> Vec<Overlap> {
     let starters: BTreeSet<String> = presets::starter_values().map(str::to_lowercase).collect();
     let mut cards: BTreeMap<&str, (&PlanNode, Vec<Word>)> = BTreeMap::new();
     for node in &plan.nodes {
@@ -255,6 +273,7 @@ fn find(plan: &PlanFile) -> Vec<Overlap> {
         words.sort();
         words.dedup();
         words.truncate(MAX_CARD_WORDS);
+        work.most_words = work.most_words.max(words.len());
         if !words.is_empty() {
             cards.insert(&node.id, (node, words));
         }
@@ -268,12 +287,14 @@ fn find(plan: &PlanFile) -> Vec<Overlap> {
     }
     let mut out = Vec::new();
     for (a, (na, words)) in &cards {
+        work.cards += 1;
         // The cards after `a` sharing a word, each part once with its first word.
         let mut pairs: BTreeMap<(&str, OverlapPart), &str> = BTreeMap::new();
         for word in words {
             let ids = &by_word[word];
             let after = ids.partition_point(|id| id <= a);
             for b in &ids[after..] {
+                work.pairs += 1;
                 pairs.entry((b, word.0)).or_insert(&word.1);
             }
         }
