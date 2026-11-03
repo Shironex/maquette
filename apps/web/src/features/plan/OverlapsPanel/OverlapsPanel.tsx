@@ -45,7 +45,7 @@ export default function OverlapsPanel() {
       <div className="plan-side-head">
         <h2 className="flex-1 text-[15px] leading-5 font-semibold text-fg">
           Overlaps
-          <span className="ml-2 text-[12px] font-normal text-fg-mute">{v.open.length} found</span>
+          <span className="ml-2 text-[12px] font-normal text-fg-mute">{v.count}</span>
         </h2>
         <IconButton icon="x" size="sm" variant="ghost" label="Close Overlaps" onClick={v.close} />
       </div>
