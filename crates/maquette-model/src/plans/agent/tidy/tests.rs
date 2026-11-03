@@ -30,6 +30,7 @@ fn person_note(id: &str, x: i32) -> PlanNode {
         direction: None,
         by: None,
         person_wrote: false,
+        person_placed: false,
         stop: None,
     }
 }
@@ -194,4 +195,56 @@ fn off_it_leaves_the_layout_to_the_person() {
     set_auto_layout(&root, &id, true, None).expect("on");
     let tidy = layout(&root, &id, &RESEARCH, &[]).expect("layout");
     assert_eq!(tidy.placed, 1);
+}
+
+#[test]
+fn a_node_a_person_only_moved_stays_where_they_put_it() {
+    let (_dir, root, id) = setup();
+    let done = add(&root, &id, &RESEARCH, None, &[dropped("Lantern", 300)], &[]).expect("add");
+    let mine = done.nodes[0].clone();
+    let plan = get(&root, &id).expect("get").plan;
+    let before = plan
+        .nodes
+        .iter()
+        .find(|n| n.id == mine)
+        .expect("node")
+        .clone();
+    let mut after = before.clone();
+    // Dragged onto the person's notes: no word changed.
+    (after.x, after.y) = (10, 0);
+    apply_person(
+        &root,
+        &id,
+        &plan.created,
+        vec![PlanOp::SetNode { before, after }],
+    )
+    .expect("person drags it");
+    let node = get(&root, &id)
+        .expect("get")
+        .plan
+        .nodes
+        .into_iter()
+        .find(|n| n.id == mine)
+        .expect("node");
+    assert!(node.person_placed, "a move marks it placed");
+    assert!(!node.person_wrote, "but it is still the agent's to edit");
+
+    // The agent edits its words with no x or y: no tidy moves it.
+    let edited = update(&root, &id, &RESEARCH, &[text(&mine, "Lantern, lit")]).expect("edit");
+    assert!(edited.tidied.is_empty());
+    assert_eq!(spot(&edited.changed.doc.plan, &mine), (10, 0));
+    let all = layout(&root, &id, &RESEARCH, &[]).expect("layout");
+    assert_eq!(all.placed, 0);
+    assert_eq!(spot(&all.changed.doc.plan, &mine), (10, 0));
+    let refused = layout(&root, &id, &RESEARCH, std::slice::from_ref(&mine)).expect_err("placed");
+    assert!(refused.to_string().contains("person moved"), "{refused}");
+
+    // The agent may still move it on purpose, with x and y.
+    let moved = NodeEdit {
+        x: Some(300),
+        y: Some(0),
+        ..text(&mine, "Lantern, over here")
+    };
+    let kept = update(&root, &id, &RESEARCH, &[moved]).expect("move");
+    assert_eq!(spot(&kept.changed.doc.plan, &mine), (300, 0));
 }

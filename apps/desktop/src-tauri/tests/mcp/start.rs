@@ -158,11 +158,27 @@ async fn an_agent_starts_from_an_empty_workspace() {
     assert_eq!(started["keys"]["meshy"], false);
     assert_eq!(started["keys"]["openai"], false);
     assert_eq!(started["askBeforeShipping"], true);
-    assert_eq!(started["toolchain"][1]["status"], "missing");
-    assert_eq!(started["toolchain"][1]["hint"], "how to fix it");
+    // Short by default: counts, what is in the way and next.
+    assert_eq!(started["toolchain"]["working"], 1);
+    assert_eq!(started["toolchain"]["problems"][0]["status"], "missing");
+    assert_eq!(started["toolchain"]["problems"][0]["hint"], "how to fix it");
     assert_eq!(started["projects"], json!([]));
     assert_eq!(next_tools(&started), ["create_project"]);
     assert!(raw.contains("Install Codex CLI"), "{raw}");
+    assert!(
+        !raw.contains("Approve credits"),
+        "approvals only with detail"
+    );
+    let detailed = call(&client, "get_started", json!({ "detail": true })).await;
+    assert_eq!(detailed["toolchain"][1]["status"], "missing");
+    assert_eq!(detailed["toolchain"][1]["hint"], "how to fix it");
+    assert!(detailed.to_string().contains("Approve credits"));
+    assert!(
+        raw.len() < detailed.to_string().len(),
+        "the short answer is shorter: {} against {}",
+        raw.len(),
+        detailed.to_string().len()
+    );
 
     let listed = call(&client, "list_projects", json!({})).await;
     assert_eq!(next_tools(&listed), ["create_project"]);
@@ -170,7 +186,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
     let made = call(
         &client,
         "create_project",
-        json!({ "name": "Moon Island", "kind": "website", "template": "room" }),
+        json!({ "name": "Moon Island", "target": "website", "template": "room" }),
     )
     .await;
     assert_eq!(made["project"]["id"], "moon-island");
@@ -248,6 +264,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
     let started = call(&client, "get_started", json!({})).await;
     assert_eq!(started["projects"][1]["stage"], "empty");
     assert_eq!(started["projects"][1]["target"], "game");
+    assert_eq!(started["projects"][1]["assets"], 0);
     assert_eq!(
         next_tools(&started),
         ["add_built_asset", "set_ship_settings"]

@@ -41,6 +41,12 @@ describe('OverlapsPanel', () => {
       within(fine).getByRole('group', { name: 'Sigils and Runes look the same' })
     ).toBeInTheDocument();
     expect(usePlansStore.getState().open?.plan.fine).toHaveLength(1);
+
+    // With every pair marked fine the head counts those, as the button does.
+    const shift = within(panel).getByRole('group', { name: 'Dash and Frost veil share Shift' });
+    await userEvent.click(within(shift).getByRole('button', { name: /^Mark as fine/ }));
+    expect(await within(panel).findByText('2 marked as fine')).toBeInTheDocument();
+    expect(within(panel).queryByText('0 found')).toBeNull();
   });
 
   it('closes', async () => {

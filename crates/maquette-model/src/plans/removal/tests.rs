@@ -28,6 +28,7 @@ fn person_note(id: &str, title: &str, x: i32) -> PlanNode {
         direction: None,
         by: None,
         person_wrote: false,
+        person_placed: false,
         stop: None,
     }
 }
@@ -92,8 +93,20 @@ fn an_agent_asks_and_the_person_removes_as_their_own_undoable_change() {
     assert_eq!(waiting[0].run.as_deref(), Some("r-1"));
     assert_eq!(waiting[0].reason, "The porch note replaces it.");
     assert!(!waiting[0].stale);
+    assert_eq!(waiting[0].links, 1);
 
-    let done = accept(&root, &id, &asked.id, None).expect("accept");
+    // The links Remove takes are read again: a count the person did not see is refused.
+    let changed = accept(&root, &id, &asked.id, None, Some(0)).expect_err("links changed");
+    assert_eq!(changed.code(), "invalid");
+    assert!(
+        changed
+            .to_string()
+            .contains("take 1 link with the nodes, not the 0 shown"),
+        "{changed}"
+    );
+    assert_eq!(open(&root, &id).expect("open").len(), 1, "still waiting");
+
+    let done = accept(&root, &id, &asked.id, None, Some(waiting[0].links)).expect("accept");
     let line = done.entry.expect("line");
     assert!(line.by.is_none(), "the person's change");
     assert_eq!(line.resolves, vec![asked.id.clone()]);
@@ -105,7 +118,7 @@ fn an_agent_asks_and_the_person_removes_as_their_own_undoable_change() {
     assert!(done.doc.plan.edges.is_empty(), "its link goes with it");
     assert!(open(&root, &id).expect("open").is_empty());
     assert!(
-        accept(&root, &id, &asked.id, None).is_err(),
+        accept(&root, &id, &asked.id, None, None).is_err(),
         "answered already"
     );
 
@@ -194,7 +207,7 @@ fn a_node_that_changed_or_went_makes_the_proposal_stale() {
         waiting[0].nodes[0].name, "Old hero idea: the whole island",
         "the name as asked"
     );
-    let refused = accept(&root, &id, &asked.id, None).expect_err("stale");
+    let refused = accept(&root, &id, &asked.id, None, None).expect_err("stale");
     assert!(refused.to_string().contains("changed or went"), "{refused}");
     assert!(
         get(&root, &id)
@@ -323,7 +336,7 @@ fn remove_shows_and_takes_the_links_drawn_since_the_ask() {
     let waiting = open(&root, &id).expect("open");
     assert_eq!(waiting[0].links, 2, "the card shows both before Remove");
     assert!(!waiting[0].stale, "a new link is no change to the node");
-    let done = accept(&root, &id, &asked.id, Some(&plan.created)).expect("remove");
+    let done = accept(&root, &id, &asked.id, Some(&plan.created), None).expect("remove");
     assert!(done.doc.plan.edges.is_empty());
     assert_eq!(done.doc.plan.nodes.len(), 2);
 }
@@ -334,7 +347,7 @@ fn answers_land_only_on_the_canvas_the_person_opened() {
     let asked = propose(&root, &id, &RESEARCH, &ids(&["n-island"]), "").expect("ask");
     let other = Some("1999-01-01T00:00:00Z");
     for refused in [
-        accept(&root, &id, &asked.id, other).map(|_| ()),
+        accept(&root, &id, &asked.id, other, None).map(|_| ()),
         dismiss(&root, &id, &asked.id, other).map(|_| ()),
         set_auto_layout(&root, &id, false, other).map(|_| ()),
     ] {

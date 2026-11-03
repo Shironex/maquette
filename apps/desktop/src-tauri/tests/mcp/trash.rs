@@ -24,7 +24,7 @@ use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use serde_json::json;
 
-use super::support::{TestHost, call, text};
+use super::support::{TestHost, call, call_error, text};
 
 /// A workspace with Moon Island (a desk lamp, v1) and an empty Study room.
 fn fixture(dir: &Path) -> Session {
@@ -189,6 +189,27 @@ async fn agents_remove_copied_assets_and_restore_one() {
     let refused = client.call_tool(params).await.expect("call");
     assert_eq!(refused.is_error, Some(true));
     assert!(text(&refused).contains("at most 50"), "{}", text(&refused));
+
+    // A person removes Study room in the app: agents no longer see it, and its
+    // id answers with where it went. No tool removes or restores a project.
+    let layout = maquette_core::WorkspaceConfig::default().layout;
+    project::trash::remove_project(&root, &layout, "study-room").expect("remove project");
+    let listed = call(&client, "list_projects", json!({})).await;
+    let ids: Vec<&str> = listed["projects"]
+        .as_array()
+        .expect("projects")
+        .iter()
+        .filter_map(|p| p["id"].as_str())
+        .collect();
+    assert_eq!(ids, ["moon-island"]);
+    let gone = call_error(&client, "list_assets", json!({ "project": "study-room" })).await;
+    assert!(gone.contains("removed to the workspace trash"), "{gone}");
+    let tools = client.list_all_tools().await.expect("tools");
+    assert!(
+        tools
+            .iter()
+            .all(|t| !t.name.contains("remove_project") && !t.name.contains("restore_project"))
+    );
 
     client.cancel().await.expect("close");
     server.stop();

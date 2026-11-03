@@ -1,5 +1,6 @@
 import { FORMAT_LABEL } from '@/state/packs';
 import { usePackStore } from '@/state/use-pack-store';
+import { counted } from '@/lib/format';
 
 /** Which part of a pack the sheet shows, and its heading. */
 export function usePackSheet() {
@@ -17,7 +18,7 @@ export function usePackSheet() {
     };
   }
   const format = FORMAT_LABEL[record.settings.format].split(',')[0];
-  const head = `${record.name} · ${format} · ${record.items.length} models`;
+  const head = `${record.name} · ${format} · ${counted(record.items.length, 'model')}`;
   if (record.state === 'done') {
     return {
       ...s,

@@ -3,7 +3,7 @@
  * project say. Same order as get_started's next list (mcp/tools/start/next.rs):
  * the most blocking first, one sentence and one button.
  */
-import type { Asset, ProjectTarget, RunState } from '@/ipc/client';
+import type { Asset, InboxItem, ProjectTarget, RunState } from '@/ipc/client';
 import type { BlenderTrouble } from './toolchain';
 
 export type NextAction =
@@ -194,6 +194,22 @@ function projectSteps(facts: NextFacts): NextStep[] {
     steps.push(built ? buildStep(facts) : conceptStep(facts));
   }
   return steps.filter(step => step !== null);
+}
+
+/**
+ * The Inbox models the open project's strip counts: the ones sent from it or
+ * aimed at one of its cards, and loose ones only while it has cards to
+ * accept them into. Another project's models never show on this one.
+ */
+export function projectInbox(
+  items: readonly InboxItem[],
+  project: string,
+  hasAssets: boolean
+): number {
+  return items.filter(item => {
+    const owner = item.link?.project ?? item.aim?.project;
+    return owner ? owner === project : hasAssets;
+  }).length;
 }
 
 /** Everything waiting on the person, the most blocking first. */

@@ -26,6 +26,14 @@ Settings saves as you go. The nav on the left jumps to a section; a field that i
 - **Quality.** Low, medium or high, each with its estimate per image.
 - **Monthly cap.** Whole US dollars the Image API may spend per calendar month, $10 by default; 0 stops it. Spent this month shows what went out since the first of the month, from `credits.jsonl`. A round that would pass the cap does not start. The check counts each image at what one has cost lately at this quality, from the ledger, so a round that fits is not refused on the price list's higher guess.
 
+## This project
+
+The open project's name and site repo. **Remove project** (the danger button) asks first and names the project. It moves the project folder to `trash/_projects/<id>-<date>-<time>/` in the workspace, with a `project/` folder, the project's own asset and canvas trash under `trash/` and a `removed.json`. The site or game repo on disk is never touched, and provider sends keep their records in `providers.json`.
+
+Removing is refused, with the reason, while work runs in the project: a pipeline run or queued run, a built asset building, concept images queued or generating, or any send not over (waiting for approval, queued, being made, or waiting for a By hand model). Its page preview server is stopped. Removing the open project opens the next one in the switcher, else the one before, else the empty state. A notification offers Undo.
+
+**Removed projects** in the project switcher lists them, and Restore puts one back and opens it. Restore is refused when a project with the same id exists again, so nothing is overwritten. There is no permanent delete. Agents cannot remove or restore a project; a removed project leaves `list_projects`.
+
 ## Avatar defaults
 
 What every new [Avatar](/docs/views/avatar/) starts from: the author, contact and copyright, the licence (who may play it, commercial use, credit, changes, the yes or no uses and an other licence URL) and the material, MToon soft or PBR. The licence starts at VRM 1.0's defaults, the strictest. An avatar that is already saved keeps its own; change it in the Avatar view.

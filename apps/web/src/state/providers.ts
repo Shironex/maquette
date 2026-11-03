@@ -91,7 +91,7 @@ export function jobChip(job: ProviderJob): JobChip {
     case 'failed':
       return { status: 'failed', label: 'Failed' };
     case 'cancelled':
-      return { status: 'cached', label: 'Cancelled', icon: 'x' };
+      return { status: 'cached', label: job.denied ? 'Denied' : 'Cancelled', icon: 'x' };
   }
 }
 
@@ -166,6 +166,8 @@ export function cardState(job: ProviderJob | undefined): CardState | null {
   if (job.state === 'queued')
     return { ...chip, label: `Queued for ${PROVIDER_LABEL[job.provider]}` };
   if (isActive(job.state) || job.state === 'inbox') return chip;
+  // Back in Refs with nothing spent: the card says why the send went nowhere.
+  if (job.denied) return { ...chip, label: `Denied, not sent to ${PROVIDER_LABEL[job.provider]}` };
   return null;
 }
 

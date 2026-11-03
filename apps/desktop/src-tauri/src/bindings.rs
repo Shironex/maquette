@@ -11,8 +11,8 @@ use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
     motion, packs, page, parts, paths, pipeline, plan_camera, plan_extras, plan_watch, plans,
-    prepare, project, providers, quit, refs, renders, rig, ship, site, split, thumbs, timeline,
-    toolchain, trash, updater, workspace,
+    prepare, project, project_trash, providers, quit, refs, renders, rig, ship, site, split,
+    thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
@@ -61,6 +61,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             project::project_update,
             project::project_inspect_repo,
             project::project_scan_import,
+            project_trash::project_remove,
+            project_trash::project_removed_list,
+            project_trash::project_restore,
             game::game_inspect_repo,
             game::game_scan,
             game::game_import,

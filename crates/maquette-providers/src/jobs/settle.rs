@@ -2,7 +2,7 @@
 //! stop, and for cards an older stop left on Queued.
 
 use super::{JobState, ProviderEvent, Shared};
-use maquette_model::assets::{self, AssetStatus};
+use maquette_model::assets::{self, AssetStatus, Stage};
 use maquette_model::project;
 
 /// The status the live jobs of `asset` ask for: Running while one runs,
@@ -40,6 +40,33 @@ pub(super) fn settle_asset(shared: &Shared, project: &str, asset: &str) {
     match changed {
         Ok(manifest) => shared.emit(ProviderEvent::Project { project: manifest }),
         Err(err) => tracing::warn!(error = %err, "could not update the asset"),
+    }
+}
+
+/// Puts `asset` back in Refs after a denied send moved it to the 3D model
+/// column: only while it has no model and no other send of it is on its
+/// way or in the Inbox. A send needs refs, so Refs is where it came from.
+pub(super) fn put_back(shared: &Shared, project: &str, asset: &str) {
+    let Some(workspace) = shared.workspace() else {
+        return;
+    };
+    let others = shared.jobs().iter().map(|e| &e.stored.job).any(|j| {
+        j.project == project
+            && j.asset == asset
+            && (j.state.is_active() || j.state == JobState::Inbox)
+    });
+    if others {
+        return;
+    }
+    let moved = project::modify(&workspace.root, &workspace.config.layout, project, |m| {
+        let card = assets::find(m, asset)?;
+        if card.stage == Stage::Tripo && card.versions.is_empty() {
+            assets::move_to(m, asset, Stage::Refs)?;
+        }
+        Ok(())
+    });
+    if let Err(err) = moved {
+        tracing::warn!(error = %err, "could not put the asset back in Refs");
     }
 }
 

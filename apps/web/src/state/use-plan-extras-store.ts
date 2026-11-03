@@ -87,11 +87,14 @@ export const usePlanExtrasStore = create<PlanExtrasStore>((set, get) => {
       }
     },
 
-    answer: (proposal, remove) =>
-      write(
+    answer: (proposal, remove) => {
+      // The links the panel showed: the core refuses Remove when they changed since.
+      const links = get().proposals.find(p => p.id === proposal)?.links ?? null;
+      return write(
         remove ? 'The nodes were not removed' : 'The proposal was not answered',
-        (p, id, created) => commands.planAnswerRemoval(p, id, created, proposal, remove)
-      ),
+        (p, id, created) => commands.planAnswerRemoval(p, id, created, proposal, remove, links)
+      );
+    },
 
     setAutoLayout: on =>
       write('Auto layout after agents was not switched', (p, id, created) =>

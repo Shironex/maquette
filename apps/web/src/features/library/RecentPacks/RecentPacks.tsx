@@ -1,7 +1,7 @@
 import { Button, StatusChip, type Status } from '@maquette/ui';
 import type { PackRecord, PackState } from '@/ipc/client';
 import { clock } from '@/lib/clock';
-import { formatAgo, formatBytes } from '@/lib/format';
+import { counted, formatAgo, formatBytes } from '@/lib/format';
 import { nextModel, settled } from '@/state/packs';
 
 const CHIP: Record<PackState, { status: Status; label: string }> = {
@@ -34,7 +34,7 @@ export default function RecentPacks({ recent, current, busy, onOpen, onResume }:
       r.state === 'stopped' || r.state === 'failed'
         ? (r.message ?? `Stopped with ${done} of ${r.items.length} done, model ${at} is next`)
         : [
-            `${r.items.length} models`,
+            counted(r.items.length, 'model'),
             r.bytes ? formatBytes(r.bytes) : null,
             formatAgo(Date.parse(r.createdAt), clock.nowMs()),
           ]

@@ -42,7 +42,13 @@ export default function LibraryBulkBar(props: LibraryBulkBarProps) {
       <Button
         size="sm"
         variant="ghost"
-        tooltip={all ? 'Clears the selection' : `Picks all ${shown} models in view`}
+        tooltip={
+          all
+            ? 'Clears the selection'
+            : shown === 1
+              ? 'Picks the one model in view'
+              : `Picks all ${shown} models in view`
+        }
         onClick={all ? onClear : onSelectAll}
       >
         {all ? 'Select none' : `Select all ${shown}`}

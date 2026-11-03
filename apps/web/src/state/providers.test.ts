@@ -56,10 +56,16 @@ describe('provider jobs', () => {
     expect(jobChip(job({}))).toEqual({ status: 'running', label: '46%' });
     expect(jobChip(job({ state: 'waiting' })).label).toBe('Waiting for your model');
     expect(jobChip(job({ state: 'approval' })).label).toBe('Waiting for approval');
+    expect(jobChip(job({ state: 'cancelled' })).label).toBe('Cancelled');
+    expect(jobChip(job({ state: 'cancelled', denied: true })).label).toBe('Denied');
     expect(jobChip(job({ state: 'accepted', version: 3 })).label).toBe('Accepted as v3');
     expect(cardState(job({}))).toMatchObject({ progress: 46, progressLabel: 'Tripo, generating' });
     expect(cardState(job({ state: 'failed', provider: 'meshy' }))?.label).toBe('Meshy failed');
     expect(cardState(job({ state: 'queued' }))?.label).toBe('Queued for Tripo');
+    expect(cardState(job({ state: 'cancelled' }))).toBeNull();
+    expect(cardState(job({ state: 'cancelled', denied: true }))?.label).toBe(
+      'Denied, not sent to Tripo'
+    );
     expect(cardState(job({ state: 'accepted' }))).toBeNull();
     expect(cardState(undefined)).toBeNull();
   });

@@ -1,5 +1,5 @@
 import { Tooltip, cn } from '@maquette/ui';
-import { formatK } from '@/lib/format';
+import { counted, formatK } from '@/lib/format';
 import type { BudgetSummary } from '@/state/game';
 
 export interface ModelBudgetMeterProps {
@@ -19,7 +19,7 @@ export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
     .join('; ');
   const limits = `The game's folder budgets: ${folders}. The Inbox checks a model sent for an asset against its folder's budget too. Add the fix-ups (Decimate, Shrink textures) in Inspector > Budget to bring models under.`;
   const label = over
-    ? `Over the game budget: ${over} of ${summary.models} models, ${summary.overTriangles} on triangles and ${summary.overTextures} on texture size (${names}). ${limits}`
+    ? `Over the game budget: ${over} of ${counted(summary.models, 'model')}, ${summary.overTriangles} on triangles and ${summary.overTextures} on texture size (${names}). ${limits}`
     : `Every model fits the game budget. ${limits}`;
   const fill = summary.models ? ((summary.models - over) / summary.models) * 100 : 0;
   return (
@@ -41,7 +41,7 @@ export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
           </div>
           <div
             role="meter"
-            aria-label={`Game budget, ${over} of ${summary.models} models over`}
+            aria-label={`Game budget, ${over} of ${counted(summary.models, 'model')} over`}
             aria-valuenow={summary.models - over}
             aria-valuemin={0}
             aria-valuemax={summary.models}

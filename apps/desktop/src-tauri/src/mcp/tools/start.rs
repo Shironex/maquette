@@ -21,16 +21,17 @@ use crate::commands::image_api;
 use crate::commands::project::{checked_repo, create_in_workspace, summaries};
 use crate::mcp::host::Host;
 
+mod compact;
 mod next;
 #[cfg(test)]
 mod tests;
 
 use next::{Facts, ProjectFacts, next_steps};
 
-/// The kind of project to make.
+/// Where the project ships, as list_projects says it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-pub enum KindArg {
+pub enum TargetArg {
     /// Ships a 3D scene or models to a site repo.
     Website,
     /// Ships models into a game repo.
@@ -42,8 +43,10 @@ pub enum KindArg {
 pub struct CreateProjectArgs {
     /// The project's name. A name another project has, or that makes the same id, is refused.
     pub name: String,
-    /// website or game.
-    pub kind: KindArg,
+    /// website or game, the target list_projects answers with. `kind` is
+    /// still read as another name for it.
+    #[serde(alias = "kind")]
+    pub target: TargetArg,
     /// A website template id such as floating-diorama (the default), room or character-showcase,
     /// or a game template id as get_game lists them, such as prop-set (none by default).
     pub template: Option<String>,
@@ -51,6 +54,15 @@ pub struct CreateProjectArgs {
     /// absolute or starting with ~, outside the workspace. It can be set later
     /// (set_ship_settings siteRepo, set_game_settings repo).
     pub site_repo: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetStartedArgs {
+    /// true adds every tool's version and hint, each project's template, repo,
+    /// stages and activity, the image backend's settings and every gate a
+    /// person passes, the approvals too. Left out, the answer is short.
+    pub detail: Option<bool>,
 }
 
 const WEBSITE_DEFAULT: ProjectTemplate = ProjectTemplate::FloatingDiorama;
@@ -70,7 +82,7 @@ fn website_template(template: Option<&str>) -> Result<ProjectTemplate, String> {
             "The imported template starts from a folder of Blender files: a person picks it in New project in the app. Use a template such as floating-diorama here.".to_string(),
         ),
         Some(ProjectTemplate::GameImport) => {
-            Err("game-import is for games. Pass kind game.".to_string())
+            Err("game-import is for games. Pass target game.".to_string())
         }
         Some(found) => Ok(found),
         None => Err(format!(
@@ -118,13 +130,13 @@ fn new_project(
         .map(|r| checked_repo(host.session(), r))
         .transpose()?;
     let site_repo = repo.as_ref().map(|r| r.display().to_string());
-    let (template, target, game) = match args.kind {
-        KindArg::Website => (
+    let (template, target, game) = match args.target {
+        TargetArg::Website => (
             website_template(args.template.as_deref())?,
             ProjectTarget::Website,
             None,
         ),
-        KindArg::Game => {
+        TargetArg::Game => {
             let found = repo.as_deref().map(inspect_game_repo).unwrap_or_default();
             (
                 ProjectTemplate::GameImport,
@@ -223,7 +235,8 @@ fn stage_counts(manifest: &ProjectManifest) -> Value {
     Value::Object(counts)
 }
 
-/// What only a person can get past, as far as this computer says now.
+/// What only a person can get past, as far as this computer says now: the
+/// approvals that always wait for a person, then [`blocking_gates`].
 fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<Value> {
     let gate = |what: &str, place: &str| json!({ "gate": what, "where": place });
     let mut out = vec![
@@ -256,6 +269,15 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
             "Settings > Image generation",
         ),
     ];
+    out.extend(blocking_gates(reports, keys));
+    out
+}
+
+/// The gates that stand in the way on this computer right now: a missing
+/// key, Blender or Codex.
+fn blocking_gates(reports: &[ToolReport], keys: &Keys) -> Vec<Value> {
+    let gate = |what: &str, place: &str| json!({ "gate": what, "where": place });
+    let mut out = Vec::new();
     if keys.tripo == Some(false) && keys.meshy == Some(false) {
         out.push(gate(
             "Save a Tripo or Meshy API key, or use provider by-hand for free",
@@ -296,17 +318,18 @@ fn read_keys(host: &dyn Host) -> Keys {
     }
 }
 
-fn started(host: &dyn Host) -> Result<Value, ToolError> {
+fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
     let reports = host.tool_reports();
     let tools: Vec<Value> = reports.iter().map(tool_value).collect();
     let Ok((root, config)) = host.session().workspace() else {
         let next = next_steps(&Facts::no_workspace());
-        return Ok(json!({
+        let full = json!({
             "workspace": Value::Null,
             "toolchain": tools,
             "projects": [],
             "next": next,
-        }));
+        });
+        return Ok(if detail { full } else { compact::compact(full) });
     };
     let keys = read_keys(host);
     let image = image_api::status_with(
@@ -358,7 +381,7 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         inbox: inbox_count,
         project: facts.into_iter().nth(current),
     });
-    Ok(json!({
+    let full = json!({
         "workspace": host.session().display(&root),
         "toolchain": tools,
         "keys": { "tripo": keys.tripo, "meshy": keys.meshy, "openai": keys.openai },
@@ -366,23 +389,26 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         "askBeforeShipping": ask,
         "inboxModels": inbox_count,
         "projects": projects,
-        "personGates": gates(&reports, &keys, ask),
+        "openProject": config.current_project,
+        "personGates": if detail { gates(&reports, &keys, ask) } else { blocking_gates(&reports, &keys) },
         "next": next,
-    }))
+    });
+    Ok(if detail { full } else { compact::compact(full) })
 }
 
 #[tool_router(router = start_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start here: read where things stand on this computer. The workspace, each tool of the toolchain (found, missing or broken, with its version and how to fix it), whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backend, Ask before shipping, the inbox count, every project with its target and stage (empty, or the earliest stage an asset is at), the gates only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. Works with no workspace open. Reads only; spends nothing.",
+        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every approval a person gives. Works with no workspace open. Reads only; spends nothing.",
         annotations(read_only_hint = true)
     )]
-    async fn get_started(&self) -> Out {
-        respond(self.blocking(|host, _| started(host)).await)
+    async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
+        let detail = args.detail.unwrap_or(false);
+        respond(self.blocking(move |host, _| started(host, detail)).await)
     }
 
     #[tool(
-        description = "Make a project, as New project in the app does: name, kind (website or game), optional template and optional site repo (the game repo for a game). A name another project has is refused, nothing is overwritten, and there is no tool that deletes a project. The app's open project stays as it is, unless none was open. Spends nothing and needs no approval. Returns the project and next."
+        description = "Make a project, as New project in the app does: name, target (website or game, as list_projects says it; kind is read as another name for it), optional template and optional site repo (the game repo for a game). A name another project has is refused and nothing is overwritten. No tool removes a project: a person removes one to the workspace trash in the app. The app's open project stays as it is, unless none was open. Spends nothing and needs no approval. Returns the project and next."
     )]
     async fn create_project(&self, Parameters(args): Parameters<CreateProjectArgs>) -> Out {
         let found = self

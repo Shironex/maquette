@@ -394,7 +394,9 @@ impl super::Concepts {
                 Run::Api(api) => Some(api.estimate()),
                 Run::Codex(_) => None,
             })
-            .sum()
+            .sum::<f64>()
+            // An empty sum of floats is -0.0; dollars never show a minus sign.
+            + 0.0
     }
 
     /// Refuses a batch of `images` images, `attached` inputs each, that

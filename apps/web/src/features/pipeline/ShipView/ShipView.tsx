@@ -3,6 +3,7 @@ import { ViewLoader } from '@/features/common/ViewLoader';
 import type { ShipFile } from '@/ipc/client';
 import { commitFirstLine, originalsLine, shipCounts } from '@/state/game';
 import { shipCells, splitPath, useShipView } from './ShipView.hooks';
+import { counted } from '@/lib/format';
 
 export interface ShipViewProps {
   project: string;
@@ -77,7 +78,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
   const unchanged = showAll ? groups.unchanged : groups.unchanged.slice(0, UNCHANGED_SHOWN);
   const subtitle = [
     approval ? `Run ${approval.runNumber} · waiting for you` : 'What the next Ship changes',
-    `${changing} of ${total} files change`,
+    `${changing} of ${counted(total, 'file')} change`,
   ].join(' · ');
   const rows = (files: ShipFile[], why?: (f: ShipFile) => string) =>
     files.map(f => <FileRow key={f.path} file={f} why={why?.(f)} />);

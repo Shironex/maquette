@@ -338,6 +338,7 @@ mod tests {
             direction: None,
             by: None,
             person_wrote: false,
+            person_placed: false,
             stop: None,
         }
     }

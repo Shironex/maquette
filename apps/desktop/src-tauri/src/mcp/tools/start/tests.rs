@@ -98,7 +98,7 @@ fn templates_any_known_id_and_refuses_the_rest() {
     assert!(
         website_template(Some("game-import"))
             .expect_err("game")
-            .contains("kind game")
+            .contains("target game")
     );
     assert!(
         website_template(Some("castle"))
@@ -181,4 +181,17 @@ fn a_found_blender_with_a_warning_works_and_a_codex_not_signed_in_does_not() {
     let codex = [found(ToolId::Codex, "Codex CLI is not signed in.")];
     assert!(!tool_works(&codex, ToolId::Codex));
     assert!(says(&codex, "Codex CLI"));
+}
+
+#[test]
+fn create_project_takes_target_and_still_reads_kind() {
+    let read = |args: Value| serde_json::from_value::<CreateProjectArgs>(args);
+    let by_target = read(json!({ "name": "Crypt", "target": "game" })).expect("target");
+    assert_eq!(by_target.target, TargetArg::Game);
+    let by_kind = read(json!({ "name": "Web", "kind": "website" })).expect("kind");
+    assert_eq!(by_kind.target, TargetArg::Website);
+    assert!(
+        read(json!({ "name": "Nothing" })).is_err(),
+        "one of them is needed"
+    );
 }

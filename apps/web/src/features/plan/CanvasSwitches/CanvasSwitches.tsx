@@ -16,11 +16,13 @@ export default function CanvasSwitches() {
           onClick={v.overlaps.toggle}
         >
           Overlaps
-          {v.overlaps.flagged ? (
+          {v.overlaps.count ? (
             <>
               <span className="sr-only">, </span>
-              <span className="plan-count">{v.overlaps.flagged}</span>
-              <span className="sr-only"> found</span>
+              <span className={cn('plan-count', v.overlaps.fine && 'plan-count-quiet')}>
+                {v.overlaps.count}
+              </span>
+              <span className="sr-only">{v.overlaps.fine ? ' marked as fine' : ' found'}</span>
             </>
           ) : null}
         </Button>

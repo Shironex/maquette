@@ -101,7 +101,10 @@ pub(super) fn decide(
             reason: "It is older than the waiting handoffs".to_string(),
         },
         _ => Verdict::Ask {
-            reason: format!("{} sends are waiting", waiting.len()),
+            reason: match waiting.len() {
+                1 => "1 send is waiting".to_string(),
+                n => format!("{n} sends are waiting"),
+            },
         },
     }
 }
@@ -155,6 +158,7 @@ pub(super) mod tests {
             split: None,
             studio: None,
             retexture: None,
+            denied: false,
         }
     }
 

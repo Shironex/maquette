@@ -16,6 +16,7 @@ mod import;
 mod register;
 pub mod repos;
 mod slug;
+pub mod trash;
 
 // The clock lives in the base crate; these keep the old paths.
 pub use import::{
@@ -170,7 +171,9 @@ pub fn create_with(
     fs::create_dir_all(&parent).map_err(|e| CoreError::io(&parent, e))?;
 
     // create_dir (not create_dir_all) claims the slug atomically, so two
-    // creates with the same name cannot share a folder.
+    // creates with the same name cannot share a folder. The claim turn keeps
+    // a restore from moving a removed project onto the folder meanwhile.
+    let claim = trash::claim_turn();
     let mut suffix = 1u32;
     let (id, dir) = loop {
         let id = if suffix == 1 {
@@ -185,6 +188,7 @@ pub fn create_with(
             Err(err) => return Err(CoreError::io(&dir, err)),
         }
     };
+    drop(claim);
     for sub in PROJECT_DIRS {
         let path = dir.join(sub);
         fs::create_dir_all(&path).map_err(|e| CoreError::io(&path, e))?;
@@ -267,7 +271,7 @@ fn load_raw(workspace_root: &Path, layout: &FolderLayout, id: &str) -> CoreResul
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
-            return Err(CoreError::NotFound(format!("the project {id}")));
+            return Err(trash::missing(workspace_root, id));
         }
         Err(err) => return Err(CoreError::io(&path, err)),
     };

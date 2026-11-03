@@ -42,4 +42,16 @@ describe('CanvasSwitches', () => {
     // One side panel at a time.
     expect(usePlanLogStore.getState().panel).toBe(false);
   });
+
+  it('keeps a count while every overlap is marked as fine', async () => {
+    await show('combat-systems');
+    for (const _ of [1, 2]) {
+      const found = usePlansStore.getState().open?.overlaps?.find(o => !o.fine);
+      if (found) await usePlanExtrasStore.getState().markFine(found.a, found.b);
+    }
+    expect(usePlansStore.getState().open?.overlaps?.every(o => o.fine)).toBe(true);
+    expect(
+      await screen.findByRole('button', { name: /^Overlaps,\s*2\s*marked as fine$/ })
+    ).toBeInTheDocument();
+  });
 });

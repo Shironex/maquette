@@ -1,7 +1,8 @@
 /**
  * The canvas extras: an agent's removal proposal (the node's badge and the
  * ask in Changes), the Auto layout after agents switch turned off, the
- * Overlaps panel of a Game mechanics canvas with a pair marked as fine, and
+ * Overlaps panel of a Game mechanics canvas with a pair marked as fine (then
+ * both, where the button keeps a quiet count), and
  * starting a canvas from a node (the tool over the selected node, then the
  * new canvas). Each at full and minimum size. Mock mode's `?plans=systems`
  * serves Frostveil's demo canvases and Combat systems; the mock only
@@ -82,6 +83,15 @@ export async function extrasShots({ open, shot }) {
       .waitFor();
     await page.waitForTimeout(400);
     await shot(page, `plan-overlap-fine${suffix}`);
+    // Every overlap marked as fine: the button keeps a quiet count.
+    await page.getByRole('button', { name: /^Mark as fine: Sigils and Runes/ }).click();
+    await page.getByRole('button', { name: /^Overlaps\s*,\s*2\s*marked as fine$/ }).waitFor();
+    await page
+      .getByRole('complementary', { name: 'Overlaps' })
+      .getByText('2 marked as fine', { exact: true })
+      .waitFor();
+    await page.waitForTimeout(400);
+    await shot(page, `plan-overlap-all-fine${suffix}`);
     await page.context().close();
   }
 }

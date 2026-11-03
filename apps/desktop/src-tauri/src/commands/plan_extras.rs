@@ -28,7 +28,8 @@ pub fn plan_proposals(
 
 /// Answers a removal proposal as the person: `remove` takes the nodes off
 /// (with their links) as the person's undoable change, refused when the
-/// proposal went stale; otherwise "Keep it" leaves the canvas as it is.
+/// proposal went stale or its links are no longer the `links` the person
+/// saw; otherwise "Keep it" leaves the canvas as it is.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_answer_removal(
@@ -38,10 +39,11 @@ pub fn plan_answer_removal(
     created: String,
     proposal: String,
     remove: bool,
+    links: Option<u32>,
 ) -> CommandResult<PlanDoc> {
     let dir = project_dir(&session, &project)?;
     if remove {
-        return Ok(removal::accept(&dir, &id, &proposal, Some(&created))?.doc);
+        return Ok(removal::accept(&dir, &id, &proposal, Some(&created), links)?.doc);
     }
     removal::dismiss(&dir, &id, &proposal, Some(&created))?;
     Ok(plans::get(&dir, &id)?)

@@ -134,6 +134,10 @@ pub struct ProviderJob {
     /// Set for painting a version again on Meshy; `prompt` holds the words.
     #[serde(default)]
     pub retexture: Option<RetextureJob>,
+    /// Turned down in Maquette while it waited for approval: nothing went
+    /// to the provider and nothing was spent.
+    #[serde(default)]
+    pub denied: bool,
 }
 
 impl ProviderJob {

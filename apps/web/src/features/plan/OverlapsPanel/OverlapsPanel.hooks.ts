@@ -57,9 +57,13 @@ export function useOverlapsPanel() {
     fine: o.fine,
     ...wordsOf(o, name),
   }));
+  const open = views.filter(o => !o.fine);
+  const fine = views.filter(o => o.fine);
   return {
-    open: views.filter(o => !o.fine),
-    fine: views.filter(o => o.fine),
+    open,
+    fine,
+    // Agrees with the Overlaps button: the open ones, else the ones marked as fine.
+    count: open.length || !fine.length ? `${open.length} found` : `${fine.length} marked as fine`,
     busy,
     show: (o: OverlapView) => {
       const plans = usePlansStore.getState();

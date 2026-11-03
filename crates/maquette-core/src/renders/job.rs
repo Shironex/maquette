@@ -266,10 +266,11 @@ fn run_render(inner: &Inner, root: &Path, tools: &Toolbox, id: &str) {
             }
             Next::Stop => {
                 record.state = RenderState::Stopped;
+                let total = record.total();
+                let files = if total == 1 { "file" } else { "files" };
                 record.message = Some(format!(
-                    "Stopped at {} of {} files. Go on picks up from the next one.",
+                    "Stopped at {} of {total} {files}. Go on picks up from the next one.",
                     record.done(),
-                    record.total()
                 ));
             }
             Next::Finish => {

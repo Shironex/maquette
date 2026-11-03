@@ -14,6 +14,7 @@ import { expand, fail, slugify, type Args } from './backend-options';
 import { exportAfter, merged, templateOf } from './game-templates';
 import { cryptBudgets, inspectGameRepo, mazeBudgets } from './game-fixtures';
 import { LEGACY_SITE } from '@/state/repo-lines';
+import { createProjectTrashHandlers } from './create-project-trash-handlers';
 
 const DEFAULT_EXPORT: GameExport = { textures: 'png', textureCap: 1024, dropMaps: false };
 
@@ -34,6 +35,13 @@ export function createProjectHandlers({
   config,
 }: ProjectContext): Record<string, (args: Args) => unknown> {
   return {
+    ...createProjectTrashHandlers({
+      snapshot,
+      project,
+      activity: p => summary(p).activity,
+      projects,
+      config,
+    }),
     project_create: ({ project }) => {
       snapshot();
       const next = project as NewProject;

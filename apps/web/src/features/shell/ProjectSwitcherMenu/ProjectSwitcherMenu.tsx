@@ -10,7 +10,7 @@ export default function ProjectSwitcherMenu({
 }: ProjectSwitcherMenuProps) {
   const menu = useProjectSwitcherMenu(anchorRef);
   if (!menu) return null;
-  const { projects, note, openDialog, select, dismiss } = menu;
+  const { projects, note, openDialog, current, askRemove, openRemoved, select, dismiss } = menu;
   return (
     <ProjectMenu
       anchorRef={anchorRef}
@@ -28,6 +28,22 @@ export default function ProjectSwitcherMenu({
           label: 'Import folder',
           icon: 'folder-open',
           onSelect: () => openDialog('import'),
+        },
+        ...(current
+          ? [
+              {
+                id: 'remove',
+                label: `Remove ${current.name}`,
+                icon: 'trash' as const,
+                onSelect: () => askRemove(current.id),
+              },
+            ]
+          : []),
+        {
+          id: 'removed',
+          label: 'Removed projects',
+          icon: 'arrow-counter-clockwise',
+          onSelect: openRemoved,
         },
       ]}
       onSelect={select}
