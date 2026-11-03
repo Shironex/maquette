@@ -332,6 +332,49 @@ export const cases = [
     },
   },
   {
+    name: 'plan removal proposal in changes',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCanvas(page, 'Combat ideas');
+      await page.getByRole('group', { name: 'Note: Frost veil' }).waitFor();
+      await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke('mock_plan_propose', {
+          project: 'frostveil',
+          id: 'combat-ideas',
+          nodes: ['n-06'],
+          reason: 'The Frost veil card answers it.',
+        })
+      );
+      await page.getByText('asked to remove').waitFor();
+      await page.getByRole('button', { name: /^Changes/ }).click();
+      await page.getByRole('button', { name: 'Keep it' }).waitFor();
+    },
+  },
+  {
+    name: 'plan overlaps panel',
+    query: `${CONFIGURED}&plans=systems`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCanvas(page, 'Combat systems');
+      await page.getByRole('button', { name: /^Overlaps/ }).click();
+      await page.getByRole('complementary', { name: 'Overlaps' }).waitFor();
+      await page.getByText('Same key as', { exact: false }).first().waitFor();
+    },
+  },
+  {
+    name: 'plan node toolbar and auto layout off',
+    query: `${CONFIGURED}&plans=demo`,
+    hash: '#/plan',
+    async ready(page) {
+      await openCanvas(page, 'Combat ideas');
+      await page.getByRole('button', { name: /^Auto layout/ }).click();
+      await page.getByRole('button', { name: /^Auto layout/, pressed: false }).waitFor();
+      await page.getByRole('group', { name: 'Note: Frost veil' }).click();
+      await page.getByRole('button', { name: 'Start a canvas from this' }).waitFor();
+    },
+  },
+  {
     name: 'camera plan',
     query: `${CONFIGURED}&plans=demo`,
     hash: '#/plan',

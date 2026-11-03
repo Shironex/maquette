@@ -201,6 +201,8 @@ fn the_log_keeps_its_newest_lines_under_the_cap() {
             undoes: Vec::new(),
             trimmed: false,
             applied: None,
+            proposes: None,
+            resolves: Vec::new(),
             keeps: Vec::new(),
         };
         log::append(&root, &doc.id, &entry).expect("append");
@@ -227,6 +229,8 @@ fn the_log_keeps_its_newest_lines_under_the_cap() {
         undoes: Vec::new(),
         trimmed: false,
         applied: None,
+        proposes: None,
+        resolves: Vec::new(),
         keeps: Vec::new(),
     };
     log::append(&root, &doc.id, &huge).expect("append");

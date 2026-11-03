@@ -49,6 +49,10 @@
 //! from. It is tried on the canvas only; Apply writes it to `layout.json`.
 //! A file is written as the lowest version that holds what it has, so a
 //! canvas without stops stays version 2 and an older Maquette still opens it.
+//! Version 4 adds two settings a person makes on a canvas, each written
+//! only when used: `autoLayout: false` (Auto layout after agents turned
+//! off) and `fine`, the Game mechanics overlaps marked as fine
+//! ([`overlap`]).
 
 use std::fs;
 use std::io::{self, Read as _};
@@ -68,9 +72,13 @@ pub mod images;
 pub mod log;
 pub mod migrate;
 pub mod ops;
+pub mod overlap;
 mod person;
 mod place;
 pub mod presets;
+pub mod removal;
+mod settings;
+mod start;
 pub mod summary;
 pub mod text;
 
@@ -78,13 +86,17 @@ pub use change::{Changed, KeepNeed, Writer, change, keep, keep_confirmed, keep_n
 pub use check::{check_name, is_link_id, is_project_relative, validate};
 pub use create::{create, create_by, create_seeded};
 pub use files::{PlanDoc, PlanSummary, get, list, remove, rename, save};
-pub use person::apply_person;
+pub use person::{apply_person, same_canvas};
+pub use settings::{mark_fine, set_auto_layout};
+pub use start::{Started, start_from};
 pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";
 pub const PLAN_SUFFIX: &str = ".plan.json";
-pub const PLAN_VERSION: u32 = 3;
-/// The version a canvas without camera stops is written as.
+pub const PLAN_VERSION: u32 = 4;
+/// The version the camera plan is written as while it uses no version 4 setting.
+pub const PLAN_VERSION_CAMERA: u32 = 3;
+/// The version a canvas without camera stops or settings is written as.
 pub const PLAN_VERSION_PLAIN: u32 = 2;
 pub const NAME_MAX_CHARS: usize = 120;
 pub const TITLE_MAX_CHARS: usize = 300;
@@ -224,6 +236,23 @@ pub struct PlanFile {
     /// since shows and can be compared or rebased, never written over.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub camera: Option<camera::CameraBase>,
+    /// The person's "Auto layout after agents" switch, on unless turned off:
+    /// off, agents' writes leave their nodes where they put them and
+    /// `layout_canvas` is refused. Written only when off (version 4).
+    #[serde(default = "on", skip_serializing_if = "is_on")]
+    pub auto_layout: bool,
+    /// Game mechanics overlaps the person marked as fine, each for the two
+    /// cards' words as they were. Written only when there are some (version 4).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fine: Vec<overlap::FineMark>,
+}
+
+const fn on() -> bool {
+    true
+}
+
+const fn is_on(value: &bool) -> bool {
+    *value
 }
 
 impl PlanFile {
@@ -239,15 +268,20 @@ impl PlanFile {
             nodes: Vec::new(),
             edges: Vec::new(),
             camera: None,
+            auto_layout: true,
+            fine: Vec::new(),
         }
     }
 
-    /// The lowest version that holds this canvas: version 3 only for the
-    /// camera plan and its stops.
+    /// The lowest version that holds this canvas: version 4 only for a
+    /// person's settings (auto layout off, overlaps marked as fine), version
+    /// 3 for the camera plan and its stops.
     pub fn needed_version(&self) -> u32 {
         let stops = self.nodes.iter().any(|n| n.kind == NodeKind::Stop);
-        if self.camera.is_some() || stops {
+        if !self.auto_layout || !self.fine.is_empty() {
             PLAN_VERSION
+        } else if self.camera.is_some() || stops {
+            PLAN_VERSION_CAMERA
         } else {
             PLAN_VERSION_PLAIN
         }
@@ -334,8 +368,8 @@ fn read_capped(file: &Path) -> io::Result<String> {
 }
 
 /// The canvas as it is written: the lowest version that holds it, trimmed name, node
-/// titles and addresses, empty edge labels as none, and nodes and edges
-/// sorted by id. Trimming takes the [`text::TRIMMED`] set. The view does the same (`apps/web/src/state/plans.ts`,
+/// titles and addresses, empty edge labels as none, nodes and edges
+/// sorted by id, and overlaps marked as fine only while both cards are there. Trimming takes the [`text::TRIMMED`] set. The view does the same (`apps/web/src/state/plans.ts`,
 /// `planOf`), so a canvas it sends back unchanged is the canvas saved.
 pub fn normalized(plan: &PlanFile) -> PlanFile {
     let mut nodes: Vec<PlanNode> = plan
@@ -361,13 +395,15 @@ pub fn normalized(plan: &PlanFile) -> PlanFile {
         })
         .collect();
     edges.sort_by(|a, b| a.id.cmp(&b.id));
-    PlanFile {
-        version: plan.needed_version(),
+    let mut next = PlanFile {
         name: trimmed(&plan.name).to_string(),
+        fine: overlap::kept_marks(plan),
         nodes,
         edges,
         ..plan.clone()
-    }
+    };
+    next.version = next.needed_version();
+    next
 }
 
 pub fn register(types: specta::Types) -> specta::Types {
@@ -381,6 +417,7 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<log::PlanLogLine>()
         .register::<camera::CameraReview>()
         .register::<camera::RebaseReport>()
+        .register::<overlap::Overlap>()
 }
 
 #[cfg(test)]

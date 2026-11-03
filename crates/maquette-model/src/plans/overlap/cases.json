@@ -1,0 +1,58 @@
+{
+  "words": [
+    { "part": "verb", "value": "strike", "words": ["strike"] },
+    { "part": "verb", "value": "draw to cast", "words": ["draw"] },
+    { "part": "verb", "value": "Slow time around you", "words": ["slow"] },
+    { "part": "verb", "value": "the", "words": [] },
+    { "part": "look", "value": "blue glyph rings", "words": ["ring"] },
+    { "part": "look", "value": "Blue Glyph Ring", "words": ["ring"] },
+    { "part": "look", "value": "pale mist dome", "words": ["dome"] },
+    { "part": "look", "value": "falling bodies", "words": ["body"] },
+    { "part": "look", "value": "stained glass", "words": ["glass"] },
+    { "part": "look", "value": "white arcs.", "words": ["arc"] },
+    { "part": "input", "value": "tap Shift", "words": ["shift"] },
+    { "part": "input", "value": "hold Shift", "words": ["shift"] },
+    { "part": "input", "value": "Q and E", "words": ["e", "q"] },
+    { "part": "input", "value": "tap left mouse", "words": ["left mouse"] },
+    { "part": "input", "value": "hold right mouse", "words": ["right mouse"] },
+    { "part": "input", "value": "Ctrl + Space / F", "words": ["ctrl", "f", "space"] },
+    { "part": "input", "value": "double tap", "words": [] },
+    { "part": "look", "value": "ΜΕΓΑΛΟΣ ΚΥΚΛΟΣ", "words": ["κυκλοσ"] },
+    { "part": "verb", "value": "खेलना fast", "words": ["खेलना"] },
+    { "part": "look", "value": "old İstanbul", "words": ["i\u0307stanbul"] },
+    { "part": "verb", "value": "cafe\u0301 run", "words": ["cafe"] },
+    { "part": "input", "value": "Ä and ä", "words": ["ä"] },
+    { "part": "input", "value": "ž, z", "words": ["z", "ž"] },
+    { "part": "input", "value": "\ud835\udc00, \ufb00", "words": ["\ufb00", "\ud835\udc00"] }
+  ],
+  "singular": [
+    ["rings", "ring"],
+    ["bodies", "body"],
+    ["boxes", "box"],
+    ["matches", "match"],
+    ["dashes", "dash"],
+    ["glasses", "glass"],
+    ["glass", "glass"],
+    ["bus", "bus"],
+    ["axis", "axis"],
+    ["arcs", "arc"],
+    ["gas", "gas"],
+    ["ties", "tie"]
+  ],
+  "keys": [
+    {
+      "a": { "id": "n-1", "title": "System: Dash", "text": "Verb: evade\nInput: tap Shift" },
+      "b": {
+        "id": "n-2",
+        "title": "System: Frost veil",
+        "text": "Verb: slow time\nInput: hold Shift"
+      },
+      "key": "52230bf6"
+    },
+    {
+      "a": { "id": "n-b", "title": "Sigils", "text": "Look: blue glyph rings ünïcödé" },
+      "b": { "id": "n-a", "title": "Runes", "text": "Look: blue glyph rings" },
+      "key": "6cf4db0c"
+    }
+  ]
+}

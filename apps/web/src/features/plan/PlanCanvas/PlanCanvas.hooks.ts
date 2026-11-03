@@ -22,6 +22,7 @@ import {
   RUNNING_REREAD_MS,
   usePlanLinksStore,
 } from '@/state/use-plan-links-store';
+import { usePlanExtrasStore } from '@/state/use-plan-extras-store';
 import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
@@ -105,7 +106,11 @@ export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null
     changes: {
       open: panel,
       unseen: panel ? 0 : unseenCount(lines, seenAt),
-      toggle: () => setPanel(!panel),
+      toggle: () => {
+        // One side panel at a time: Changes takes the Overlaps panel's place.
+        if (!panel) usePlanExtrasStore.getState().setOverlaps(false);
+        setPanel(!panel);
+      },
     },
     /** The agent that wrote last, for the chip: "Research agent · 12:41". */
     agent: agent ? { name: agent.by ?? '', when: whenOf(agent.at, clock.now()) } : null,

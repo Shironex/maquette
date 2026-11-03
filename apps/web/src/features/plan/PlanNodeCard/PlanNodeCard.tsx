@@ -3,6 +3,7 @@ import { cn, Icon, IconButton, type IconName } from '@maquette/ui';
 import type { NodeKind } from '@/ipc/client';
 import { hostOf, isLinked, LIMITS, type FlowNode } from '@/state/plans';
 import { LinkedBody } from './LinkedBody';
+import { NodeExtras, OverlapFlags } from './NodeExtras';
 import { StopBody } from './StopBody';
 import { usePlanNodeCard } from './PlanNodeCard.hooks';
 
@@ -50,13 +51,14 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
     />
   );
   const linked = isLinked(node.kind);
-  const badge = v.mark ? (
+  const marked = v.mark ? (
     <span className="plan-badge">
       <Icon name={v.mark === 'added' ? 'sparkle' : 'note-pencil'} size={12} />
       {v.mark}
       <span className="sr-only"> by {node.by ?? 'an outside change'}</span>
     </span>
   ) : null;
+  const badge = <NodeExtras node={node} selected={Boolean(selected)} fallback={marked} />;
   const agent = node.by !== null && 'is-agent';
   const handles = HANDLES.map(h => (
     <Handle
@@ -141,6 +143,7 @@ export default function PlanNodeCard({ data, selected }: NodeProps<FlowNode>) {
       ) : (
         <div className="h-2.5" />
       )}
+      {node.kind === 'note' ? <OverlapFlags id={node.id} /> : null}
       {node.kind === 'link' ? (
         <div className="flex items-center gap-1 border-t border-line px-2 py-1">
           <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-fg-mute">

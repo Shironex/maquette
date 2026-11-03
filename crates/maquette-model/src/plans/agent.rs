@@ -115,6 +115,9 @@ pub struct Done {
     pub placed: u32,
     /// Links left out, and why.
     pub notes: Vec<String>,
+    /// The nodes "Auto layout after agents" moved clear in the same change:
+    /// the agent's edited nodes it gave no x or y that now overlap another.
+    pub tidied: Vec<String>,
 }
 
 fn refuse<T>(message: String) -> CoreResult<T> {
@@ -328,6 +331,7 @@ pub fn add(
         edges,
         placed,
         notes,
+        tidied: Vec::new(),
     })
 }
 
@@ -347,6 +351,7 @@ pub fn update(
     if edits.is_empty() {
         return refuse("Give the nodes to change.".into());
     }
+    let mut tidied = Vec::new();
     let changed = change(project_dir, id, &agent.writer(), |plan| {
         let mut ops = Vec::new();
         for edit in edits {
@@ -379,15 +384,63 @@ pub fn update(
                 after,
             });
         }
+        tidied = tidy_in(plan, agent, edits, &mut ops);
         Ok(ops)
     })?;
+    let nodes: Vec<String> = edits.iter().map(|e| e.id.clone()).collect();
     Ok(Done {
         changed,
-        nodes: edits.iter().map(|e| e.id.clone()).collect(),
+        nodes,
         edges: Vec::new(),
         placed: 0,
         notes: Vec::new(),
+        tidied,
     })
+}
+
+/// With "Auto layout after agents" on, the agent's edited nodes the call
+/// gave no x or y that now overlap another move clear inside `ops`, so the
+/// change stays one line with one undo. A position the agent gave is kept,
+/// and a person's work never moves. The ids moved.
+fn tidy_in(
+    plan: &PlanFile,
+    agent: &Agent<'_>,
+    edits: &[NodeEdit],
+    ops: &mut [PlanOp],
+) -> Vec<String> {
+    if !plan.auto_layout {
+        return Vec::new();
+    }
+    let unplaced: Vec<String> = edits
+        .iter()
+        .filter(|e| e.x.is_none() && e.y.is_none())
+        .map(|e| e.id.clone())
+        .collect();
+    if unplaced.is_empty() {
+        return Vec::new();
+    }
+    let mut scratch = plan.clone();
+    for op in ops.iter() {
+        if let PlanOp::SetNode { after, .. } = op
+            && let Some(n) = scratch.nodes.iter_mut().find(|n| n.id == after.id)
+        {
+            n.clone_from(after);
+        }
+    }
+    let (moves, moved) = tidy::tidy_ops(&scratch, agent, &unplaced);
+    for mv in moves {
+        let PlanOp::SetNode { after: spot, .. } = mv else {
+            continue;
+        };
+        for op in ops.iter_mut() {
+            if let PlanOp::SetNode { after, .. } = op
+                && after.id == spot.id
+            {
+                (after.x, after.y) = (spot.x, spot.y);
+            }
+        }
+    }
+    moved
 }
 
 #[cfg(test)]

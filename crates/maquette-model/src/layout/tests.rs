@@ -320,3 +320,37 @@ fn a_layout_with_a_stop_named_aux_still_loads() {
     let read = load(dir.path()).expect("an old id stays readable");
     assert_eq!(read.stops[0].id, "aux");
 }
+
+#[test]
+fn no_write_lands_while_a_reader_holds_the_layout() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let project = dir.path();
+    let (entered, wait) = std::sync::mpsc::channel();
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            holding(project, |seen| {
+                entered.send(()).expect("send");
+                // A write started now waits for this to end.
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                assert_eq!(load(project).expect("load"), seen);
+                Ok(())
+            })
+            .expect("hold");
+        });
+        wait.recv().expect("entered");
+        update(project, |current| {
+            let mut next = current.clone();
+            next.models.insert(
+                "late".into(),
+                Placement {
+                    position: [0.0, 0.0, 0.0],
+                    rotation: [0.0, 0.0, 0.0],
+                    scale: 1.0,
+                },
+            );
+            Ok(next)
+        })
+        .expect("update");
+    });
+    assert!(load(project).expect("load").models.contains_key("late"));
+}

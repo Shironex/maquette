@@ -217,6 +217,9 @@ export function planOf(base: PlanFile, nodes: FlowNode[], edges: FlowEdge[]): Pl
 
 const sorted = (plan: PlanFile) => ({
   name: plan.name,
+  // The person's settings: an outside switch or fine mark is a change too.
+  autoLayout: plan.autoLayout ?? true,
+  fine: plan.fine ?? [],
   nodes: [...plan.nodes].sort((a, b) => a.id.localeCompare(b.id)),
   edges: [...plan.edges].sort((a, b) => a.id.localeCompare(b.id)),
 });

@@ -268,6 +268,8 @@ pub(super) fn person_line(
         keeps: Vec::new(),
         trimmed: false,
         applied,
+        proposes: None,
+        resolves: Vec::new(),
     }
 }
 

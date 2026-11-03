@@ -8,14 +8,18 @@
  * is taken whenever it is newer. Opening or leaving a canvas, renaming one
  * here and any change while it is open count as seeing it; a canvas edited
  * since is marked. Switching workspace or project starts over with that
- * project's own times.
+ * project's own times, and the Plan view counts only while it shows the
+ * rail's workspace and project. Each canvas on the list remembers the read
+ * it came from, so a list read that started before a newer read of one
+ * canvas answered never puts that canvas's older name or time back.
  */
 import { create } from 'zustand';
 import { commands, type PlanSummary } from '@/ipc/client';
 import { clock } from '@/lib/clock';
 import { readJson, writeJson } from '@/lib/storage';
 import { CAMERA_PLAN_ID } from './plan-camera';
-import { renamed, seenFrom, seenKey, seeing, type SeenAt } from './plan-recent';
+import { newerOf, renamed, seenFrom, seenKey, seeing, type SeenAt } from './plan-recent';
+import { useAppStore } from './use-app-store';
 import { usePlanCameraStore } from './use-plan-camera-store';
 import { usePlansStore } from './use-plans-store';
 
@@ -38,8 +42,12 @@ interface PlanRecentStore {
 let timer: ReturnType<typeof setTimeout> | undefined;
 /** One timer per known canvas read alone. */
 const single = new Map<string, ReturnType<typeof setTimeout>>();
-/** Counts reads, so one answered after a newer one or a switch is dropped. */
-let reads = 0;
+/** Bumped by a switch of workspace or project, so a read answered after it is dropped. */
+let generation = 0;
+/** Counts every read and patch in the order they started. */
+let seq = 0;
+/** The read each listed canvas's name and time came from. */
+const from = new Map<string, number>();
 
 export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
   const see = (ids: readonly string[], listed?: readonly PlanSummary[]) => {
@@ -49,13 +57,17 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
     set({ seen: next });
     writeJson(seenKey(root, project), next);
   };
+  /** Whether a read started at `gen` for `project` and `root` still speaks for the rail. */
+  const current = (gen: number, project: string, root: string | null) =>
+    gen === generation && get().project === project && get().root === root;
   const read = async () => {
     const { project, root } = get();
     if (!project) return;
-    const mine = (reads += 1);
+    const gen = generation;
+    const mine = (seq += 1);
     try {
       const list = await commands.planList(project);
-      if (mine === reads && get().project === project && get().root === root) take(list);
+      if (current(gen, project, root)) take(newerOf(get().list, list, from, mine));
     } catch {
       // The rail keeps what it had; the Plan view says why the list could not be read.
     }
@@ -64,17 +76,20 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
   const readOne = async (id: string) => {
     const { project, root } = get();
     if (!project) return;
-    const mine = reads;
+    const gen = generation;
+    const mine = (seq += 1);
     try {
       const doc = await commands.planGet(project, id);
-      if (mine !== reads || get().project !== project || get().root !== root) return;
-      patch(id, doc.plan.name, doc.plan.edited);
+      if (current(gen, project, root)) patch(id, doc.plan.name, doc.plan.edited, mine);
     } catch {
-      if (mine === reads) void read();
+      if (current(gen, project, root)) void read();
     }
   };
-  /** Puts a canvas's latest name and edited time on the list, as a rename here or the open canvas's save. */
-  const patch = (id: string, name: string, edited: string) => {
+  /**
+   * Puts a canvas's latest name and edited time on the list, as a rename
+   * here or the open canvas's save, unless a newer read already put its own.
+   */
+  const patch = (id: string, name: string, edited: string, mine = (seq += 1)) => {
     const list = get().list;
     const at = list.findIndex(p => p.id === id);
     if (at < 0) {
@@ -83,6 +98,8 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
       timer = setTimeout(() => void read(), RECENT_REREAD_MS);
       return;
     }
+    if ((from.get(id) ?? 0) > mine) return;
+    from.set(id, mine);
     const was = list[at]!;
     if (was.name === name && was.edited === edited) return;
     const next = list.map((p, i) => (i === at ? { ...p, name, edited } : p));
@@ -94,18 +111,24 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
     // A rename here moves the canvas's edited time; it is not a change to mark.
     // Nor is a change to the canvas open now: the person sees it as it lands.
     const plans = usePlansStore.getState();
-    const open = plans.project === get().project && plans.open ? [plans.open.id] : [];
+    const open = ours(plans.project) && plans.open ? [plans.open.id] : [];
     see([...renamed(before, list), ...open], list);
   };
 
+  /** Whether the Plan view shows the rail's own workspace and project. */
+  const ours = (project: string | null) =>
+    project !== null &&
+    project === get().project &&
+    (useAppStore.getState().workspace?.root ?? null) === get().root;
+
   // The Plan view's own reads, opens and leaves keep the rail in step without asking again.
   usePlansStore.subscribe((now, prev) => {
-    if (now.project !== get().project) return;
+    if (!ours(now.project)) return;
     const ids = [now.open?.id, prev.open?.id].filter(
       (id, i, all): id is string => Boolean(id) && all.indexOf(id) === i
     );
     if (now.open?.id !== prev.open?.id) see(ids);
-    if (now.list && now.list !== prev.list) take(now.list);
+    if (now.list && now.list !== prev.list) take(newerOf(get().list, now.list, from, (seq += 1)));
     // The open canvas's saves and reloads answer with its file: the rail takes its time from there.
     else if (now.open && now.open !== prev.open)
       patch(now.open.id, now.open.plan.name, now.open.plan.edited);
@@ -122,7 +145,8 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
       clearTimeout(timer);
       for (const t of single.values()) clearTimeout(t);
       single.clear();
-      reads += 1;
+      from.clear();
+      generation += 1;
       const seen = root && project ? seenFrom(readJson(seenKey(root, project))) : {};
       set({ root, project, list: [], seen });
       void read();
@@ -132,7 +156,7 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
       if (project !== get().project) return;
       const plans = usePlansStore.getState();
       // The open canvas: its own autosaves and agents' writes reach the rail through the Plan view.
-      if (plans.project === project && plans.open?.id === id) return;
+      if (ours(plans.project) && plans.open?.id === id) return;
       if (get().list.some(p => p.id === id)) {
         clearTimeout(single.get(id));
         single.set(

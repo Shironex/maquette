@@ -14,12 +14,13 @@
  * Keep would take earlier changes along, and the choice
  * when an edit from another computer meets an unsaved edit to the same
  * note. Then the presets (plan-presets.mjs), and the empty states and the
- * minimum size (plan-polish.mjs). Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
+ * minimum size (plan-polish.mjs), then the canvas extras (plan-extras.mjs). Mock mode's `?plans=demo` serves them (`?plans=locked`: the same,
  * every save failing); the mock only commands `mock_plan_agent` and
  * `mock_plan_outside` make the outside writes.
  */
 
 import { cameraShots } from './plan-camera.mjs';
+import { extrasShots } from './plan-extras.mjs';
 import { polishShots } from './plan-polish.mjs';
 import { presetShots } from './plan-presets.mjs';
 
@@ -228,4 +229,5 @@ export async function planShots({ open, shot }) {
   await cameraShots({ open, shot });
   await presetShots({ open, shot });
   await polishShots({ open, shot });
+  await extrasShots({ open, shot });
 }

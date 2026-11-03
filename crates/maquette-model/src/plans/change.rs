@@ -9,13 +9,15 @@ use std::path::Path;
 use super::files::{doc, write_plan, writing};
 use super::log::{self, PlanLogEntry};
 use super::ops::{self, Merge, PlanOp};
-use stack::{beneath, on_top};
+use stack::on_top;
 
+mod keep;
 mod stack;
 use super::summary::{self, ChangeMark};
 use super::{PlanDoc, PlanFile, PlanNode, load_file, normalized, path, validate};
 use crate::error::{CoreError, CoreResult};
 use crate::project::now_rfc3339;
+pub use keep::{KeepNeed, keep, keep_confirmed, keep_needs};
 
 /// Who writes a change and how it meets the file.
 #[derive(Debug, Clone)]
@@ -55,6 +57,22 @@ pub(super) struct Undoing {
     pub(super) idle: String,
 }
 
+/// What a change's log line says beside its operations.
+#[derive(Debug, Clone, Default)]
+pub(super) enum Say {
+    /// A summary of its operations.
+    #[default]
+    Ops,
+    /// An undo of earlier lines.
+    Undo(Undoing),
+    /// Its own summary, for a change its operations do not say well (a
+    /// person's setting), and the removal proposals it answers.
+    Line {
+        summary: String,
+        resolves: Vec<String>,
+    },
+}
+
 /// Whether two states of a node say the same (where it sits aside).
 fn same_content(a: &PlanNode, b: &PlanNode) -> bool {
     a.kind == b.kind
@@ -79,10 +97,16 @@ fn mark_writers(current: &PlanFile, next: &mut PlanFile, person: bool) {
 }
 
 /// A log line for `ops` written by `writer`.
-fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, undoing: Option<Undoing>) -> PlanLogEntry {
-    let (summary, mark, undoes) = match undoing {
-        None => (summary::summary(&ops), summary::mark(&ops), Vec::new()),
-        Some(u) => (u.summary, ChangeMark::Undo, u.ids),
+fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, say: Say) -> PlanLogEntry {
+    let (summary, mark, undoes, resolves) = match say {
+        Say::Ops => (
+            summary::summary(&ops),
+            summary::mark(&ops),
+            Vec::new(),
+            Vec::new(),
+        ),
+        Say::Undo(u) => (u.summary, ChangeMark::Undo, u.ids, Vec::new()),
+        Say::Line { summary, resolves } => (summary, summary::mark(&ops), Vec::new(), resolves),
     };
     PlanLogEntry {
         id: log::new_id("c"),
@@ -96,6 +120,8 @@ fn entry_of(writer: &Writer<'_>, ops: Vec<PlanOp>, undoing: Option<Undoing>) -> 
         keeps: Vec::new(),
         trimmed: false,
         applied: None,
+        proposes: None,
+        resolves,
     }
 }
 
@@ -144,19 +170,19 @@ pub(super) fn commit(
     current: PlanFile,
     next: &PlanFile,
     writer: &Writer<'_>,
-    undoing: Option<Undoing>,
+    say: Say,
 ) -> CoreResult<(PlanDoc, Option<PlanLogEntry>)> {
     let mut next = normalized(next);
     next.name = current.name.clone();
     next.created = current.created.clone();
     next.preset = current.preset;
     next.edited = current.edited.clone();
-    if undoing.is_none() {
+    if !matches!(say, Say::Undo(_)) {
         mark_writers(&current, &mut next, writer.by.is_none());
     }
     validate(&next)?;
     if next == current {
-        let Some(undoing) = undoing else {
+        let Say::Undo(undoing) = say else {
             return Ok((doc(project_dir, id, current), None));
         };
         // Everything it would undo was changed since: the line still
@@ -166,12 +192,12 @@ pub(super) fn commit(
             summary: undoing.idle.clone(),
             ..undoing
         };
-        let entry = entry_of(writer, Vec::new(), Some(idle));
+        let entry = entry_of(writer, Vec::new(), Say::Undo(idle));
         log::append(project_dir, id, &entry)?;
         return Ok((doc(project_dir, id, current), Some(entry)));
     }
     let done = ops::diff(&current, &next);
-    let entry = entry_of(writer, done, undoing);
+    let entry = entry_of(writer, done, say);
     if writer.by.is_some() {
         keep_room(project_dir, id, &entry)?;
     }
@@ -195,20 +221,21 @@ pub fn change(
     writer: &Writer<'_>,
     make: impl FnOnce(&PlanFile) -> CoreResult<Vec<PlanOp>>,
 ) -> CoreResult<Changed> {
-    change_with(project_dir, id, writer, |plan| Ok((make(plan)?, None)))
+    change_with(project_dir, id, writer, |plan| Ok((make(plan)?, Say::Ops)))
 }
 
-fn change_with(
+/// [`change`] whose `make` also says what its log line says.
+pub(super) fn change_with(
     project_dir: &Path,
     id: &str,
     writer: &Writer<'_>,
-    make: impl FnOnce(&PlanFile) -> CoreResult<(Vec<PlanOp>, Option<Undoing>)>,
+    make: impl FnOnce(&PlanFile) -> CoreResult<(Vec<PlanOp>, Say)>,
 ) -> CoreResult<Changed> {
     let _lock = writing();
     let current = load_file(&path(project_dir, id)?)?;
-    let (ops, undoing) = make(&current)?;
+    let (ops, say) = make(&current)?;
     let applied = ops::apply(&current, &ops, writer.merge);
-    let (doc, entry) = commit(project_dir, id, current, &applied.plan, writer, undoing)?;
+    let (doc, entry) = commit(project_dir, id, current, &applied.plan, writer, say)?;
     Ok(Changed {
         doc,
         entry,
@@ -316,149 +343,8 @@ pub fn undo(
             ),
         };
         let ids = picked.iter().map(|(_, e)| e.id.clone()).collect();
-        Ok((ops, Some(Undoing { ids, summary, idle })))
+        Ok((ops, Say::Undo(Undoing { ids, summary, idle })))
     })
-}
-
-/// An earlier change a Keep must take along, for the person to confirm.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct KeepNeed {
-    pub id: String,
-    /// When it was made (RFC 3339), so changes with the same summary differ.
-    pub at: String,
-    pub summary: String,
-    /// The parts it changed: field names, "whole node" or "link".
-    pub parts: Vec<String>,
-}
-
-/// Keeps (accepts) the agent changes `ids` as a person: one log line that
-/// releases them, so the room they held for undo is free again. The canvas
-/// does not change, and each stays undoable while it is among the newest
-/// lines. Earlier agent changes still held under them on the same fields
-/// ([`keep_needs`]) must be named too: a kept change rotating out must not
-/// leave an older one whose undo would release the person's words, and
-/// nothing is kept that the person did not confirm.
-///
-/// # Errors
-///
-/// Fails when the canvas is gone, a change is not in the log or holds
-/// nothing of a person's that is still kept for undo, or the log cannot be
-/// written.
-///
-/// It accepts any keepable ids, ones the person never saw listed too, so it
-/// must never be exposed to agents. The app keeps through
-/// [`keep_confirmed`], which holds the list to what the person confirmed.
-pub fn keep(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
-    let _lock = writing();
-    keep_locked(project_dir, id, ids)
-}
-
-/// Keeps the changes the person clicked (`clicked`) with the earlier ones
-/// they confirmed (`confirmed`), refused unless `confirmed` is exactly what
-/// [`keep_needs`] lists for `clicked` now: one undone, kept or added since
-/// the person saw the list means they review it again.
-///
-/// # Errors
-///
-/// Refuses a list that changed since; fails as [`keep`].
-pub fn keep_confirmed(
-    project_dir: &Path,
-    id: &str,
-    clicked: &[String],
-    confirmed: &[String],
-) -> CoreResult<PlanLogEntry> {
-    let _lock = writing();
-    let all = log::entries(project_dir, id)?;
-    let released = log::released_ids(&all);
-    let picked: Vec<&PlanLogEntry> = all.iter().filter(|e| clicked.contains(&e.id)).collect();
-    let needs: BTreeSet<&str> = beneath(&all, &picked, &released)
-        .iter()
-        .map(|e| e.id.as_str())
-        .collect();
-    let seen: BTreeSet<&str> = confirmed.iter().map(String::as_str).collect();
-    if needs != seen {
-        return Err(CoreError::Invalid(
-            "The list changed since you saw it, so nothing was kept. Review again.".into(),
-        ));
-    }
-    let ids: Vec<String> = clicked.iter().chain(confirmed).cloned().collect();
-    keep_locked(project_dir, id, &ids)
-}
-
-fn keep_locked(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<PlanLogEntry> {
-    if ids.is_empty() {
-        return Err(CoreError::Invalid("Name the changes to keep.".into()));
-    }
-    load_file(&path(project_dir, id)?)?;
-    let all = log::entries(project_dir, id)?;
-    let released = log::released_ids(&all);
-    let mut picked: Vec<&PlanLogEntry> = Vec::new();
-    for want in ids {
-        let entry = all
-            .iter()
-            .find(|e| &e.id == want)
-            .ok_or_else(|| CoreError::NotFound(format!("the change {want} in the log")))?;
-        if !log::is_keeper(entry, &released) {
-            return Err(CoreError::Invalid(format!(
-                "The change {want} has nothing to keep: it is not an agent's change to your content, or it was undone or kept already."
-            )));
-        }
-        if !picked.iter().any(|e| e.id == entry.id) {
-            picked.push(entry);
-        }
-    }
-    let missing: Vec<&str> = beneath(&all, &picked, &released)
-        .iter()
-        .map(|e| e.id.as_str())
-        .collect();
-    if !missing.is_empty() {
-        return Err(CoreError::Invalid(format!(
-            "Keeping these also needs the earlier changes {} kept: they sit under them on the same parts of the canvas. Name them too once the person confirmed.",
-            missing.join(", ")
-        )));
-    }
-    let summary = match picked.as_slice() {
-        [one] => format!("Kept: {}", one.summary),
-        many => format!("Kept {} agent changes", many.len()),
-    };
-    let entry = PlanLogEntry {
-        id: log::new_id("c"),
-        at: now_rfc3339(),
-        by: None,
-        run: None,
-        summary,
-        mark: ChangeMark::Keep,
-        ops: Vec::new(),
-        undoes: Vec::new(),
-        keeps: picked.iter().map(|e| e.id.clone()).collect(),
-        trimmed: false,
-        applied: None,
-    };
-    log::append(project_dir, id, &entry)?;
-    Ok(entry)
-}
-
-/// The earlier agent changes a Keep of `ids` must take along: still held,
-/// under them on the same fields (and under those). Empty when the Keep
-/// can go as it is.
-///
-/// # Errors
-///
-/// Fails when the log cannot be read.
-pub fn keep_needs(project_dir: &Path, id: &str, ids: &[String]) -> CoreResult<Vec<KeepNeed>> {
-    let all = log::entries(project_dir, id)?;
-    let released = log::released_ids(&all);
-    let picked: Vec<&PlanLogEntry> = all.iter().filter(|e| ids.contains(&e.id)).collect();
-    Ok(beneath(&all, &picked, &released)
-        .into_iter()
-        .map(|e| KeepNeed {
-            id: e.id.clone(),
-            at: e.at.clone(),
-            summary: e.summary.clone(),
-            parts: stack::parts(e),
-        })
-        .collect())
 }
 
 #[cfg(test)]

@@ -309,17 +309,32 @@ pub fn rebase(
 ) -> CoreResult<(PlanDoc, RebaseReport)> {
     let _lock = writing();
     let current = load_file(&path(project_dir, id)?)?;
-    let layout = layout::load(project_dir)?;
-    let key = layout_key(&layout);
+    // Under the layout's lock too, so a layout write cannot land between the
+    // key check and the plan written from what was checked.
+    layout::holding(project_dir, |layout| {
+        rebase_on(project_dir, id, current, &layout, mode, dry, seen)
+    })
+}
+
+fn rebase_on(
+    project_dir: &Path,
+    id: &str,
+    current: PlanFile,
+    layout: &layout::SceneLayout,
+    mode: RebaseMode,
+    dry: bool,
+    seen: Option<&str>,
+) -> CoreResult<(PlanDoc, RebaseReport)> {
+    let key = layout_key(layout);
     if !dry && seen.is_some_and(|k| k != key) {
         return Err(CoreError::Invalid(
             "layout.json changed since this comparison was shown, so nothing was rebased. Review again to see the changes as they are now.".into(),
         ));
     }
-    let now = layout.stops;
+    let now = &layout.stops;
     let (next, mut report) = match mode {
-        RebaseMode::Rebase => rebased(&current, &now),
-        RebaseMode::StartOver => (started_over(&current, &now), RebaseReport::default()),
+        RebaseMode::Rebase => rebased(&current, now),
+        RebaseMode::StartOver => (started_over(&current, now), RebaseReport::default()),
     };
     report.layout_key = key;
     if dry {

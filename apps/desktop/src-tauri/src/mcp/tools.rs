@@ -35,6 +35,7 @@ pub mod paths;
 pub mod picks;
 pub mod plan_camera;
 pub mod plan_edits;
+pub mod plan_extras;
 pub mod plans;
 pub mod prepare;
 pub mod projects;
@@ -212,7 +213,10 @@ impl McpTools {
         all.merge(tagged("refs", Self::refs_router()));
         all.merge(tagged(
             "plan",
-            Self::plans_router() + Self::plan_edits_router() + Self::plan_camera_router(),
+            Self::plans_router()
+                + Self::plan_edits_router()
+                + Self::plan_extras_router()
+                + Self::plan_camera_router(),
         ));
         all.merge(tagged(
             "send",

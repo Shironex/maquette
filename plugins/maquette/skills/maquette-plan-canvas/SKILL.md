@@ -22,13 +22,16 @@ Maquette and turn the server on in Settings > Agents. An error names its `code`,
 `tryTool` when they help; `personOnly` means ask the person instead of trying again.
 A project's planning canvases hold the person's notes, links and plans: `list_canvases` lists them
 and `get_canvas` reads one, so read the canvas the person points at before you plan for them.
+Agents never delete a person's nodes: ask with `propose_removal`, and only the person answers.
 A website project's camera plan (`get_camera_plan`) is tried there until the person presses Apply
 in the app: agents may propose a tour, never apply one.
 
 ## Hard rules
 
 - Never remove a person's node or link, or a node of yours a person wrote in (`get_canvas`
-  shows `personWrote: true`; it is theirs now). `remove_nodes` refuses it; ask the person instead.
+  shows `personWrote: true`; it is theirs now). `remove_nodes` refuses it; ask the person with
+  `propose_removal` instead. Only the person answers a proposal; no tool accepts one, yours included.
+- Marking a mechanics overlap as fine and the Auto layout after agents switch are the person's.
 - Pass the same `agent` name on every call, such as "Research agent", and a `run` id that groups
   one task's calls, so the person can read and undo the whole run at once.
 - Agent names are labels, not accounts. Leave nodes made under another agent's name alone unless
@@ -54,7 +57,10 @@ in the app: agents may propose a tour, never apply one.
    so its answer has no `change`.
 2. `get_canvas` `{ project, canvas }`: nodes with id, kind, title, text cut at 120 characters,
    x and y, and `by` (absent for a person's node), and the links. Pass `full: true` or `nodes`
-   for the whole text of a few nodes.
+   for the whole text of a few nodes. It also answers `autoLayout`, `proposals` (your asks still
+   waiting, `stale` when a node changed or went) and, on a Game mechanics canvas, `overlaps`: two
+   system cards whose verb, look or input lines share a main word. Point out an overlap that is not
+   `fine` and suggest a different verb, look or key; the person decides, and may mark it as fine.
 3. `get_changes` `{ project, canvas }`: the change log, newest first. Read it when you come back
    to a canvas, to see what the person changed since your last run (`by: "person"` filters).
 
@@ -67,8 +73,16 @@ in the app: agents may propose a tour, never apply one.
 - `update_nodes`: only the fields given change (title, text, url, x, y, width). If the person
   edits the same field before their canvas saves, their value wins.
 - `layout_canvas`: moves your overlapping nodes to a free spot beside the node they link to. A
-  person's nodes never move.
+  person's nodes, and yours a person wrote in, never move. The x and y you give are kept. While
+  Auto layout after agents is on (the default), `update_nodes` moves your edited nodes you gave no
+  x or y clear in the same change (`autoLayout.moved` in the answer); when the person turns it
+  off, `layout_canvas` is refused, so place nodes with x and y.
 - `remove_nodes`: your own nodes and links only. A node goes with its links.
+- `propose_removal` `{ project, canvas, agent, run, nodes, reason }`: asks the person to remove
+  nodes you may not remove. The canvas does not change; they answer Keep it or Remove in the
+  Changes panel. Give a short reason. A proposal for a node that changes or goes is stale.
+- `start_from_node` `{ project, canvas, node, name, agent }`: a new canvas from a node and the nodes
+  linked to it, as one change you or the person can undo. The source canvas never changes.
 
 Tell the person in one line what you added and where (near which node), and the change id or run.
 

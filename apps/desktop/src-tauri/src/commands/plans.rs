@@ -19,7 +19,7 @@ use super::providers::Studio;
 use super::{CommandResult, blocking};
 use crate::session::Session;
 
-fn project_dir(session: &Session, project_id: &str) -> CommandResult<PathBuf> {
+pub(super) fn project_dir(session: &Session, project_id: &str) -> CommandResult<PathBuf> {
     let (root, config) = session.workspace()?;
     project::load(&root, &config.layout, project_id)?;
     Ok(project::dir(&root, &config.layout, project_id)?)

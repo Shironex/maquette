@@ -9,6 +9,7 @@ import { events } from '@/ipc/generated/bindings';
 import { createBackend } from '@/ipc/mock/backend';
 import { useAppStore } from '@/state/use-app-store';
 import { usePlanCameraStore } from '@/state/use-plan-camera-store';
+import { usePlanExtrasStore } from '@/state/use-plan-extras-store';
 import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
@@ -47,7 +48,8 @@ export function fakeFlowLayout() {
 }
 
 /**
- * `demo` gives Frostveil four canvases; anything else none. Plan events
+ * `demo` gives Frostveil four canvases (`systems` adds Combat systems, a
+ * Game mechanics canvas); anything else none. Plan events
  * reach the listeners, as the folder watcher's would; the backend's
  * handler comes back for the mock only commands (an agent's run, a change
  * from another computer).
@@ -56,6 +58,7 @@ export async function openPlans(plans: string | null = 'demo') {
   usePlansStore.setState(usePlansStore.getInitialState(), true);
   usePlanLogStore.getState().clear();
   usePlanCameraStore.getState().clear();
+  usePlanExtrasStore.getState().clear();
   usePlanLogStore.setState({ panel: false, filter: 'all', dismissed: null });
   const handle = createBackend({
     scenario: 'configured',

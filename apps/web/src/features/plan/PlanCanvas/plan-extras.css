@@ -1,0 +1,52 @@
+/* A canvas's extras: an agent's removal ask, overlap flags and the Overlaps panel. */
+
+/* An ask waiting for the person, at the top of the Changes panel. */
+.plan-ask {
+  flex: none;
+  padding: 10px 12px;
+  border: 1px solid var(--plan-agent-line);
+  border-radius: 10px;
+  background: var(--plan-agent-soft);
+}
+
+/* A node an agent asked to remove: the badge says so, the frame stays the node's own. */
+.plan-badge.is-ask {
+  border-style: dashed;
+}
+
+/* Under a system card's text: the card it overlaps and on what. */
+.plan-overlap-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 0 8px 8px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--clay-soft);
+  color: var(--clay-text);
+  font-size: 11.5px;
+  line-height: 15px;
+}
+
+.plan-overlap {
+  flex: none;
+  padding: 10px 12px;
+  border: 1px solid var(--clay-line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.plan-overlap.is-fine {
+  border-color: var(--line);
+}
+
+/* The node toolbar over a selected node. */
+.plan-node-tools {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-raised);
+}

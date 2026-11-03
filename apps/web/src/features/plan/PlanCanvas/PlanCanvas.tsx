@@ -1,5 +1,6 @@
 import '@xyflow/react/dist/base.css';
 import './plan-canvas.css';
+import './plan-extras.css';
 import {
   Background,
   BackgroundVariant,
@@ -15,7 +16,9 @@ import { AgentToast } from '../AgentToast';
 import { CanvasEmpty } from './CanvasEmpty';
 import { AssetPicker } from '../AssetPicker';
 import { CameraPanel } from '../CameraPanel';
+import { CanvasSwitches } from '../CanvasSwitches';
 import { LinkDialog } from '../LinkDialog';
+import { OverlapsPanel, useOverlapsShown } from '../OverlapsPanel';
 import { PlanChanges } from '../PlanChanges';
 import { PlanNodeCard } from '../PlanNodeCard';
 import { usePlanCanvas, type AddKind } from './PlanCanvas.hooks';
@@ -64,6 +67,7 @@ const TOOLS: { kind: AddKind; label: string; icon: IconName; key: string; tip: s
  */
 export default function PlanCanvas() {
   const v = usePlanCanvas();
+  const overlaps = useOverlapsShown();
   if (!v.open) return null;
   const { plan, file } = v.open;
   const h = v.history;
@@ -138,6 +142,7 @@ export default function PlanCanvas() {
                 <span className="text-fg-dim">{h.agent.when}</span>
               </span>
             ) : null}
+            <CanvasSwitches />
             {v.camera && !v.camera.panel ? (
               <Button size="sm" icon="video-camera" onClick={() => v.camera?.setPanel(true)}>
                 Camera
@@ -265,7 +270,7 @@ export default function PlanCanvas() {
           ) : null}
           {h.changes.open ? null : <AgentToast />}
         </main>
-        {h.changes.open ? <PlanChanges /> : null}
+        {h.changes.open ? <PlanChanges /> : overlaps ? <OverlapsPanel /> : null}
         {v.camera ? (
           <CameraPanel
             hidden={h.changes.open || !v.camera.panel}

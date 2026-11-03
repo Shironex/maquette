@@ -27,6 +27,8 @@ pub enum ChangeMark {
     Apply,
     /// The camera plan was brought up to a changed `layout.json`.
     Rebase,
+    /// An agent asked the person to remove nodes.
+    Propose,
 }
 
 fn kind_name(kind: NodeKind) -> &'static str {
@@ -105,8 +107,12 @@ fn count(ops: &[PlanOp]) -> Counts<'_> {
             PlanOp::AddEdge { .. } | PlanOp::RemoveEdge { .. } | PlanOp::SetEdge { .. } => {
                 c.links += 1;
             }
-            // The base moves only with a rebase or an Apply, which say so themselves.
-            PlanOp::SetCamera { .. } => {}
+            // The base moves only with a rebase or an Apply, which say so
+            // themselves, and the settings say what they did.
+            PlanOp::SetCamera { .. }
+            | PlanOp::SetAutoLayout { .. }
+            | PlanOp::MarkFine { .. }
+            | PlanOp::UnmarkFine { .. } => {}
         }
     }
     c

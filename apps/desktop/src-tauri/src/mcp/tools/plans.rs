@@ -213,14 +213,15 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a planning canvas: its nodes (id, kind, title, text, url, picture path, linked asset with its live name, stage and version count, Lab direction, x and y, and by: the agent that made it, absent for a person; personWrote: true on an agent's node a person wrote in, which makes it theirs) and its links between nodes (from, to, kind when not relates, label, by). Texts are cut at 120 characters unless full; nodes narrows it to some ids. Read this before add_nodes so new nodes go near the right one.",
+        description = "Read a planning canvas: its nodes (id, kind, title, text, url, picture path, linked asset with its live name, stage and version count, Lab direction, x and y, and by: the agent that made it, absent for a person; personWrote: true on an agent's node a person wrote in, which makes it theirs) and its links between nodes (from, to, kind when not relates, label, by). Texts are cut at 120 characters unless full; nodes narrows it to some ids. Also: autoLayout (the person's Auto layout after agents switch), overlaps on a Game mechanics canvas (two system cards a and b sharing the main word of a verb, look or input line; fine: true when the person marked the pair as fine, which only they do), and proposals: removal proposals still waiting for the person (stale when a node changed or went). Read this before add_nodes so new nodes go near the right one.",
         annotations(read_only_hint = true)
     )]
     async fn get_canvas(&self, Parameters(args): Parameters<CanvasArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let (dir, manifest) = project_dir(host, &args.project)?;
-                let plan = plans::get(&dir, &args.canvas)?.plan;
+                let doc = plans::get(&dir, &args.canvas)?;
+                let plan = doc.plan;
                 let wanted = |id: &str| args.nodes.is_empty() || args.nodes.iter().any(|n| n == id);
                 let nodes: Vec<Value> = plan
                     .nodes
@@ -234,10 +235,19 @@ impl McpTools {
                     .filter(|e| wanted(&e.from) || wanted(&e.to))
                     .map(edge_view)
                     .collect();
-                Ok(json!({
+                let mut out = json!({
                     "id": args.canvas, "name": plan.name, "preset": plan.preset,
-                    "edited": plan.edited, "nodes": nodes, "links": links,
-                }))
+                    "edited": plan.edited, "autoLayout": plan.auto_layout,
+                    "nodes": nodes, "links": links,
+                });
+                if !doc.overlaps.is_empty() {
+                    out["overlaps"] = json!(doc.overlaps);
+                }
+                let asked = plans::removal::open(&dir, &args.canvas)?;
+                if !asked.is_empty() {
+                    out["proposals"] = json!(asked);
+                }
+                Ok(out)
             })
             .await;
         respond(found)

@@ -248,6 +248,7 @@ pub fn validate(plan: &PlanFile) -> CoreResult<()> {
         }
     }
     super::camera::check_plan(plan)?;
+    super::overlap::check_fine(plan)?;
     let mut edge_ids = BTreeSet::new();
     for edge in &plan.edges {
         let id = &edge.id;

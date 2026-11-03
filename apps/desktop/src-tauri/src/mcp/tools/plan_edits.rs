@@ -197,10 +197,13 @@ fn change_fields(done: &Done, out: &mut Value) {
     if !done.notes.is_empty() {
         out["notes"] = json!(done.notes);
     }
+    if !done.tidied.is_empty() {
+        out["autoLayout"] = json!({ "moved": done.tidied });
+    }
 }
 
 /// Runs an agent write on a blocking thread and tells an open canvas.
-async fn write(
+pub(super) async fn write(
     tools: &McpTools,
     project: String,
     canvas: String,
@@ -220,7 +223,7 @@ async fn write(
 #[tool_router(router = plan_edits_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Add nodes (note, image, link, asset, direction) and links to a planning canvas. Nodes without x and y are laid out in a column beside near, clear of other nodes, never stacked. Links join node ids or $0, $1 for this call's nodes. Everything is checked before anything is written; it all carries your name (by) and lands in the change log, so a person can undo it. Answers with the new ids and the change id.",
+        description = "Add nodes (note, image, link, asset, direction) and links to a planning canvas. Nodes without x and y are laid out in a column beside near, clear of other nodes, never stacked. Links join node ids or $0, $1 for this call's nodes. Everything is checked before anything is written; it all carries your name (by) and lands in the change log, so a person can undo it. Answers with the new ids and the change id. The x and y you give are kept as given.",
         annotations(idempotent_hint = false)
     )]
     async fn add_nodes(
@@ -255,7 +258,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Edit or move nodes on a planning canvas: title, text, url, x, y, width or a camera plan stop's settings (stop: name, position, target, fov); only the fields given change. Stop edits stay in the plan until the person applies it. Any node may be edited, a person's too; the change log keeps what it said before, so it can be undone. If the person edits the same field before saving, their value wins. A call whose undo record would pass 256 KB is refused with nothing written (send fewer nodes), and so are edits to a person's content once agents' changes to it not undone or kept yet hold 4 MB (the person frees that room with Undo or Keep in the Changes panel; your undo_run frees it too).",
+        description = "Edit or move nodes on a planning canvas: title, text, url, x, y, width or a camera plan stop's settings (stop: name, position, target, fov); only the fields given change. Stop edits stay in the plan until the person applies it. Any node may be edited, a person's too; the change log keeps what it said before, so it can be undone. If the person edits the same field before saving, their value wins. A call whose undo record would pass 256 KB is refused with nothing written (send fewer nodes), and so are edits to a person's content once agents' changes to it not undone or kept yet hold 4 MB (the person frees that room with Undo or Keep in the Changes panel; your undo_run frees it too). With Auto layout after agents on, your own edited nodes you gave no x or y that now overlap another move clear in the same change (autoLayout.moved); a position you give is kept.",
         annotations(idempotent_hint = true)
     )]
     async fn update_nodes(
@@ -318,7 +321,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Tidy the nodes you added on a planning canvas: each one overlapping another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes never move. Answers with how many moved.",
+        description = "Tidy the nodes you added on a planning canvas: each one overlapping another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes (or yours a person wrote in) never move. Refused when the person turned Auto layout after agents off for the canvas (get_canvas autoLayout: false): place nodes with x and y then. Answers with how many moved.",
         annotations(idempotent_hint = true)
     )]
     async fn layout_canvas(

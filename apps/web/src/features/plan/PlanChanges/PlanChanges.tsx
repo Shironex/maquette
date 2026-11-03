@@ -2,6 +2,7 @@ import { Button, cn, Icon, IconButton, SegmentedControl, type IconName } from '@
 import type { ChangeMark } from '@/ipc/client';
 import type { LogFilter } from '@/state/plan-log';
 import { KeepConfirm } from '../KeepConfirm';
+import { RemovalAsks } from '../RemovalAsks';
 import { usePlanChanges } from './PlanChanges.hooks';
 
 const MARK_ICON: Record<ChangeMark, IconName> = {
@@ -17,6 +18,7 @@ const MARK_ICON: Record<ChangeMark, IconName> = {
   keep: 'check',
   apply: 'upload-simple',
   rebase: 'git-branch',
+  propose: 'question',
 };
 
 const KEEP_TIP =
@@ -151,6 +153,7 @@ export default function PlanChanges() {
         <IconButton icon="x" size="sm" variant="ghost" label="Close Changes" onClick={v.close} />
       </div>
       <div className="plan-side-body">
+        <RemovalAsks />
         {v.error ? (
           <p role="alert" className="text-meta text-danger">
             The change log could not be read. {v.error}
@@ -168,8 +171,9 @@ export default function PlanChanges() {
         )}
       </div>
       <p className="plan-side-foot">
-        An agent&apos;s change to your content stays undoable until you undo it or press Keep. Other
-        changes stay undoable while they are among the newest in the log.
+        Agents never delete your nodes; they ask. An agent&apos;s change to your content stays
+        undoable until you undo it or press Keep. Other changes stay undoable while they are among
+        the newest in the log.
       </p>
       <KeepConfirm />
     </aside>

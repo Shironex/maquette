@@ -214,6 +214,8 @@ fn layout_moves_only_the_agents_overlapping_nodes() {
     )
     .expect("add");
     assert_eq!(done.placed, 0);
+    // The positions given are kept: Auto layout after agents leaves them.
+    assert!(done.tidied.is_empty());
     assert!(
         layout(&root, &id, &RESEARCH, &["n-porch".into()]).is_err(),
         "not the agent's"

@@ -18,6 +18,10 @@ export interface MockLogEntry {
   ops: PlanOp[];
   undoes: string[];
   keeps?: string[];
+  /** An agent's removal proposal: the nodes as asked, keyed by their content, and why. */
+  proposes?: { nodes: { id: string; name: string; key: string }[]; reason: string };
+  /** The proposals this line answered. */
+  resolves?: string[];
 }
 
 /** Whether `op` changed a person's content: their node or link, or an agent node they wrote in last. */
@@ -49,6 +53,8 @@ const partsOf = (op: PlanOp): string[] => {
     return FIELDS.filter(f => op.before[f] !== op.after[f]).map(f => `node:${op.after.id}:${f}`);
   if (op.op === 'add-node' || op.op === 'remove-node') return [`node:${op.node.id}:*`];
   if (op.op === 'set-camera') return ['camera::*'];
+  // The person's own settings: no agent change ever sets them.
+  if (op.op === 'set-auto-layout' || op.op === 'mark-fine' || op.op === 'unmark-fine') return [];
   return [`link:${op.op === 'set-edge' ? op.after.id : op.edge.id}:*`];
 };
 
@@ -112,7 +118,7 @@ export function clipWords(text: string, max = 60): string {
   return `${cut.replace(/[\s,.]+$/, '')}\u2026`;
 }
 
-const nameOf = (node: PlanNode) =>
+export const nameOf = (node: PlanNode) =>
   clipWords(node.title.trim() || node.text.trim().split('\n')[0]?.trim() || node.id);
 
 const counted = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

@@ -1,13 +1,15 @@
 //! An agent removing what it made and tidying its own nodes; a person's
-//! nodes and links are never removed or moved.
+//! nodes and links are never removed or moved, and neither is an agent's
+//! node a person wrote in last.
 
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use super::super::PlanNode;
 use super::super::change::change;
+use super::super::log::protected_node;
 use super::super::ops::PlanOp;
 use super::super::place::{Rect, free_spot, rect_of};
+use super::super::{PlanFile, PlanNode};
 use super::{Agent, Done, refuse, too_many};
 use crate::error::CoreResult;
 
@@ -90,16 +92,87 @@ pub fn remove(
         edges: edges.to_vec(),
         placed: 0,
         notes,
+        tidied: Vec::new(),
     })
+}
+
+/// Whether `node` is the agent's to move: made under its name, and not
+/// written in by a person since.
+fn movable(node: &PlanNode, agent: &Agent<'_>) -> bool {
+    node.by.as_deref() == Some(agent.name) && !protected_node(node)
+}
+
+/// The agent's nodes (all of them, or those in `only`) that overlap another
+/// node, each moved to a free spot beside what it links to, and their ids.
+/// A node a person wrote in last is never moved.
+pub(super) fn tidy_ops(
+    plan: &PlanFile,
+    agent: &Agent<'_>,
+    only: &[String],
+) -> (Vec<PlanOp>, Vec<String>) {
+    let mine = |n: &PlanNode| movable(n, agent);
+    let mut targets: Vec<&PlanNode> = plan
+        .nodes
+        .iter()
+        .filter(|n| mine(n) && (only.is_empty() || only.contains(&n.id)))
+        .collect();
+    targets.sort_by_key(|n| (n.y, n.x));
+    let target_ids: BTreeSet<&str> = targets.iter().map(|n| n.id.as_str()).collect();
+    let mut taken: Vec<Rect> = plan
+        .nodes
+        .iter()
+        .filter(|n| !target_ids.contains(n.id.as_str()))
+        .map(rect_of)
+        .collect();
+    let mut ops = Vec::new();
+    let mut moved = Vec::new();
+    for node in targets {
+        let rect = rect_of(node);
+        let clear = taken.iter().all(|t| {
+            rect.x + rect.w + 32 <= t.x
+                || t.x + t.w + 32 <= rect.x
+                || rect.y + rect.h + 32 <= t.y
+                || t.y + t.h + 32 <= rect.y
+        });
+        if clear {
+            taken.push(rect);
+            continue;
+        }
+        let anchor = plan
+            .edges
+            .iter()
+            .filter_map(|e| match (e.from == node.id, e.to == node.id) {
+                (true, _) => Some(&e.to),
+                (_, true) => Some(&e.from),
+                _ => None,
+            })
+            .filter(|other| !target_ids.contains(other.as_str()))
+            .find_map(|other| plan.nodes.iter().find(|n| &n.id == other))
+            .map(rect_of);
+        let (x, y) = free_spot(anchor, &taken, rect.w, rect.h);
+        let mut after = node.clone();
+        (after.x, after.y) = (x, y);
+        taken.push(rect_of(&after));
+        moved.push(node.id.clone());
+        ops.push(PlanOp::SetNode {
+            before: node.clone(),
+            after,
+        });
+    }
+    (ops, moved)
 }
 
 /// Moves the agent's nodes (all of them, or those in `only`) that overlap
 /// another node to a free spot beside what they link to. Nodes already
-/// clear stay where they are, and a person's nodes never move.
+/// clear stay where they are, and a person's nodes (or an agent's node a
+/// person wrote in) never move. Refused
+/// when the person turned "Auto layout after agents" off for the canvas:
+/// then they lay it out, and agents place nodes with x and y.
 ///
 /// # Errors
 ///
-/// Fails when a node in `only` is not the agent's, and as [`change`].
+/// Fails when a node in `only` is not the agent's, when auto layout is
+/// off, and as [`change`].
 pub fn layout(
     project_dir: &Path,
     id: &str,
@@ -109,10 +182,20 @@ pub fn layout(
     too_many(only.len(), "nodes")?;
     let mut moved_ids = Vec::new();
     let changed = change(project_dir, id, &agent.writer(), |plan| {
-        let mine = |n: &PlanNode| n.by.as_deref() == Some(agent.name);
+        if !plan.auto_layout {
+            return refuse(
+                "The person turned Auto layout after agents off for this canvas, so they lay it out. Place your nodes with x and y instead."
+                    .into(),
+            );
+        }
         for want in only {
             match plan.nodes.iter().find(|n| &n.id == want) {
-                Some(n) if mine(n) => {}
+                Some(n) if movable(n, agent) => {}
+                Some(n) if n.by.as_deref() == Some(agent.name) => {
+                    return refuse(format!(
+                        "A person wrote in the node {want} last, so it is theirs now. Layout never moves a person's work."
+                    ));
+                }
                 Some(_) => {
                     return refuse(format!(
                         "The node {want} is not yours. Layout moves only the nodes you added."
@@ -121,53 +204,8 @@ pub fn layout(
                 None => return refuse(format!("The node {want} is not on this canvas.")),
             }
         }
-        let mut targets: Vec<&PlanNode> = plan
-            .nodes
-            .iter()
-            .filter(|n| mine(n) && (only.is_empty() || only.contains(&n.id)))
-            .collect();
-        targets.sort_by_key(|n| (n.y, n.x));
-        let target_ids: BTreeSet<&str> = targets.iter().map(|n| n.id.as_str()).collect();
-        let mut taken: Vec<Rect> = plan
-            .nodes
-            .iter()
-            .filter(|n| !target_ids.contains(n.id.as_str()))
-            .map(rect_of)
-            .collect();
-        let mut ops = Vec::new();
-        for node in targets {
-            let rect = rect_of(node);
-            let clear = taken.iter().all(|t| {
-                rect.x + rect.w + 32 <= t.x
-                    || t.x + t.w + 32 <= rect.x
-                    || rect.y + rect.h + 32 <= t.y
-                    || t.y + t.h + 32 <= rect.y
-            });
-            if clear {
-                taken.push(rect);
-                continue;
-            }
-            let anchor = plan
-                .edges
-                .iter()
-                .filter_map(|e| match (e.from == node.id, e.to == node.id) {
-                    (true, _) => Some(&e.to),
-                    (_, true) => Some(&e.from),
-                    _ => None,
-                })
-                .filter(|other| !target_ids.contains(other.as_str()))
-                .find_map(|other| plan.nodes.iter().find(|n| &n.id == other))
-                .map(rect_of);
-            let (x, y) = free_spot(anchor, &taken, rect.w, rect.h);
-            let mut after = node.clone();
-            (after.x, after.y) = (x, y);
-            taken.push(rect_of(&after));
-            moved_ids.push(node.id.clone());
-            ops.push(PlanOp::SetNode {
-                before: node.clone(),
-                after,
-            });
-        }
+        let (ops, moved) = tidy_ops(plan, agent, only);
+        moved_ids = moved;
         Ok(ops)
     })?;
     let placed = u32::try_from(moved_ids.len()).unwrap_or(u32::MAX);
@@ -177,5 +215,9 @@ pub fn layout(
         edges: Vec::new(),
         placed,
         notes: Vec::new(),
+        tidied: Vec::new(),
     })
 }
+
+#[cfg(test)]
+mod tests;

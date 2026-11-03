@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { events } from '@/ipc/generated/bindings';
 import { clearMocks, openPlans } from '@/test/open-plan';
+import { useAppStore } from './use-app-store';
 import { recentCanvases } from './plan-recent';
 import { usePlanCameraStore } from './use-plan-camera-store';
 import { RECENT_REREAD_MS, usePlanRecentStore } from './use-plan-recent-store';
@@ -21,10 +22,17 @@ afterEach(() => {
 const recent = () => usePlanRecentStore.getState();
 const shown = () => recentCanvases(recent().list, recent().seen);
 
+/** Puts the app on the workspace at `root`, as opening another workspace would. */
+const onWorkspace = (root: string) => {
+  const workspace = useAppStore.getState().workspace;
+  if (workspace) useAppStore.setState({ workspace: { ...workspace, root } });
+};
+
 /** Frostveil's demo canvases, with the rail following the workspace's project. */
-async function rail(root = '/mock/workspace') {
+async function rail(root?: string) {
   const store = await openPlans();
-  recent().start(root, 'frostveil');
+  if (root) onWorkspace(root);
+  recent().start(useAppStore.getState().workspace?.root ?? null, 'frostveil');
   await vi.waitFor(() => expect(recent().list.length).toBeGreaterThan(0));
   // Planning events reach the rail as the shell wires them.
   const stop = await events.planChanged.listen(e =>
@@ -135,9 +143,46 @@ describe('the rail recent canvases', () => {
     expect(Object.keys(recent().seen)).toContain('opening-story');
     recent().start('/mock/two', 'frostveil');
     expect(recent().seen).toEqual({});
+    // The Plan view still shows the first workspace's project of the same id: it counts for none.
+    await usePlansStore.getState().close();
+    await usePlansStore.getState().openCanvas('combat-ideas');
+    expect(recent().seen).toEqual({});
     recent().start('/mock/one', 'frostveil');
     expect(Object.keys(recent().seen)).toContain('opening-story');
     recent().start('/mock/one', null);
     expect(recent().list).toEqual([]);
+  });
+
+  it('never lets an older list read put back a name a newer read of one canvas showed', async () => {
+    const { stop } = await rail();
+    const list = commands.planList;
+    let answer: (() => void) | undefined;
+    const before = recent().list;
+    // A list read that hangs until the single read of one canvas has answered.
+    vi.spyOn(commands, 'planList').mockImplementationOnce(
+      project =>
+        new Promise(resolve => {
+          answer = () => void list(project).then(resolve);
+        })
+    );
+    vi.spyOn(commands, 'planGet').mockImplementationOnce(async (project, id) => {
+      const doc = await commands.planGet(project, id);
+      return {
+        ...doc,
+        plan: { ...doc.plan, name: 'Warden fight', edited: '2099-01-01T00:00:00Z' },
+      };
+    });
+    recent().onChanged('frostveil', 'brand-new-canvas');
+    vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    await vi.waitFor(() => expect(answer).toBeDefined());
+    recent().onChanged('frostveil', 'boss-frost-warden');
+    vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    await vi.waitFor(() =>
+      expect(recent().list.find(p => p.id === 'boss-frost-warden')?.name).toBe('Warden fight')
+    );
+    answer?.();
+    await vi.waitFor(() => expect(recent().list).not.toBe(before));
+    expect(recent().list.find(p => p.id === 'boss-frost-warden')?.name).toBe('Warden fight');
+    stop();
   });
 });

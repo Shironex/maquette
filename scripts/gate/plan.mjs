@@ -28,6 +28,8 @@ const WHOLE_GATE = [
   'crates/maquette-model/src/plans/text.rs',
   // Vitest (ipc/mock/plan-presets.test.ts) keeps the mock's starter notes equal to these.
   'crates/maquette-model/src/plans/presets/seeds.json',
+  // Vitest (ipc/mock/plan-overlap.test.ts) runs the mock's overlap check on these cases.
+  'crates/maquette-model/src/plans/overlap/cases.json',
   // The site's copy and docs read the app's version; so do the release scripts.
   'apps/desktop/src-tauri/tauri.conf.json',
   // Written by the Rust tests; the script tests and the meta lint read it.

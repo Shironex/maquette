@@ -82,6 +82,7 @@ pick_concepts
 preview_fixups
 prioritize_concept_jobs
 propose_camera_plan
+propose_removal
 rebuild_built_asset
 redo_inbox_model
 redo_inbox_models
@@ -121,6 +122,7 @@ set_style_board
 split_with_provider
 star_concepts
 start_concepts
+start_from_node
 start_page_preview
 start_rig_doctor
 stop_page_preview

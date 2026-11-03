@@ -8,5 +8,6 @@ Maquette and turn the server on in Settings > Agents. An error names its `code`,
 `tryTool` when they help; `personOnly` means ask the person instead of trying again.
 A project's planning canvases hold the person's notes, links and plans: `list_canvases` lists them
 and `get_canvas` reads one, so read the canvas the person points at before you plan for them.
+Agents never delete a person's nodes: ask with `propose_removal`, and only the person answers.
 A website project's camera plan (`get_camera_plan`) is tried there until the person presses Apply
 in the app: agents may propose a tour, never apply one.

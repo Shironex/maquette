@@ -62,7 +62,7 @@ pub fn create_by(
     preset: PlanPreset,
     by: Option<&str>,
 ) -> CoreResult<PlanDoc> {
-    Ok(make(project_dir, PlanFile::new(name, preset), by)?.doc)
+    Ok(make(project_dir, PlanFile::new(name, preset), by, None)?.doc)
 }
 
 /// Makes a canvas called `name` from `preset`, with the preset's starter
@@ -84,15 +84,21 @@ pub fn create_seeded(
 ) -> CoreResult<Changed> {
     let mut plan = PlanFile::new(name, preset);
     (plan.nodes, plan.edges) = presets::seed(preset, target, by);
-    make(project_dir, plan, by)
+    make(project_dir, plan, by, None)
 }
 
 /// Writes `plan` as a new canvas under a free id made from its name, and
-/// logs it as made, with an add for each node and edge it starts with.
+/// logs it as made (`summary`, else a line naming its preset), with an add
+/// for each node and edge it starts with.
 /// A blank canvas only warns when its line cannot be written, as every
 /// other plain line does, and answers with no change id, since its line
 /// undoes nothing; a canvas with starters is taken back then ([`unmake`]).
-fn make(project_dir: &Path, plan: PlanFile, by: Option<&str>) -> CoreResult<Changed> {
+pub(super) fn make(
+    project_dir: &Path,
+    plan: PlanFile,
+    by: Option<&str>,
+    summary: Option<String>,
+) -> CoreResult<Changed> {
     check_name(&plan.name)?;
     let plan = normalized(&plan);
     validate(&plan)?;
@@ -101,7 +107,9 @@ fn make(project_dir: &Path, plan: PlanFile, by: Option<&str>) -> CoreResult<Chan
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     write_plan(&path(project_dir, &id)?, &plan)?;
-    let summary = if plan.nodes.is_empty() {
+    let summary = if let Some(summary) = summary {
+        summary
+    } else if plan.nodes.is_empty() {
         format!("Made the canvas {}", plan.name)
     } else {
         format!(

@@ -195,6 +195,8 @@ fn a_line_after_a_torn_one_counts_as_a_read_of_the_log_counts_it() {
         keeps: Vec::new(),
         trimmed: false,
         applied: None,
+        proposes: None,
+        resolves: Vec::new(),
     };
     // The index reads the torn file, then takes in a line that closes it.
     log::held_after(&root, &id, &probe, 0).expect("index");

@@ -201,3 +201,11 @@ export function madeLine(plan: PlanFile): { ops: PlanOp[]; summary: string } {
       : `Made the canvas ${plan.name}`,
   };
 }
+
+/** The words a Game mechanics starter card holds on its lines, which the overlap check leaves out. */
+export const STARTER_VALUES: readonly string[] = MECHANICS.flatMap(c =>
+  c.text.split('\n').flatMap(line => {
+    const at = line.indexOf(': ');
+    return at >= 0 ? [line.slice(at + 2)] : [];
+  })
+);
