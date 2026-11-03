@@ -30,7 +30,9 @@ export function Toggle({
   return (
     <label
       className={cn(
-        'inline-flex cursor-pointer items-center gap-2 text-fg',
+        // relative keeps the hidden input inside the label, so focusing it
+        // never scrolls a page whose column scrolls.
+        'relative inline-flex cursor-pointer items-center gap-2 text-fg',
         description && 'items-start gap-3',
         disabled && 'cursor-not-allowed opacity-45',
         className
