@@ -347,6 +347,22 @@ export default defineConfig({
             .getByRole('region', { name: 'Order after Apply' })
             .getByText('Arrival')
             .waitFor();
+          // A camera agent proposes a tour with a new stop and a moved one; take it as the main line.
+          await page.evaluate(() =>
+            window.__TAURI_INTERNALS__.invoke('mock_camera_agent', { project: 'frostveil' })
+          );
+          await page.getByRole('group', { name: 'Proposal by Camera agent' }).waitFor();
+          await page.getByRole('button', { name: 'Use this order' }).click();
+          await page
+            .getByRole('region', { name: 'Order after Apply' })
+            .getByText('new stop')
+            .waitFor();
+          await page.getByRole('button', { name: 'Fit the canvas in view' }).click();
+          // Zoom in so the posters read; the middle stops, the new one and a moved one, stay in view.
+          for (let i = 0; i < 3; i++) {
+            await page.getByRole('button', { name: 'Zoom in' }).click();
+            await page.waitForTimeout(250);
+          }
           await page.waitForTimeout(900);
         }
       ),
@@ -366,7 +382,11 @@ export default defineConfig({
             .getByText('Listening on http://127.0.0.1:4791/mcp', { exact: false })
             .waitFor();
           await page.getByText('Tool groups', { exact: false }).first().waitFor();
-          await page.getByText('Planning canvases').first().scrollIntoViewIfNeeded();
+          // Settings lays out two columns from 1280 px wide; below that the Agents panel has the
+          // whole width, with no empty column beside it.
+          await page.setViewportSize({ width: 1200, height: 1000 });
+          await page.getByRole('switch', { name: 'Avatar and rig tools' }).uncheck({ force: true });
+          await page.getByText('127 of 134 tools offered').waitFor();
           await page
             .getByText('Tool groups', { exact: true })
             .first()

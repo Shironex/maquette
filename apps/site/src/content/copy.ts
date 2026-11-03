@@ -244,10 +244,10 @@ export const SHOTS = {
     caption: 'two requests from an agent',
   },
   agents: {
-    ...screen('settings-agents'),
-    alt: 'Settings, Agents: server listening on 127.0.0.1:4791, toggles, and the activity list.',
+    ...screen('settings-agents', 1200, 900),
+    alt: 'Settings, Agents: the MCP tool groups with a tool count and a switch each, 127 of 134 tools offered.',
     tool: 'Settings',
-    caption: 'Agents, every call in the activity list',
+    caption: 'Agents, the tool groups an agent is offered',
   },
   toolchain: {
     ...screen('toolchain'),
