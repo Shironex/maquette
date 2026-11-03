@@ -4,7 +4,7 @@
 use maquette_core::{ProjectManifest, ProjectTarget, Stage};
 use serde_json::Value;
 
-use super::super::groups::{ToolGroup, of_tool};
+use super::super::groups::{ToolGroup, retain_on_steps};
 use super::super::hints::{person_step, step};
 use super::open_workspace_step;
 
@@ -116,10 +116,7 @@ fn with_assets(p: &ProjectFacts, facts: &Facts, out: &mut Vec<Value>) {
 /// that is off.
 pub(super) fn next_steps(facts: &Facts) -> Vec<Value> {
     let mut steps = all_steps(facts);
-    steps.retain(|s| {
-        let group = s["tool"].as_str().and_then(of_tool);
-        group.is_none_or(|g| !facts.off.contains(&g))
-    });
+    retain_on_steps(&mut steps, &facts.off);
     steps
 }
 

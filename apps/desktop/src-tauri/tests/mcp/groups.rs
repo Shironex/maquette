@@ -1,8 +1,8 @@
 //! The tool groups a person turns off in Settings > Agents: a real client
 //! lists only the groups that are on, a call to an off group's tool is
-//! refused and runs nothing, the core groups stay, an older workspace file's
-//! avatar and rig switch is ignored, and a connected client hears when the
-//! list changes.
+//! refused and runs nothing, a success answer's next skips the off tools,
+//! the core groups stay, an older workspace file's avatar and rig switch is
+//! ignored, and a connected client hears when the list changes.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -112,6 +112,29 @@ async fn an_off_group_leaves_the_list_and_its_tools_run_nothing() {
     let started = call(&client, "get_started", json!({})).await;
     assert!(started.get("toolGroupsOff").is_none());
 
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_success_answer_s_next_skips_the_tools_of_an_off_group() {
+    let dir = tempfile::tempdir().expect("temp");
+    let session = session_in(dir.path(), true, off(&["lab"]));
+    let (client, server, _host) = serve(session).await;
+    call(
+        &client,
+        "create_project",
+        json!({ "name": "Moon island", "kind": "website" }),
+    )
+    .await;
+    let listed = call(&client, "list_assets", json!({ "project": "moon-island" })).await;
+    let tools: Vec<&str> = listed["next"]
+        .as_array()
+        .expect("next")
+        .iter()
+        .filter_map(|s| s["tool"].as_str())
+        .collect();
+    assert_eq!(tools, ["add_built_asset"], "{listed}");
     client.cancel().await.expect("close");
     server.stop();
 }
