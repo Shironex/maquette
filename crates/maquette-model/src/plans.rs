@@ -78,6 +78,7 @@ mod place;
 pub mod presets;
 pub mod removal;
 mod settings;
+mod start;
 pub mod summary;
 pub mod text;
 
@@ -87,6 +88,7 @@ pub use create::{create, create_by, create_seeded};
 pub use files::{PlanDoc, PlanSummary, get, list, remove, rename, save};
 pub use person::apply_person;
 pub use settings::{mark_fine, set_auto_layout};
+pub use start::{Started, start_from};
 pub use text::trimmed;
 
 pub const PLANS_DIR: &str = "plans";
