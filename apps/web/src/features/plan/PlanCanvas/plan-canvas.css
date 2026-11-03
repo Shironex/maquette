@@ -184,8 +184,19 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 64px 24px 24px;
   text-align: center;
   pointer-events: none;
+}
+
+/* The ways to start take clicks; the rest of the overlay lets a double click write a note. */
+.plan-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 520px;
+  pointer-events: auto;
 }
 
 /* An asset or Lab direction node: diamond handles, as the design's asset joins. */

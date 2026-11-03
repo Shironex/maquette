@@ -12,6 +12,7 @@ import { Button, cn, Icon, IconButton, Kbd, TopBar, type IconName } from '@maque
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { KEYS } from '@/lib/keys';
 import { AgentToast } from '../AgentToast';
+import { CanvasEmpty } from './CanvasEmpty';
 import { AssetPicker } from '../AssetPicker';
 import { CameraPanel } from '../CameraPanel';
 import { LinkDialog } from '../LinkDialog';
@@ -254,27 +255,13 @@ export default function PlanCanvas() {
             ) : null}
           </div>
           {v.nodes.length === 0 ? (
-            <section aria-label="This canvas is empty" className="plan-empty">
-              <span className="grid size-14 place-items-center rounded-[16px] border border-line bg-raised text-fg-dim">
-                <Icon name="graph" size={26} />
-              </span>
-              <h2 className="text-panel-title">Add notes, pictures, links and assets</h2>
-              <p className="max-w-[380px] text-fg-dim">
-                This canvas is empty. It is saved as {file}, and kept saved as you go.
-              </p>
-              <ul className="flex flex-col gap-1.5 text-left text-fg-dim">
-                <li>Double click anywhere to write a note</li>
-                <li>Bring in assets of the Board with Asset</li>
-                <li>Drag from a node&apos;s edge to another node to link them</li>
-                <li>Select a node or a link and press Delete to remove it</li>
-              </ul>
-              <p className="flex flex-wrap items-center justify-center gap-4 text-meta text-fg-mute">
-                {keys}
-                <span className="inline-flex items-center gap-1.5">
-                  <Kbd keys="Drag" /> pan
-                </span>
-              </p>
-            </section>
+            <CanvasEmpty
+              file={file}
+              name={plan.name}
+              camera={Boolean(v.camera)}
+              onAdd={v.add}
+              keys={keys}
+            />
           ) : null}
           {h.changes.open ? null : <AgentToast />}
         </main>
