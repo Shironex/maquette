@@ -219,8 +219,9 @@ pub(super) fn move_aside(project_dir: &Path, plan: &PlanFile) -> CoreResult<Stri
 /// Moves a change log left on the camera plan's id without its canvas
 /// (a move aside whose log could not follow and whose canvas could not come
 /// back) into `plans/history/`, so the camera plan made next never inherits
-/// another canvas's history. The caller holds the canvas lock and has seen
-/// that no canvas file is on the id. Answers with where the log went.
+/// another canvas's history. The caller holds the canvas lock, has seen
+/// that no canvas file is on the id and that the log is not the camera
+/// plan's own. Answers with where the log went.
 pub(super) fn set_aside_stray_log(project_dir: &Path) -> CoreResult<Option<String>> {
     let id = super::camera::CAMERA_PLAN_ID;
     let from = log::path(project_dir, id)?;

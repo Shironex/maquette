@@ -438,3 +438,25 @@ fn a_log_stranded_on_the_camera_plan_id_is_set_aside_not_inherited() {
     let text = fs::read_to_string(s.root.join("plans/history").join(&kept[0])).expect("kept");
     assert_eq!(text, stray, "the stray history is kept whole");
 }
+
+#[test]
+fn the_camera_plans_own_log_is_kept_when_only_its_file_is_gone() {
+    let s = site(&["porch", "moon"]);
+    ensure(&s.root, None).expect("camera plan");
+    let before = fs::read_to_string(s.root.join("plans/camera-plan.log.jsonl")).expect("log");
+    // Deleted by hand, or a sync that brings the log before the canvas file.
+    fs::remove_file(s.root.join("plans/camera-plan.plan.json")).expect("remove");
+    let made = ensure(&s.root, None).expect("made again");
+    assert!(made.plan.camera.is_some());
+    let after = fs::read_to_string(s.root.join("plans/camera-plan.log.jsonl")).expect("log");
+    assert!(
+        after.starts_with(&before),
+        "the plan's history stays in place"
+    );
+    let own = crate::plans::log::lines(&s.root, CAMERA_PLAN_ID, 5).expect("log");
+    assert_eq!(own.len(), 2, "{own:?}");
+    assert!(
+        !s.root.join("plans/history").exists(),
+        "nothing was set aside"
+    );
+}
