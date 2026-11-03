@@ -292,19 +292,19 @@ impl ProviderJobs {
                 .project_dir(project)
                 .is_ok_and(|dir| dir.join(super::handoff::HANDOFF_DIR).join(id).exists())
         }));
-        self.shared
-            .jobs()
-            .extend(loaded.into_iter().map(|stored| Entry {
-                stored,
-                stop: Arc::new(StopFlag::default()),
-                thread: false,
-                cancelled: false,
-            }));
+        let mut jobs = self.shared.jobs();
+        jobs.extend(loaded.into_iter().map(|stored| Entry {
+            stored,
+            stop: Arc::new(StopFlag::default()),
+            thread: false,
+            cancelled: false,
+        }));
         touched.sort();
         touched.dedup();
         for project in touched {
-            persist(&self.shared, &saving, &project);
+            persist(&self.shared, &saving, &jobs, &project);
         }
+        drop(jobs);
         drop(saving);
         for manifest in &projects {
             // Sends whose model came in another way first, so the heal

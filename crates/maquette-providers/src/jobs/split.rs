@@ -292,13 +292,15 @@ impl ProviderJobs {
         let saving = self.shared.saving();
         self.shared
             .still_open(&saving, Some(workspace.generation))?;
-        self.shared.jobs().push(Entry {
+        let mut jobs = self.shared.jobs();
+        jobs.push(Entry {
             stored: stored.clone(),
             stop: Arc::new(StopFlag::default()),
             thread: false,
             cancelled: false,
         });
-        persist(&self.shared, &saving, &job.project);
+        persist(&self.shared, &saving, &jobs, &job.project);
+        drop(jobs);
         drop(saving);
         touch_asset(
             &self.shared,
