@@ -13,12 +13,14 @@ use crate::json::{from_json_with_defaults, write_json};
 use crate::settings::catalog::TRIPO_DEFAULT_MODEL;
 use crate::settings::presets::{ProviderSettings, meshy_problem, tripo_problem};
 
+mod agent_rules;
 mod avatar;
 mod lab;
 pub mod lock;
 mod register;
 pub mod sync;
 
+pub use agent_rules::{AVATAR_RIG_GROUP, AgentRules};
 pub use avatar::AvatarDefaults;
 pub use lab::{LAB_MAX_CONCURRENCY, LabSettings};
 pub use register::register;
@@ -171,33 +173,6 @@ impl Default for AgentSettings {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentRules {
-    pub blender_headless_only: bool,
-    pub never_capture_screen: bool,
-    pub ask_before_shipping: bool,
-    /// Whether agents are offered the avatar and rig doctor tools. Files
-    /// from before this setting leave it out, and keep them.
-    #[serde(default = "offered")]
-    pub avatar_rig_tools: bool,
-}
-
-const fn offered() -> bool {
-    true
-}
-
-impl Default for AgentRules {
-    fn default() -> Self {
-        Self {
-            blender_headless_only: true,
-            never_capture_screen: true,
-            ask_before_shipping: true,
-            avatar_rig_tools: true,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum RootState {
@@ -309,13 +284,23 @@ pub fn open(root: &Path) -> CoreResult<WorkspaceConfig> {
             supported: CONFIG_VERSION,
         });
     }
-    let text = fold_legacy_tripo(&text).map_err(|e| CoreError::json(&path, e))?;
+    let text = fold_legacy_tripo(&text)
+        .and_then(|text| fold_legacy_avatar_switch(&text))
+        .map_err(|e| CoreError::json(&path, e))?;
     let mut config: WorkspaceConfig =
         from_json_with_defaults(&text).map_err(|e| CoreError::json(&path, e))?;
     config.version = CONFIG_VERSION;
     validate(&config)?;
     ensure_layout(root, &config.layout)?;
     Ok(config)
+}
+
+/// Files from before the tool groups kept one `avatarRigTools` switch; its
+/// meaning moves into `toolGroupsOff` unless the file already has the list.
+fn fold_legacy_avatar_switch(text: &str) -> Result<String, serde_json::Error> {
+    let mut root: serde_json::Value = serde_json::from_str(text)?;
+    agent_rules::read_legacy_switch(&mut root);
+    serde_json::to_string(&root)
 }
 
 /// Older configs kept one `tripo` block. Its values move to where they
@@ -388,7 +373,12 @@ fn ensure_layout(root: &Path, layout: &FolderLayout) -> CoreResult<()> {
 pub fn save(root: &Path, config: &WorkspaceConfig) -> CoreResult<()> {
     validate(config)?;
     let path = root.join(CONFIG_FILE);
-    write_json(&path, config)
+    // For one release the old avatar and rig switch is written beside the
+    // group list, for a computer synced to this workspace that still runs
+    // the version before the groups.
+    let mut value = serde_json::to_value(config).map_err(|e| CoreError::json(&path, e))?;
+    agent_rules::write_legacy_switch(&mut value, &config.agents.rules);
+    write_json(&path, &value)
 }
 
 /// True when `name` is one plain folder name, safe to join onto a root.

@@ -32,8 +32,11 @@ const WHOLE_GATE = [
   'crates/maquette-model/src/plans/overlap/cases.json',
   // The site's copy and docs read the app's version; so do the release scripts.
   'apps/desktop/src-tauri/tauri.conf.json',
-  // Written by the Rust tests; the script tests and the meta lint read it.
+  // Written by the Rust tests; the script tests, the meta lint and Vitest
+  // (ipc/mock/mock-tool-groups.test.ts) read it.
   'apps/desktop/src-tauri/tool-names.txt',
+  // Vitest (ipc/mock/mock-tool-groups.test.ts) keeps the mock's tool groups equal to these.
+  'apps/desktop/src-tauri/src/mcp/tools/groups.rs',
   // Written by the Rust tests; typecheck, Vitest and the app read it.
   'apps/web/src/ipc/generated/bindings.ts',
   // Vitest (state/about.test.ts) reads this form, which otherwise counts as docs.

@@ -20,7 +20,11 @@ export function Checkbox({
 }: CheckboxProps) {
   const [on, set] = useControllable(checked, defaultChecked, onChange);
   return (
-    <label className={cn('inline-flex cursor-pointer items-center gap-2 text-fg', className)}>
+    // relative keeps the hidden input inside the label, so focusing it never
+    // scrolls a page whose column scrolls.
+    <label
+      className={cn('relative inline-flex cursor-pointer items-center gap-2 text-fg', className)}
+    >
       <input
         type="checkbox"
         checked={on}

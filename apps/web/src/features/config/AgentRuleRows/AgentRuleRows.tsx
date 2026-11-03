@@ -8,9 +8,7 @@ export type AgentRuleRowsProps = ConfigFieldsProps;
 export default function AgentRuleRows({ config, onChange, density = 'roomy' }: AgentRuleRowsProps) {
   const compact = density === 'compact';
   const rules = config.agents.rules;
-  // The first run keeps to the safety rules; the tool list is a later choice.
-  const shown = compact ? RULES : RULES.filter(rule => !('settingsOnly' in rule));
-  const rows = shown.map(rule => (
+  const rows = RULES.map(rule => (
     <div
       key={rule.key}
       className={cn(
@@ -20,7 +18,7 @@ export default function AgentRuleRows({ config, onChange, density = 'roomy' }: A
     >
       <div className="min-w-0 flex-1">
         <b className="block leading-[18px] font-medium text-fg">{rule.title}</b>
-        {compact && !('settingsOnly' in rule) ? null : (
+        {compact ? null : (
           <span className="mt-0.5 block text-meta text-fg-mute">{rule.detail}</span>
         )}
       </div>

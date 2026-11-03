@@ -67,13 +67,14 @@
  * floating card and Settings > Avatar defaults, and the minsize set
  * (scripts/visual-check/minsize.mjs) the screens at the minimum window size, and the
  * firstrun set (scripts/visual-check/first-run.mjs) the Next step strip, the Blender
- * missing screen and the first run card at both sizes. It renders
+ * missing screen and the first run card at both sizes, and the groups set
+ * (scripts/visual-check/tool-groups.mjs) Settings > Agents' tool groups at both sizes. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=plan, ONLY=projects, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=minsize, ONLY=firstrun or ONLY=size
+ * ONLY=timeline, ONLY=plan, ONLY=projects, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=minsize, ONLY=firstrun, ONLY=groups or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -108,6 +109,7 @@ import { styleShots } from './visual-check/style.mjs';
 import { syncShots } from './visual-check/sync.mjs';
 import { timelineShots } from './visual-check/timeline.mjs';
 import { planShots } from './visual-check/plan.mjs';
+import { toolGroupsShots } from './visual-check/tool-groups.mjs';
 import { projectsShots } from './visual-check/projects.mjs';
 
 const root = resolve(import.meta.dirname, '..');
@@ -1145,6 +1147,8 @@ try {
   if (!only || only === 'minsize') await minSizeShots({ open, shot });
   await settle();
   if (!only || only === 'firstrun') await firstRunShots({ open, shot });
+  await settle();
+  if (!only || only === 'groups') await toolGroupsShots({ open, shot });
   await settle();
 } finally {
   await browser.close();

@@ -17,6 +17,7 @@ pub mod concept_jobs;
 pub mod concepts;
 pub mod credits;
 pub mod game;
+pub mod groups;
 pub mod handoffs;
 mod hints;
 pub mod image_api;
@@ -26,6 +27,7 @@ pub mod inbox_triage;
 pub mod library;
 pub mod library_batch;
 pub mod library_many;
+mod list_changed;
 pub mod materials;
 pub mod motion;
 pub mod packs;
@@ -66,9 +68,9 @@ use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
-    ServerCapabilities, ServerConfig,
+    ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, SubscriptionFilter,
 };
-use rmcp::service::RequestContext;
+use rmcp::service::{NotificationContext, RequestContext, SubscriptionContext};
 use rmcp::{ErrorData, RoleServer, ServerHandler, schemars, tool_handler};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -131,9 +133,6 @@ pub struct ProjectArgs {
     pub project: String,
 }
 
-/// The group Settings > Agents can leave out.
-const AVATAR_RIG: &str = "avatar-rig";
-
 /// Starts every description in `router` with its group, so an agent can
 /// tell the groups apart in a long list.
 fn tagged(group: &str, mut router: ToolRouter<McpTools>) -> ToolRouter<McpTools> {
@@ -153,32 +152,15 @@ pub struct McpTools {
 }
 
 impl McpTools {
+    /// Every tool stays routed: the list leaves out the groups a person
+    /// turned off, and a call to one of their tools is refused, both read
+    /// from the setting as it is now.
     pub fn new(host: Arc<dyn Host>, hub: Arc<Hub>) -> Self {
-        let mut tool_router = Self::router();
-        let offered = host
-            .session()
-            .workspace()
-            .map_or(true, |(_, config)| config.agents.rules.avatar_rig_tools);
-        if !offered {
-            for name in Self::tools_of_group(AVATAR_RIG) {
-                tool_router.remove_route(&name);
-            }
-        }
         Self {
             host,
             hub,
-            tool_router,
+            tool_router: Self::router(),
         }
-    }
-
-    /// The names of a tool group, by the tag on their descriptions.
-    fn tools_of_group(group: &str) -> Vec<String> {
-        let tag = format!("[{group}] ");
-        Self::descriptions()
-            .into_iter()
-            .filter(|(_, d)| d.starts_with(&tag))
-            .map(|(name, _)| name)
-            .collect()
     }
 
     /// Every tool's name and description, as agents read them.
@@ -258,7 +240,7 @@ impl McpTools {
             Self::packs_router() + Self::renders_router(),
         ));
         all.merge(tagged(
-            AVATAR_RIG,
+            "avatar-rig",
             Self::avatar_router() + Self::rig_router(),
         ));
         all
@@ -389,11 +371,44 @@ fn outcome(result: &Result<CallToolResponse, ErrorData>) -> Logged {
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for McpTools {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(
-                Implementation::new("maquette", env!("CARGO_PKG_VERSION")).with_title("Maquette"),
-            )
-            .with_instructions(INSTRUCTIONS)
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_tool_list_changed()
+                .build(),
+        )
+        .with_server_info(
+            Implementation::new("maquette", env!("CARGO_PKG_VERSION")).with_title("Maquette"),
+        )
+        .with_instructions(INSTRUCTIONS)
+    }
+
+    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
+        list_changed::forward_to_session(&context, self.hub.watch_tools());
+    }
+
+    fn accepted_subscription_filter(
+        &self,
+        requested: &SubscriptionFilter,
+    ) -> Option<SubscriptionFilter> {
+        list_changed::accepted(requested)
+    }
+
+    async fn listen(&self, subscription: SubscriptionContext) -> Result<(), ErrorData> {
+        list_changed::listen(subscription, self.hub.watch_tools()).await;
+        Ok(())
+    }
+
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, ErrorData> {
+        let off = groups::off_now(self.host.as_ref());
+        Ok(groups::list_result(
+            groups::listed(self.tool_router.list_all(), &off),
+            &context,
+        ))
     }
 
     async fn call_tool(
@@ -404,10 +419,16 @@ impl ServerHandler for McpTools {
         let tool = request.name.to_string();
         let detail = describe(request.arguments.as_ref());
         let started = Instant::now();
-        let result = self
-            .tool_router
-            .call(ToolCallContext::new(self, request, context))
-            .await;
+        let result = match groups::off_group_of(&tool, self.host.as_ref()) {
+            // A list from before the person turned the group off: nothing runs.
+            Some(group) => failed(groups::refusal(&tool, group)).map(CallToolResponse::from),
+            None => {
+                self.tool_router
+                    .call(ToolCallContext::new(self, request, context))
+                    .await
+            }
+        };
+        let result = groups::scrub_off_try_tool(result, &groups::off_now(self.host.as_ref()));
         let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
         let ms = started.elapsed().as_millis() as f64;
@@ -442,13 +463,5 @@ mod tests {
                 description.len()
             );
         }
-    }
-
-    #[test]
-    fn the_avatar_and_rig_group_is_small() {
-        let names = McpTools::tools_of_group(AVATAR_RIG);
-        assert_eq!(names.len(), 7, "{names:?}");
-        assert!(names.iter().any(|n| n == "build_avatar"));
-        assert!(names.iter().any(|n| n == "run_rig_doctor"));
     }
 }

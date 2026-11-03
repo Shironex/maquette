@@ -199,6 +199,8 @@ http_headers = { Authorization = "Bearer <token>" }
 tool_timeout_sec = 150
 ```
 
+Every tool belongs to a tool group (start, project, lab, refs, plan, send, inbox, prepare, built, pipeline, game, library, animation, export and avatar-rig), named in brackets at the start of its description. Settings > Agents lists the groups with their tool counts and a switch each, all on by default, so you can turn off groups you never use and give agents a shorter tool list. The start and project groups are always on. A change reaches connected agents as `notifications/tools/list_changed` (a client that ignores it keeps its list until it reconnects), a call to a tool of an off group is refused with code `group-off` and runs nothing, and `get_started` names the groups that are off in `toolGroupsOff`.
+
 The [MCP tools page](https://shironex.github.io/maquette/docs/agents/mcp-tools/) documents every tool with its arguments.
 
 ### Agent skills

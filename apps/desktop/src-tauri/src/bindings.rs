@@ -293,6 +293,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             agents::mcp_decide,
             agents::mcp_clear_activity,
             agents::mcp_renew_token,
+            agents::mcp_tool_groups,
             quit::quit_set_unapplied,
             quit::quit_now,
         ])

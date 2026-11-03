@@ -2,12 +2,14 @@ import { render, screen, within } from '@testing-library/react';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAgentsStore } from '@/state/use-agents-store';
+import { forgetToolGroups } from '@/features/config/ToolGroupRows/ToolGroupRows.hooks';
 import { useAppStore } from '@/state/use-app-store';
 import { openAgentSession } from '../openAgentSession';
 import { AgentsPanel } from '.';
 
 afterEach(() => {
   clearMocks();
+  forgetToolGroups();
   useAgentsStore.setState({ status: null, deciding: null });
 });
 
@@ -39,5 +41,14 @@ describe('Settings > Agents', () => {
     expect(
       screen.getByText('No calls yet. Each tool call an agent makes shows up here.')
     ).toBeInTheDocument();
+  });
+
+  it('lists the tool groups from the server, each with a switch', async () => {
+    const calls = await openAgentSession('active');
+    renderPanel();
+    expect(await screen.findByRole('switch', { name: 'Avatar and rig tools' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Start tools' })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Tool groups' })).toBeInTheDocument();
+    expect(calls).toContain('mcp_tool_groups');
   });
 });

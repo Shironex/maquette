@@ -903,6 +903,8 @@ export const commands = {
 	mcpClearActivity: () => __TAURI_INVOKE<McpStatus>("mcp_clear_activity"),
 	/**  Makes a new token. Agents set up with the old one must be set up again. */
 	mcpRenewToken: () => __TAURI_INVOKE<McpStatus>("mcp_renew_token"),
+	/**  The MCP tool groups Settings > Agents lists, with their tool counts. */
+	mcpToolGroups: () => __TAURI_INVOKE<McpToolGroup[]>("mcp_tool_groups"),
 	/**  Tells the shell whether the web view has work that is not applied yet. */
 	quitSetUnapplied: (unapplied: boolean) => __TAURI_INVOKE<void>("quit_set_unapplied", { unapplied }),
 	/**  Closes the window now, whatever is unapplied: the user answered. */
@@ -1019,10 +1021,11 @@ export type AgentRules = {
 	neverCaptureScreen: boolean,
 	askBeforeShipping: boolean,
 	/**
-	 *  Whether agents are offered the avatar and rig doctor tools. Files
-	 *  from before this setting leave it out, and keep them.
+	 *  The MCP tool groups agents are not offered, by id. Empty offers every
+	 *  group; the server ignores ids it does not know and the groups that
+	 *  are always on.
 	 */
-	avatarRigTools?: boolean,
+	toolGroupsOff?: string[],
 };
 
 export type AgentSettings = {
@@ -4432,6 +4435,17 @@ export type McpStatus = {
 	/**  Newest first. */
 	calls: McpCall[],
 	approvals: Approval[],
+};
+
+/**  A group as Settings > Agents shows it. */
+export type McpToolGroup = {
+	id: string,
+	title: string,
+	about: string,
+	/**  How many tools it holds. */
+	tools: number,
+	/**  The setting cannot turn it off. */
+	alwaysOn: boolean,
 };
 
 /**

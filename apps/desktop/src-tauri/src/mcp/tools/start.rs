@@ -380,6 +380,7 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
         any_key: keys.tripo != Some(false) || keys.meshy != Some(false),
         inbox: inbox_count,
         project: facts.into_iter().nth(current),
+        off: super::groups::off_in(&config),
     });
     let full = json!({
         "workspace": host.session().display(&root),
@@ -404,7 +405,12 @@ impl McpTools {
     )]
     async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
         let detail = args.detail.unwrap_or(false);
-        respond(self.blocking(move |host, _| started(host, detail)).await)
+        respond(
+            self.blocking(move |host, _| {
+                started(host, detail).map(|v| super::groups::with_off_line(v, host))
+            })
+            .await,
+        )
     }
 
     #[tool(

@@ -554,6 +554,19 @@ export const cases = [
     ready: page => page.getByText('Changes save as you go').waitFor(),
   },
   {
+    name: 'settings agents tool groups',
+    query: `${CONFIGURED}&agents=active`,
+    hash: '#/settings',
+    async ready(page) {
+      const groups = page.getByRole('region', { name: 'Tool groups' });
+      await groups
+        .getByRole('switch', { name: 'Avatar and rig tools' })
+        .locator('xpath=..')
+        .click();
+      await groups.getByText('127 of 134 tools offered').waitFor();
+    },
+  },
+  {
     name: 'rename asset',
     query: CONFIGURED,
     hash: '#/board',

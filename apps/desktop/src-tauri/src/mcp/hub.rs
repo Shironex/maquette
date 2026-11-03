@@ -184,6 +184,9 @@ pub struct Hub {
     decided: Condvar,
     on_change: Box<dyn Fn() + Send + Sync>,
     log: Mutex<Option<Arc<dyn DecisionLog>>>,
+    /// Rings when the tool list changes (a group turned on or off), so each
+    /// connected session can send `notifications/tools/list_changed`.
+    tool_list: tokio::sync::broadcast::Sender<()>,
 }
 
 impl Hub {
@@ -194,7 +197,19 @@ impl Hub {
             decided: Condvar::new(),
             on_change: Box::new(on_change),
             log: Mutex::new(None),
+            tool_list: tokio::sync::broadcast::channel(4).0,
         }
+    }
+
+    /// Tells every connected session the tool list changed. No session, no
+    /// one to tell.
+    pub fn tools_changed(&self) {
+        let _ = self.tool_list.send(());
+    }
+
+    /// What a session listens to for [`Self::tools_changed`].
+    pub fn watch_tools(&self) -> tokio::sync::broadcast::Receiver<()> {
+        self.tool_list.subscribe()
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {

@@ -78,7 +78,7 @@ pub(super) async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) 
     (client, server, host)
 }
 
-struct NoSink;
+pub(super) struct NoSink;
 impl maquette_core::pipeline::runner::RunSink for NoSink {
     fn event(&self, _: maquette_core::pipeline::runner::PipelineEvent) {}
 }
@@ -366,37 +366,4 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
 
     client.cancel().await.expect("close");
     server.stop();
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn the_avatar_and_rig_tools_leave_when_the_switch_is_off() {
-    let dir = tempfile::tempdir().expect("temp");
-    let session = session_in(dir.path(), true, |c| {
-        c.agents.rules.avatar_rig_tools = false
-    });
-    let (client, server, _host) = serve(session).await;
-    let names: Vec<String> = client
-        .list_all_tools()
-        .await
-        .expect("tools")
-        .iter()
-        .map(|t| t.name.to_string())
-        .collect();
-    assert!(names.iter().any(|n| n == "get_started"));
-    for gone in ["get_avatar", "build_avatar", "start_rig_doctor"] {
-        assert!(!names.iter().any(|n| n == gone), "{gone}");
-    }
-    client.cancel().await.expect("close");
-    server.stop();
-}
-
-#[test]
-fn an_older_workspace_file_keeps_the_avatar_and_rig_tools() {
-    let rules: maquette_core::AgentRules = serde_json::from_value(json!({
-        "blenderHeadlessOnly": true,
-        "neverCaptureScreen": true,
-        "askBeforeShipping": true,
-    }))
-    .expect("rules");
-    assert!(rules.avatar_rig_tools);
 }

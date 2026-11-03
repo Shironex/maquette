@@ -1,6 +1,7 @@
 import type { WorkspaceConfig } from '@/ipc/client';
 import { AgentRuleRows } from '@/features/config/AgentRuleRows';
 import { McpControls } from '@/features/config/McpControls';
+import { ToolGroupRows } from '@/features/config/ToolGroupRows';
 import type { ConfigErrors } from '@/state/settings-form';
 import { ApprovalCard, useApprovalStack } from '../ApprovalCard';
 import { useAgentsPanel } from './AgentsPanel.hooks';
@@ -14,7 +15,7 @@ export interface AgentsPanelProps {
   errors: ConfigErrors;
 }
 
-/** Settings > Agents: the server, its token, the rules, approvals and activity. */
+/** Settings > Agents: the server, its token, the rules, the tool groups, approvals and activity. */
 export default function AgentsPanel({ config, onChange, errors }: AgentsPanelProps) {
   const { status } = useAgentsPanel();
   const stack = useApprovalStack(status?.approvals);
@@ -33,6 +34,7 @@ export default function AgentsPanel({ config, onChange, errors }: AgentsPanelPro
       <McpControls config={config} onChange={onChange} errors={errors} density="compact" />
       <TokenRow />
       <AgentRuleRows config={config} onChange={onChange} density="compact" />
+      <ToolGroupRows config={config} onChange={onChange} />
       {status && status.approvals.length > 0 ? (
         <div className="flex flex-col gap-2">
           <h3 className="text-meta font-semibold tracking-[0.02em] text-fg-mute uppercase">

@@ -6,8 +6,16 @@ use tauri::{AppHandle, State, WebviewWindow};
 
 use super::{CommandResult, invalid};
 use crate::mcp::hub::Refused;
+use crate::mcp::tools::groups::McpToolGroup;
 use crate::mcp::{self, Agents, McpStatus};
 use crate::session::Session;
+
+/// The MCP tool groups Settings > Agents lists, with their tool counts.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn mcp_tool_groups() -> Vec<McpToolGroup> {
+    mcp::tools::groups::summaries()
+}
 
 #[tauri::command(async)]
 #[specta::specta]

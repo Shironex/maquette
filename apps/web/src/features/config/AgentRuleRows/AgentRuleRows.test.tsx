@@ -20,15 +20,10 @@ describe('the agent rule rows', () => {
     });
   });
 
-  it('offer the avatar and rig tools switch in Settings, on by default, not in the first run', () => {
-    const { rerender } = render(
-      <AgentRuleRows config={defaultConfig()} onChange={() => {}} density="compact" />
-    );
-    const name = 'Offer avatar and rig tools';
-    expect(screen.getByRole('switch', { name })).toBeChecked();
-    expect(screen.getByText(/next agent that connects/)).toBeInTheDocument();
-    rerender(<AgentRuleRows config={defaultConfig()} onChange={() => {}} />);
-    expect(screen.queryByRole('switch', { name })).toBeNull();
+  it('no longer carry the old avatar and rig switch, which moved to the tool groups', () => {
+    render(<AgentRuleRows config={defaultConfig()} onChange={() => {}} density="compact" />);
+    expect(screen.queryByRole('switch', { name: 'Offer avatar and rig tools' })).toBeNull();
+    expect(screen.getAllByRole('switch')).toHaveLength(3);
   });
 
   it('show the details only when roomy', () => {
