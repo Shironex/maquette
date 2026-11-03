@@ -23,6 +23,7 @@
 // - assets/showcase/hero.webp: the README banner (`pnpm showcase:hero`).
 // - SHOWCASE_PORTFOLIO_DIR=<dir> adds 1920x1080 portfolio images there.
 import { defineConfig } from '@noctcore/showcase-kit';
+import { rename } from './apps/site/scripts/screens-page.mjs';
 
 const PORT = 15196;
 const ORIGIN = `http://localhost:${PORT}`;
@@ -50,6 +51,8 @@ function view(query, hash, text, then) {
     await page.goto(`${ORIGIN}/?delay=300&${query}#/${hash}`);
     await page.getByText(text).first().waitFor({ timeout: 60000 });
     if (then) await then(page);
+    // The sample project's own names become the neutral ones the site shows.
+    await page.evaluate(rename);
     await page.mouse.move(1439, 999);
   };
 }
@@ -307,6 +310,121 @@ export default defineConfig({
       ),
       delayMs: 1000,
     },
+    {
+      id: 'plan',
+      title: 'Plan',
+      caption: 'Plan: a Game mechanics canvas with links, and the cards that overlap flagged.',
+      nav: view(
+        'scenario=configured&plans=systems&library=demo',
+        'plan',
+        'Combat systems',
+        async page => {
+          await page
+            .getByRole('region', { name: 'All canvases' })
+            .getByRole('button', { name: 'Combat systems', exact: true })
+            .click();
+          await page.getByRole('main', { name: 'Combat systems canvas' }).waitFor();
+          await page.getByRole('button', { name: /^Overlaps/ }).click();
+          await page.getByRole('complementary', { name: 'Overlaps' }).waitFor();
+          await page.getByRole('button', { name: 'Fit the canvas in view' }).click();
+          await page.waitForTimeout(600);
+        }
+      ),
+      delayMs: 1200,
+    },
+    {
+      id: 'camera-plan',
+      title: 'Camera plan',
+      caption: 'Camera plan: the site tour as stops on a canvas, applied only after a review.',
+      nav: view(
+        'scenario=configured&plans=demo&library=demo',
+        'plan',
+        'Camera plan',
+        async page => {
+          await page.getByRole('region', { name: 'Pinned' }).getByRole('button').click();
+          await page.getByRole('main', { name: 'Camera plan canvas' }).waitFor();
+          await page
+            .getByRole('region', { name: 'Order after Apply' })
+            .getByText('Arrival')
+            .waitFor();
+          // A camera agent proposes a tour with a new stop and a moved one; take it as the main line.
+          await page.evaluate(() =>
+            window.__TAURI_INTERNALS__.invoke('mock_camera_agent', { project: 'frostveil' })
+          );
+          await page.getByRole('group', { name: 'Proposal by Camera agent' }).waitFor();
+          await page.getByRole('button', { name: 'Use this order' }).click();
+          await page
+            .getByRole('region', { name: 'Order after Apply' })
+            .getByText('new stop')
+            .waitFor();
+          await page.getByRole('button', { name: 'Fit the canvas in view' }).click();
+          // Zoom in so the posters read; the middle stops, the new one and a moved one, stay in view.
+          for (let i = 0; i < 3; i++) {
+            await page.getByRole('button', { name: 'Zoom in' }).click();
+            await page.waitForTimeout(250);
+          }
+          await page.waitForTimeout(900);
+        }
+      ),
+      delayMs: 1200,
+    },
+    {
+      id: 'tool-groups',
+      title: 'Tool groups',
+      caption: 'Tool groups: switch off the MCP tools an agent never needs.',
+      nav: view(
+        'scenario=configured&agents=active&library=demo',
+        'settings',
+        'Agents',
+        async page => {
+          await page.getByRole('button', { name: 'Agents', exact: true }).click();
+          await page
+            .getByText('Listening on http://127.0.0.1:4791/mcp', { exact: false })
+            .waitFor();
+          await page.getByText('Tool groups', { exact: false }).first().waitFor();
+          // Settings lays out two columns from 1280 px wide; below that the Agents panel has the
+          // whole width, with no empty column beside it.
+          await page.setViewportSize({ width: 1200, height: 1000 });
+          await page.getByRole('switch', { name: 'Avatar and rig tools' }).uncheck({ force: true });
+          await page.getByText('127 of 134 tools offered').waitFor();
+          await page
+            .getByText('Tool groups', { exact: true })
+            .first()
+            .evaluate(el => el.scrollIntoView({ block: 'start' }));
+          await page.waitForTimeout(600);
+        }
+      ),
+      delayMs: 1200,
+    },
+    {
+      id: 'removed-projects',
+      title: 'Removed projects',
+      caption:
+        'Removed projects: a project moves to the workspace trash and comes back with Restore.',
+      nav: view('scenario=configured', 'board', 'Board', async page => {
+        const switcher = page.locator('[aria-haspopup=menu]').first();
+        await switcher.click();
+        await page.getByRole('menuitem', { name: 'New project' }).click();
+        const dialog = page.getByRole('dialog', { name: 'New project' });
+        await dialog.waitFor();
+        await page.getByLabel('Project name').fill('Lantern study');
+        await page.getByRole('button', { name: 'Create project' }).click();
+        await dialog.waitFor({ state: 'detached' });
+        await switcher.click();
+        await page.getByRole('menuitem', { name: 'Remove Lantern study' }).click();
+        const ask = page.getByRole('dialog', { name: 'Remove Lantern study?' });
+        await ask.waitFor();
+        await ask.getByRole('button', { name: 'Remove project' }).click();
+        await ask.waitFor({ state: 'detached' });
+        await page.getByText('Lantern study is in the workspace trash').waitFor();
+        await switcher.click();
+        await page.getByRole('menuitem', { name: 'Removed projects' }).click();
+        const list = page.getByRole('dialog', { name: 'Removed projects' });
+        await list.getByRole('button', { name: 'Restore Lantern study' }).waitFor();
+        await page.waitForTimeout(500);
+      }),
+      delayMs: 1200,
+    },
   ],
   frame: {
     // The capture already shows the app's own title bar, so no second window frame.
@@ -334,7 +452,7 @@ export default defineConfig({
   hero: {
     tagline: 'Concept art in, optimised 3D for the web and games out.',
     logo: 'apps/desktop/src-tauri/icons/icon.png',
-    shots: ['board', 'lab', 'page'],
+    shots: ['board', 'lab', 'plan'],
     output: 'assets/showcase/hero.webp',
     background: BACKGROUND,
     theme: 'dark',

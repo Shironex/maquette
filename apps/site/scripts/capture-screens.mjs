@@ -264,10 +264,21 @@ const shots = {
     await save(p, 'agents-approval');
   },
   async 'settings-agents'() {
-    const p = await open('scenario=configured&agents=active&library=demo', 'settings');
+    // Settings has two columns from 1280 px wide, and the Agents panel sits low in the right one,
+    // so at 1440 a scroll to it leaves the left column empty. Below 1280 it has the whole width.
+    const p = await open('scenario=configured&agents=active&library=demo', 'settings', {
+      width: 1200,
+      height: 900,
+    });
     await p.getByRole('heading', { name: '3D providers' }).first().waitFor();
     await p.getByRole('button', { name: 'Agents', exact: true }).click();
     await p.getByText('Listening on http://127.0.0.1:4791/mcp', { exact: false }).waitFor();
+    await p.getByRole('switch', { name: 'Avatar and rig tools' }).uncheck({ force: true });
+    await p.getByText('127 of 134 tools offered').waitFor();
+    await p
+      .getByText('Tool groups', { exact: true })
+      .first()
+      .evaluate(el => el.scrollIntoView({ block: 'start' }));
     await p.waitForTimeout(800);
     await save(p, 'settings-agents');
   },
