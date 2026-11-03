@@ -50,7 +50,8 @@ in the app: agents may propose a tour, never apply one.
    characters above and places below, worded for a game or a website) or `mechanics` (a card per
    system with its verb, look and input). The starter notes are guidance under your name and one
    change in the log with no run (the answer's `change` id is what `undo_run` takes); fill them in
-   with `update_nodes` or leave them for the person to replace.
+   with `update_nodes` or leave them for the person to replace. A blank canvas has nothing to undo,
+   so its answer has no `change`.
 2. `get_canvas` `{ project, canvas }`: nodes with id, kind, title, text cut at 120 characters,
    x and y, and `by` (absent for a person's node), and the links. Pass `full: true` or `nodes`
    for the whole text of a few nodes.
@@ -90,7 +91,9 @@ applies: no tool writes `layout.json` from a plan, and `undo_run` refuses an App
 
 1. `get_camera_plan` `{ project }`: the main line with each stop's settings, any proposals and
    `stale: true` when `layout.json` changed since the plan was based on it (tell the person; they
-   compare or rebase in the app).
+   compare or rebase in the app, and a rebase is refused when `layout.json` changed again after the
+   comparison they saw). A plan with no stops means `layout.json` has none yet: propose a tour, or
+   tell the person to use Add stop in the camera panel.
 2. `propose_camera_plan` `{ project, agent, run, stops }`: the whole tour in order as your own line
    below theirs. Known stops by id take only the settings you give; a new stop needs a name,
    position and target. A new proposal replaces your last one.
