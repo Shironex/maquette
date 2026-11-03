@@ -44,12 +44,15 @@ export default function PlanRow(props: PlanRowProps) {
       />
     ) : plan.problem ? (
       <span className="flex flex-col">
-        <span className="truncate text-fg">{plan.name}</span>
+        <span title={plan.name} className="truncate text-fg">
+          {plan.name}
+        </span>
         <span className="truncate text-meta text-danger">{plan.problem}</span>
       </span>
     ) : (
       <button
         type="button"
+        title={plan.name}
         className="max-w-full truncate font-medium text-fg hover:underline focus-visible:outline-2 focus-visible:outline-focus"
         onClick={props.onOpen}
       >

@@ -4,6 +4,7 @@ import type { PlanSummary } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { PRESET_NAME } from '@/state/plan-presets';
 import { contentLine } from '@/state/plans';
+import { AgentPrompt } from '../AgentPrompt';
 import { NewCanvasDialog } from '../NewCanvasDialog';
 import { PresetPicker, PresetTag } from '../PresetPicker';
 import { RemoveCanvasDialog } from '../RemoveCanvasDialog';
@@ -16,6 +17,10 @@ export interface PlanListProps {
   opening: string | null;
   openError: string | null;
 }
+
+/** What the empty list offers to paste into an agent; the brackets are for the person to fill. */
+const START_PROMPT =
+  'Make a canvas in this Maquette project that plans <what you want to plan>, using the Plan tools.';
 
 const edited = (plan: PlanSummary, now: number) =>
   plan.edited ? formatAgo(Date.parse(plan.edited), now) : 'unknown';
@@ -42,8 +47,14 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
       </span>
       <span className="flex flex-col gap-1 px-3 pt-2.5 pb-3">
         {/* The spaces keep the card's name readable ("Combat ideas Story 6 nodes ..."). */}
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[13.5px] font-semibold text-fg">{plan.name}</span>{' '}
+        {/* A long name takes two lines beside its preset, then ends in an ellipsis; hover shows it all. */}
+        <span className="flex min-w-0 items-start gap-2">
+          <span
+            title={plan.name}
+            className="line-clamp-2 min-w-0 flex-1 text-[13.5px] leading-5 font-semibold break-words text-fg"
+          >
+            {plan.name}
+          </span>{' '}
           {plan.preset ? <PresetTag>{PRESET_NAME[plan.preset]}</PresetTag> : null}
         </span>{' '}
         <span className="truncate font-mono text-[11.5px] text-fg-mute">{contentLine(plan)}</span>{' '}
@@ -104,6 +115,11 @@ export default function PlanList({ list, opening, openError }: PlanListProps) {
       <Button variant="primary" icon="plus" onClick={() => v.making.open(v.making.start)}>
         {`Create ${PRESET_NAME[v.making.start]} canvas`}
       </Button>
+      <AgentPrompt
+        title="Or let an agent start one"
+        prompt={START_PROMPT}
+        hint="Agents use the Plan tools over MCP."
+      />
     </div>
   );
   return (
