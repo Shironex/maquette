@@ -66,7 +66,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/inbox.webp" alt="Maquette: the Inbox previewing Elsheria, a rigged character from Frostveil, with its automatic checks on the right" /></td>
+    <td width="50%"><img src="assets/showcase/inbox.webp" alt="Maquette: the Inbox previewing Aria, a rigged character from the Winter Spire sample, with its automatic checks on the right" /></td>
     <td width="50%"><img src="assets/showcase/pipeline.webp" alt="Maquette: the Pipeline view mid run, with six steps, the bake settings, the generated artifacts, a live log and the compression presets" /></td>
   </tr>
   <tr>
@@ -162,7 +162,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
     <td align="center"><sub>Refs by view: tagged refs, with warnings before any credit is spent.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/showcase/avatar.webp" alt="Maquette: the Avatar view asking to approve a new rest pose for Elsheria, with before and after sheets of the arms lifted to a T-pose and the measures before and after" /></td>
+    <td width="50%"><img src="assets/showcase/avatar.webp" alt="Maquette: the Avatar view asking to approve a new rest pose for Aria, with before and after sheets of the arms lifted to a T-pose and the measures before and after" /></td>
     <td width="50%"></td>
   </tr>
   <tr>
