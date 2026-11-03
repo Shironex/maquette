@@ -69,6 +69,9 @@ export default function LinkedBody({ node }: { node: PlanNode }) {
           {view.detail}
         </p>
       ) : null}
+      {view.help ? (
+        <p className="px-2.5 pt-1 text-[11.5px] leading-4 text-fg-dim">{view.help}</p>
+      ) : null}
       <div className="px-2 pt-2 pb-2">
         <Button variant="ghost" size="sm" className="nodrag" onClick={go}>
           {view.action.label}

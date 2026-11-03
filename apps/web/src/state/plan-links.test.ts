@@ -84,6 +84,7 @@ describe('assetView', () => {
       status: 'Not on the Board',
       detail: 'warden',
       gone: true,
+      help: expect.stringContaining('Restore it from Removed'),
     });
     expect(assetView(undefined)).toMatchObject({ status: 'Reading...', gone: false });
   });
@@ -99,7 +100,11 @@ describe('directionView', () => {
     expect(directionView(direction('picked', { picked: 1 })).detail).toBe('1 of 6 images picked');
     expect(directionView(direction('pick')).status).toBe('Pick images');
     expect(directionView(direction('empty', { images: 0 })).detail).toBeNull();
-    expect(directionView(direction('gone'))).toMatchObject({ fact: '', gone: true });
+    expect(directionView(direction('gone'))).toMatchObject({
+      fact: '',
+      gone: true,
+      help: expect.stringContaining('removed from the Lab'),
+    });
     expect(directionView(direction('pick')).action.to).toBe('lab');
   });
 

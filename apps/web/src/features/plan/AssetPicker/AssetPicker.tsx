@@ -86,15 +86,21 @@ export default function AssetPicker({ linked, onAdd, onClose }: AssetPickerProps
           onChange={e => v.setQuery(e.target.value)}
         />
         <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto">
-          {section('On the Board', assets, v.query ? 'No asset by that name' : 'No assets yet')}
+          {section(
+            'On the Board',
+            assets,
+            v.query
+              ? 'No asset by that name. Clear the search to see them all.'
+              : 'No assets yet. Add asset on the Board makes one to link here.'
+          )}
           {section(
             'In the Lab',
             directions,
             v.readingLab
               ? 'Reading the Lab...'
               : v.query
-                ? 'No direction by that name'
-                : 'No directions yet'
+                ? 'No direction by that name.'
+                : 'No directions yet. A concept round in the Lab makes them.'
           )}
         </div>
       </div>

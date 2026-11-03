@@ -51,6 +51,7 @@ describe('LinkedBody', () => {
     const gone = await screen.findByRole('group', { name: 'Asset: Asset not found' });
     expect(within(gone).getByText('Not on the Board')).toBeInTheDocument();
     expect(within(gone).getByText('frost-warden')).toBeInTheDocument();
+    expect(within(gone).getByText(/Restore it from Removed on the Board/)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

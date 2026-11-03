@@ -1,10 +1,15 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands, type LabView } from '@/ipc/client';
+import { useAppStore } from '@/state/use-app-store';
 import { clearMocks, openPlans } from '@/test/open-plan';
 import { AssetPicker } from '.';
 
-afterEach(clearMocks);
+afterEach(() => {
+  vi.restoreAllMocks();
+  clearMocks();
+});
 
 const renderPicker = async (linked = { assets: ['elsheria'], directions: [] as string[] }) => {
   await openPlans();
@@ -34,8 +39,8 @@ describe('AssetPicker', () => {
     expect(screen.getByText('Frozen lake arena')).toBeInTheDocument();
     await userEvent.clear(search);
     await userEvent.type(search, 'nothing like this');
-    expect(screen.getByText('No asset by that name')).toBeInTheDocument();
-    expect(screen.getByText('No direction by that name')).toBeInTheDocument();
+    expect(screen.getByText(/^No asset by that name. Clear the search/)).toBeInTheDocument();
+    expect(screen.getByText('No direction by that name.')).toBeInTheDocument();
   });
 
   it('adds only the kind and id of each ticked row', async () => {
@@ -52,5 +57,25 @@ describe('AssetPicker', () => {
     ]);
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('says where assets and directions come from when the project has none', async () => {
+    await openPlans();
+    const workspace = useAppStore.getState().workspace!;
+    useAppStore.setState({
+      workspace: { ...workspace, project: { ...workspace.project!, assets: [] } },
+    });
+    vi.spyOn(commands, 'labGet').mockResolvedValue({ directions: [] } as unknown as LabView);
+    render(
+      <AssetPicker linked={{ assets: [], directions: [] }} onAdd={vi.fn()} onClose={vi.fn()} />
+    );
+    expect(screen.getByRole('region', { name: 'On the Board' })).toHaveTextContent(
+      'Add asset on the Board makes one'
+    );
+    expect(
+      await within(screen.getByRole('region', { name: 'In the Lab' })).findByText(
+        /A concept round in the Lab makes them/
+      )
+    ).toBeInTheDocument();
   });
 });
