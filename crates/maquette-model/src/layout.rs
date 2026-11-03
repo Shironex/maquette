@@ -220,6 +220,22 @@ pub fn update(
     save_file(project_dir, &next)
 }
 
+/// Reads `layout.json` and runs `f` on it while holding the lock every
+/// write takes, so no write lands between the read and what `f` does with
+/// it (the camera plan's rebase checks the layout's key and writes the plan
+/// in one go). `f` must not write `layout.json`.
+///
+/// # Errors
+///
+/// Fails when the file cannot be read, or as `f` does.
+pub fn holding<T>(
+    project_dir: &Path,
+    f: impl FnOnce(SceneLayout) -> CoreResult<T>,
+) -> CoreResult<T> {
+    let _one = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    f(load(project_dir)?)
+}
+
 /// `layout` as a write stores it: the current version, and clip choices
 /// that only say what a clip does anyway (ship) left out.
 pub fn stored(layout: &SceneLayout) -> SceneLayout {
