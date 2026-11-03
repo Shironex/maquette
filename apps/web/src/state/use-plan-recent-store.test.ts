@@ -42,6 +42,14 @@ describe('the rail recent canvases', () => {
     expect(shown()[0]?.changed).toBe(false);
   });
 
+  it('lists the camera plan once it is made and opened', async () => {
+    await rail();
+    expect(recent().list.some(p => p.id === 'camera-plan')).toBe(false);
+    await usePlanCameraStore.getState().open('frostveil');
+    vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    await vi.waitFor(() => expect(shown()[0]?.id).toBe('camera-plan'));
+  });
+
   it('opens the camera plan with its panel', async () => {
     await rail();
     await usePlansStore.getState().loadList('frostveil');

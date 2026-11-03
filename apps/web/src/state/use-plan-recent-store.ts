@@ -77,7 +77,12 @@ export const usePlanRecentStore = create<PlanRecentStore>((set, get) => {
   const patch = (id: string, name: string, edited: string) => {
     const list = get().list;
     const at = list.findIndex(p => p.id === id);
-    if (at < 0) return;
+    if (at < 0) {
+      // A canvas the rail has not listed yet, the camera plan just made among them: read the list.
+      clearTimeout(timer);
+      timer = setTimeout(() => void read(), RECENT_REREAD_MS);
+      return;
+    }
     const was = list[at]!;
     if (was.name === name && was.edited === edited) return;
     const next = list.map((p, i) => (i === at ? { ...p, name, edited } : p));
