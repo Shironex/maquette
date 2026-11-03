@@ -1,7 +1,7 @@
 //! A real MCP client uses a canvas's extras: it asks the person to remove
 //! their note (and can neither remove it nor answer its own proposal), reads
 //! a mechanics canvas's overlaps (marking one fine is the person's), starts
-//! a canvas from a node, and has its overlapping nodes tidied by Auto layout
+//! a canvas from a node, and has its edited overlapping nodes tidied by Auto layout
 //! after agents until the person turns it off. Everything happens in a temp
 //! workspace.
 
@@ -180,11 +180,15 @@ async fn an_agent_asks_reads_overlaps_starts_from_a_node_and_is_tidied() {
     let source = call(&client, "get_canvas", on(json!({}))).await;
     assert_eq!(source["nodes"].as_array().expect("nodes").len(), 6);
 
-    // Auto layout after agents tidies a node dropped on the person's card.
+    // A position the agent gives is kept; Auto layout after agents tidies an
+    // edited node it gave no x or y, inside the same change.
     let dropped = json!({ "nodes": [{ "text": "Blink", "x": 10, "y": 610 }] });
-    let added = call(&client, "add_nodes", on(dropped.clone())).await;
-    assert_eq!(added["autoLayout"]["moved"], json!(1));
-    assert_ne!(added["autoLayout"]["change"], added["change"]);
+    let added = call(&client, "add_nodes", on(dropped)).await;
+    assert!(added.get("autoLayout").is_none(), "{added}");
+    let blink = added["added"][0].clone();
+    let edit = |text: &str| json!({ "nodes": [{ "id": blink, "text": text }] });
+    let edited = call(&client, "update_nodes", on(edit("Blink, longer"))).await;
+    assert_eq!(edited["autoLayout"]["moved"], json!([blink]));
     let read = call(&client, "get_canvas", on(json!({ "nodes": ["n-dash"] }))).await;
     assert_eq!(
         (read["nodes"][0]["x"].clone(), read["nodes"][0]["y"].clone()),
@@ -193,8 +197,10 @@ async fn an_agent_asks_reads_overlaps_starts_from_a_node_and_is_tidied() {
 
     // Off: nothing is tidied, and layout_canvas is refused.
     plans::set_auto_layout(&game, "combat", false).expect("off");
-    let added = call(&client, "add_nodes", on(dropped)).await;
-    assert!(added.get("autoLayout").is_none(), "{added}");
+    let back = json!({ "nodes": [{ "id": blink, "x": 10, "y": 610 }] });
+    call(&client, "update_nodes", on(back)).await;
+    let edited = call(&client, "update_nodes", on(edit("Blink again"))).await;
+    assert!(edited.get("autoLayout").is_none(), "{edited}");
     let refused = call_error(&client, "layout_canvas", on(json!({}))).await;
     assert!(
         refused.contains("Auto layout after agents off"),

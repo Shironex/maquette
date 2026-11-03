@@ -1122,10 +1122,12 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
     are left out, the preset follows the source (a brainstorm from the camera plan), and the camera
     plan's id stays reserved. The view offers it over the selected node (`NodeToolbar`).
   - _Auto layout after agents._ `autoLayout` on the canvas, on unless the person turns it off
-    (`settings.rs`, a `set-auto-layout` operation). While on, `add_nodes` and `update_nodes` end with
-    `agent/tidy.rs`'s tidy of that call's own overlapping nodes, logged as a line of its own ("Moved
-    N nodes with auto layout") so the person can undo it apart from the write; a person's nodes never
-    move. While off, nothing is tidied and `layout_canvas` is refused.
+    (`settings.rs`, a `set-auto-layout` operation). While on, `update_nodes` moves the agent's edited
+    nodes the call gave no x or y that now overlap another clear, inside the same change, so the
+    write stays one line with one undo (`autoLayout.moved`). A position the agent gives is kept, and
+    a person's nodes, or an agent's node a person wrote in, never move (here or in `layout_canvas`).
+    `add_nodes` already places nodes without x and y clear. While off, nothing is tidied and
+    `layout_canvas` is refused.
   - _Overlaps_ (`plans/overlap.rs`). On a Game mechanics canvas, two note cards whose `Verb:`,
     `Look:` or `Input:` lines share a main word overlap: the first content word of a verb, the last
     of a look, each key of an input with the gesture left out, lower case, plurals read as singular,

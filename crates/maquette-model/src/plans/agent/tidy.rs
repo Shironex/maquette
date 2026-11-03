@@ -1,10 +1,12 @@
 //! An agent removing what it made and tidying its own nodes; a person's
-//! nodes and links are never removed or moved.
+//! nodes and links are never removed or moved, and neither is an agent's
+//! node a person wrote in last.
 
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use super::super::change::{Changed, Say, change, change_with};
+use super::super::change::change;
+use super::super::log::protected_node;
 use super::super::ops::PlanOp;
 use super::super::place::{Rect, free_spot, rect_of};
 use super::super::{PlanFile, PlanNode};
@@ -90,14 +92,25 @@ pub fn remove(
         edges: edges.to_vec(),
         placed: 0,
         notes,
-        tidied: None,
+        tidied: Vec::new(),
     })
+}
+
+/// Whether `node` is the agent's to move: made under its name, and not
+/// written in by a person since.
+fn movable(node: &PlanNode, agent: &Agent<'_>) -> bool {
+    node.by.as_deref() == Some(agent.name) && !protected_node(node)
 }
 
 /// The agent's nodes (all of them, or those in `only`) that overlap another
 /// node, each moved to a free spot beside what it links to, and their ids.
-fn tidy_ops(plan: &PlanFile, agent: &Agent<'_>, only: &[String]) -> (Vec<PlanOp>, Vec<String>) {
-    let mine = |n: &PlanNode| n.by.as_deref() == Some(agent.name);
+/// A node a person wrote in last is never moved.
+pub(super) fn tidy_ops(
+    plan: &PlanFile,
+    agent: &Agent<'_>,
+    only: &[String],
+) -> (Vec<PlanOp>, Vec<String>) {
+    let mine = |n: &PlanNode| movable(n, agent);
     let mut targets: Vec<&PlanNode> = plan
         .nodes
         .iter()
@@ -151,7 +164,8 @@ fn tidy_ops(plan: &PlanFile, agent: &Agent<'_>, only: &[String]) -> (Vec<PlanOp>
 
 /// Moves the agent's nodes (all of them, or those in `only`) that overlap
 /// another node to a free spot beside what they link to. Nodes already
-/// clear stay where they are, and a person's nodes never move. Refused
+/// clear stay where they are, and a person's nodes (or an agent's node a
+/// person wrote in) never move. Refused
 /// when the person turned "Auto layout after agents" off for the canvas:
 /// then they lay it out, and agents place nodes with x and y.
 ///
@@ -176,7 +190,12 @@ pub fn layout(
         }
         for want in only {
             match plan.nodes.iter().find(|n| &n.id == want) {
-                Some(n) if n.by.as_deref() == Some(agent.name) => {}
+                Some(n) if movable(n, agent) => {}
+                Some(n) if n.by.as_deref() == Some(agent.name) => {
+                    return refuse(format!(
+                        "A person wrote in the node {want} last, so it is theirs now. Layout never moves a person's work."
+                    ));
+                }
                 Some(_) => {
                     return refuse(format!(
                         "The node {want} is not yours. Layout moves only the nodes you added."
@@ -196,43 +215,8 @@ pub fn layout(
         edges: Vec::new(),
         placed,
         notes: Vec::new(),
-        tidied: None,
+        tidied: Vec::new(),
     })
-}
-
-/// After an agent's write: when the canvas has "Auto layout after agents"
-/// on, the agent's nodes among `ids` that now overlap another node move
-/// clear, as a line of its own ("Moved 2 nodes with auto layout") the
-/// person can undo apart from the write. A person's nodes never move.
-/// `None` when nothing moved; a tidy that fails leaves the write as it is.
-pub(super) fn after(
-    project_dir: &Path,
-    id: &str,
-    agent: &Agent<'_>,
-    ids: &[String],
-) -> Option<Changed> {
-    if ids.is_empty() {
-        return None;
-    }
-    let tidied = change_with(project_dir, id, &agent.writer(), |plan| {
-        if !plan.auto_layout {
-            return Ok((Vec::new(), Say::Ops));
-        }
-        let (ops, moved) = tidy_ops(plan, agent, ids);
-        let summary = match moved.len() {
-            1 => "Moved 1 node with auto layout".to_string(),
-            n => format!("Moved {n} nodes with auto layout"),
-        };
-        let resolves = Vec::new();
-        Ok((ops, Say::Line { summary, resolves }))
-    });
-    match tidied {
-        Ok(changed) => changed.entry.is_some().then_some(changed),
-        Err(err) => {
-            tracing::warn!(error = %err, canvas = id, "auto layout after an agent's write was left out");
-            None
-        }
-    }
 }
 
 #[cfg(test)]

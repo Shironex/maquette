@@ -73,9 +73,10 @@ in the app: agents may propose a tour, never apply one.
 - `update_nodes`: only the fields given change (title, text, url, x, y, width). If the person
   edits the same field before their canvas saves, their value wins.
 - `layout_canvas`: moves your overlapping nodes to a free spot beside the node they link to. A
-  person's nodes never move. While Auto layout after agents is on (the default), `add_nodes` and
-  `update_nodes` do this for the nodes of the call as a change of its own (`autoLayout` in the
-  answer); when the person turns it off, `layout_canvas` is refused, so place nodes with x and y.
+  person's nodes, and yours a person wrote in, never move. The x and y you give are kept. While
+  Auto layout after agents is on (the default), `update_nodes` moves your edited nodes you gave no
+  x or y clear in the same change (`autoLayout.moved` in the answer); when the person turns it
+  off, `layout_canvas` is refused, so place nodes with x and y.
 - `remove_nodes`: your own nodes and links only. A node goes with its links.
 - `propose_removal` `{ project, canvas, agent, run, nodes, reason }`: asks the person to remove
   nodes you may not remove. The canvas does not change; they answer Keep it or Remove in the

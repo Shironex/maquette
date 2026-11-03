@@ -1388,7 +1388,7 @@ Removes nodes and links you added. A node goes with its links. A person's node o
 
 `writes files`
 
-Tidies the nodes you added: each one that overlaps another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes never move. Refused when the person turned Auto layout after agents off for the canvas (`autoLayout: false` in `get_canvas`): place nodes with `x` and `y` then. While it is on (the default), `add_nodes` and `update_nodes` tidy your nodes of that call the same way after writing them, as a change of its own (`autoLayout` in their answer: its `change` id and how many `moved`), so the person can undo the tidy apart from the write. Answers with how many moved.
+Tidies the nodes you added: each one that overlaps another node moves to a free spot beside the node it links to. Nodes already clear stay, and a person's nodes, or yours a person wrote in, never move. Refused when the person turned Auto layout after agents off for the canvas (`autoLayout: false` in `get_canvas`): place nodes with `x` and `y` then. While it is on (the default), `update_nodes` tidies your edited nodes you gave no `x` or `y` the same way, inside the same change, so the person undoes the edit and the move together (`autoLayout.moved` in its answer lists them). An `x` and `y` you give are always kept. Answers with how many moved.
 
 | Argument  | Type     | Required | What                                                 |
 | --------- | -------- | -------- | ---------------------------------------------------- |
