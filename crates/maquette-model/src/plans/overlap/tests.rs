@@ -351,12 +351,15 @@ fn a_full_canvas_of_look_alike_cards_stays_quick() {
 #[test]
 fn a_read_again_answers_from_the_last_check_until_the_words_change() {
     let mut plan = combat();
-    let first = overlaps(&plan);
-    assert_eq!(cache::answer(&plan, |_| panic!("checked again")), first);
+    // Its own cache: answers other tests leave in the shared one never count.
+    let answers = cache::Cache::new();
+    let first = answers.answer(&plan, find);
+    assert_eq!(first, find(&plan));
+    assert_eq!(answers.answer(&plan, |_| panic!("checked again")), first);
     // A move, a link or a rename of the canvas reads nothing the check reads.
     plan.nodes[0].x = 640;
     plan.name = "Combat, moved".into();
-    assert_eq!(cache::answer(&plan, |_| panic!("checked again")), first);
+    assert_eq!(answers.answer(&plan, |_| panic!("checked again")), first);
     // New words, a node more or a fine mark is a new check.
     let key = cache::key_of(&plan);
     plan.nodes[1].title = "Rune chains".into();
