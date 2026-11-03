@@ -7,7 +7,35 @@ sidebar:
 
 The server offers 134 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
-Every tool's description starts with its group in brackets: `[start]`, `[project]`, `[lab]`, `[refs]`, `[send]`, `[inbox]`, `[prepare]`, `[built]`, `[pipeline]`, `[game]`, `[library]`, `[animation]`, `[export]` and `[avatar-rig]`. Settings > Agents has a switch for the avatar and rig group: on by default, and off leaves its 7 tools out for the next agent that connects.
+## Tool groups
+
+Every tool belongs to one group, and its description starts with that group in brackets. Every agent session pays context for each tool it is offered, so Settings > Agents lists the groups with a switch each: turn off the ones you never use for a shorter tool list. All are on by default.
+
+| Group          | Tools | What it covers                                                                         |
+| -------------- | ----- | -------------------------------------------------------------------------------------- |
+| `[start]`      | 2     | `get_started` and `create_project`. Always on.                                         |
+| `[project]`    | 9     | Projects, assets, the scene layout, copying assets and the asset trash. Always on.     |
+| `[lab]`        | 14    | Concept images and their jobs, the style board, picks, image backends and Codex usage. |
+| `[refs]`       | 5     | An asset's reference views: tagging, drawing missing ones, cleaning backgrounds.       |
+| `[plan]`       | 14    | Planning canvases and their nodes, the change log and a website's camera plan.         |
+| `[send]`       | 14    | Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads.        |
+| `[inbox]`      | 7     | Models waiting to be accepted: checks, accept, discard and restore.                    |
+| `[prepare]`    | 12    | Real size, fix-ups, parts, materials, assembling props and comparing versions.         |
+| `[built]`      | 3     | Models a Blender script in the project makes, with no credits.                         |
+| `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.     |
+| `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                         |
+| `[library]`    | 12    | Models kept outside any project, copied in and out.                                    |
+| `[animation]`  | 5     | The clip library and baking clips onto a rigged model.                                 |
+| `[export]`     | 8     | Export packs for other engines and render styles.                                      |
+| `[avatar-rig]` | 7     | VRM avatars and the rig doctor.                                                        |
+
+What turning a group off does:
+
+- `tools/list` leaves its tools out. The start and project groups cannot be turned off, so an agent can always find its way.
+- Connected agents get `notifications/tools/list_changed` when a save changes the groups, and the next list they ask for follows the setting. A client that ignores the notice keeps its old list until it reconnects.
+- A call to a tool of an off group (an agent with an older list) is refused and nothing runs: the error has `code` `group-off`, names the group, says the person turned it off in Settings > Agents and carries `personOnly`.
+- `get_started` adds `toolGroupsOff`, one line naming the groups that are off with their tool counts, and leaves it out when all are on.
+- The setting is saved in the workspace's `maquette.json` as `agents.rules.toolGroupsOff`. A workspace from before the groups that had Offer avatar and rig tools off opens with the avatar and rig group off.
 
 A tool that fails answers JSON: `error` (the message), `code` (a stable word such as `not-found`, `invalid`, `taken`, `refused` or `preview-refused`), and where they help `fix`, `tryTool` and `personOnly` (true when only a person can fix it, such as a missing key, the Codex sign in or Blender). Empty answers carry a `next` list, and an answer with status `waiting for approval` carries `pollEverySeconds` and `whereToApprove`.
 
