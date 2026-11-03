@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { useReactFlow, useViewport, type ReactFlowInstance } from '@xyflow/react';
+import { useReactFlow, useStore, useViewport, type ReactFlowInstance } from '@xyflow/react';
 import type { NodeKind } from '@/ipc/client';
 import { clock } from '@/lib/clock';
 import { typing } from '@/lib/typing';
 import { CAMERA_PLAN_ID } from '@/state/plan-camera';
 import { anyRunning, assetView, directionView, linkedIds, type LinkPick } from '@/state/plan-links';
 import { unseenCount, whenOf } from '@/state/plan-log';
+import { fitPadding, insetFor, MAP_FOLD_WIDTH, mapShown, reveal, safeBox } from '@/state/plan-view';
 import {
   DEFAULT_WIDTH,
   freeSpot,
@@ -30,88 +31,7 @@ export type AddKind = 'note' | 'image' | 'link' | 'asset';
 /** Keys that add a node while the canvas is open. */
 export const ADD_KEYS: Record<string, AddKind> = { n: 'note', i: 'image', l: 'link', a: 'asset' };
 
-/**
- * The part of the canvas no floating control covers, in pixels from each
- * edge: the add bar on top, the zoom controls on the left, the minimap at
- * the bottom right. New nodes land in it, and the view pans to keep the
- * ones that just came inside it.
- */
-export const SAFE_INSET = { top: 64, right: 32, bottom: 150, left: 60 };
-
 type Flow = ReactFlowInstance<FlowNode, FlowEdge>;
-
-/** The safe part of the canvas on screen, or null before it is laid out. */
-function safeBox(frame: RefObject<HTMLElement | null>) {
-  const box = frame.current?.getBoundingClientRect();
-  if (!box || box.width === 0) return null;
-  return {
-    left: box.left + SAFE_INSET.left,
-    top: box.top + SAFE_INSET.top,
-    right: box.right - SAFE_INSET.right,
-    bottom: box.bottom - SAFE_INSET.bottom,
-  };
-}
-
-/** The smallest control in a node (the small icon button), in pixels at zoom 1. */
-const SMALLEST_CONTROL_PX = 26;
-
-/** The lowest zoom that keeps every control in a node at the 24px target size. */
-export const READABLE_ZOOM = 24 / SMALLEST_CONTROL_PX;
-
-type Bounds = ReturnType<Flow['getNodesBounds']>;
-
-/** Centres `bounds` in the safe part at `zoom`. */
-function centre(flow: Flow, bounds: Bounds, zoom: number) {
-  // The safe box's middle sits off the canvas's middle by half the insets' difference.
-  const shift = {
-    x: (SAFE_INSET.left - SAFE_INSET.right) / 2 / zoom,
-    y: (SAFE_INSET.top - SAFE_INSET.bottom) / 2 / zoom,
-  };
-  void flow.setCenter(
-    bounds.x + bounds.width / 2 - shift.x,
-    bounds.y + bounds.height / 2 - shift.y,
-    { zoom, duration: 250 }
-  );
-}
-
-/**
- * Pans (and zooms out if it must) so the nodes `ids` sit inside the safe
- * part. With `readable` it zooms out no further than {@link READABLE_ZOOM};
- * nodes too spread for that bring the first of them into view instead.
- */
-export function reveal(
-  flow: Flow,
-  frame: RefObject<HTMLElement | null>,
-  ids: string[],
-  readable = false
-) {
-  const safe = safeBox(frame);
-  const nodes = ids.filter(id => flow.getNode(id));
-  if (!safe || nodes.length === 0) return;
-  const bounds = flow.getNodesBounds(nodes);
-  const a = flow.flowToScreenPosition({ x: bounds.x, y: bounds.y });
-  const b = flow.flowToScreenPosition({ x: bounds.x + bounds.width, y: bounds.y + bounds.height });
-  if (a.x >= safe.left && a.y >= safe.top && b.x <= safe.right && b.y <= safe.bottom) return;
-  const zoom = flow.getZoom();
-  const width = safe.right - safe.left;
-  const height = safe.bottom - safe.top;
-  if (b.x - a.x <= width && b.y - a.y <= height) {
-    centre(flow, bounds, zoom);
-    return;
-  }
-  if (!readable) {
-    void flow.fitView({
-      nodes: nodes.map(id => ({ id })),
-      padding: 0.3,
-      maxZoom: zoom,
-      duration: 250,
-    });
-    return;
-  }
-  const fitting = Math.min(width / bounds.width, height / bounds.height, zoom);
-  if (fitting >= READABLE_ZOOM) centre(flow, bounds, fitting);
-  else centre(flow, flow.getNodesBounds(nodes.slice(0, 1)), zoom);
-}
 
 /**
  * The canvas's history: Undo and Redo of the person's edits (buttons and
@@ -120,7 +40,7 @@ export function reveal(
  * meets unsaved edits to the same nodes, and bringing nodes that just came
  * into sight.
  */
-export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null>) {
+export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null>, map: boolean) {
   const history = usePlansStore(s => s.history);
   const undo = usePlansStore(s => s.undo);
   const redo = usePlansStore(s => s.redo);
@@ -159,21 +79,21 @@ export function useCanvasHistory(flow: Flow, frame: RefObject<HTMLElement | null
   useEffect(() => {
     if (arrived.length === 0) return;
     const timer = setTimeout(() => {
-      reveal(flow, frame, arrived);
+      reveal(flow, frame, arrived, false, map);
       setArrived([]);
     }, 60);
     return () => clearTimeout(timer);
-  }, [arrived, flow, frame, setArrived]);
+  }, [arrived, flow, frame, setArrived, map]);
 
   // The Changes panel narrows the canvas: the nodes an outside write marked move back clear of its edge.
   useEffect(() => {
     if (!panel) return;
     const timer = setTimeout(
-      () => reveal(flow, frame, Object.keys(usePlansStore.getState().marks), true),
+      () => reveal(flow, frame, Object.keys(usePlansStore.getState().marks), true, map),
       60
     );
     return () => clearTimeout(timer);
-  }, [panel, flow, frame]);
+  }, [panel, flow, frame, map]);
 
   const last = lines[0];
   const agent = last && last.by !== null ? last : null;
@@ -288,17 +208,21 @@ export function usePlanCanvas() {
   const setArrived = usePlansStore(s => s.setArrived);
   const flow = useReactFlow<FlowNode, FlowEdge>();
   const { zoom } = useViewport();
+  const width = useStore(s => s.width);
+  // Null until the person shows or hides the map; a narrow canvas folds it on its own.
+  const [mapChoice, setMapChoice] = useState<boolean | null>(null);
+  const map = mapShown(width, mapChoice);
   const frame = useRef<HTMLDivElement>(null);
   const [linking, setLinking] = useState(false);
   const [picking, setPicking] = useState(false);
   const [cameraPanel, setCameraPanel] = useState(true);
   const named = useNamedNodes(nodes);
   useLiveLinks();
-  const history = useCanvasHistory(flow, frame);
+  const history = useCanvasHistory(flow, frame, map);
 
   /** Near the middle of the part of the view no control covers. */
   const middle = (kind: NodeKind) => {
-    const safe = safeBox(frame);
+    const safe = safeBox(frame, insetFor(map));
     const centre = safe
       ? flow.screenToFlowPosition({
           x: (safe.left + safe.right) / 2,
@@ -373,7 +297,15 @@ export function usePlanCanvas() {
       percent: `${Math.round(zoom * 100)}%`,
       in: () => void flow.zoomIn({ duration: 150 }),
       out: () => void flow.zoomOut({ duration: 150 }),
-      fit: () => void flow.fitView({ duration: 200, padding: 0.2 }),
+      fit: () => void flow.fitView({ duration: 200, padding: fitPadding(map) }),
+      /** The minimap, folded into a Map button on a narrow canvas or when the person hid it. */
+      map: {
+        shown: map,
+        toggle: width > 0 && (width < MAP_FOLD_WIDTH || mapChoice !== null),
+        flip: () => setMapChoice(!map),
+        /** The first fit leaves room for the map and the controls. */
+        fit: { padding: fitPadding(map), maxZoom: 1 },
+      },
     },
     back: () => void close(),
     saveLine: clash

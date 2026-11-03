@@ -200,7 +200,7 @@ export default function PlanCanvas() {
             connectionMode={ConnectionMode.Loose}
             colorMode="dark"
             fitView
-            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+            fitViewOptions={v.zoom.map.fit}
             minZoom={0.2}
             maxZoom={2}
             zoomOnDoubleClick={false}
@@ -214,14 +214,16 @@ export default function PlanCanvas() {
               size={1.5}
               color="var(--plan-dot)"
             />
-            <MiniMap
-              ariaLabel="Map of the canvas"
-              pannable
-              zoomable
-              nodeColor="var(--line-strong)"
-              maskColor="rgba(28, 27, 25, 0.6)"
-              className="plan-mini"
-            />
+            {v.zoom.map.shown ? (
+              <MiniMap
+                ariaLabel="Map of the canvas"
+                pannable
+                zoomable
+                nodeColor="var(--line-strong)"
+                maskColor="rgba(28, 27, 25, 0.6)"
+                className="plan-mini"
+              />
+            ) : null}
           </ReactFlow>
           <div role="toolbar" aria-label="Add to the canvas" className="plan-bar">
             {tools}
@@ -237,6 +239,19 @@ export default function PlanCanvas() {
               <Icon name="frame-corners" size={15} />
             </button>
             <span className="pct">{v.zoom.percent}</span>
+            {v.zoom.map.toggle ? (
+              <button
+                type="button"
+                className="map"
+                aria-pressed={v.zoom.map.shown}
+                title={
+                  v.zoom.map.shown ? 'Hide the map of the canvas' : 'Show the map of the canvas'
+                }
+                onClick={v.zoom.map.flip}
+              >
+                Map
+              </button>
+            ) : null}
           </div>
           {v.nodes.length === 0 ? (
             <section aria-label="This canvas is empty" className="plan-empty">

@@ -461,3 +461,15 @@
 .plan-side[hidden] {
   display: none;
 }
+
+/* The minimap folded on a narrow canvas: a Map button under the zoom. */
+.plan-zoom button.map {
+  width: 30px;
+  height: 26px;
+  font: 500 10.5px/1 var(--font-sans);
+  color: var(--text-dim);
+}
+
+.plan-zoom button.map[aria-pressed='true'] {
+  color: var(--clay-text);
+}
