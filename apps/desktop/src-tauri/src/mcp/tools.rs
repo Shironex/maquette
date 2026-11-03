@@ -27,6 +27,7 @@ pub mod inbox_triage;
 pub mod library;
 pub mod library_batch;
 pub mod library_many;
+mod list_changed;
 pub mod materials;
 pub mod motion;
 pub mod packs;
@@ -67,9 +68,9 @@ use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
-    ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig,
+    ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, SubscriptionFilter,
 };
-use rmcp::service::RequestContext;
+use rmcp::service::{NotificationContext, RequestContext, SubscriptionContext};
 use rmcp::{ErrorData, RoleServer, ServerHandler, schemars, tool_handler};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -370,11 +371,32 @@ fn outcome(result: &Result<CallToolResponse, ErrorData>) -> Logged {
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for McpTools {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(
-                Implementation::new("maquette", env!("CARGO_PKG_VERSION")).with_title("Maquette"),
-            )
-            .with_instructions(INSTRUCTIONS)
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_tool_list_changed()
+                .build(),
+        )
+        .with_server_info(
+            Implementation::new("maquette", env!("CARGO_PKG_VERSION")).with_title("Maquette"),
+        )
+        .with_instructions(INSTRUCTIONS)
+    }
+
+    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
+        list_changed::forward_to_session(&context, self.hub.watch_tools());
+    }
+
+    fn accepted_subscription_filter(
+        &self,
+        requested: &SubscriptionFilter,
+    ) -> Option<SubscriptionFilter> {
+        list_changed::accepted(requested)
+    }
+
+    async fn listen(&self, subscription: SubscriptionContext) -> Result<(), ErrorData> {
+        list_changed::listen(subscription, self.hub.watch_tools()).await;
+        Ok(())
     }
 
     async fn list_tools(

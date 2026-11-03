@@ -1,14 +1,30 @@
 //! The tool groups a person turns off in Settings > Agents: a real client
 //! lists only the groups that are on, a call to an off group's tool is
-//! refused and runs nothing, the core groups stay, and an older workspace
-//! file's avatar and rig switch carries over.
+//! refused and runs nothing, the core groups stay, an older workspace file's
+//! avatar and rig switch carries over, and a connected client hears when
+//! the list changes.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
+
+use maquette_core::concepts::Concepts;
+use maquette_core::pipeline::runner::PipelineRunner;
+use maquette_core::providers::{MemoryStore, Options, ProviderJobs};
+use maquette_core::thumbs::Thumbnails;
 use maquette_core::{AppState, WorkspaceConfig, workspace};
+use maquette_desktop_lib::mcp::host::Host;
+use maquette_desktop_lib::mcp::hub::Hub;
+use maquette_desktop_lib::mcp::{Agents, ensure_token};
 use maquette_desktop_lib::session::Session;
+use rmcp::service::{NotificationContext, RoleClient, RunningService};
+use rmcp::transport::StreamableHttpClientTransport;
+use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+use rmcp::{ClientHandler, ServiceExt as _};
 use serde_json::{Value, json};
 
 use super::start::{serve, session_in};
-use super::support::{call, raw_call, text};
+use super::support::{TestHost, call, raw_call, text};
 
 fn off(ids: &[&str]) -> impl FnOnce(&mut WorkspaceConfig) {
     let ids: Vec<String> = ids.iter().map(ToString::to_string).collect();
@@ -157,4 +173,91 @@ async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off(
     assert!(has(&listed, "get_started"));
     client.cancel().await.expect("close");
     server.stop();
+}
+
+/// A client that counts `notifications/tools/list_changed`.
+#[derive(Clone, Default)]
+struct Counting(Arc<AtomicUsize>);
+
+impl ClientHandler for Counting {
+    async fn on_tool_list_changed(&self, _context: NotificationContext<RoleClient>) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+fn plain_host(session: Session) -> Arc<TestHost> {
+    Arc::new(TestHost {
+        session,
+        runner: PipelineRunner::new(Arc::new(super::start::NoSink)),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
+    })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_connected_client_hears_when_a_save_changes_the_groups() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp");
+    let host = plain_host(session_in(dir.path(), true, |_| {}));
+    let hub = Arc::new(Hub::new(|| {}));
+    let agents = Agents::new(host.clone() as Arc<dyn Host>, Arc::clone(&hub));
+    agents.sync(&host.session);
+
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::clone(&hub),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let counting = Counting::default();
+    let client: RunningService<RoleClient, Counting> =
+        counting.clone().serve(transport).await.expect("initialize");
+    assert!(
+        client
+            .peer_info()
+            .and_then(|info| info.capabilities.tools.clone())
+            .and_then(|tools| tools.list_changed)
+            .unwrap_or(false),
+        "the server offers tools/list_changed"
+    );
+    let all = client.list_all_tools().await.expect("tools").len();
+
+    // A save that changes nothing about the groups tells no one.
+    host.session
+        .update_config(|c| c.lab.concurrency = 2)
+        .expect("save");
+    agents.sync(&host.session);
+    host.session.update_config(off(&["game"])).expect("save");
+    agents.sync(&host.session);
+    let heard = wait(|| counting.0.load(Ordering::SeqCst) >= 1).await;
+    assert!(heard, "no tools/list_changed arrived");
+    let fewer = client.list_all_tools().await.expect("tools").len();
+    assert!(fewer < all, "{fewer} of {all}");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(counting.0.load(Ordering::SeqCst), 1);
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
+async fn wait(done: impl Fn() -> bool) -> bool {
+    for _ in 0..50 {
+        if done() {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    done()
 }

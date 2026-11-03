@@ -52,6 +52,9 @@ pub fn url(port: u32) -> String {
 struct ServerState {
     running: Option<server::Running>,
     error: Option<String>,
+    /// The tool groups that were off at the last sync, to tell connected
+    /// agents when that changes.
+    groups_off: Option<Vec<&'static str>>,
 }
 
 /// The app's MCP server and what it shares with the windows.
@@ -125,6 +128,7 @@ impl Agents {
     /// Starts, restarts or stops the server to match the open workspace's
     /// setting.
     pub fn sync(&self, session: &Session) {
+        self.sync_tool_groups(session);
         let wanted = session
             .workspace()
             .ok()
@@ -154,6 +158,22 @@ impl Agents {
                 }
                 Err(err) => state.error = Some(err.to_string()),
             }
+        }
+    }
+
+    /// Tells connected agents their tool list changed, when the groups that
+    /// are off differ from the last sync (a save or another workspace).
+    fn sync_tool_groups(&self, session: &Session) {
+        let off: Vec<&'static str> = session
+            .workspace()
+            .map(|(_, config)| tools::groups::off_in(&config))
+            .unwrap_or_default()
+            .iter()
+            .map(|g| g.id)
+            .collect();
+        let before = self.lock().groups_off.replace(off.clone());
+        if before.is_some_and(|before| before != off) {
+            self.hub.tools_changed();
         }
     }
 

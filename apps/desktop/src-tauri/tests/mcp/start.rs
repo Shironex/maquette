@@ -78,7 +78,7 @@ pub(super) async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) 
     (client, server, host)
 }
 
-struct NoSink;
+pub(super) struct NoSink;
 impl maquette_core::pipeline::runner::RunSink for NoSink {
     fn event(&self, _: maquette_core::pipeline::runner::PipelineEvent) {}
 }
