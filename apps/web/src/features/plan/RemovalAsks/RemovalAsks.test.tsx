@@ -10,7 +10,8 @@ const ask = (id: string, more: Partial<RemovalProposal> = {}): RemovalProposal =
   at: '2026-11-03T09:00:00Z',
   by: 'Research agent',
   run: 'r-1',
-  reason: 'the porch note replaces it.',
+  reason: 'The porch note replaces it.',
+  links: 0,
   nodes: [{ id: 'n-island', name: 'Old hero idea: the whole island', state: 'here' }],
   stale: false,
   ...more,
@@ -30,7 +31,8 @@ describe('RemovalAsks', () => {
     const answer = show([ask('c-1')]);
     const card = screen.getByRole('group', { name: 'Research agent wants to remove a node' });
     expect(within(card).getByText('Old hero idea: the whole island')).toBeInTheDocument();
-    expect(within(card).getByText('It says the porch note replaces it.')).toBeInTheDocument();
+    expect(within(card).getByText('Reason: The porch note replaces it.')).toBeInTheDocument();
+    expect(within(card).queryByText(/Remove takes/)).not.toBeInTheDocument();
     await userEvent.click(within(card).getByRole('button', { name: 'Keep it' }));
     expect(answer).toHaveBeenCalledWith('c-1', false);
     await userEvent.click(
@@ -58,7 +60,18 @@ describe('RemovalAsks', () => {
       'aria-disabled',
       'true'
     );
-    expect(within(card).queryByText(/It says/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Reason:/)).not.toBeInTheDocument();
+  });
+
+  it('says how many links Remove takes with the nodes', () => {
+    show([ask('c-3', { links: 2 })]);
+    const card = screen.getByRole('group', { name: 'Research agent wants to remove a node' });
+    expect(within(card).getByText('Remove takes 2 links with it.')).toBeInTheDocument();
+    expect(
+      within(card).getByRole('button', {
+        name: 'Remove: Old hero idea: the whole island, and 2 links',
+      })
+    ).toBeInTheDocument();
   });
 
   it('shows nothing when no agent is waiting', () => {

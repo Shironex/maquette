@@ -1,5 +1,5 @@
 import { Button, Icon } from '@maquette/ui';
-import { headOf, useRemovalAsks } from './RemovalAsks.hooks';
+import { headOf, linksOf, useRemovalAsks } from './RemovalAsks.hooks';
 
 /**
  * At the top of the Changes panel: each agent's ask to remove nodes it may
@@ -28,8 +28,11 @@ export default function RemovalAsks() {
         </ul>
         {p.reason ? (
           <p className="mt-1.5 text-[12px] leading-4 break-words text-fg-mute">
-            It says {p.reason.replace(/[.\s]+$/, '')}.
+            Reason: {p.reason}
           </p>
+        ) : null}
+        {linksOf(p) ? (
+          <p className="mt-1.5 text-[12px] leading-4 text-fg-mute">{linksOf(p)}</p>
         ) : null}
         {p.stale ? (
           <p className="mt-1.5 text-[12px] leading-4 text-clay-text">

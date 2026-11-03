@@ -60,6 +60,15 @@ const freshId = (prefix: 'n' | 'e') => {
   return `${prefix}-s${clock.now().getTime().toString(36)}${ids.toString(36).padStart(3, '0')}`;
 };
 
+/** Refuses a person's change to another canvas than the one they opened, as `plan_apply` does. */
+function sameCanvas(plan: PlanFile, created: unknown) {
+  if (created !== plan.created)
+    fail(
+      'invalid',
+      'This canvas was replaced on disk since it was opened, so your edits were not saved. Open it again from the Plan list; copy anything you need first.'
+    );
+}
+
 export function createPlanExtras(deps: ExtrasDeps) {
   const { canvases, existing, write, doc, logs } = deps;
   const tell = (project: unknown, id: string) =>
@@ -72,6 +81,7 @@ export function createPlanExtras(deps: ExtrasDeps) {
     return all.filter(e => e.proposes && !answered.has(e.id));
   };
   const view = (entry: MockLogEntry, plan: PlanFile): RemovalProposal => {
+    const asked = new Set((entry.proposes?.nodes ?? []).map(n => n.id));
     const nodes = (entry.proposes?.nodes ?? []).map(asked => {
       const now = plan.nodes.find(n => n.id === asked.id);
       const state = !now ? 'gone' : contentKey(now) === asked.key ? 'here' : 'changed';
@@ -84,6 +94,7 @@ export function createPlanExtras(deps: ExtrasDeps) {
       run: entry.run,
       reason: entry.proposes?.reason ?? '',
       nodes,
+      links: plan.edges.filter(e => asked.has(e.from) || asked.has(e.to)).length,
       stale: nodes.some(n => n.state !== 'here'),
     };
   };
@@ -100,8 +111,9 @@ export function createPlanExtras(deps: ExtrasDeps) {
       const plan = existing(project, id);
       return openOnes(project, id).map(e => view(e, plan));
     },
-    plan_answer_removal: ({ project, id, proposal, remove }: Args) => {
+    plan_answer_removal: ({ project, id, created, proposal, remove }: Args) => {
       const current = existing(project, id);
+      sameCanvas(current, created);
       const shown = view(findOpen(project, id, proposal), current);
       const n = shown.nodes.length;
       if (!remove) {
@@ -196,15 +208,17 @@ export function createPlanExtras(deps: ExtrasDeps) {
       });
       return doc(project, id, plan);
     },
-    plan_set_auto_layout: ({ project, id, on }: Args) => {
+    plan_set_auto_layout: ({ project, id, created, on }: Args) => {
       const current = existing(project, id);
+      sameCanvas(current, created);
       if ((current.autoLayout ?? true) === Boolean(on)) return doc(project, String(id), current);
       const next: PlanFile = { ...current, autoLayout: Boolean(on) };
       const summary = `Turned auto layout after agents ${on ? 'on' : 'off'}`;
       return write(project, String(id), next, null, { summary, mark: 'edit' });
     },
-    plan_mark_fine: ({ project, id, a, b }: Args) => {
+    plan_mark_fine: ({ project, id, created, a, b }: Args) => {
       const current = existing(project, id);
+      sameCanvas(current, created);
       const [x, y] = [String(a), String(b)].sort();
       const flagged = overlapsOf(current).find(o => o.a === x && o.b === y);
       if (!flagged)

@@ -2,7 +2,9 @@
 //! proposals (only here; the MCP server has no tool to answer one),
 //! starting a canvas from a node, the "Auto layout after agents" switch
 //! and marking a mechanics overlap as fine. Each is a logged change the
-//! person can undo from the Changes panel.
+//! person can undo from the Changes panel. Like a save, each answer and
+//! setting names the opened canvas's `created`, so it never lands on
+//! another canvas that took the id.
 
 use maquette_core::plans::removal::{self, RemovalProposal};
 use maquette_core::plans::{self, PlanDoc};
@@ -33,14 +35,15 @@ pub fn plan_answer_removal(
     session: State<'_, Session>,
     project: String,
     id: String,
+    created: String,
     proposal: String,
     remove: bool,
 ) -> CommandResult<PlanDoc> {
     let dir = project_dir(&session, &project)?;
     if remove {
-        return Ok(removal::accept(&dir, &id, &proposal)?.doc);
+        return Ok(removal::accept(&dir, &id, &proposal, Some(&created))?.doc);
     }
-    removal::dismiss(&dir, &id, &proposal)?;
+    removal::dismiss(&dir, &id, &proposal, Some(&created))?;
     Ok(plans::get(&dir, &id)?)
 }
 
@@ -67,10 +70,11 @@ pub fn plan_set_auto_layout(
     session: State<'_, Session>,
     project: String,
     id: String,
+    created: String,
     on: bool,
 ) -> CommandResult<PlanDoc> {
     let dir = project_dir(&session, &project)?;
-    Ok(plans::set_auto_layout(&dir, &id, on)?.doc)
+    Ok(plans::set_auto_layout(&dir, &id, on, Some(&created))?.doc)
 }
 
 /// Marks the overlap of the cards `a` and `b` as fine until either card's
@@ -81,9 +85,10 @@ pub fn plan_mark_fine(
     session: State<'_, Session>,
     project: String,
     id: String,
+    created: String,
     a: String,
     b: String,
 ) -> CommandResult<PlanDoc> {
     let dir = project_dir(&session, &project)?;
-    Ok(plans::mark_fine(&dir, &id, &a, &b)?.doc)
+    Ok(plans::mark_fine(&dir, &id, &a, &b, Some(&created))?.doc)
 }

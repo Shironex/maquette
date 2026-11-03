@@ -29,12 +29,16 @@ use super::log::{self, PlanLogEntry};
 use super::ops::PlanOp;
 use super::overlap::fnv;
 use super::summary::{ChangeMark, node_name};
-use super::{PlanNode, TITLE_MAX_CHARS, load_file, path};
+use super::{PlanFile, PlanNode, TITLE_MAX_CHARS, load_file, path};
 use crate::error::{CoreError, CoreResult};
 use crate::project::now_rfc3339;
 
 /// The most proposals a canvas holds open; past it agents wait for the person.
 pub const MAX_OPEN: usize = 50;
+/// The most of them under one agent name, so one agent can not take every
+/// place (names are labels, so this keeps a busy agent from crowding out
+/// the rest, not a determined one).
+pub const MAX_OPEN_PER_AGENT: usize = 20;
 
 /// One node an agent asks to remove, as it was when asked.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -90,6 +94,9 @@ pub struct RemovalProposal {
     pub run: Option<String>,
     pub reason: String,
     pub nodes: Vec<AskedNodeView>,
+    /// The links Remove takes with the nodes now, the ones drawn since the
+    /// agent asked included, so the person sees them before answering.
+    pub links: u32,
     /// A node changed or went since it was asked: only Keep it is offered.
     pub stale: bool,
 }
@@ -115,8 +122,9 @@ fn open_lines(entries: &[PlanLogEntry]) -> Vec<&PlanLogEntry> {
         .collect()
 }
 
-fn view(entry: &PlanLogEntry, nodes: &[PlanNode]) -> Option<RemovalProposal> {
+fn view(entry: &PlanLogEntry, plan: &PlanFile) -> Option<RemovalProposal> {
     let asked = entry.proposes.as_ref()?;
+    let nodes = &plan.nodes;
     let views: Vec<AskedNodeView> = asked
         .nodes
         .iter()
@@ -140,8 +148,20 @@ fn view(entry: &PlanLogEntry, nodes: &[PlanNode]) -> Option<RemovalProposal> {
         run: entry.run.clone(),
         reason: asked.reason.clone(),
         stale: views.iter().any(|v| v.state != AskedState::Here),
+        links: links_of(plan, &views),
         nodes: views,
     })
+}
+
+/// The links touching the proposed nodes still on the canvas.
+fn links_of(plan: &PlanFile, views: &[AskedNodeView]) -> u32 {
+    let ids: BTreeSet<&str> = views.iter().map(|v| v.id.as_str()).collect();
+    let n = plan
+        .edges
+        .iter()
+        .filter(|e| ids.contains(e.from.as_str()) || ids.contains(e.to.as_str()))
+        .count();
+    u32::try_from(n).unwrap_or(u32::MAX)
 }
 
 /// The canvas's removal proposals waiting for the person, oldest first,
@@ -155,7 +175,7 @@ pub fn open(project_dir: &Path, id: &str) -> CoreResult<Vec<RemovalProposal>> {
     let entries = log::entries(project_dir, id)?;
     Ok(open_lines(&entries)
         .into_iter()
-        .filter_map(|e| view(e, &plan.nodes))
+        .filter_map(|e| view(e, &plan))
         .collect())
 }
 
@@ -166,8 +186,9 @@ pub fn open(project_dir: &Path, id: &str) -> CoreResult<Vec<RemovalProposal>> {
 /// # Errors
 ///
 /// Refuses no nodes, more than [`MAX_PER_CALL`], a node not on the canvas,
-/// a reason over 300 characters, or a canvas already holding [`MAX_OPEN`]
-/// open proposals; fails when the log cannot be written.
+/// a reason over 300 characters, a canvas already holding [`MAX_OPEN`]
+/// open proposals, or [`MAX_OPEN_PER_AGENT`] under the agent's name; fails
+/// when the log cannot be written.
 pub fn propose(
     project_dir: &Path,
     id: &str,
@@ -194,9 +215,19 @@ pub fn propose(
     let _lock = writing();
     let plan = load_file(&path(project_dir, id)?)?;
     let entries = log::entries(project_dir, id)?;
-    if open_lines(&entries).len() >= MAX_OPEN {
+    let waiting = open_lines(&entries);
+    if waiting.len() >= MAX_OPEN {
         return Err(CoreError::Invalid(format!(
             "This canvas already has {MAX_OPEN} removal proposals waiting for the person. Ask them to review the ones in the Changes panel first."
+        )));
+    }
+    let mine = waiting
+        .iter()
+        .filter(|e| e.by.as_deref() == Some(agent.name))
+        .count();
+    if mine >= MAX_OPEN_PER_AGENT {
+        return Err(CoreError::Invalid(format!(
+            "You already have {MAX_OPEN_PER_AGENT} removal proposals waiting for the person on this canvas, the most one agent may. Wait for them to answer some in the Changes panel, or fold more nodes into one proposal."
         )));
     }
     let mut seen = BTreeSet::new();
@@ -267,12 +298,19 @@ fn find_open<'a>(entries: &'a [PlanLogEntry], proposal: &str) -> CoreResult<&'a 
 /// # Errors
 ///
 /// Refuses a proposal that is not open, or is stale (a node changed or went
-/// since it was asked); fails as [`super::change`].
-pub fn accept(project_dir: &Path, id: &str, proposal: &str) -> CoreResult<Changed> {
+/// since it was asked), and another canvas than the one opened (`created`,
+/// [`super::same_canvas`]); fails as [`super::change`].
+pub fn accept(
+    project_dir: &Path,
+    id: &str,
+    proposal: &str,
+    created: Option<&str>,
+) -> CoreResult<Changed> {
     change_with(project_dir, id, &Writer::PERSON, |plan| {
+        super::same_canvas(plan, created)?;
         let entries = log::entries(project_dir, id)?;
         let entry = find_open(&entries, proposal)?;
-        let shown = view(entry, &plan.nodes)
+        let shown = view(entry, plan)
             .ok_or_else(|| CoreError::NotFound(format!("the removal proposal {proposal}")))?;
         if shown.stale {
             return Err(CoreError::Invalid(
@@ -314,11 +352,18 @@ pub fn accept(project_dir: &Path, id: &str, proposal: &str) -> CoreResult<Change
 ///
 /// # Errors
 ///
-/// Refuses a proposal that is not open; fails when the canvas or its log
-/// cannot be read or written.
-pub fn dismiss(project_dir: &Path, id: &str, proposal: &str) -> CoreResult<PlanLogEntry> {
+/// Refuses a proposal that is not open, and another canvas than the one
+/// opened (`created`, [`super::same_canvas`]); fails when the canvas or its
+/// log cannot be read or written.
+pub fn dismiss(
+    project_dir: &Path,
+    id: &str,
+    proposal: &str,
+    created: Option<&str>,
+) -> CoreResult<PlanLogEntry> {
     let _lock = writing();
-    load_file(&path(project_dir, id)?)?;
+    let plan = load_file(&path(project_dir, id)?)?;
+    super::same_canvas(&plan, created)?;
     let entries = log::entries(project_dir, id)?;
     let entry = find_open(&entries, proposal)?;
     let asked = entry

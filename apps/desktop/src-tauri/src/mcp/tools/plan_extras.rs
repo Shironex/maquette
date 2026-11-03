@@ -45,7 +45,7 @@ pub struct StartFromNodeArgs {
 #[tool_router(router = plan_extras_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Ask the person to remove nodes you may not remove yourself (a person's node, or one a person wrote in): the canvas does not change. The person sees the nodes marked and your reason in the Changes panel and answers Keep it or Remove; a Remove is their own change, which they can undo. No tool answers a proposal, yours included: only the person decides. A proposal goes stale, and Remove is refused, when a node's content changes or it goes before the person answers (moving it does not). At most 50 proposals wait per canvas; get_canvas lists the open ones. Your own nodes you remove with remove_nodes. Answers with the proposal id.",
+        description = "Ask the person to remove nodes you may not remove yourself (a person's node, or one a person wrote in): the canvas does not change. The person sees the nodes marked and your reason in the Changes panel and answers Keep it or Remove; a Remove is their own change, which they can undo. No tool answers a proposal, yours included: only the person decides. A proposal goes stale, and Remove is refused, when a node's content changes or it goes before the person answers (moving it does not). At most 50 proposals wait per canvas, 20 of them under one agent name; get_canvas lists the open ones. Your own nodes you remove with remove_nodes. Answers with the proposal id.",
         annotations(idempotent_hint = false)
     )]
     async fn propose_removal(

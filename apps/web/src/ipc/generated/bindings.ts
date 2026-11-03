@@ -451,19 +451,19 @@ export const commands = {
 	 *  (with their links) as the person's undoable change, refused when the
 	 *  proposal went stale; otherwise "Keep it" leaves the canvas as it is.
 	 */
-	planAnswerRemoval: (project: string, id: string, proposal: string, remove: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_answer_removal", { project, id, proposal, remove }),
+	planAnswerRemoval: (project: string, id: string, created: string, proposal: string, remove: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_answer_removal", { project, id, created, proposal, remove }),
 	/**
 	 *  Makes a canvas from the node `node` of `source` and the nodes linked to
 	 *  it, as the person's first change there. The source does not change.
 	 */
 	planStartFrom: (project: string, source: string, node: string, name: string | null) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_start_from", { project, source, node, name }),
 	/**  Turns "Auto layout after agents" on or off for the canvas. */
-	planSetAutoLayout: (project: string, id: string, on: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_set_auto_layout", { project, id, on }),
+	planSetAutoLayout: (project: string, id: string, created: string, on: boolean) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_set_auto_layout", { project, id, created, on }),
 	/**
 	 *  Marks the overlap of the cards `a` and `b` as fine until either card's
 	 *  words change.
 	 */
-	planMarkFine: (project: string, id: string, a: string, b: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_mark_fine", { project, id, a, b }),
+	planMarkFine: (project: string, id: string, created: string, a: string, b: string) => __TAURI_INVOKE<PlanDoc_Serialize>("plan_mark_fine", { project, id, created, a, b }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears
@@ -6420,6 +6420,11 @@ export type RemovalProposal = {
 	run: string | null,
 	reason: string,
 	nodes: AskedNodeView[],
+	/**
+	 *  The links Remove takes with the nodes now, the ones drawn since the
+	 *  agent asked included, so the person sees them before answering.
+	 */
+	links: number,
 	/**  A node changed or went since it was asked: only Keep it is offered. */
 	stale: boolean,
 };

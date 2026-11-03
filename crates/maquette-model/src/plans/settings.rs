@@ -11,13 +11,20 @@ use super::summary::node_name;
 use crate::error::{CoreError, CoreResult};
 
 /// Turns "Auto layout after agents" on or off for the canvas `id`, as the
-/// person. Nothing is written when it is already so.
+/// person. Nothing is written when it is already so. `created` is the
+/// opened canvas's ([`super::same_canvas`]).
 ///
 /// # Errors
 ///
-/// Fails as [`super::change`].
-pub fn set_auto_layout(project_dir: &Path, id: &str, on: bool) -> CoreResult<Changed> {
+/// Fails on another canvas than the one opened, and as [`super::change`].
+pub fn set_auto_layout(
+    project_dir: &Path,
+    id: &str,
+    on: bool,
+    created: Option<&str>,
+) -> CoreResult<Changed> {
     change_with(project_dir, id, &Writer::PERSON, |plan| {
+        super::same_canvas(plan, created)?;
         let summary = if on {
             "Turned auto layout after agents on"
         } else {
@@ -43,14 +50,23 @@ pub fn set_auto_layout(project_dir: &Path, id: &str, on: bool) -> CoreResult<Cha
 
 /// Marks the overlap of the cards `a` and `b` as fine, as the person, for
 /// the words both hold now: the flag stays away until either changes.
+/// `created` is the opened canvas's ([`super::same_canvas`]).
 ///
 /// # Errors
 ///
 /// Refuses two nodes that do not overlap now (their words changed since the
-/// flag showed) or are marked already; fails as [`super::change`].
-pub fn mark_fine(project_dir: &Path, id: &str, a: &str, b: &str) -> CoreResult<Changed> {
+/// flag showed) or are marked already, and another canvas than the one
+/// opened; fails as [`super::change`].
+pub fn mark_fine(
+    project_dir: &Path,
+    id: &str,
+    a: &str,
+    b: &str,
+    created: Option<&str>,
+) -> CoreResult<Changed> {
     let (a, b) = if a <= b { (a, b) } else { (b, a) };
     change_with(project_dir, id, &Writer::PERSON, |plan| {
+        super::same_canvas(plan, created)?;
         let found = overlaps(plan);
         let pair: Vec<_> = found.iter().filter(|o| o.a == a && o.b == b).collect();
         if pair.is_empty() {

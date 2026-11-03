@@ -164,7 +164,7 @@ fn a_node_a_person_wrote_in_never_moves() {
 #[test]
 fn off_it_leaves_the_layout_to_the_person() {
     let (_dir, root, id) = setup();
-    set_auto_layout(&root, &id, false).expect("off");
+    set_auto_layout(&root, &id, false, None).expect("off");
     let done = add(&root, &id, &RESEARCH, None, &[dropped("Lantern", 5)], &[]).expect("add");
     assert!(done.tidied.is_empty());
     assert_eq!(spot(&done.changed.doc.plan, &done.nodes[0]), (5, 10));
@@ -191,7 +191,7 @@ fn off_it_leaves_the_layout_to_the_person() {
     .expect("add");
     assert_eq!(placed.placed, 1);
 
-    set_auto_layout(&root, &id, true).expect("on");
+    set_auto_layout(&root, &id, true, None).expect("on");
     let tidy = layout(&root, &id, &RESEARCH, &[]).expect("layout");
     assert_eq!(tidy.placed, 1);
 }

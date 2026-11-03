@@ -6,7 +6,7 @@ use std::fs;
 use super::super::agent::{self, Agent, NewNode};
 use super::super::ops::PlanOp;
 use super::super::*;
-use super::{AskedState, MAX_OPEN, accept, dismiss, open, propose};
+use super::{AskedState, MAX_OPEN, MAX_OPEN_PER_AGENT, accept, dismiss, open, propose};
 
 const RESEARCH: Agent<'static> = Agent {
     name: "Research agent",
@@ -93,7 +93,7 @@ fn an_agent_asks_and_the_person_removes_as_their_own_undoable_change() {
     assert_eq!(waiting[0].reason, "The porch note replaces it.");
     assert!(!waiting[0].stale);
 
-    let done = accept(&root, &id, &asked.id).expect("accept");
+    let done = accept(&root, &id, &asked.id, None).expect("accept");
     let line = done.entry.expect("line");
     assert!(line.by.is_none(), "the person's change");
     assert_eq!(line.resolves, vec![asked.id.clone()]);
@@ -104,7 +104,10 @@ fn an_agent_asks_and_the_person_removes_as_their_own_undoable_change() {
     assert!(done.doc.plan.nodes.iter().all(|n| n.id != "n-island"));
     assert!(done.doc.plan.edges.is_empty(), "its link goes with it");
     assert!(open(&root, &id).expect("open").is_empty());
-    assert!(accept(&root, &id, &asked.id).is_err(), "answered already");
+    assert!(
+        accept(&root, &id, &asked.id, None).is_err(),
+        "answered already"
+    );
 
     // The person's undo brings the node and its link back; the ask stays answered.
     let undone = undo(&root, &id, &[line.id], None, None).expect("undo");
@@ -119,12 +122,15 @@ fn keep_it_answers_without_changing_the_canvas() {
     let asked = propose(&root, &id, &RESEARCH, &ids(&["n-island", "n-porch"]), "").expect("ask");
     assert_eq!(asked.summary, "Asked to remove 2 nodes");
     let before = get(&root, &id).expect("get").plan;
-    let kept = dismiss(&root, &id, &asked.id).expect("keep");
+    let kept = dismiss(&root, &id, &asked.id, None).expect("keep");
     assert_eq!(kept.summary, "Kept 2 nodes Research agent asked to remove");
     assert_eq!(get(&root, &id).expect("get").plan, before);
     assert!(open(&root, &id).expect("open").is_empty());
-    assert!(dismiss(&root, &id, &asked.id).is_err(), "answered already");
-    assert!(dismiss(&root, &id, "c-nothing").is_err());
+    assert!(
+        dismiss(&root, &id, &asked.id, None).is_err(),
+        "answered already"
+    );
+    assert!(dismiss(&root, &id, "c-nothing", None).is_err());
     // No agent undoes the ask or the answer.
     let refused = undo(
         &root,
@@ -188,7 +194,7 @@ fn a_node_that_changed_or_went_makes_the_proposal_stale() {
         waiting[0].nodes[0].name, "Old hero idea: the whole island",
         "the name as asked"
     );
-    let refused = accept(&root, &id, &asked.id).expect_err("stale");
+    let refused = accept(&root, &id, &asked.id, None).expect_err("stale");
     assert!(refused.to_string().contains("changed or went"), "{refused}");
     assert!(
         get(&root, &id)
@@ -210,7 +216,7 @@ fn a_node_that_changed_or_went_makes_the_proposal_stale() {
         open(&root, &id).expect("open")[0].nodes[0].state,
         AskedState::Gone
     );
-    dismiss(&root, &id, &asked.id).expect("keep it clears a stale proposal");
+    dismiss(&root, &id, &asked.id, None).expect("keep it clears a stale proposal");
 }
 
 #[test]
@@ -232,10 +238,28 @@ fn asks_are_checked_and_capped() {
         )
         .is_err()
     );
-    for _ in 0..MAX_OPEN {
+    for _ in 0..MAX_OPEN_PER_AGENT {
         propose(&root, &id, &RESEARCH, &ids(&["n-porch"]), "").expect("ask");
     }
-    let refused = propose(&root, &id, &RESEARCH, &ids(&["n-porch"]), "").expect_err("full");
+    let refused = propose(&root, &id, &RESEARCH, &ids(&["n-porch"]), "").expect_err("its share");
+    assert!(
+        refused.to_string().contains("the most one agent may"),
+        "{refused}"
+    );
+    // Other agents still ask, up to the canvas's own cap.
+    let names = ["Writer agent", "Story agent", "Level agent"];
+    for n in 0..MAX_OPEN - MAX_OPEN_PER_AGENT {
+        let other = Agent {
+            name: names[n / MAX_OPEN_PER_AGENT],
+            run: None,
+        };
+        propose(&root, &id, &other, &ids(&["n-porch"]), "").expect("ask");
+    }
+    let last = Agent {
+        name: "Late agent",
+        run: None,
+    };
+    let refused = propose(&root, &id, &last, &ids(&["n-porch"]), "").expect_err("full");
     assert!(
         refused.to_string().contains("waiting for the person"),
         "{refused}"
@@ -265,5 +289,60 @@ fn an_open_proposal_outlives_log_rotation() {
     assert!(fs::metadata(&file).expect("log").len() <= log::LOG_MAX_BYTES + 32 * 1024);
     let waiting = open(&root, &id).expect("open");
     assert_eq!(waiting.len(), 1, "the ask stays until the person answers");
-    dismiss(&root, &id, &asked.id).expect("keep");
+    dismiss(&root, &id, &asked.id, None).expect("keep");
+}
+
+#[test]
+fn remove_shows_and_takes_the_links_drawn_since_the_ask() {
+    let (_dir, root, id) = setup();
+    let asked = propose(&root, &id, &RESEARCH, &ids(&["n-island"]), "").expect("ask");
+    assert_eq!(open(&root, &id).expect("open")[0].links, 1);
+    // The person draws another link to it after the agent asked.
+    let plan = get(&root, &id).expect("get").plan;
+    let cave = person_note("n-cave", "Sea cave", 800);
+    let link = PlanEdge {
+        id: "e-2".into(),
+        from: "n-cave".into(),
+        to: "n-island".into(),
+        from_side: None,
+        to_side: None,
+        kind: EdgeKind::Relates,
+        label: None,
+        by: None,
+    };
+    apply_person(
+        &root,
+        &id,
+        &plan.created,
+        vec![
+            PlanOp::AddNode { node: cave },
+            PlanOp::AddEdge { edge: link },
+        ],
+    )
+    .expect("draw");
+    let waiting = open(&root, &id).expect("open");
+    assert_eq!(waiting[0].links, 2, "the card shows both before Remove");
+    assert!(!waiting[0].stale, "a new link is no change to the node");
+    let done = accept(&root, &id, &asked.id, Some(&plan.created)).expect("remove");
+    assert!(done.doc.plan.edges.is_empty());
+    assert_eq!(done.doc.plan.nodes.len(), 2);
+}
+
+#[test]
+fn answers_land_only_on_the_canvas_the_person_opened() {
+    let (_dir, root, id) = setup();
+    let asked = propose(&root, &id, &RESEARCH, &ids(&["n-island"]), "").expect("ask");
+    let other = Some("1999-01-01T00:00:00Z");
+    for refused in [
+        accept(&root, &id, &asked.id, other).map(|_| ()),
+        dismiss(&root, &id, &asked.id, other).map(|_| ()),
+        set_auto_layout(&root, &id, false, other).map(|_| ()),
+    ] {
+        let err = refused.expect_err("another canvas");
+        assert!(err.to_string().contains("replaced on disk"), "{err}");
+    }
+    assert_eq!(open(&root, &id).expect("open").len(), 1, "nothing answered");
+    assert!(get(&root, &id).expect("get").plan.auto_layout);
+    let created = get(&root, &id).expect("get").plan.created;
+    dismiss(&root, &id, &asked.id, Some(&created)).expect("the opened one");
 }

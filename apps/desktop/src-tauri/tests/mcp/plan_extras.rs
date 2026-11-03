@@ -153,9 +153,9 @@ async fn an_agent_asks_reads_overlaps_starts_from_a_node_and_is_tidied() {
     assert_eq!(read["nodes"].as_array().expect("nodes").len(), 6);
 
     // The person marks the overlap fine and answers Keep it, in the app.
-    plans::mark_fine(&game, "combat", "n-veil", "n-dash").expect("fine");
+    plans::mark_fine(&game, "combat", "n-veil", "n-dash", None).expect("fine");
     let proposal = asked["proposal"].as_str().expect("id");
-    removal::dismiss(&game, "combat", proposal).expect("keep it");
+    removal::dismiss(&game, "combat", proposal, None).expect("keep it");
     let read = call(&client, "get_canvas", on(json!({}))).await;
     assert_eq!(read["overlaps"][0]["fine"], json!(true));
     assert!(read.get("proposals").is_none());
@@ -196,7 +196,7 @@ async fn an_agent_asks_reads_overlaps_starts_from_a_node_and_is_tidied() {
     );
 
     // Off: nothing is tidied, and layout_canvas is refused.
-    plans::set_auto_layout(&game, "combat", false).expect("off");
+    plans::set_auto_layout(&game, "combat", false, None).expect("off");
     let back = json!({ "nodes": [{ "id": blink, "x": 10, "y": 610 }] });
     call(&client, "update_nodes", on(back)).await;
     let edited = call(&client, "update_nodes", on(edit("Blink again"))).await;

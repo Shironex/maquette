@@ -13,6 +13,13 @@ export function headOf(p: RemovalProposal) {
   return `${p.by} wants to remove ${n === 1 ? 'a node' : `${n} nodes`}`;
 }
 
+/** What Remove takes besides the nodes: the links touching them now, drawn since the ask too. */
+export function linksOf(p: RemovalProposal) {
+  if (!p.links) return '';
+  const them = p.nodes.length === 1 ? 'it' : 'them';
+  return `Remove takes ${p.links === 1 ? '1 link' : `${p.links} links`} with ${them}.`;
+}
+
 /**
  * The removal proposals waiting for the person, oldest first, each with
  * Keep it and Remove. A stale one (a node changed or went since the agent
@@ -26,7 +33,9 @@ export function useRemovalAsks() {
     proposals,
     busy,
     noteOf: (state: AskedState) => STATE_NOTE[state],
-    namesOf: (p: RemovalProposal) => p.nodes.map(n => n.name).join(', '),
+    namesOf: (p: RemovalProposal) =>
+      p.nodes.map(n => n.name).join(', ') +
+      (p.links ? `, and ${p.links === 1 ? '1 link' : `${p.links} links`}` : ''),
     keep: (id: string) => void answer(id, false),
     remove: (id: string) => void answer(id, true),
   };

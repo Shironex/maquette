@@ -258,9 +258,18 @@ fn the_person_marks_an_overlap_fine_and_can_undo_it() {
         "the view reads the overlaps with the canvas"
     );
 
-    let refused = mark_fine(dir.path(), &made.id, "n-1", "n-4").expect_err("no overlap");
+    let refused = mark_fine(dir.path(), &made.id, "n-1", "n-4", None).expect_err("no overlap");
     assert!(refused.to_string().contains("do not overlap"), "{refused}");
-    let marked = mark_fine(dir.path(), &made.id, "n-5", "n-4").expect("mark");
+    let elsewhere = mark_fine(
+        dir.path(),
+        &made.id,
+        "n-5",
+        "n-4",
+        Some("1999-01-01T00:00:00Z"),
+    );
+    assert!(elsewhere.is_err(), "only on the canvas the person opened");
+    let created = get(dir.path(), &made.id).expect("get").plan.created;
+    let marked = mark_fine(dir.path(), &made.id, "n-5", "n-4", Some(&created)).expect("mark");
     let line = marked.entry.clone().expect("line");
     assert_eq!(line.summary, "Marked as fine: Dash and Frost veil");
     assert!(line.by.is_none(), "the person's change");
@@ -268,7 +277,7 @@ fn the_person_marks_an_overlap_fine_and_can_undo_it() {
     let fine: Vec<bool> = marked.doc.overlaps.iter().map(|o| o.fine).collect();
     assert_eq!(fine, vec![false, true]);
     assert!(
-        mark_fine(dir.path(), &made.id, "n-4", "n-5").is_err(),
+        mark_fine(dir.path(), &made.id, "n-4", "n-5", None).is_err(),
         "marked already"
     );
 
@@ -284,15 +293,15 @@ fn the_auto_layout_switch_is_a_logged_change() {
     use crate::plans::{create, get, log, set_auto_layout};
     let dir = tempfile::tempdir().expect("temp dir");
     let made = create(dir.path(), "Ideas", PlanPreset::Brainstorm).expect("create");
-    let off = set_auto_layout(dir.path(), &made.id, false).expect("off");
+    let off = set_auto_layout(dir.path(), &made.id, false, None).expect("off");
     assert_eq!(
         off.entry.as_ref().map(|e| e.summary.as_str()),
         Some("Turned auto layout after agents off")
     );
     assert!(!get(dir.path(), &made.id).expect("get").plan.auto_layout);
-    let again = set_auto_layout(dir.path(), &made.id, false).expect("again");
+    let again = set_auto_layout(dir.path(), &made.id, false, None).expect("again");
     assert!(again.entry.is_none(), "nothing to write");
-    set_auto_layout(dir.path(), &made.id, true).expect("on");
+    set_auto_layout(dir.path(), &made.id, true, None).expect("on");
     let lines = log::lines(dir.path(), &made.id, 10).expect("log");
     assert_eq!(lines[0].summary, "Turned auto layout after agents on");
     assert_eq!(get(dir.path(), &made.id).expect("get").plan.version, 2);

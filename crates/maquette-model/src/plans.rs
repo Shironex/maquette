@@ -86,7 +86,7 @@ pub use change::{Changed, KeepNeed, Writer, change, keep, keep_confirmed, keep_n
 pub use check::{check_name, is_link_id, is_project_relative, validate};
 pub use create::{create, create_by, create_seeded};
 pub use files::{PlanDoc, PlanSummary, get, list, remove, rename, save};
-pub use person::apply_person;
+pub use person::{apply_person, same_canvas};
 pub use settings::{mark_fine, set_auto_layout};
 pub use start::{Started, start_from};
 pub use text::trimmed;

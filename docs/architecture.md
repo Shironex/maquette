@@ -1109,10 +1109,12 @@ the view. Names, titles, addresses and labels are trimmed of one set of white sp
     agent may not remove. It writes no operations: the ask is a log line with `proposes` (each node's
     id, name and a key of its content without its place, and the reason), so plain canvases need no
     new version. Rotation keeps an open ask, outside the keepers' budget, and at most 50 wait per
-    canvas. `removal::open` lists them with each node `here`, `changed` or `gone`, and the ask is
+    canvas, 20 under one agent name. `removal::open` lists them with each node `here`, `changed` or `gone`, and the ask is
     stale when any is not `here`. Only the person answers (`plan_answer_removal`): Remove writes the
-    person's own change (the nodes and their links), refused when stale, and Keep it writes a line
-    with no operations; both carry `resolves`. No MCP tool answers an ask, and `undo_run` refuses it.
+    person's own change (the nodes and their links, the card saying how many links go, drawn since
+    the ask too), refused when stale, and Keep it writes a line with no operations; both carry
+    `resolves`. Like a save, every answer and setting from the app names the opened canvas's
+    `created` (`same_canvas`), so it never lands on another canvas that took the id. No MCP tool answers an ask, and `undo_run` refuses it.
     The Changes panel shows open asks first (`features/plan/RemovalAsks`), the nodes carry an "asked
     to remove" badge, and the footer says agents never delete a person's nodes, they ask.
   - _Start from a node_ (`plans/start.rs`). `start_from` copies the node and the nodes one link away

@@ -17,6 +17,9 @@ function setup() {
 }
 
 const COMBAT = { id: 'combat-ideas' };
+/** The opened canvas's `created`, which every answer and setting names. */
+const createdOf = async (run: ReturnType<typeof setup>['run'], id: string) =>
+  (await run<PlanDoc>('plan_get', { id })).plan.created;
 
 describe('mock canvas extras', () => {
   it('lists an agent proposal, refuses it stale and removes it as the person', async () => {
@@ -27,12 +30,18 @@ describe('mock canvas extras', () => {
       by: 'Research agent',
       reason: 'Answered elsewhere.',
       stale: false,
+      links: 0,
     });
+    const created = await createdOf(run, COMBAT.id);
+    await expect(
+      run('plan_answer_removal', { ...COMBAT, created: 'other', proposal: open?.id, remove: true })
+    ).rejects.toMatchObject({ code: 'invalid' });
     expect(open?.nodes).toEqual([
       { id: 'n-06', name: 'Does the veil read on a phone screen?', state: 'here' },
     ]);
     const done = await run<PlanDoc>('plan_answer_removal', {
       ...COMBAT,
+      created,
       proposal: open?.id,
       remove: true,
     });
@@ -52,9 +61,9 @@ describe('mock canvas extras', () => {
     expect(stale?.stale).toBe(true);
     expect(stale?.nodes[0]?.state).toBe('changed');
     await expect(
-      run('plan_answer_removal', { ...COMBAT, proposal: stale?.id, remove: true })
+      run('plan_answer_removal', { ...COMBAT, created, proposal: stale?.id, remove: true })
     ).rejects.toMatchObject({ code: 'invalid' });
-    await run('plan_answer_removal', { ...COMBAT, proposal: stale?.id, remove: false });
+    await run('plan_answer_removal', { ...COMBAT, created, proposal: stale?.id, remove: false });
     expect(await run<RemovalProposal[]>('plan_proposals', COMBAT)).toEqual([]);
   });
 
@@ -78,7 +87,11 @@ describe('mock canvas extras', () => {
 
   it('switches auto layout and marks an overlap fine, both undoable', async () => {
     const { run } = setup();
-    const off = await run<PlanDoc>('plan_set_auto_layout', { ...COMBAT, on: false });
+    const created = await createdOf(run, COMBAT.id);
+    await expect(
+      run('plan_set_auto_layout', { ...COMBAT, created: 'other', on: false })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    const off = await run<PlanDoc>('plan_set_auto_layout', { ...COMBAT, created, on: false });
     expect(off.plan.autoLayout).toBe(false);
     const [line] = await run<PlanLogLine[]>('plan_log', { ...COMBAT, limit: 5 });
     await run('plan_undo', { ...COMBAT, changes: [line?.id] });
@@ -90,12 +103,18 @@ describe('mock canvas extras', () => {
     expect(flagged).toBeDefined();
     const marked = await run<PlanDoc>('plan_mark_fine', {
       ...systems,
+      created: shown.plan.created,
       a: flagged?.b,
       b: flagged?.a,
     });
     expect(marked.overlaps?.find(o => o.a === flagged?.a && o.b === flagged?.b)?.fine).toBe(true);
     await expect(
-      run('plan_mark_fine', { ...systems, a: flagged?.a, b: flagged?.b })
+      run('plan_mark_fine', {
+        ...systems,
+        created: shown.plan.created,
+        a: flagged?.a,
+        b: flagged?.b,
+      })
     ).rejects.toMatchObject({ code: 'invalid' });
     const plan: PlanFile = marked.plan;
     expect(plan.version).toBe(4);

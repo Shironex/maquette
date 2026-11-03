@@ -44,7 +44,7 @@ export const usePlanExtrasStore = create<PlanExtrasStore>((set, get) => {
    */
   const write = async (
     title: string,
-    job: (project: string, id: string) => Promise<unknown>
+    job: (project: string, id: string, created: string) => Promise<unknown>
   ): Promise<boolean> => {
     const plans = usePlansStore.getState();
     const { project, open } = plans;
@@ -54,7 +54,8 @@ export const usePlanExtrasStore = create<PlanExtrasStore>((set, get) => {
     if (!(await plans.save())) return false;
     set({ busy: true });
     try {
-      await job(project, open.id);
+      // The opened canvas's `created`, so an answer never lands on another canvas that took the id.
+      await job(project, open.id, open.plan.created);
     } catch (error) {
       failed(title, error);
       set({ busy: false });
@@ -87,17 +88,20 @@ export const usePlanExtrasStore = create<PlanExtrasStore>((set, get) => {
     },
 
     answer: (proposal, remove) =>
-      write(remove ? 'The nodes were not removed' : 'The proposal was not answered', (p, id) =>
-        commands.planAnswerRemoval(p, id, proposal, remove)
+      write(
+        remove ? 'The nodes were not removed' : 'The proposal was not answered',
+        (p, id, created) => commands.planAnswerRemoval(p, id, created, proposal, remove)
       ),
 
     setAutoLayout: on =>
-      write('Auto layout after agents was not switched', (p, id) =>
-        commands.planSetAutoLayout(p, id, on)
+      write('Auto layout after agents was not switched', (p, id, created) =>
+        commands.planSetAutoLayout(p, id, created, on)
       ),
 
     markFine: (a, b) =>
-      write('The overlap was not marked as fine', (p, id) => commands.planMarkFine(p, id, a, b)),
+      write('The overlap was not marked as fine', (p, id, created) =>
+        commands.planMarkFine(p, id, created, a, b)
+      ),
 
     startFrom: async node => {
       const plans = usePlansStore.getState();
