@@ -260,6 +260,19 @@ The integration tests run a real client against a test `Host`. They are one test
 `library.rs` and the rest) and the shared client helpers and plain test host in `support.rs`, so
 the desktop crate links one test binary instead of one per file.
 
+Tool groups: `tools.rs` tags each router with its group, and `tools/groups.rs` holds the fixed list
+(`GROUPS`: id, title, a short line, and whether it is always on, which `start` and `project` are). A
+test fails when a tool has no group in that list. Every session keeps the whole router; the setting
+(`agents.rules.toolGroupsOff` in `maquette.json`, read through `AgentRules`, which turns the older
+`avatarRigTools: false` into the `avatar-rig` group) is read on each `tools/list`, which leaves the
+off groups out, and on each `tools/call`, which refuses a tool of an off group with code `group-off`
+before anything runs. `Agents::sync` compares the off groups with the last sync after every settings
+save or workspace change and rings `Hub::tools_changed`; `tools/list_changed.rs` forwards that to
+each connected session as `notifications/tools/list_changed` (a session's stream for protocol
+versions before 2026-07-28, `subscriptions/listen` for later ones). The `mcp_tool_groups` command
+gives Settings > Agents the groups with their tool counts, and the web mock mirrors them in
+`ipc/mock/mock-tool-groups.ts`, held equal by a test.
+
 The tool names have one source: the router in `tools.rs`. `cargo test -p maquette-desktop` writes
 them to `apps/desktop/src-tauri/tool-names.txt` (`mcp/tool_names.rs`, like the IPC bindings), and
 CI fails when the committed file is stale. The handshake test checks the served list against that
