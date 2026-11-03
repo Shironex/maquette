@@ -11,6 +11,7 @@ fn facts(project: Option<ProjectFacts>) -> Facts {
         any_key: false,
         inbox: 0,
         project,
+        off: Vec::new(),
     }
 }
 
@@ -181,4 +182,30 @@ fn a_found_blender_with_a_warning_works_and_a_codex_not_signed_in_does_not() {
     let codex = [found(ToolId::Codex, "Codex CLI is not signed in.")];
     assert!(!tool_works(&codex, ToolId::Codex));
     assert!(says(&codex, "Codex CLI"));
+}
+
+#[test]
+fn next_leaves_out_the_tools_of_a_group_that_is_off() {
+    let project = ProjectFacts {
+        assets: 2,
+        at_refs: 1,
+        with_model: 1,
+        ..empty()
+    };
+    let mut f = facts(Some(project));
+    let all = tools(&next_steps(&f))
+        .into_iter()
+        .map(String::from)
+        .collect::<Vec<_>>();
+    assert!(all.contains(&"send_to_3d".to_string()) && all.contains(&"run_pipeline".to_string()));
+    f.off = ["send", "pipeline"]
+        .iter()
+        .filter_map(|id| super::super::groups::by_id(id))
+        .collect();
+    let next = next_steps(&f);
+    let left = tools(&next);
+    assert!(
+        !left.contains(&"send_to_3d") && !left.contains(&"run_pipeline"),
+        "{left:?}"
+    );
 }

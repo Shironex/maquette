@@ -428,6 +428,7 @@ impl ServerHandler for McpTools {
                     .await
             }
         };
+        let result = groups::scrub_off_try_tool(result, &groups::off_now(self.host.as_ref()));
         let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
         let ms = started.elapsed().as_millis() as f64;

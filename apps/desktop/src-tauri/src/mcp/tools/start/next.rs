@@ -4,6 +4,7 @@
 use maquette_core::{ProjectManifest, ProjectTarget, Stage};
 use serde_json::Value;
 
+use super::super::groups::{ToolGroup, of_tool};
 use super::super::hints::{person_step, step};
 use super::open_workspace_step;
 
@@ -48,6 +49,9 @@ pub(super) struct Facts {
     pub any_key: bool,
     pub inbox: usize,
     pub project: Option<ProjectFacts>,
+    /// The tool groups Settings > Agents turned off: their tools answer
+    /// `group-off`, so `next` does not name them.
+    pub off: Vec<&'static ToolGroup>,
 }
 
 impl Facts {
@@ -59,6 +63,7 @@ impl Facts {
             any_key: false,
             inbox: 0,
             project: None,
+            off: Vec::new(),
         }
     }
 }
@@ -107,8 +112,18 @@ fn with_assets(p: &ProjectFacts, facts: &Facts, out: &mut Vec<Value>) {
     }
 }
 
-/// What to do now, the most blocking first.
+/// What to do now, the most blocking first, without the tools of a group
+/// that is off.
 pub(super) fn next_steps(facts: &Facts) -> Vec<Value> {
+    let mut steps = all_steps(facts);
+    steps.retain(|s| {
+        let group = s["tool"].as_str().and_then(of_tool);
+        group.is_none_or(|g| !facts.off.contains(&g))
+    });
+    steps
+}
+
+fn all_steps(facts: &Facts) -> Vec<Value> {
     if !facts.workspace_open {
         return vec![open_workspace_step()];
     }

@@ -255,6 +255,28 @@ pub(super) fn with_off_line(
     answer
 }
 
+/// An error answer without a `tryTool` that names a tool of a group that is off.
+pub(super) fn scrub_off_try_tool(
+    mut result: Result<rmcp::model::CallToolResponse, rmcp::ErrorData>,
+    off: &[&'static ToolGroup],
+) -> Result<rmcp::model::CallToolResponse, rmcp::ErrorData> {
+    if off.is_empty() {
+        return result;
+    }
+    if let Ok(rmcp::model::CallToolResponse::Complete(answer)) = &mut result
+        && answer.is_error == Some(true)
+    {
+        for block in &mut answer.content {
+            if let rmcp::model::ContentBlock::Text(t) = block
+                && let Ok(body) = serde_json::from_str::<serde_json::Value>(&t.text)
+            {
+                t.text = super::errors::without_off_tool(body, off).to_string();
+            }
+        }
+    }
+    result
+}
+
 /// A tools/list answer, with the cache hints rmcp's own list gives.
 pub(super) fn list_result(
     tools: Vec<rmcp::model::Tool>,

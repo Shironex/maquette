@@ -357,6 +357,7 @@ fn started(host: &dyn Host) -> Result<Value, ToolError> {
         any_key: keys.tripo != Some(false) || keys.meshy != Some(false),
         inbox: inbox_count,
         project: facts.into_iter().nth(current),
+        off: super::groups::off_in(&config),
     });
     Ok(json!({
         "workspace": host.session().display(&root),

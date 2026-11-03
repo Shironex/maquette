@@ -182,6 +182,33 @@ pub(super) fn body(err: &ToolError) -> Value {
     out
 }
 
+/// An error body without a `tryTool` that names a tool of a group that is
+/// off: that tool would only answer `group-off`. The `fix` says so in its
+/// place, since its own text may name the tool too.
+pub(super) fn without_off_tool(mut body: Value, off: &[&super::groups::ToolGroup]) -> Value {
+    let named = body
+        .get("tryTool")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let Some(tool) = named else { return body };
+    let Some(group) = super::groups::of_tool(&tool).filter(|g| off.contains(g)) else {
+        return body;
+    };
+    let note = format!(
+        "{tool} is in the {} tool group, which is off in Settings > Agents.",
+        group.id
+    );
+    if let Some(map) = body.as_object_mut() {
+        map.remove("tryTool");
+        let fix = map
+            .get("fix")
+            .and_then(Value::as_str)
+            .map_or(note.clone(), |f| format!("{f} {note}"));
+        map.insert("fix".to_string(), Value::String(fix));
+    }
+    body
+}
+
 /// The message of an error body, for the activity list. Text that is not
 /// one stays as it is.
 pub(super) fn message_of(text: String) -> String {
@@ -351,6 +378,25 @@ mod tests {
                 "{message}"
             );
         }
+    }
+
+    #[test]
+    fn a_try_tool_in_a_group_that_is_off_is_dropped() {
+        let off: Vec<_> = ["send", "lab"]
+            .iter()
+            .filter_map(|id| super::super::groups::by_id(id))
+            .collect();
+        let key = without_off_tool(err("Save a Tripo API key first"), &off);
+        assert!(key.get("tryTool").is_none(), "{key}");
+        let fix = key["fix"].as_str().expect("fix");
+        assert!(
+            fix.contains("send_to_3d is in the send tool group"),
+            "{fix}"
+        );
+        // A tool of a group that is on stays.
+        let list = without_off_tool(err("No workspace is open"), &off);
+        assert_eq!(list["tryTool"], "get_started");
+        assert_eq!(without_off_tool(err("plain"), &off), err("plain"));
     }
 
     #[test]
