@@ -16,7 +16,14 @@
     { "part": "input", "value": "tap left mouse", "words": ["left mouse"] },
     { "part": "input", "value": "hold right mouse", "words": ["right mouse"] },
     { "part": "input", "value": "Ctrl + Space / F", "words": ["ctrl", "f", "space"] },
-    { "part": "input", "value": "double tap", "words": [] }
+    { "part": "input", "value": "double tap", "words": [] },
+    { "part": "look", "value": "ΜΕΓΑΛΟΣ ΚΥΚΛΟΣ", "words": ["κυκλοσ"] },
+    { "part": "verb", "value": "खेलना fast", "words": ["खेलना"] },
+    { "part": "look", "value": "old İstanbul", "words": ["i\u0307stanbul"] },
+    { "part": "verb", "value": "cafe\u0301 run", "words": ["cafe"] },
+    { "part": "input", "value": "Ä and ä", "words": ["ä"] },
+    { "part": "input", "value": "ž, z", "words": ["z", "ž"] },
+    { "part": "input", "value": "\ud835\udc00, \ufb00", "words": ["\ufb00", "\ud835\udc00"] }
   ],
   "singular": [
     ["rings", "ring"],

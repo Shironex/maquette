@@ -21,6 +21,10 @@
 //! simple on purpose, so a person can predict them; `overlap/cases.json`
 //! holds the cases both this and the mock backend's copy are tested on.
 //!
+//! The search is bounded: a card counts its first [`MAX_CARD_WORDS`] main
+//! words, and it stops at [`MAX_OVERLAPS`] pairs in node id order, so a
+//! full canvas of look-alike cards stays quick.
+//!
 //! A person's "Mark as fine" stores the pair with a key made from both
 //! cards' titles and texts ([`FineMark`]); the flag stays away until either
 //! card's words change, and only the person marks (no agent tool does).
@@ -34,6 +38,9 @@ use crate::error::{CoreError, CoreResult};
 
 /// The most overlaps reported, so a canvas of look-alike cards stays readable.
 pub const MAX_OVERLAPS: usize = 500;
+/// The most main words of one card that count, in part and word order, so
+/// one card of many keys can not make the check slow.
+pub const MAX_CARD_WORDS: usize = 32;
 /// The most pairs a canvas keeps marked as fine.
 pub const MAX_FINE: usize = 4_000;
 
@@ -223,52 +230,65 @@ pub(super) fn fnv(text: &str) -> String {
     format!("{hash:08x}")
 }
 
+/// A card's main word with the line it is on.
+type Word = (OverlapPart, String);
+
 /// The overlaps of a Game mechanics canvas, in node id order, each marked
 /// fine when the person marked its pair for the words it holds now. Other
-/// presets have none.
+/// presets have none. Each card is paired only with the cards after it, a
+/// card at a time, so the work stops once [`MAX_OVERLAPS`] are found.
 pub fn overlaps(plan: &PlanFile) -> Vec<Overlap> {
     if plan.preset != PlanPreset::Mechanics {
         return Vec::new();
     }
     let starters: BTreeSet<String> = presets::starter_values().map(str::to_lowercase).collect();
-    let mut by_word: BTreeMap<(OverlapPart, String), BTreeSet<&str>> = BTreeMap::new();
+    let mut cards: BTreeMap<&str, (&PlanNode, Vec<Word>)> = BTreeMap::new();
     for node in &plan.nodes {
-        for (part, word) in card_words(node, &starters).unwrap_or_default() {
-            by_word.entry((part, word)).or_default().insert(&node.id);
+        let mut words = card_words(node, &starters).unwrap_or_default();
+        words.sort();
+        words.dedup();
+        words.truncate(MAX_CARD_WORDS);
+        if !words.is_empty() {
+            cards.insert(&node.id, (node, words));
         }
     }
-    let mut found: BTreeMap<(&str, &str, OverlapPart), &str> = BTreeMap::new();
-    for ((part, word), ids) in &by_word {
-        let ids: Vec<&str> = ids.iter().copied().collect();
-        for (i, a) in ids.iter().enumerate() {
-            for b in &ids[i + 1..] {
-                found.entry((a, b, *part)).or_insert(word);
+    // The cards holding each word, in id order (the cards are walked so).
+    let mut by_word: BTreeMap<&Word, Vec<&str>> = BTreeMap::new();
+    for (id, (_, words)) in &cards {
+        for word in words {
+            by_word.entry(word).or_default().push(id);
+        }
+    }
+    let mut out = Vec::new();
+    for (a, (na, words)) in &cards {
+        // The cards after `a` sharing a word, each part once with its first word.
+        let mut pairs: BTreeMap<(&str, OverlapPart), &str> = BTreeMap::new();
+        for word in words {
+            let ids = &by_word[word];
+            let after = ids.partition_point(|id| id <= a);
+            for b in &ids[after..] {
+                pairs.entry((b, word.0)).or_insert(&word.1);
             }
         }
-    }
-    let node = |id: &str| plan.nodes.iter().find(|n| n.id == id);
-    found
-        .into_iter()
-        .take(MAX_OVERLAPS)
-        .map(|((a, b, part), word)| {
-            let fine = match (node(a), node(b)) {
-                (Some(na), Some(nb)) => {
-                    let key = pair_key(na, nb);
-                    plan.fine
-                        .iter()
-                        .any(|m| m.a == a && m.b == b && m.key == key)
-                }
-                _ => false,
-            };
-            Overlap {
-                a: a.to_string(),
+        for ((b, part), word) in pairs {
+            let key = pair_key(na, cards[b].0);
+            let fine = plan
+                .fine
+                .iter()
+                .any(|m| m.a == *a && m.b == b && m.key == key);
+            out.push(Overlap {
+                a: (*a).to_string(),
                 b: b.to_string(),
                 part,
                 word: word.to_string(),
                 fine,
+            });
+            if out.len() == MAX_OVERLAPS {
+                return out;
             }
-        })
-        .collect()
+        }
+    }
+    out
 }
 
 /// The marks whose two nodes are both still on the canvas.

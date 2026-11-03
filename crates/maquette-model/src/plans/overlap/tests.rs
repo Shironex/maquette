@@ -297,3 +297,43 @@ fn the_auto_layout_switch_is_a_logged_change() {
     assert_eq!(lines[0].summary, "Turned auto layout after agents on");
     assert_eq!(get(dir.path(), &made.id).expect("get").plan.version, 2);
 }
+
+#[test]
+fn a_full_canvas_of_look_alike_cards_stays_quick() {
+    let keys: Vec<String> = (0..300).map(|k| format!("k{k}")).collect();
+    let text = format!("Verb: dash\nLook: rings\nInput: {}", keys.join(", "));
+    let mut plan = PlanFile::new("Systems", PlanPreset::Mechanics);
+    plan.nodes = (0..crate::plans::MAX_NODES)
+        .map(|i| card(&format!("n-{i:04}"), "System", &text))
+        .collect();
+    let started = std::time::Instant::now();
+    let found = overlaps(&plan);
+    assert_eq!(found.len(), MAX_OVERLAPS);
+    assert_eq!(
+        (found[0].a.as_str(), found[0].b.as_str()),
+        ("n-0000", "n-0001")
+    );
+    assert_eq!(found[0].word, "dash");
+    let first = started.elapsed();
+
+    // Only the last two cards share a word: every card is read once.
+    for (i, node) in plan.nodes.iter_mut().enumerate() {
+        node.text = format!(
+            "Verb: v{i}\nLook: l{i}\nInput: {}",
+            keys.join(", ").replace('k', &format!("c{i}x"))
+        );
+    }
+    let last = plan.nodes.len() - 1;
+    plan.nodes[last].text = plan.nodes[last - 1].text.clone();
+    let started = std::time::Instant::now();
+    let found = overlaps(&plan);
+    assert_eq!(found.len(), 3, "verb, look and input");
+    // Generous for a debug build on a slow runner; a release build takes a
+    // small part of it.
+    let limit = std::time::Duration::from_secs(4);
+    assert!(
+        first < limit && started.elapsed() < limit,
+        "took {first:?} and {:?}",
+        started.elapsed()
+    );
+}

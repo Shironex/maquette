@@ -54,4 +54,17 @@ describe('the mock overlap check', () => {
     const edited = nodes.map(n => (n.id === 'n-2' ? { ...n, title: 'Frost veil' } : n));
     expect(overlapsOf({ ...plan, nodes: edited, fine })[0]?.fine).toBe(false);
   });
+
+  it('stops at 500 pairs on a full canvas of look-alike cards', () => {
+    const keys = Array.from({ length: 40 }, (_, k) => `k${k}`).join(', ');
+    const text = `Verb: dash\nLook: rings\nInput: ${keys}`;
+    const nodes = Array.from({ length: 2000 }, (_, i) =>
+      note(`n-${String(i).padStart(4, '0')}`, 0, 0, text, 'System')
+    );
+    const started = performance.now();
+    const found = overlapsOf({ preset: 'mechanics', nodes });
+    expect(found).toHaveLength(500);
+    expect(found[0]).toMatchObject({ a: 'n-0000', b: 'n-0001', word: 'dash' });
+    expect(performance.now() - started).toBeLessThan(4000);
+  });
 });
