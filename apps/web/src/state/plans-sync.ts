@@ -259,7 +259,8 @@ export function createSync(set: SetPlans, get: GetPlans) {
             set({ saveError: REPLACED, dirty: true });
             return;
           }
-          // Nothing unsaved: the canvas there now opens afresh, the camera plan with its panel.
+          // Nothing unsaved: the canvas there now opens afresh (the camera panel reads its view
+          // again as the open canvas changes).
           reset(doc.plan);
           set({
             open: doc,
