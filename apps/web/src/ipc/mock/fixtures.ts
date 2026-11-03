@@ -24,7 +24,7 @@ export function defaultConfig(): WorkspaceConfig {
         blenderHeadlessOnly: true,
         neverCaptureScreen: true,
         askBeforeShipping: true,
-        avatarRigTools: true,
+        toolGroupsOff: [],
       },
     },
     lab: { concurrency: 4, timeoutMinutes: 10 },

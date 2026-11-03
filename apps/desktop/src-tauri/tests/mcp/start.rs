@@ -355,7 +355,7 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
 async fn the_avatar_and_rig_tools_leave_when_the_switch_is_off() {
     let dir = tempfile::tempdir().expect("temp");
     let session = session_in(dir.path(), true, |c| {
-        c.agents.rules.avatar_rig_tools = false
+        c.agents.rules.tool_groups_off = vec!["avatar-rig".to_string()]
     });
     let (client, server, _host) = serve(session).await;
     let names: Vec<String> = client
@@ -381,5 +381,5 @@ fn an_older_workspace_file_keeps_the_avatar_and_rig_tools() {
         "askBeforeShipping": true,
     }))
     .expect("rules");
-    assert!(rules.avatar_rig_tools);
+    assert!(rules.tool_groups_off.is_empty());
 }

@@ -1012,10 +1012,11 @@ export type AgentRules = {
 	neverCaptureScreen: boolean,
 	askBeforeShipping: boolean,
 	/**
-	 *  Whether agents are offered the avatar and rig doctor tools. Files
-	 *  from before this setting leave it out, and keep them.
+	 *  The MCP tool groups agents are not offered, by id. Empty offers every
+	 *  group; the server ignores ids it does not know and the groups that
+	 *  are always on.
 	 */
-	avatarRigTools?: boolean,
+	toolGroupsOff?: string[],
 };
 
 export type AgentSettings = {

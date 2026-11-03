@@ -158,7 +158,7 @@ impl McpTools {
         let offered = host
             .session()
             .workspace()
-            .map_or(true, |(_, config)| config.agents.rules.avatar_rig_tools);
+            .map_or(true, |(_, config)| !config.agents.rules.is_off(AVATAR_RIG));
         if !offered {
             for name in Self::tools_of_group(AVATAR_RIG) {
                 tool_router.remove_route(&name);
