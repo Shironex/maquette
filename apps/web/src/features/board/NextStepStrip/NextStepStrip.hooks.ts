@@ -3,6 +3,7 @@ import { readJson, writeJson } from '@/lib/storage';
 import {
   forgetDismissed,
   nextSteps,
+  projectInbox,
   visibleStep,
   type Dismissal,
   type NextAction,
@@ -33,7 +34,6 @@ export function useNextStepStrip() {
   const setView = useAppStore(s => s.setView);
   const openSettings = useOpenSettings();
   const inboxSnapshot = useInboxStore(s => s.snapshot);
-  const inbox = inboxSnapshot?.items.length ?? 0;
   const openImport = useGameStore(s => s.openImport);
   const jobs = useProvidersStore(s => s.jobs);
   const jobsRead = useProvidersStore(s => s.jobsReadFor === project?.id);
@@ -46,6 +46,9 @@ export function useNextStepStrip() {
   const trouble = blenderTrouble(tools.reports.find(r => r.id === 'blender'));
   // Mounted on the Board, so a Blender put right outside the app clears the strip here too.
   useToolRecheckOnFocus(trouble !== null);
+  const inbox = project
+    ? projectInbox(inboxSnapshot?.items ?? [], project.id, (project.assets ?? []).length > 0)
+    : 0;
   const latest = pipeline?.runs[0];
   const running = Boolean(pipeline?.active);
   const steps = useMemo(

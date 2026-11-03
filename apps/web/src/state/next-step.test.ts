@@ -5,6 +5,7 @@ import {
   forgetDismissed,
   nextStep,
   nextSteps,
+  projectInbox,
   visibleStep,
   type Dismissal,
   type NextFacts,
@@ -243,5 +244,21 @@ describe('a dismissed step', () => {
     const gone = [dismissalOf(trouble)];
     expect(forgetDismissed(gone, nextSteps(facts()))).toEqual([]);
     expect(forgetDismissed(gone, nextSteps(facts(trouble)))).toBe(gone);
+  });
+});
+
+describe('projectInbox', () => {
+  const item = (project: string | null, by: 'link' | 'aim' = 'link') =>
+    ({
+      id: `${project}.glb`,
+      link: by === 'link' && project ? { project } : null,
+      aim: by === 'aim' && project ? { project } : null,
+    }) as never;
+
+  it('counts its own and aimed models, and loose ones only while it has cards', () => {
+    const items = [item('moon'), item('moon', 'aim'), item('cave'), item(null)];
+    expect(projectInbox(items, 'moon', true)).toBe(3);
+    expect(projectInbox(items, 'moon', false)).toBe(2);
+    expect(projectInbox(items, 'empty', false)).toBe(0);
   });
 });
