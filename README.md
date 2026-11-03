@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/showcase/hero.webp" alt="Maquette: the Board, the Lab and the Page view of a sample project, stacked on a warm clay gradient" width="100%" />
+  <img src="assets/showcase/hero.webp" alt="Maquette: the Board, the Lab and a Plan canvas of a sample project, stacked on a warm clay gradient" width="100%" />
 
   <h1>Maquette</h1>
 
@@ -51,7 +51,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/board.webp" alt="Maquette: the Board of the Frostveil sample project, with an asset in every column from Concept to Ship" /></td>
+    <td width="50%"><img src="assets/showcase/board.webp" alt="Maquette: the Board of the Winter Spire sample project, with an asset in every column from Concept to Ship" /></td>
     <td width="50%"><img src="assets/showcase/lab.webp" alt="Maquette: the Lab with six concept images of a frozen lake arena at night, one picked and two starred" /></td>
   </tr>
   <tr>
@@ -119,6 +119,30 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 **Refs by view.** Each ref is tagged front, left, back, right or other on its asset, and every send goes in that order. Codex draws the missing views from the front or cleans a busy background, as candidates you pick from, and Send to 3D warns about small, cropped or cluttered refs, and views that look different from the front, before any credit is spent.
 
 **Libraries across projects.** Finished models live outside every project, with their versions, tags and refs. Using one copies it in and spends nothing; a project with an older copy is offered the update. Animation clips get a library of their own: Mixamo FBX files and pack zips, or a rigged model's clips, kept once and skeleton only.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/plan.webp" alt="Maquette: a Game mechanics planning canvas with six note cards joined by a link, two pairs of cards flagged as overlapping and the Overlaps panel open on the right" /></td>
+    <td width="50%"><img src="assets/showcase/camera-plan.webp" alt="Maquette: the camera plan canvas of a website, five camera stops with their poster renders joined in tour order and the order after Apply listed on the right" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Plan: a Game mechanics canvas, with the cards that share a verb, look or key flagged.</sub></td>
+    <td align="center"><sub>Camera plan: the site tour as stops on a canvas, written to layout.json only after you review the diff.</sub></td>
+  </tr>
+</table>
+
+**Planning canvases.** Each project can hold canvases of notes, pictures, links and live asset and Lab direction nodes, saved as plain files in `plans/`. Presets start a canvas as Brainstorm, Story or Game mechanics. Agents read and write them over MCP, every write lands in a change log you can undo, and they never remove your nodes: they ask with `propose_removal` and you answer. A website's camera plan is a canvas of its stops that reaches `layout.json` only when you press Apply after reviewing the diff.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/tool-groups.webp" alt="Maquette: Settings, Agents, with the MCP tool groups listed with their tool counts and a switch each" /></td>
+    <td width="50%"><img src="assets/showcase/removed-projects.webp" alt="Maquette: the Removed projects dialog listing one project with a Restore button, over the Board, with a notice that the project is in the workspace trash" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Tool groups: turn off the MCP tools an agent never needs.</sub></td>
+    <td align="center"><sub>Removed projects: a removed project waits in the workspace trash until you restore it.</sub></td>
+  </tr>
+</table>
 
 <table>
   <tr>
