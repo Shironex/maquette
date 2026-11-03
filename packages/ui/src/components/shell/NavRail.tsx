@@ -163,11 +163,15 @@ function SubList({ item }: { item: NavRailItem }) {
           sub.current && 'bg-hover text-fg'
         )}
       >
-        <span className="min-w-0 truncate">{sub.label}</span>
+        <span className="min-w-0 truncate">
+          {sub.label}
+          {sub.mark ? <span className="sr-only">, {sub.mark}</span> : null}
+        </span>
         {sub.mark ? (
-          <span className="ml-auto size-[7px] flex-none rounded-full bg-[#9fb4d8]">
-            <span className="sr-only">, {sub.mark}</span>
-          </span>
+          <span
+            aria-hidden="true"
+            className="ml-auto size-[7px] flex-none rounded-full bg-[#9fb4d8]"
+          />
         ) : null}
       </button>
     </li>
