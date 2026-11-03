@@ -13,8 +13,9 @@ afterEach(() => {
   clearMocks();
 });
 
-async function openCamera() {
+async function openCamera(bare = false) {
   const store = await openPlans();
+  if (bare) await store.mock('mock_layout_bare', { project: 'frostveil' });
   await usePlanCameraStore.getState().open('frostveil');
   render(<CameraPanel hidden={false} onClose={() => undefined} />);
   await waitFor(() => expect(usePlanCameraStore.getState().review).not.toBeNull());
@@ -57,6 +58,18 @@ describe('CameraPanel', () => {
     expect(screen.getByRole('button', { name: 'Apply to layout.json' })).toHaveAttribute(
       'aria-disabled',
       'true'
+    );
+  });
+
+  it('says there are no stops yet, and that a new stop has no render until the pipeline makes one', async () => {
+    await openCamera(true);
+    const order = screen.getByRole('region', { name: 'Order after Apply' });
+    expect(order).toHaveTextContent('No stops yet. Add stop puts the first one in the tour');
+    await userEvent.click(screen.getByRole('button', { name: 'Add stop' }));
+    await usePlansStore.getState().save();
+    await usePlanCameraStore.getState().refresh('frostveil');
+    expect(await within(order).findByText(/One stop has no render yet/)).toHaveTextContent(
+      'Capture posters'
     );
   });
 });

@@ -5,7 +5,8 @@
  * stale one is refused), an Apply undone only while the layout is as it
  * left it, and a rebase or start over after the layout changed. The mock
  * only command `mock_layout_outside` changes the layout's stops as the
- * Inspector or an agent's set_layout would, for the stale state.
+ * Inspector or an agent's set_layout would, for the stale state, and
+ * `mock_layout_bare` empties them, for a camera plan with no stops.
  */
 import type {
   CameraBase,
@@ -128,10 +129,12 @@ export function createCameraHandlers(deps: CameraDeps) {
     const main = mainOf(plan);
     return {
       doc: deps.doc(project, ID, plan),
-      posters: POSTERED.map((stop, i) => ({
-        stop,
-        poster: posterPath(deps.projectDir(project), i),
-      })),
+      // Only the stops layout.json still has were rendered.
+      posters: POSTERED.flatMap((stop, i) =>
+        layout.stops.some(s => s.id === stop)
+          ? [{ stop, poster: posterPath(deps.projectDir(project), i) }]
+          : []
+      ),
       main: main?.nodes ?? [],
       problem: main?.problem ?? null,
       lines: chainsOf(plan)
@@ -341,6 +344,12 @@ export function createCameraHandlers(deps: CameraDeps) {
         mark: 'add',
       });
       deps.emit?.({ name: 'plan', project: String(project), id: ID });
+      return null;
+    },
+    // Mock only, for the visual check: layout.json has no stops yet (before the plan is made).
+    mock_layout_bare: ({ project }: Args) => {
+      deps.layout?.save(String(project), { ...layoutOf(project), stops: [] });
+      deps.emit?.({ name: 'layout', project: String(project) });
       return null;
     },
     // Mock only, for the visual check: layout.json's stops change outside the plan.

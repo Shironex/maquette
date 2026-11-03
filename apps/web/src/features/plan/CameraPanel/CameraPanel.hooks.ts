@@ -58,6 +58,8 @@ export function useCameraPanel() {
   const d = review?.diff;
   const same = Boolean(d && d.added + d.removed + d.moved + d.changed === 0);
   const flow = () => usePlansStore.getState();
+  const rendered = new Set((view?.posters ?? []).map(p => p.stop));
+  const stopOf = (id: string) => view?.doc.plan.nodes.find(n => n.id === id)?.stop?.id;
   return {
     view,
     review,
@@ -78,6 +80,8 @@ export function useCameraPanel() {
             ? 'layout.json already has this order and these settings'
             : null,
     canAdd: main.length < MAX_STOPS,
+    /** Stops of the main line with no poster render yet. */
+    unrendered: main.filter(id => !rendered.has(stopOf(id) ?? '')).length,
     addStop: () => {
       const { nodes, edges } = flow();
       const next = withNewStop(nodes, edges, main, clock.nowMs());
