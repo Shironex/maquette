@@ -165,8 +165,12 @@ fn a_blank_canvas_logs_as_before_and_an_agent_names_itself() {
         ProjectTarget::Website,
         None,
     )
-    .expect("blank")
-    .doc;
+    .expect("blank");
+    assert!(
+        blank.entry.is_none(),
+        "a blank canvas answers with no change id: its line undoes nothing"
+    );
+    let blank = blank.doc;
     let line = &log::lines(root, &blank.id, 1).expect("log")[0];
     assert_eq!(line.summary, "Made the canvas Ideas");
     assert!(!line.undoable, "nothing to undo on a blank canvas");
@@ -207,6 +211,43 @@ fn a_seed_whose_line_cannot_be_logged_leaves_no_canvas() {
     let again = create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None)
         .expect("made once the log writes");
     assert_eq!(again.doc.id, "act-1", "the id is free again");
+}
+
+#[test]
+fn a_torn_first_line_is_cleaned_up_so_the_slug_stays_free() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path();
+    super::super::create::TEAR_LOG.with(|f| f.set(true));
+    create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None)
+        .expect_err("refused");
+    assert!(!root.join("plans/act-1.plan.json").exists());
+    assert!(
+        !root.join("plans/act-1.log.jsonl").exists(),
+        "the half line this call wrote goes"
+    );
+    let again =
+        create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None).expect("made");
+    assert_eq!(again.doc.id, "act-1", "not act-1-2: the slug was not spent");
+}
+
+#[test]
+fn a_seeded_canvas_that_cannot_be_taken_back_logs_its_line_to_stay_undoable() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path();
+    // The line fails, then the canvas is held open (Windows) and will not go.
+    super::super::create::FAIL_LOG.with(|f| f.set(true));
+    super::super::create::FAIL_REMOVE.with(|f| f.set(true));
+    let changed = create_seeded(root, "Act 1", PlanPreset::Story, ProjectTarget::Game, None)
+        .expect("the canvas stays with its line");
+    let made = changed.doc;
+    assert_eq!(made.plan.nodes.len(), 8);
+    let lines = log::lines(root, &made.id, 5).expect("log");
+    assert_eq!(lines.len(), 1);
+    let entry_id = changed.entry.expect("line").id;
+    assert_eq!(lines[0].id, entry_id);
+    assert!(lines[0].undoable, "the starters can be undone");
+    let undone = undo(root, &made.id, &[entry_id], None, None).expect("undo");
+    assert!(undone.doc.plan.nodes.is_empty() && undone.doc.plan.edges.is_empty());
 }
 
 /// Every seed as plain data, nodes in card order and links by card index:

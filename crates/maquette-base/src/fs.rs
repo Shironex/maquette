@@ -76,6 +76,28 @@ pub fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
     result
 }
 
+/// `fs::remove_file`, tried a few more times on Windows while the file is
+/// held open (a sync tool, a virus scanner or the search indexer), as
+/// [`rename_retrying`] does. A file already gone counts as removed.
+pub fn remove_retrying(path: &Path) -> io::Result<()> {
+    const WAITS_MS: [u64; 5] = [20, 50, 100, 200, 400];
+    let gone = |result: io::Result<()>| match result {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
+        other => other,
+    };
+    let mut result = gone(fs::remove_file(path));
+    for wait in WAITS_MS {
+        match &result {
+            Err(err) if cfg!(windows) && err.kind() == io::ErrorKind::PermissionDenied => {
+                std::thread::sleep(std::time::Duration::from_millis(wait));
+                result = gone(fs::remove_file(path));
+            }
+            _ => break,
+        }
+    }
+    result
+}
+
 /// The real folder behind `path`, links resolved, in the form the rest of
 /// the app writes paths (no Windows `\\\\?\\` prefix). `path` itself when it
 /// cannot be resolved.
