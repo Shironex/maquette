@@ -1,8 +1,8 @@
 //! The tool groups a person turns off in Settings > Agents: a real client
 //! lists only the groups that are on, a call to an off group's tool is
 //! refused and runs nothing, the core groups stay, an older workspace file's
-//! avatar and rig switch carries over, and a connected client hears when
-//! the list changes.
+//! avatar and rig switch is ignored, and a connected client hears when the
+//! list changes.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -141,11 +141,11 @@ async fn the_core_groups_stay_listed_whatever_the_file_says() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off() {
+async fn an_older_workspace_file_with_the_old_switch_still_opens_and_drops_it() {
     let dir = tempfile::tempdir().expect("temp");
     let root = dir.path().join("ws");
     workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
-    // The file as the version before the groups wrote it.
+    // A file from before the groups, with only the old avatar and rig switch.
     let file = root.join("maquette.json");
     let mut saved: Value =
         serde_json::from_slice(&std::fs::read(&file).expect("read")).expect("json");
@@ -158,28 +158,25 @@ async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off(
     std::fs::write(&file, serde_json::to_vec_pretty(&saved).expect("text")).expect("write");
 
     let config = workspace::open(&root).expect("open");
-    assert_eq!(config.agents.rules.tool_groups_off, vec!["avatar-rig"]);
+    assert!(config.agents.rules.tool_groups_off.is_empty());
     let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
     session.set_workspace(root.clone(), config).expect("set");
-    // A settings save writes the group list and, for one release, the old
-    // switch beside it for a computer that still runs the version before.
     session.update_config(|_| {}).expect("save");
     let text = std::fs::read_to_string(&file).expect("read");
     let saved: Value = serde_json::from_str(&text).expect("json");
-    assert_eq!(
-        saved["agents"]["rules"]["avatarRigTools"],
-        json!(false),
+    assert!(
+        saved["agents"]["rules"].get("avatarRigTools").is_none(),
         "{text}"
     );
     assert_eq!(
         saved["agents"]["rules"]["toolGroupsOff"],
-        json!(["avatar-rig"]),
+        json!([]),
         "{text}"
     );
 
     let (client, server, _host) = serve(session).await;
     let listed = names(&client).await;
-    assert!(!has(&listed, "build_avatar"));
+    assert!(has(&listed, "build_avatar"));
     assert!(has(&listed, "get_started"));
     client.cancel().await.expect("close");
     server.stop();

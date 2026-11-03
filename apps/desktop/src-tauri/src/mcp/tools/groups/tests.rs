@@ -61,8 +61,8 @@ fn the_core_groups_and_unknown_ids_can_never_be_off() {
 }
 
 #[test]
-fn the_avatar_and_rig_group_keeps_the_old_switch_s_tools() {
-    let names = tools_of(maquette_core::workspace::AVATAR_RIG_GROUP);
+fn the_avatar_and_rig_group_holds_the_avatar_and_rig_tools() {
+    let names = tools_of("avatar-rig");
     assert_eq!(names.len(), 7, "{names:?}");
     assert!(names.iter().any(|n| n == "build_avatar"));
     assert!(names.iter().any(|n| n == "run_rig_doctor"));
