@@ -26,6 +26,7 @@
   --scrim: rgba(16,15,13,0.72);
   --clay-line: rgba(196,125,96,0.55);
   --studio: #312f2b;
+  --agent: #9fb4d8;
 }
 
 @theme inline {
@@ -54,6 +55,7 @@
   --color-scrim: var(--scrim);
   --color-clay-line: var(--clay-line);
   --color-studio: var(--studio);
+  --color-agent: var(--agent);
 }
 
 @theme {

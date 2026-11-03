@@ -19,6 +19,12 @@ export const EXTRA_COLORS = [
     value: '#312f2b',
     usage: 'Graphite studio ground behind model renders; Blender thumbnails use the same backdrop.',
   },
+  {
+    name: 'agent',
+    value: '#9fb4d8',
+    usage:
+      "An agent's mark: the ring on its canvas nodes and the dot on a rail entry changed since it was opened. Never text.",
+  },
 ];
 
 /** Raw token name to utility color name. */
