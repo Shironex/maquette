@@ -2,15 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { commands, errorMessage } from '@/ipc/client';
 import { events } from '@/ipc/generated/bindings';
 import { useAppStore } from '@/state/use-app-store';
+import { usePlanExtrasStore } from '@/state/use-plan-extras-store';
 import { usePlanLogStore } from '@/state/use-plan-log-store';
 import { usePlansStore } from '@/state/use-plans-store';
 
-/** Reads the open canvas and its log again when `id` is the one open (null: whichever is), else the list. */
+/** Reads the open canvas, its log and proposals again when `id` is the one open (null: whichever is), else the list. */
 function reread(project: string, id: string | null) {
   const plans = usePlansStore.getState();
   if (plans.open && (id === null || plans.open.id === id)) {
     void plans.reload();
     void usePlanLogStore.getState().load(project, plans.open.id);
+    void usePlanExtrasStore.getState().load(project, plans.open.id);
   } else if (!plans.open && !plans.opening) void plans.loadList(project);
 }
 
@@ -69,8 +71,14 @@ export function usePlanWatch(projectId: string | null) {
   useEffect(() => {
     const project = usePlansStore.getState().project;
     const log = usePlanLogStore.getState();
-    if (project && openId) void log.load(project, openId);
-    else log.clear();
+    const extras = usePlanExtrasStore.getState();
+    if (project && openId) {
+      void log.load(project, openId);
+      void extras.load(project, openId);
+    } else {
+      log.clear();
+      extras.clear();
+    }
   }, [openId]);
 }
 

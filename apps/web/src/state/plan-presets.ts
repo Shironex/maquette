@@ -32,7 +32,7 @@ export const PRESETS: readonly PresetChoice[] = [
     id: 'mechanics',
     name: 'Game mechanics',
     tag: 'For games',
-    blurb: 'One card per system with its verb, look and input.',
+    blurb: 'One card per system with its verb, look and input. I flag overlaps.',
   },
 ];
 
