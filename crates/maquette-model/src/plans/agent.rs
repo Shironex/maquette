@@ -115,6 +115,9 @@ pub struct Done {
     pub placed: u32,
     /// Links left out, and why.
     pub notes: Vec<String>,
+    /// The auto layout line that moved this write's nodes clear, when the
+    /// canvas has "Auto layout after agents" on and any overlapped.
+    pub tidied: Option<Changed>,
 }
 
 fn refuse<T>(message: String) -> CoreResult<T> {
@@ -322,12 +325,14 @@ pub fn add(
         }
         Ok(ops)
     })?;
+    let tidied = tidy::after(project_dir, id, agent, &made);
     Ok(Done {
         changed,
         nodes: made,
         edges,
         placed,
         notes,
+        tidied,
     })
 }
 
@@ -381,12 +386,15 @@ pub fn update(
         }
         Ok(ops)
     })?;
+    let nodes: Vec<String> = edits.iter().map(|e| e.id.clone()).collect();
+    let tidied = tidy::after(project_dir, id, agent, &nodes);
     Ok(Done {
         changed,
-        nodes: edits.iter().map(|e| e.id.clone()).collect(),
+        nodes,
         edges: Vec::new(),
         placed: 0,
         notes: Vec::new(),
+        tidied,
     })
 }
 

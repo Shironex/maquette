@@ -214,6 +214,22 @@ fn layout_moves_only_the_agents_overlapping_nodes() {
     )
     .expect("add");
     assert_eq!(done.placed, 0);
+    // Auto layout after agents is on by default and tidied them at once, as
+    // a line of its own; undo just that to tidy them by hand.
+    let tidied = done
+        .tidied
+        .clone()
+        .and_then(|t| t.entry)
+        .expect("auto layout line");
+    assert_eq!(tidied.summary, "Moved 2 nodes with auto layout");
+    undo(
+        &root,
+        &id,
+        &[tidied.id],
+        Some("Research agent"),
+        Some("Research agent"),
+    )
+    .expect("undo the auto layout");
     assert!(
         layout(&root, &id, &RESEARCH, &["n-porch".into()]).is_err(),
         "not the agent's"
