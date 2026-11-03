@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/check-docs.mjs",
+    "build": "node scripts/sync-release.mjs && astro build && node scripts/check-docs.mjs",
     "preview": "astro preview",
     "typecheck": "astro check",
     "posters": "node scripts/capture-posters.mjs",

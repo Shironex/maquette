@@ -10,7 +10,8 @@
 #            release with the notes from docs/releases/vX.Y.Z.md
 #   publish  waits for a second approval of the `release` environment, so the
 #            draft can be looked at first, verifies the uploaded files again
-#            and publishes the draft
+#            and publishes the draft, then starts the pages workflow so the
+#            landing page's Download card picks up the new release
 #
 # Run by hand (workflow_dispatch) it is a dry run: from a branch it builds
 # unsigned installers and keeps them as workflow artifacts, since the
@@ -238,6 +239,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      # To start the pages workflow after publishing (see the last step).
+      actions: write
     env:
       VERSION: ${{ needs.version.outputs.version }}
       TAG: ${{ github.ref_name }}
@@ -271,3 +274,13 @@ jobs:
           if [ "$PRERELEASE" = true ]; then latest=--latest=false; else latest=--latest; fi
           gh release edit "$TAG" --draft=false "$latest"
           echo "Published: $(gh release view "$TAG" --json url --jq .url)"
+      # A release published with GITHUB_TOKEN fires no `release` event, so the
+      # site is redeployed by starting pages.yml directly (workflow_dispatch is
+      # the one trigger GITHUB_TOKEN may use). The site build then reads the
+      # release that was just published. Failing here does not undo the release.
+      - name: Redeploy the site with the new release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main

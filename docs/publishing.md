@@ -99,13 +99,13 @@ Every workflow lives in `.github/workflows/`, pins each action to a full commit 
 is in a comment next to it, and Dependabot bumps both), and asks for the least permissions it
 needs.
 
-| Workflow        | Runs on                                          | Jobs (check names)                                                                                         |
-| --------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `ci.yml`        | pull requests, pushes to `main`                  | `lint · format`, `typecheck`, `test · web`, `build · site`, `rust · macos-latest`, `rust · windows-latest` |
-| `pr-title.yml`  | pull requests (title and every new commit)       | `pr title`                                                                                                 |
-| `pr-labels.yml` | pull requests                                    | `area labels`, `issue labels`                                                                              |
-| `release.yml`   | pushed `v*` tags, or by hand as a dry run        | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
-| `pages.yml`     | pushes to `main` that touch the site, or by hand | `build · pages`, `deploy · pages`                                                                          |
+| Workflow        | Runs on                                                                      | Jobs (check names)                                                                                         |
+| --------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `ci.yml`        | pull requests, pushes to `main`                                              | `lint · format`, `typecheck`, `test · web`, `build · site`, `rust · macos-latest`, `rust · windows-latest` |
+| `pr-title.yml`  | pull requests (title and every new commit)                                   | `pr title`                                                                                                 |
+| `pr-labels.yml` | pull requests                                                                | `area labels`, `issue labels`                                                                              |
+| `release.yml`   | pushed `v*` tags, or by hand as a dry run                                    | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
+| `pages.yml`     | pushes to `main` that touch the site, a dispatch after `publish`, or by hand | `build · pages`, `deploy · pages`                                                                          |
 
 - **`ci.yml`** is `pnpm gate` split into parallel jobs, uncached and with `cargo test`. The Node jobs run on Linux; the Rust jobs
   (clippy with warnings denied, then `cargo test`) run on macOS and Windows, the systems the app
@@ -283,9 +283,9 @@ The checklist stays for reference; keep it for the next key or repository change
 
    Two places the script does not reach: set `version` in `plugins/maquette/.claude-plugin/plugin.json`
    to the same number (Claude Code only offers new skills to people who installed the plugin when
-   that version changes), and after the release is published update `release` in
-   `apps/site/src/content/copy.ts` (its date and the two installer sizes in bytes) so the landing
-   page's Download section matches the published files.
+   that version changes). The landing page's Download card needs no edit: the pages workflow
+   reads the version, date and installer sizes from the published release (see
+   [CI](#ci)).
 
 2. **Write the notes** in `docs/releases/v0.2.0.md`, starting with `# v0.2.0: short summary`.
 3. **Merge** the PR (for example `build(workspace): release 0.2.0`) once CI is green.
@@ -306,7 +306,10 @@ The checklist stays for reference; keep it for the next key or repository change
 7. **Published.** `publish` waits for a second approval of `release`. Approve it once the draft
    looks right: it downloads the draft's files, verifies the signatures again and publishes the
    release, marked as latest (a `-rc.N` or `-beta.N` version is published as a pre-release, which
-   the updater skips).
+   the updater skips). The last step of `publish` starts `pages.yml`, which rebuilds the landing
+   page from the published release, so its Download card shows the new version, date and sizes
+   without a PR. Check the `pages` run turned green; rerun it by hand if not.
+   A release published by hand in the GitHub UI starts nothing: run Actions > pages > Run workflow on `main`.
 
 If a build fails, fix it on `main`, bump to the next patch version and tag again; never move a
 tag that was pushed. Rerunning the failed jobs of the same run is fine while the release is still

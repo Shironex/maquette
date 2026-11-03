@@ -5,6 +5,13 @@
 # It runs on a push to main that touches the site or what the site imports:
 # the UI kit, the web app's Basis transcoder plugin, the app version in
 # tauri.conf.json, and the toolchain and lockfile. Run it by hand to redeploy.
+#
+# The build reads the version, date and installer sizes of the Download card
+# from the latest published release (apps/site/scripts/sync-release.mjs). The
+# release workflow starts this workflow on main once it has published. There is
+# no `release` trigger on purpose: it would run on the tag ref, which the
+# github-pages environment does not admit (main only), and build the tag's code.
+# A release published by hand in the GitHub UI needs a manual run on main.
 
 name: pages
 
@@ -52,6 +59,9 @@ jobs:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:site
+        env:
+          SITE_RELEASE_SYNC: '1'
+          GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: apps/site/dist
