@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
 import { events } from '@/ipc/generated/bindings';
 import { clearMocks, openPlans } from '@/test/open-plan';
 import { recentCanvases } from './plan-recent';
@@ -26,7 +27,9 @@ async function rail(root = '/mock/workspace') {
   recent().start(root, 'frostveil');
   await vi.waitFor(() => expect(recent().list.length).toBeGreaterThan(0));
   // Planning events reach the rail as the shell wires them.
-  const stop = await events.planChanged.listen(e => recent().onChanged(e.payload.project));
+  const stop = await events.planChanged.listen(e =>
+    recent().onChanged(e.payload.project, e.payload.id)
+  );
   return { store, stop };
 }
 
@@ -81,10 +84,40 @@ describe('the rail recent canvases', () => {
     vi.advanceTimersByTime(1000);
     await store.mock('mock_plan_agent', { project: 'frostveil', id: 'combat-ideas' });
     vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    // The Plan view reads the open canvas again; the rail takes its time from there.
+    const before = recent().list.find(p => p.id === 'combat-ideas')?.edited;
+    await usePlansStore.getState().reload();
     await vi.waitFor(() =>
-      expect(recent().list.find(p => p.id === 'combat-ideas')?.nodes).toBeGreaterThan(6)
+      expect(recent().list.find(p => p.id === 'combat-ideas')?.edited).not.toBe(before)
     );
     expect(shown().find(c => c.id === 'combat-ideas')?.changed).toBe(false);
+    stop();
+  });
+
+  it('reads no list for the open canvas autosaving, and only the one canvas an agent changed', async () => {
+    const { store, stop } = await rail();
+    const list = vi.spyOn(commands, 'planList');
+    const get = vi.spyOn(commands, 'planGet');
+    await recent().open('combat-ideas');
+    get.mockClear();
+    for (let i = 0; i < 3; i += 1) {
+      usePlansStore.getState().addNode('note', { x: 900 + i * 300, y: 900 });
+      await usePlansStore.getState().save();
+      vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    }
+    await vi.waitFor(() =>
+      expect(recent().list.find(p => p.id === 'combat-ideas')?.edited).toBe(
+        usePlansStore.getState().open?.plan.edited
+      )
+    );
+    expect(list).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+    // An agent's write to another canvas the rail knows reads that canvas alone.
+    vi.advanceTimersByTime(1000);
+    await store.mock('mock_plan_agent', { project: 'frostveil', id: 'boss-frost-warden' });
+    vi.advanceTimersByTime(RECENT_REREAD_MS + 10);
+    await vi.waitFor(() => expect(get).toHaveBeenCalledWith('frostveil', 'boss-frost-warden'));
+    expect(list).not.toHaveBeenCalled();
     stop();
   });
 

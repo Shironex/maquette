@@ -289,7 +289,9 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.pageServerChanged.listen(e => onPageServer(e.payload)),
       events.codexUsageUpdate.listen(e => useCodexUsageStore.getState().apply(e.payload)),
       events.imageSettingsChanged.listen(e => onImageSettings(e.payload)),
-      events.planChanged.listen(e => usePlanRecentStore.getState().onChanged(e.payload.project)),
+      events.planChanged.listen(e =>
+        usePlanRecentStore.getState().onChanged(e.payload.project, e.payload.id)
+      ),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
