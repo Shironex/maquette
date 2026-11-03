@@ -139,6 +139,7 @@ export function createCameraHandlers(deps: CameraDeps) {
         .map(({ nodes, agent, problem }) => ({ nodes, agent, problem })),
       stale: JSON.stringify(base) !== JSON.stringify(layout.stops),
       outside: diffStops(base, layout.stops),
+      layoutKey: keyOf(layout),
     };
   };
   const review = (project: unknown): { review: CameraReview; stops: LayoutStop[] } => {
@@ -171,7 +172,14 @@ export function createCameraHandlers(deps: CameraDeps) {
     };
   };
   const rebased = (plan: PlanFile, now: LayoutStop[], mode: 'rebase' | 'start-over') => {
-    const report: RebaseReport = { taken: [], added: [], removed: [], clashes: [], change: null };
+    const report: RebaseReport = {
+      taken: [],
+      added: [],
+      removed: [],
+      clashes: [],
+      change: null,
+      layoutKey: '',
+    };
     const base = plan.camera?.stops ?? [];
     const main = mainOf(plan);
     const head = plan.nodes.find(n => n.id === main?.nodes[0]) ?? { x: 0, y: 0 };
@@ -279,10 +287,18 @@ export function createCameraHandlers(deps: CameraDeps) {
       tell(project);
       return view(project);
     },
-    plan_camera_rebase: ({ project, mode, dry }: Args) => {
+    plan_camera_rebase: ({ project, mode, dry, layoutKey }: Args) => {
       const plan = ensure(project);
+      const layout = layoutOf(project);
+      const key = keyOf(layout);
+      if (!dry && typeof layoutKey === 'string' && layoutKey !== key)
+        fail(
+          'invalid',
+          'layout.json changed since this comparison was shown, so nothing was rebased. Review again to see the changes as they are now.'
+        );
       const how = mode === 'start-over' ? 'start-over' : 'rebase';
-      const { next, report } = rebased(plan, layoutOf(project).stops, how);
+      const { next, report } = rebased(plan, layout.stops, how);
+      report.layoutKey = key;
       if (!dry) {
         const summary =
           how === 'start-over'

@@ -102,7 +102,9 @@ pub struct CameraRebased {
 
 /// Brings the plan up to `layout.json` as it is now (or starts its main
 /// line over from it). With `dry` nothing is written: the report says what
-/// a rebase would take, keep and could not settle.
+/// a rebase would take, keep and could not settle. `layout_key` is the key
+/// of the comparison the person saw; a rebase refuses when `layout.json`
+/// changed since.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn plan_camera_rebase(
@@ -110,9 +112,10 @@ pub fn plan_camera_rebase(
     project: String,
     mode: RebaseMode,
     dry: bool,
+    layout_key: Option<String>,
 ) -> CommandResult<CameraRebased> {
     let dir = website_dir(&session, &project)?;
-    let (_, report) = camera::rebase(&dir, CAMERA_PLAN_ID, mode, dry)?;
+    let (_, report) = camera::rebase(&dir, CAMERA_PLAN_ID, mode, dry, layout_key.as_deref())?;
     Ok(CameraRebased {
         view: plan_camera::view(&dir)?,
         report,

@@ -4,6 +4,7 @@ import { clock } from '@/lib/clock';
 import { clearMocks, openPlans } from '@/test/open-plan';
 import { CAMERA_PLAN_ID, moved } from './plan-camera';
 import { usePlanCameraStore } from './use-plan-camera-store';
+import { useAppStore } from './use-app-store';
 import { usePlanLogStore } from './use-plan-log-store';
 import { usePlansStore } from './use-plans-store';
 
@@ -105,5 +106,24 @@ describe('the camera plan store', () => {
     expect(await camera().rebase('rebase')).toBe(true);
     expect(camera().view?.stale).toBe(false);
     expect(camera().compare).toBeNull();
+  });
+
+  it('refuses a rebase from the panel once layout.json moved past the view shown', async () => {
+    const store = await openCamera();
+    await store.mock('mock_layout_outside', { project: 'frostveil' });
+    await camera().refresh('frostveil');
+    const seen = camera().view!.layoutKey;
+    // layout.json moves again before the person presses Rebase in the panel.
+    await store.mock('mock_layout_outside', { project: 'frostveil' });
+    const notify = vi.spyOn(useAppStore.getState(), 'notify');
+    const sent = vi.spyOn(commands, 'planCameraRebase');
+    expect(await camera().rebase('start-over')).toBe(false);
+    expect(sent).toHaveBeenCalledWith('frostveil', 'start-over', false, seen);
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: expect.stringContaining('Review again') })
+    );
+    // The view reads again, so the next press carries the new key and goes.
+    await vi.waitFor(() => expect(camera().view?.layoutKey).not.toBe(seen));
+    expect(await camera().rebase('start-over')).toBe(true);
   });
 });

@@ -34,6 +34,8 @@ export interface ApplyAsk {
 export interface CompareAsk {
   report: RebaseReport;
   busy: boolean;
+  /** The refusal, when `layout.json` changed again after the comparison was shown. */
+  error: string | null;
 }
 
 interface PlanCameraStore {
@@ -188,8 +190,8 @@ export const usePlanCameraStore = create<PlanCameraStore>((set, get) => ({
     const project = await saved();
     if (!project) return;
     try {
-      const done = await commands.planCameraRebase(project, 'rebase', true);
-      set({ compare: { report: done.report, busy: false }, view: done.view });
+      const done = await commands.planCameraRebase(project, 'rebase', true, null);
+      set({ compare: { report: done.report, busy: false, error: null }, view: done.view });
     } catch (error) {
       failed('The plan could not be compared', error);
     }
@@ -199,12 +201,18 @@ export const usePlanCameraStore = create<PlanCameraStore>((set, get) => ({
     const project = await saved();
     if (!project) return false;
     const ask = get().compare;
-    if (ask) set({ compare: { ...ask, busy: true } });
+    // The layout the person saw, in Compare or the panel: a newer one refuses the rebase.
+    const seen = ask?.report.layoutKey ?? get().view?.layoutKey ?? null;
+    if (ask) set({ compare: { ...ask, busy: true, error: null } });
     try {
-      const done = await commands.planCameraRebase(project, mode, false);
+      const done = await commands.planCameraRebase(project, mode, false, seen);
       set({ view: done.view, compare: null });
     } catch (error) {
-      if (ask) set({ compare: { ...ask, busy: false } });
+      if (ask) {
+        set({ compare: { ...ask, busy: false, error: errorMessage(error) } });
+        return false;
+      }
+      void get().refresh(project);
       failed(
         mode === 'rebase' ? 'The plan was not rebased' : 'The plan was not started over',
         error
