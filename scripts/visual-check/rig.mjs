@@ -8,27 +8,13 @@
  * by the core's Blender tests.
  */
 
+import { assertClear } from './floating.mjs';
+
 async function openCase(open, state, name, viewport = { width: 1440, height: 1000 }) {
   const page = await open(`&scenario=configured&rig=${state}`, '#/inbox', viewport);
   await page.getByRole('button', { name }).first().click();
   await page.getByRole('heading', { name: 'Rig doctor' }).first().waitFor();
   return page;
-}
-
-/** Fails the run when a floating card covers `button`. */
-async function assertClear(page, button, what) {
-  const target = await button.boundingBox();
-  const cards = await page.getByRole('alertdialog').all();
-  for (const card of cards) {
-    const box = await card.boundingBox();
-    if (!target || !box) continue;
-    const apart =
-      box.x >= target.x + target.width ||
-      target.x >= box.x + box.width ||
-      box.y >= target.y + target.height ||
-      target.y >= box.y + box.height;
-    if (!apart) throw new Error(`A floating approval card covers ${what}`);
-  }
 }
 
 /** An agent's two drafts: the open case's card stays home, the other floats above Add. */
