@@ -14,6 +14,7 @@ import {
 } from '@maquette/ui';
 import type { AssetKind } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
+import { useKeepClearOfFloating } from '@/lib/useFloatingClearance';
 import { checkSummary, itemTitle, kindHint, reviewPrompt } from '@/state/inbox';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
@@ -54,6 +55,8 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     redo,
   } = useInboxDetail(item);
   const preview = useInboxPreview(item, project?.id ?? null);
+  // The approval cards float above the action bar, never over Accept.
+  const bar = useKeepClearOfFloating<HTMLDivElement>();
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
     preview;
   const model = useStageReady(url);
@@ -175,7 +178,10 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           </div>
         </aside>
       </div>
-      <div className="flex min-h-16 flex-none flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-line bg-panel py-2 pr-5 pl-6">
+      <div
+        ref={bar}
+        className="flex min-h-16 flex-none flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-line bg-panel py-2 pr-5 pl-6"
+      >
         <div className="flex min-w-[10rem] flex-1 items-center gap-2.5">
           <Icon
             name={passed ? 'check-circle' : 'warning-circle'}

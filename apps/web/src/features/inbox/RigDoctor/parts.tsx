@@ -2,6 +2,7 @@
 import { Icon, WaitLine, cn } from '@maquette/ui';
 import type { ReactNode } from 'react';
 import type { RigDefect, RigRecord, RigStat } from '@/ipc/client';
+import { useKeepClearOfFloating } from '@/lib/useFloatingClearance';
 import { usePastRun, waitCount } from '@/lib/waiting';
 import { isRunning, runStartLine, runWait, stepLines } from '@/state/rig';
 import { runKindOf } from '@/state/use-rig-store';
@@ -183,8 +184,10 @@ export function Footer({
   warning?: string | null;
   children: ReactNode;
 }) {
+  // The approval cards float above this bar, never over its buttons.
+  const bar = useKeepClearOfFloating<HTMLElement>();
   return (
-    <footer className="flex flex-none items-center gap-3 border-t border-line px-5 py-3">
+    <footer ref={bar} className="flex flex-none items-center gap-3 border-t border-line px-5 py-3">
       <Icon
         name={warning ? 'warning' : 'info'}
         size={15}
