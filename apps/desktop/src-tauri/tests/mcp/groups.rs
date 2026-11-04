@@ -1,8 +1,8 @@
 //! The tool groups a person turns off in Settings > Agents: a real client
 //! lists only the groups that are on, a call to an off group's tool is
 //! refused and runs nothing, a success answer's next skips the off tools,
-//! the core groups stay, an older workspace file's avatar and rig switch is
-//! ignored, and a connected client hears when the list changes.
+//! the core groups stay, an older workspace file's avatar and rig switch
+//! folds into the group list and is not written back, and a connected client hears when the list changes.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -164,7 +164,8 @@ async fn the_core_groups_stay_listed_whatever_the_file_says() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_older_workspace_file_with_the_old_switch_still_opens_and_drops_it() {
+async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off_and_drops_the_switch()
+ {
     let dir = tempfile::tempdir().expect("temp");
     let root = dir.path().join("ws");
     workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
@@ -181,7 +182,7 @@ async fn an_older_workspace_file_with_the_old_switch_still_opens_and_drops_it() 
     std::fs::write(&file, serde_json::to_vec_pretty(&saved).expect("text")).expect("write");
 
     let config = workspace::open(&root).expect("open");
-    assert!(config.agents.rules.tool_groups_off.is_empty());
+    assert_eq!(config.agents.rules.tool_groups_off, vec!["avatar-rig"]);
     let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
     session.set_workspace(root.clone(), config).expect("set");
     session.update_config(|_| {}).expect("save");
@@ -193,13 +194,13 @@ async fn an_older_workspace_file_with_the_old_switch_still_opens_and_drops_it() 
     );
     assert_eq!(
         saved["agents"]["rules"]["toolGroupsOff"],
-        json!([]),
+        json!(["avatar-rig"]),
         "{text}"
     );
 
     let (client, server, _host) = serve(session).await;
     let listed = names(&client).await;
-    assert!(has(&listed, "build_avatar"));
+    assert!(!has(&listed, "build_avatar"));
     assert!(has(&listed, "get_started"));
     client.cancel().await.expect("close");
     server.stop();

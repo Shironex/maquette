@@ -1,9 +1,14 @@
 //! The rules agents work under, and the MCP tool groups they are not
-//! offered. Keys this version does not know, such as the single avatar and
-//! rig switch from before the groups, are ignored on read and dropped on
-//! the next save.
+//! offered. Files from before the groups carried one `avatarRigTools`
+//! switch. Reading a file folds a saved `false` into its group; nothing
+//! writes the switch, so the next save drops it.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+const AVATAR_RIG_GROUP: &str = "avatar-rig";
+const SWITCH: &str = "avatarRigTools";
+const LIST: &str = "toolGroupsOff";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -36,6 +41,23 @@ impl AgentRules {
     }
 }
 
+/// Reading: a file with the list uses the list. A file with only the switch
+/// set to false gets the list the switch stood for. The switch is removed
+/// either way.
+pub(super) fn fold_legacy_switch(config: &mut Value) {
+    let Some(rules) = config
+        .get_mut("agents")
+        .and_then(|a| a.get_mut("rules"))
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+    let switch = rules.remove(SWITCH);
+    if !rules.contains_key(LIST) && switch == Some(Value::Bool(false)) {
+        rules.insert(LIST.to_string(), Value::from(vec![AVATAR_RIG_GROUP]));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::{Value, json};
@@ -51,18 +73,32 @@ mod tests {
         if let (Some(rules), Value::Object(extra)) = (rules.as_object_mut(), extra) {
             rules.extend(extra);
         }
-        serde_json::from_value(rules).expect("rules")
+        let mut config = json!({ "agents": { "rules": rules } });
+        fold_legacy_switch(&mut config);
+        serde_json::from_value(config["agents"]["rules"].clone()).expect("rules")
     }
 
     #[test]
-    fn the_old_avatar_switch_is_ignored() {
-        for switch in [false, true] {
-            let rules = read(json!({ "avatarRigTools": switch }));
-            assert!(rules.tool_groups_off.is_empty(), "{switch}");
-        }
+    fn the_old_switch_off_without_a_list_turns_the_avatar_rig_group_off() {
+        let rules = read(json!({ "avatarRigTools": false }));
+        assert_eq!(rules.tool_groups_off, vec!["avatar-rig"]);
+        assert!(rules.is_off("avatar-rig"));
+    }
+
+    #[test]
+    fn the_old_switch_off_keeps_an_existing_list_unchanged() {
         let both = read(json!({ "avatarRigTools": false, "toolGroupsOff": ["game"] }));
         assert_eq!(both.tool_groups_off, vec!["game"]);
         assert!(!both.is_off("avatar-rig"));
+        let empty = read(json!({ "avatarRigTools": false, "toolGroupsOff": [] }));
+        assert!(empty.tool_groups_off.is_empty());
+    }
+
+    #[test]
+    fn the_old_switch_on_or_missing_changes_nothing() {
+        for extra in [json!({ "avatarRigTools": true }), json!({})] {
+            assert!(read(extra).tool_groups_off.is_empty());
+        }
     }
 
     #[test]

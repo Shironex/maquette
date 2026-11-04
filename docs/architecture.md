@@ -263,7 +263,7 @@ the desktop crate links one test binary instead of one per file.
 Tool groups: `tools.rs` tags each router with its group, and `tools/groups.rs` holds the fixed list
 (`GROUPS`: id, title, a short line, and whether it is always on, which `start` and `project` are). A
 test fails when a tool has no group in that list. Every session keeps the whole router; the setting
-(`agents.rules.toolGroupsOff` in `maquette.json`, read through `AgentRules`) is read on each `tools/list`, which leaves the
+(`agents.rules.toolGroupsOff` in `maquette.json`, read through `AgentRules`; on open, an older file's `avatarRigTools: false` with no list folds into `["avatar-rig"]` and the key is never written) is read on each `tools/list`, which leaves the
 off groups out, and on each `tools/call`, which refuses a tool of an off group with code `group-off`
 before anything runs. Answers name no tool of an off group either: `groups::scrub_off_tools` drops an error's `tryTool` and the `next` steps of a success answer that point at one. `Agents::sync` compares the off groups with the last sync after every settings
 save or workspace change and rings `Hub::tools_changed`; `tools/list_changed.rs` forwards that to
