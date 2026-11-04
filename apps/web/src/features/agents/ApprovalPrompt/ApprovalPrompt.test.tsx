@@ -5,12 +5,14 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
+import { useClearanceStore } from '@/lib/useFloatingClearance';
 import { openAgentSession } from '../openAgentSession';
 import { ApprovalPrompt } from '.';
 
 afterEach(() => {
   clearMocks();
   useAgentsStore.setState({ status: null });
+  useClearanceStore.setState({ bars: {} });
 });
 
 describe('the approval prompt', () => {
@@ -64,6 +66,19 @@ describe('the approval prompt', () => {
     const column = container.firstElementChild;
     expect(column).toHaveClass('bottom-11', 'right-5', 'overflow-y-auto');
     expect(column).not.toHaveClass('top-[68px]');
+  });
+
+  it('rises above a view bottom action bar instead of covering its buttons', async () => {
+    await openAgentSession('batch');
+    act(() => useAppStore.setState({ view: 'inbox' }));
+    act(() => useClearanceStore.getState().set('rig-doctor-bar', 110));
+    const { container } = render(<ApprovalPrompt />);
+    const column = container.firstElementChild as HTMLElement;
+    expect(column.style.bottom).toBe('126px');
+    expect(column.style.maxHeight).toBe('calc(100vh - 322px)');
+    act(() => useClearanceStore.getState().set('rig-doctor-bar', null));
+    expect(column.style.bottom).toBe('');
+    expect(column).toHaveClass('bottom-11');
   });
 
   it('renders nothing with no approvals', async () => {

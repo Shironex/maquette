@@ -63,6 +63,28 @@ export default function AssembleSheet() {
       meta={`${a.parts.length} models · one card on the Board`}
       onClose={a.close}
       width={560}
+      footer={
+        <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+          <p className={cn('truncate text-meta', a.blocker ? 'text-amber' : 'text-fg-mute')}>
+            {a.blocker ?? 'Joins headless in Blender. Spends nothing.'}
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="secondary" onClick={a.close}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon="package"
+              loading={a.busy}
+              disabled={Boolean(a.blocker) || a.busy}
+              disabledReason={a.blocker ?? undefined}
+              onClick={a.assemble}
+            >
+              Assemble
+            </Button>
+          </div>
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
         <section className="flex flex-col gap-2.5">
@@ -111,26 +133,6 @@ export default function AssembleSheet() {
             Each part keeps its pivot, so a door on its left hinge swings on its hinge.
           </p>
         </section>
-      </div>
-      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
-        <p className={cn('truncate text-meta', a.blocker ? 'text-amber' : 'text-fg-mute')}>
-          {a.blocker ?? 'Joins headless in Blender. Spends nothing.'}
-        </p>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" onClick={a.close}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            icon="package"
-            loading={a.busy}
-            disabled={Boolean(a.blocker) || a.busy}
-            disabledReason={a.blocker ?? undefined}
-            onClick={a.assemble}
-          >
-            Assemble
-          </Button>
-        </div>
       </div>
     </Sheet>
   );

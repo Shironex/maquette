@@ -1,6 +1,7 @@
 import { Button, cn, Icon, IconButton, InlineBanner } from '@maquette/ui';
 import { ApplyReview } from '../ApplyReview';
 import { CameraCompare } from '../CameraCompare';
+import { useKeepClearOfFloating } from '@/lib/useFloatingClearance';
 import { countsLine, fieldsLine } from '@/state/plan-camera';
 import { useCameraPanel } from './CameraPanel.hooks';
 import { StopEditor } from './StopEditor';
@@ -17,6 +18,8 @@ const placeNote = (from: number | null, to: number | null, added: boolean) =>
  */
 export default function CameraPanel({ onClose, hidden }: { onClose: () => void; hidden: boolean }) {
   const v = useCameraPanel();
+  // The approval cards float above Apply, never over it.
+  const foot = useKeepClearOfFloating<HTMLDivElement>();
   const review = v.review;
   const diff = review?.diff;
   const order = (diff?.stops ?? [])
@@ -149,7 +152,7 @@ export default function CameraPanel({ onClose, hidden }: { onClose: () => void; 
         {v.selected ? <StopEditor key={v.selected} nodeId={v.selected} /> : null}
         {proposals.length ? proposals : null}
       </div>
-      <div className="plan-side-foot flex flex-col gap-2">
+      <div ref={foot} className="plan-side-foot flex flex-col gap-2">
         <p>
           Nothing changes on the site until you press Apply. The old layout.json is kept in
           plans/history, so Undo in Changes puts it back.

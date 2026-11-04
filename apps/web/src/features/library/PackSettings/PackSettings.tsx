@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SheetFooter } from '@/features/common/Sheet';
 import {
   Button,
   Checkbox,
@@ -241,7 +242,7 @@ export default function PackSettings() {
           </p>
         ) : null}
       </div>
-      <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+      <SheetFooter className="flex items-center gap-3 border-t border-line px-5 py-3.5">
         <span className="min-w-0 flex-1 text-meta text-fg-mute">
           {plan?.estimateBytes ? `About ${formatBytes(plan.estimateBytes)} · ` : ''}
           Blender runs each model, then opens the pack again to check it · no credits
@@ -257,7 +258,7 @@ export default function PackSettings() {
         >
           Export and check
         </Button>
-      </div>
+      </SheetFooter>
     </>
   );
 }

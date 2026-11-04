@@ -1,7 +1,21 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
-import { Sheet } from '.';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useClearanceStore, useFloatingLift } from '@/lib/useFloatingClearance';
+import { Sheet, SheetFooter } from '.';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  useClearanceStore.setState({ bars: {} });
+});
+
+/** Lays every element out `fromBottom` px above the window's bottom edge. */
+function layOut(fromBottom: number) {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    top: window.innerHeight - fromBottom,
+    height: 56,
+  } as DOMRect);
+}
 
 function open(dirty: boolean) {
   const onClose = vi.fn();
@@ -67,5 +81,51 @@ describe('the sheet', () => {
     expect(onClose).toHaveBeenCalledOnce();
     rerender(view(false));
     expect(opener).toHaveFocus();
+  });
+
+  it('puts its footer under the body and keeps the floating cards above it', () => {
+    layOut(57);
+    render(
+      <Sheet
+        id="apply"
+        icon="cube"
+        title="Apply the camera plan"
+        onClose={vi.fn()}
+        footer={<button type="button">Apply</button>}
+      >
+        <p>Body</p>
+      </Sheet>
+    );
+    const sheet = screen.getByRole('dialog', { name: 'Apply the camera plan' });
+    const footer = within(sheet).getByRole('button', { name: 'Apply' }).parentElement!;
+    expect(footer).toHaveAttribute('data-sheet-footer');
+    expect(footer.previousElementSibling).toHaveTextContent('Body');
+    expect(Object.values(useClearanceStore.getState().bars)).toEqual([57]);
+    expect(renderHook(() => useFloatingLift()).result.current).toEqual({ bottom: 73 });
+  });
+
+  it('marks a footer deeper in its body, and leaves no mark once closed', () => {
+    layOut(60);
+    const { unmount } = render(
+      <Sheet id="pack" icon="package" title="Export pack" onClose={vi.fn()}>
+        <SheetFooter className="border-t px-5">
+          <button type="button">Export</button>
+        </SheetFooter>
+      </Sheet>
+    );
+    expect(Object.values(useClearanceStore.getState().bars)).toEqual([60]);
+    unmount();
+    expect(useClearanceStore.getState().bars).toEqual({});
+  });
+
+  it('sits above the higher bar when a view bar shows under the sheet too', () => {
+    layOut(57);
+    render(
+      <Sheet id="apply" icon="cube" title="Apply" onClose={vi.fn()} footer="Apply">
+        <p>Body</p>
+      </Sheet>
+    );
+    useClearanceStore.getState().set('rig-doctor-bar', 114);
+    expect(renderHook(() => useFloatingLift()).result.current).toEqual({ bottom: 130 });
   });
 });

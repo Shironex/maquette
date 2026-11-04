@@ -6,7 +6,7 @@ import { Button, Icon, InlineBanner } from '@maquette/ui';
 import { deepEqual } from '@/lib/deepEqual';
 import { SERVICE_LABEL } from '@/state/providers';
 import { HandoffView } from '../HandoffView';
-import { Sheet } from '@/features/common/Sheet';
+import { Sheet, SheetFooter } from '@/features/common/Sheet';
 import { useSendPanel } from './SendPanel.hooks';
 import { SendForm } from './SendForm';
 
@@ -36,11 +36,11 @@ export default function SendPanel() {
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <HandoffView job={handoff} />
           </div>
-          <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <SheetFooter className="flex justify-end gap-2 border-t border-line px-5 py-3">
             <Button variant="primary" onClick={close}>
               Done
             </Button>
-          </div>
+          </SheetFooter>
         </>
       ) : panel.error ? (
         <div className="p-5">

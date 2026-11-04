@@ -7,6 +7,7 @@ import { Icon, IconButton } from '@maquette/ui';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { useSheetDismiss } from './Sheet.hooks';
 import type { SheetProps } from './Sheet.types';
+import SheetFooter from './SheetFooter';
 import { KEYS } from '@/lib/keys';
 
 export default function Sheet({
@@ -18,6 +19,7 @@ export default function Sheet({
   dirty = false,
   width = 520,
   children,
+  footer,
 }: SheetProps) {
   const { sheet, asking, dismiss, keepEditing } = useSheetDismiss(dirty, onClose);
   const titleId = `${id}-title`;
@@ -50,6 +52,7 @@ export default function Sheet({
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={dismiss} />
         </div>
         {children}
+        {footer ? <SheetFooter>{footer}</SheetFooter> : null}
       </div>
       {asking ? (
         <ChoiceDialog

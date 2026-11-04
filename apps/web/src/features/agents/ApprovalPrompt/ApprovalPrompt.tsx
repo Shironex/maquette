@@ -1,3 +1,4 @@
+import { useFloatingLift } from '@/lib/useFloatingClearance';
 import { ApprovalCard, useApprovalStack } from '../ApprovalCard';
 import { useFloatingApprovals } from './ApprovalPrompt.hooks';
 
@@ -8,11 +9,13 @@ import { useFloatingApprovals } from './ApprovalPrompt.hooks';
  * bottom right corner above the status bar: the top right is where the views'
  * header controls are, and a prompt there blocked their clicks. Many
  * prompts fold to what they ask and scroll inside the column, and never reach
- * the header row.
+ * the header row. A view's bottom action bar lifts them above it, so no card
+ * hides its buttons (`useKeepClearOfFloating`).
  */
 export default function ApprovalPrompt() {
   const approvals = useFloatingApprovals();
   const stack = useApprovalStack(approvals);
+  const lift = useFloatingLift(true);
   if (!approvals?.length) return null;
   const cards = approvals.map(a => (
     <ApprovalCard
@@ -27,6 +30,7 @@ export default function ApprovalPrompt() {
   return (
     <div
       ref={stack.column}
+      style={lift}
       className="pointer-events-none fixed right-5 bottom-11 z-40 flex max-h-[calc(100vh-240px)] w-[400px] flex-col gap-2.5 overflow-y-auto"
     >
       {cards}

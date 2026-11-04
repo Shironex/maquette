@@ -3,6 +3,7 @@
  * many are filled, the Other tray, Add refs and Make the other views, and
  * how a send uses the views.
  */
+import { SheetFooter } from '@/features/common/Sheet';
 import { Button, Icon, InlineBanner, cn } from '@maquette/ui';
 import type { AssetRef, RefWarning, RefsView } from '@/ipc/client';
 import { SLOTS, VIEW_LABEL, viewsLine, warningsFor } from '@/state/refs';
@@ -158,7 +159,7 @@ export default function RefsBody({ view, warnings, onSend }: RefsBodyProps) {
           </span>
         </section>
       </div>
-      <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+      <SheetFooter className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">{body.footer}</span>
         <Button variant="secondary" onClick={body.close}>
           Done
@@ -166,7 +167,7 @@ export default function RefsBody({ view, warnings, onSend }: RefsBodyProps) {
         <Button variant="primary" icon="cube" disabled={!front} onClick={onSend}>
           Send to 3D
         </Button>
-      </div>
+      </SheetFooter>
     </>
   );
 }

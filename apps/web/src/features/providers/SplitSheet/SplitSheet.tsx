@@ -3,7 +3,7 @@ import type { SplitSource } from '@/ipc/client';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { CostEstimate } from '../CostEstimate';
 import { SectionTitle } from '../SectionTitle';
-import { Sheet } from '@/features/common/Sheet';
+import { Sheet, SheetFooter } from '@/features/common/Sheet';
 import { formatK } from '@/lib/format';
 import { PROVIDER_LABEL } from '@/state/providers';
 import { SPLIT_WAYS, sourceLabel, type SplitWay } from '@/state/split';
@@ -72,7 +72,7 @@ export default function SplitSheet() {
         </section>
         {source ? <WayFields s={s} source={source} /> : null}
       </div>
-      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <SheetFooter className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         <p
           className={cn('truncate text-meta', s.blocker ? 'text-amber' : 'text-fg-mute')}
           title={s.blocker ?? s.summary}
@@ -100,7 +100,7 @@ export default function SplitSheet() {
             {s.way === 'blender' ? 'Split in Blender' : `Split with ${PROVIDER_LABEL[s.way]}`}
           </Button>
         </div>
-      </div>
+      </SheetFooter>
       {s.confirm.open && s.way !== 'blender' ? (
         <ChoiceDialog
           title={`Split ${name} with ${PROVIDER_LABEL[s.way]}?`}

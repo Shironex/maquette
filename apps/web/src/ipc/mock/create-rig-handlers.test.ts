@@ -87,4 +87,16 @@ describe('createRigHandlers', () => {
     rig.deny('approval-rig-1');
     expect(rig.approvals()).toEqual([]);
   });
+
+  it('seeds two drafts an agent left, each waiting on its own card', () => {
+    const rig = createRigHandlers('agent-fixed', 0, () => undefined);
+    const cases = rig.handlers.rig_list() as RigRecord[];
+    expect(cases.map(c => [c.id, c.state, c.startedBy])).toEqual([
+      ['spiked-hound-v1', 'fixed', 'agent'],
+      ['duchess-vesperine-v1', 'fixed', 'agent'],
+    ]);
+    expect(rig.approvals().map(a => a.job)).toEqual(['spiked-hound-v1', 'duchess-vesperine-v1']);
+    rig.deny('approval-rig-1');
+    expect(rig.approvals().map(a => a.job)).toEqual(['duchess-vesperine-v1']);
+  });
 });

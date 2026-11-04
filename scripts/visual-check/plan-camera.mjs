@@ -12,13 +12,13 @@
 
 const SMALL = { width: 1120, height: 720 };
 
-const mock = (page, cmd, args) =>
+export const mock = (page, cmd, args) =>
   page.evaluate(([c, a]) => window.__TAURI_INTERNALS__.invoke(c, a), [cmd, args]);
 
-const FROSTVEIL = { project: 'frostveil' };
+export const FROSTVEIL = { project: 'frostveil' };
 
-async function openCamera(open, viewport) {
-  const page = await open('&scenario=configured&plans=demo', '#/plan', viewport);
+export async function openCamera(open, viewport, extra = '') {
+  const page = await open(`&scenario=configured&plans=demo${extra}`, '#/plan', viewport);
   await page.getByRole('region', { name: 'Pinned' }).waitFor();
   await page.getByRole('region', { name: 'Pinned' }).getByRole('button').click();
   await page.getByRole('main', { name: 'Camera plan canvas' }).waitFor();
@@ -28,7 +28,7 @@ async function openCamera(open, viewport) {
 }
 
 /** The proposal taken as the main line, then Apply's review open. */
-async function review(page) {
+export async function review(page) {
   await mock(page, 'mock_camera_agent', FROSTVEIL);
   await page.getByRole('group', { name: 'Proposal by Camera agent' }).waitFor();
   await page.waitForTimeout(500);

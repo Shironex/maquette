@@ -78,6 +78,30 @@ export default function TurntableSheet({ source, assetId, name }: TurntableSheet
       meta={`One full turn in ${look}, rendered headless, saved to the project exports`}
       onClose={t.close}
       width={940}
+      footer={
+        <div className="flex items-center gap-2 border-t border-line px-4 py-3">
+          <span className="flex flex-1 items-center gap-1.5 text-meta text-fg-mute">
+            <Icon name="clock" size={13} />
+            Headless Blender · no credits
+            {lastRun ? ` · ${lastRun}` : ''}
+          </span>
+          <Button variant="ghost" onClick={t.close}>
+            Cancel
+          </Button>
+          <Button icon="stack" onClick={t.addToBatch}>
+            Add to batch
+          </Button>
+          <Button
+            variant="primary"
+            icon="arrows-clockwise"
+            disabled={t.needsFfmpeg}
+            disabledReason="ffmpeg is not found"
+            onClick={t.render}
+          >
+            Render turntable
+          </Button>
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -234,28 +258,6 @@ export default function TurntableSheet({ source, assetId, name }: TurntableSheet
             </p>
           </div>
         </aside>
-      </div>
-      <div className="flex items-center gap-2 border-t border-line px-4 py-3">
-        <span className="flex flex-1 items-center gap-1.5 text-meta text-fg-mute">
-          <Icon name="clock" size={13} />
-          Headless Blender · no credits
-          {lastRun ? ` · ${lastRun}` : ''}
-        </span>
-        <Button variant="ghost" onClick={t.close}>
-          Cancel
-        </Button>
-        <Button icon="stack" onClick={t.addToBatch}>
-          Add to batch
-        </Button>
-        <Button
-          variant="primary"
-          icon="arrows-clockwise"
-          disabled={t.needsFfmpeg}
-          disabledReason="ffmpeg is not found"
-          onClick={t.render}
-        >
-          Render turntable
-        </Button>
       </div>
     </Sheet>
   );
