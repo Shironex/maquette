@@ -1,4 +1,5 @@
 import { Button, ProgressBar } from '@maquette/ui';
+import { SheetFooter } from '@/features/common/Sheet';
 import type { AddManyProgress, AddManyResult } from '@/state/use-add-many-store';
 
 export interface AddManyFooterProps {
@@ -88,5 +89,9 @@ export default function AddManyFooter(p: AddManyFooterProps) {
       </>
     );
   }
-  return <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">{body}</div>;
+  return (
+    <SheetFooter className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+      {body}
+    </SheetFooter>
+  );
 }

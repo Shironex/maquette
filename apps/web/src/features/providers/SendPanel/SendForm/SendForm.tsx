@@ -1,4 +1,5 @@
 import { Button, Icon, InlineBanner, SegmentedControl, Tooltip, cn } from '@maquette/ui';
+import { SheetFooter } from '@/features/common/Sheet';
 import type { SendOptions } from '@/ipc/client';
 import {
   MAX_IMAGES,
@@ -206,7 +207,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
         {earlier.length > 0 ? <EarlierSends jobs={earlier} /> : null}
       </div>
 
-      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <SheetFooter className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         <p
           className={cn('truncate text-meta', blocker ? 'text-amber' : 'text-fg-mute')}
           title={blocker ?? summary}
@@ -240,7 +241,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
             {label}
           </Button>
         </div>
-      </div>
+      </SheetFooter>
     </>
   );
 }

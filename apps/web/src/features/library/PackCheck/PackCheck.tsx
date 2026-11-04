@@ -1,4 +1,5 @@
 import { Button, ProgressBar, Tabs } from '@maquette/ui';
+import { SheetFooter } from '@/features/common/Sheet';
 import type { PackRecord } from '@/ipc/client';
 import BulkAnswers from './BulkAnswers';
 import NeedsYouCard from './NeedsYouCard';
@@ -146,7 +147,9 @@ export default function PackCheck({ record }: PackCheckProps) {
           </p>
         </aside>
       </div>
-      <div className="flex items-center gap-2 border-t border-line px-5 py-3.5">{footer}</div>
+      <SheetFooter className="flex items-center gap-2 border-t border-line px-5 py-3.5">
+        {footer}
+      </SheetFooter>
     </>
   );
 }

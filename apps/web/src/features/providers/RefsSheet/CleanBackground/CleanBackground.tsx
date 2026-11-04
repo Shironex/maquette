@@ -3,6 +3,7 @@
  * the clutter cleared, shown before and after. Using the copy puts it in
  * the ref's place with its view; the original moves to refs/originals.
  */
+import { SheetFooter } from '@/features/common/Sheet';
 import { Button, Checkbox, CompareSlider, Icon, SegmentedControl } from '@maquette/ui';
 import type { RefsView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
@@ -82,7 +83,7 @@ export default function CleanBackground({ view, file }: CleanBackgroundProps) {
           </p>
         </section>
       </div>
-      <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+      <SheetFooter className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">1 Codex image, like the Lab</span>
         <Button variant="secondary" onClick={c.keepOriginal}>
           Keep the original
@@ -114,7 +115,7 @@ export default function CleanBackground({ view, file }: CleanBackgroundProps) {
             Clean background
           </Button>
         )}
-      </div>
+      </SheetFooter>
     </>
   );
 }

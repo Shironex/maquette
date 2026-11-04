@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SheetFooter } from '@/features/common/Sheet';
 import { Button, Icon } from '@maquette/ui';
 import type { PackRecord } from '@/ipc/client';
 import { shortPath } from '@/lib/format';
@@ -144,7 +145,7 @@ export default function PackDone({ record }: PackDoneProps) {
           </p>
         </Block>
       </div>
-      <div className="flex items-center gap-2 border-t border-line px-5 py-3.5">
+      <SheetFooter className="flex items-center gap-2 border-t border-line px-5 py-3.5">
         <span
           className="min-w-0 flex-1 truncate font-mono text-meta text-fg-dim"
           title={record.zip ?? record.dir}
@@ -152,7 +153,7 @@ export default function PackDone({ record }: PackDoneProps) {
           {record.zip ?? record.dir}
         </span>
         <Button onClick={d.again}>Another pack</Button>
-      </div>
+      </SheetFooter>
     </>
   );
 }

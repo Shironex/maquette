@@ -5,6 +5,7 @@
  * come back per view; "Use as Left" puts one in its slot, and "Replace Left"
  * moves the ref that held it to refs/originals.
  */
+import { SheetFooter } from '@/features/common/Sheet';
 import { Button, Checkbox, Icon, SegmentedControl, TextArea, Toggle } from '@maquette/ui';
 import type { RefsView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
@@ -131,7 +132,7 @@ export default function OtherViews({ view }: OtherViewsProps) {
           ) : null}
         </section>
       </div>
-      <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+      <SheetFooter className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">{o.cost}</span>
         <Button variant="secondary" onClick={o.back}>
           Back to the refs
@@ -147,7 +148,7 @@ export default function OtherViews({ view }: OtherViewsProps) {
         >
           {o.drawLabel}
         </Button>
-      </div>
+      </SheetFooter>
     </>
   );
 }

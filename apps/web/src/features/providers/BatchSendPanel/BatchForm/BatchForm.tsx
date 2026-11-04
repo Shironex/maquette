@@ -1,4 +1,5 @@
 import { Button, HelpMark, Icon, InlineBanner, SegmentedControl, Tooltip, cn } from '@maquette/ui';
+import { SheetFooter } from '@/features/common/Sheet';
 import {
   batchLabel,
   isCustom,
@@ -285,7 +286,7 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
         </section>
       </div>
 
-      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <SheetFooter className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         {asking ? (
           <div
             role="alert"
@@ -337,7 +338,7 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
             {confirming && api ? `Yes, send ${n}` : batchLabel(draft)}
           </Button>
         </div>
-      </div>
+      </SheetFooter>
     </>
   );
 }
