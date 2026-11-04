@@ -125,6 +125,30 @@ function TemplatesSheet({ project, busy, onClose }: GameTemplatesProps & { onClo
       meta="Export settings only"
       width={820}
       onClose={onClose}
+      footer={
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={t.saving}
+            disabled={!t.preview?.changes || busy}
+            disabledReason={
+              busy
+                ? 'Wait for the run to finish'
+                : t.preview
+                  ? 'This game already has these settings'
+                  : t.reading
+                    ? 'Still reading this game'
+                    : 'Pick a template first'
+            }
+            onClick={() => void t.apply()}
+          >
+            Apply template
+          </Button>
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1">
         <div className="w-[300px] flex-none overflow-auto border-r border-line px-4 py-4">
@@ -149,28 +173,6 @@ function TemplatesSheet({ project, busy, onClose }: GameTemplatesProps & { onClo
             </p>
           )}
         </div>
-      </div>
-      <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-        <Button variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          loading={t.saving}
-          disabled={!t.preview?.changes || busy}
-          disabledReason={
-            busy
-              ? 'Wait for the run to finish'
-              : t.preview
-                ? 'This game already has these settings'
-                : t.reading
-                  ? 'Still reading this game'
-                  : 'Pick a template first'
-          }
-          onClick={() => void t.apply()}
-        >
-          Apply template
-        </Button>
       </div>
     </Sheet>
   );

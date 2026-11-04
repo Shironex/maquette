@@ -52,6 +52,20 @@ export default function ApplyReview() {
       meta={countsLine(diff)}
       width={600}
       onClose={v.close}
+      footer={
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
+          <Button onClick={v.close}>Cancel</Button>
+          <Button
+            variant="primary"
+            loading={v.applying}
+            disabled={v.off !== null}
+            disabledReason={v.off ?? undefined}
+            onClick={v.apply}
+          >
+            Apply
+          </Button>
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
         {v.error ? (
@@ -94,18 +108,6 @@ export default function ApplyReview() {
           a stop it removes. The old file is kept in plans/history, and Undo on the Apply line in
           Changes puts it back while nothing changed it since.
         </p>
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
-        <Button onClick={v.close}>Cancel</Button>
-        <Button
-          variant="primary"
-          loading={v.applying}
-          disabled={v.off !== null}
-          disabledReason={v.off ?? undefined}
-          onClick={v.apply}
-        >
-          Apply
-        </Button>
       </div>
     </Sheet>
   );

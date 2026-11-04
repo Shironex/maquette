@@ -98,6 +98,40 @@ export default function RenderSheet() {
       meta={s.from}
       onClose={s.close}
       width={1000}
+      footer={
+        <div className="flex items-center gap-2 border-t border-line px-4 py-3">
+          <span className="flex-1 text-meta text-fg-mute">
+            Renders run one at a time beside the pipeline. You can close this; the status bar keeps
+            count.
+          </span>
+          {going ? (
+            <Button icon="pause" onClick={() => void s.stop()}>
+              Pause
+            </Button>
+          ) : null}
+          {stopped ? (
+            <Button icon="play" onClick={() => void s.resume()}>
+              Go on
+            </Button>
+          ) : null}
+          {s.record ? (
+            <Button icon="folder" onClick={() => void s.reveal()}>
+              Open the exports folder
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              icon="image"
+              loading={s.busy}
+              disabled={s.fileCount === 0}
+              disabledReason="Pick at least one style for one asset"
+              onClick={() => void s.start()}
+            >
+              Render {s.fileCount} {s.fileCount === 1 ? 'file' : 'files'}
+            </Button>
+          )}
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -174,38 +208,6 @@ export default function RenderSheet() {
           {leftOut}
           {problems}
         </aside>
-      </div>
-      <div className="flex items-center gap-2 border-t border-line px-4 py-3">
-        <span className="flex-1 text-meta text-fg-mute">
-          Renders run one at a time beside the pipeline. You can close this; the status bar keeps
-          count.
-        </span>
-        {going ? (
-          <Button icon="pause" onClick={() => void s.stop()}>
-            Pause
-          </Button>
-        ) : null}
-        {stopped ? (
-          <Button icon="play" onClick={() => void s.resume()}>
-            Go on
-          </Button>
-        ) : null}
-        {s.record ? (
-          <Button icon="folder" onClick={() => void s.reveal()}>
-            Open the exports folder
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            icon="image"
-            loading={s.busy}
-            disabled={s.fileCount === 0}
-            disabledReason="Pick at least one style for one asset"
-            onClick={() => void s.start()}
-          >
-            Render {s.fileCount} {s.fileCount === 1 ? 'file' : 'files'}
-          </Button>
-        )}
       </div>
     </Sheet>
   );

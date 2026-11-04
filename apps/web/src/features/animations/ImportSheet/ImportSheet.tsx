@@ -53,6 +53,27 @@ export default function ImportSheet() {
       meta="Mixamo FBX files or a whole pack zip. Nothing is added until you import."
       onClose={s.close}
       width={560}
+      footer={
+        <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+          <span className="min-w-0 flex-1 text-meta text-fg-mute">
+            <b className="text-[15px] font-semibold text-fg">{s.addLine}</b> to add
+            {s.totals?.leftOut ? ` · ${s.totals.leftOut} left out` : ''}
+          </span>
+          <Button onClick={s.close}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon="download-simple"
+            disabled={s.add === 0 || sheet.reading || s.busy}
+            disabledReason={
+              sheet.reading ? 'Still reading the files' : 'Add files with clips first'
+            }
+            loading={s.busy}
+            onClick={s.run}
+          >
+            {s.importLabel}
+          </Button>
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
         <div className="flex items-center gap-3">
@@ -110,23 +131,6 @@ export default function ImportSheet() {
           title="Mixamo license."
           detail={s.dir ? `${LICENSE} Clips go to ${s.dir}.` : LICENSE}
         />
-      </div>
-      <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-        <span className="min-w-0 flex-1 text-meta text-fg-mute">
-          <b className="text-[15px] font-semibold text-fg">{s.addLine}</b> to add
-          {s.totals?.leftOut ? ` · ${s.totals.leftOut} left out` : ''}
-        </span>
-        <Button onClick={s.close}>Cancel</Button>
-        <Button
-          variant="primary"
-          icon="download-simple"
-          disabled={s.add === 0 || sheet.reading || s.busy}
-          disabledReason={sheet.reading ? 'Still reading the files' : 'Add files with clips first'}
-          loading={s.busy}
-          onClick={s.run}
-        >
-          {s.importLabel}
-        </Button>
       </div>
     </Sheet>
   );

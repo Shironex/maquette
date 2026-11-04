@@ -70,6 +70,31 @@ export default function SaveClipsSheet() {
       title="Save clips to the library"
       meta={v.meta}
       onClose={v.close}
+      footer={
+        <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+          <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
+            <b className="text-[15px] font-semibold text-fg">{v.clips}</b> to{' '}
+            {sheet.pack || 'a pack'}
+          </span>
+          <Button onClick={v.close}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon="books"
+            disabled={!plan || v.count === 0 || !sheet.pack.trim() || v.busy}
+            disabledReason={
+              !plan
+                ? 'Still reading the model'
+                : v.count === 0
+                  ? 'Pick a clip first'
+                  : 'Name the pack'
+            }
+            loading={v.busy}
+            onClick={v.run}
+          >
+            Save {v.clips}
+          </Button>
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
         {sheet.error ? (
@@ -118,28 +143,6 @@ export default function SaveClipsSheet() {
             />
           </>
         ) : null}
-      </div>
-      <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-        <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
-          <b className="text-[15px] font-semibold text-fg">{v.clips}</b> to {sheet.pack || 'a pack'}
-        </span>
-        <Button onClick={v.close}>Cancel</Button>
-        <Button
-          variant="primary"
-          icon="books"
-          disabled={!plan || v.count === 0 || !sheet.pack.trim() || v.busy}
-          disabledReason={
-            !plan
-              ? 'Still reading the model'
-              : v.count === 0
-                ? 'Pick a clip first'
-                : 'Name the pack'
-          }
-          loading={v.busy}
-          onClick={v.run}
-        >
-          Save {v.clips}
-        </Button>
       </div>
     </Sheet>
   );

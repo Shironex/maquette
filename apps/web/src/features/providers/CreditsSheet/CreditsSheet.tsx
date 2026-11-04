@@ -101,6 +101,27 @@ export default function CreditsSheet() {
       meta="Paid sends of this workspace, kept in credits.jsonl"
       onClose={close}
       width={720}
+      footer={
+        <div className="flex items-center gap-2 border-t border-line px-5 py-3">
+          <span className="mr-auto text-meta text-fg-mute">
+            {ledger?.skipped
+              ? `${ledger.skipped} ${ledger.skipped === 1 ? 'line' : 'lines'} of the ledger could not be read and ${ledger.skipped === 1 ? 'is' : 'are'} left out.`
+              : `${spends.length} ${spends.length === 1 ? 'send' : 'sends'}`}
+          </span>
+          <Button
+            icon="download-simple"
+            disabled={spends.length === 0}
+            disabledReason="Nothing to save for this filter"
+            tooltip="Saves the sends listed here as a spreadsheet file"
+            onClick={() => void exportCsv()}
+          >
+            Export CSV
+          </Button>
+          <Button variant="primary" onClick={close}>
+            Done
+          </Button>
+        </div>
+      }
     >
       <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
         <section className="flex flex-col gap-2.5">
@@ -190,25 +211,6 @@ export default function CreditsSheet() {
             </p>
           ) : null}
         </section>
-      </div>
-      <div className="flex items-center gap-2 border-t border-line px-5 py-3">
-        <span className="mr-auto text-meta text-fg-mute">
-          {ledger?.skipped
-            ? `${ledger.skipped} ${ledger.skipped === 1 ? 'line' : 'lines'} of the ledger could not be read and ${ledger.skipped === 1 ? 'is' : 'are'} left out.`
-            : `${spends.length} ${spends.length === 1 ? 'send' : 'sends'}`}
-        </span>
-        <Button
-          icon="download-simple"
-          disabled={spends.length === 0}
-          disabledReason="Nothing to save for this filter"
-          tooltip="Saves the sends listed here as a spreadsheet file"
-          onClick={() => void exportCsv()}
-        >
-          Export CSV
-        </Button>
-        <Button variant="primary" onClick={close}>
-          Done
-        </Button>
       </div>
     </Sheet>
   );

@@ -41,6 +41,25 @@ export default function CameraCompare() {
       meta={v.outside ? countsLine(v.outside) : undefined}
       width={560}
       onClose={v.close}
+      footer={
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
+          <Button onClick={v.close}>Cancel</Button>
+          {v.error ? (
+            <Button variant="primary" icon="arrow-clockwise" onClick={v.reviewAgain}>
+              Review again
+            </Button>
+          ) : (
+            <>
+              <Button variant="danger" disabled={v.busy} onClick={v.startOver}>
+                Start over
+              </Button>
+              <Button variant="primary" loading={v.busy} onClick={v.rebase}>
+                Rebase
+              </Button>
+            </>
+          )}
+        </div>
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
         <section aria-label="What changed in layout.json">
@@ -64,23 +83,6 @@ export default function CameraCompare() {
           main line with the stops in layout.json now; proposals and stops you set aside stay.
           Either is one change you can undo in Changes.
         </p>
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
-        <Button onClick={v.close}>Cancel</Button>
-        {v.error ? (
-          <Button variant="primary" icon="arrow-clockwise" onClick={v.reviewAgain}>
-            Review again
-          </Button>
-        ) : (
-          <>
-            <Button variant="danger" disabled={v.busy} onClick={v.startOver}>
-              Start over
-            </Button>
-            <Button variant="primary" loading={v.busy} onClick={v.rebase}>
-              Rebase
-            </Button>
-          </>
-        )}
       </div>
     </Sheet>
   );

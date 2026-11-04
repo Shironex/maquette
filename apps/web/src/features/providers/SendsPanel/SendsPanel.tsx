@@ -21,6 +21,13 @@ export default function SendsPanel() {
       meta={meta}
       onClose={close}
       width={600}
+      footer={
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <Button variant="primary" onClick={close}>
+            Done
+          </Button>
+        </div>
+      }
     >
       {showTabs ? (
         <Tabs
@@ -34,11 +41,6 @@ export default function SendsPanel() {
         />
       ) : null}
       {tab === 'hand' ? <HandoffChecklist /> : <ProviderQueue onClose={close} />}
-      <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-        <Button variant="primary" onClick={close}>
-          Done
-        </Button>
-      </div>
     </Sheet>
   );
 }
