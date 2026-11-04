@@ -34,6 +34,7 @@ const SEEDS: Record<string, () => RigRecord> = {
   compare: () => fixedCase('duchess-vesperine-v1', 'Duchess Vesperine'),
   creature: creatureCase,
   'creature-fixed': creatureFixedCase,
+  'agent-fixed': creatureFixedCase,
   refused: refusedCase,
   stopped: stoppedCase,
   'no-change': noChangeCase,
@@ -67,14 +68,57 @@ const startOver = (c: RigRecord): RigRecord => ({
   error: null,
 });
 
+/** The card an agent's finished draft raises, as the hub words it. */
+function rigAsk(id: string, job: string, name: string, asset: string): Approval {
+  return {
+    id,
+    kind: 'rig-doctor',
+    project: 'frostveil',
+    runId: null,
+    runNumber: null,
+    step: null,
+    job,
+    assetName: `${name} v2`,
+    service: null,
+    detail: 'The rig doctor fixed 2 defects. Only joints and weights changed.',
+    items: [],
+    requestedAtMs: clock.nowMs(),
+    estimate: null,
+    conceptJobs: [],
+    estimateUsd: null,
+    asset,
+    version: 1,
+    sheets: {
+      before: `~/Maquette/cache/rig/${job}/before/sheet.svg`,
+      after: `~/Maquette/cache/rig/${job}/after/sheet.svg`,
+    },
+  };
+}
+
+const houndAsk = () => rigAsk(RIG_APPROVAL, 'spiked-hound-v1', 'Spiked hound', 'spiked-hound');
+const duchessAsk = () =>
+  rigAsk('approval-rig-2', 'duchess-vesperine-v1', 'Duchess Vesperine', 'duchess-vesperine');
+
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 export function createRigHandlers(state: string | null, pace: number, emit: RigContext['emit']) {
   const ctx: RigContext = { state, pace, emit };
   const cases = new Map<string, RigRecord>();
-  let denied = false;
+  const denied = new Set<string>();
   const seed = ctx.state ? SEEDS[ctx.state]?.() : undefined;
   if (seed) cases.set(seed.id, seed);
+  // Two drafts an agent left: the hound's and the duchess's, each with its card.
+  if (ctx.state === 'agent-fixed') {
+    const duchess = fixedCase('duchess-vesperine-v1', 'Duchess Vesperine');
+    duchess.startedBy = 'agent';
+    duchess.source = {
+      ...duchess.source,
+      project: 'frostveil',
+      asset: 'duchess-vesperine',
+      version: 1,
+    };
+    cases.set(duchess.id, duchess);
+  }
 
   const put = (record: RigRecord): RigRecord => {
     cases.set(record.id, record);
@@ -131,36 +175,13 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
 
   return {
     /** What an agent's case waits for: an approval per case it started. */
-    approvals: (): Approval[] =>
-      ctx.state === 'creature' && !denied
-        ? [
-            {
-              id: RIG_APPROVAL,
-              kind: 'rig-doctor',
-              project: 'frostveil',
-              runId: null,
-              runNumber: null,
-              step: null,
-              job: 'spiked-hound-v1',
-              assetName: 'Spiked hound v2',
-              service: null,
-              detail: 'The rig doctor fixed 2 defects. Only joints and weights changed.',
-              items: [],
-              requestedAtMs: clock.nowMs(),
-              estimate: null,
-              conceptJobs: [],
-              estimateUsd: null,
-              asset: 'spiked-hound',
-              version: 1,
-              sheets: {
-                before: '~/Maquette/cache/rig/spiked-hound-v1/before/sheet.svg',
-                after: '~/Maquette/cache/rig/spiked-hound-v1/after/sheet.svg',
-              },
-            },
-          ]
-        : [],
+    approvals: (): Approval[] => {
+      if (ctx.state === 'creature') return denied.has(RIG_APPROVAL) ? [] : [houndAsk()];
+      if (ctx.state !== 'agent-fixed') return [];
+      return [houndAsk(), duchessAsk()].filter(a => !denied.has(a.id));
+    },
     deny: (id: string) => {
-      if (id === RIG_APPROVAL) denied = true;
+      denied.add(id);
     },
     handlers: {
       rig_list: () => [...cases.values()].map(c => structuredClone(c)),
