@@ -61,8 +61,8 @@ fn the_core_groups_and_unknown_ids_can_never_be_off() {
 }
 
 #[test]
-fn the_avatar_and_rig_group_keeps_the_old_switch_s_tools() {
-    let names = tools_of(maquette_core::workspace::AVATAR_RIG_GROUP);
+fn the_avatar_and_rig_group_holds_the_avatar_and_rig_tools() {
+    let names = tools_of("avatar-rig");
     assert_eq!(names.len(), 7, "{names:?}");
     assert!(names.iter().any(|n| n == "build_avatar"));
     assert!(names.iter().any(|n| n == "run_rig_doctor"));
@@ -109,4 +109,55 @@ fn the_off_line_is_short_and_only_there_when_a_group_is_off() {
         "{line}"
     );
     assert!(line.len() < 200, "{line}");
+}
+
+fn answer(body: &serde_json::Value, is_error: bool) -> rmcp::model::CallToolResponse {
+    let content = vec![rmcp::model::ContentBlock::text(
+        serde_json::to_string_pretty(body).expect("text"),
+    )];
+    if is_error {
+        rmcp::model::CallToolResult::error(content).into()
+    } else {
+        rmcp::model::CallToolResult::success(content).into()
+    }
+}
+
+fn body_of(response: rmcp::model::CallToolResponse) -> serde_json::Value {
+    let rmcp::model::CallToolResponse::Complete(result) = response else {
+        panic!("a complete answer");
+    };
+    let Some(rmcp::model::ContentBlock::Text(t)) = result.content.first() else {
+        panic!("a text block");
+    };
+    serde_json::from_str(&t.text).expect("json")
+}
+
+#[test]
+fn a_success_answer_s_next_leaves_out_the_tools_of_a_group_that_is_off() {
+    let body = serde_json::json!({
+        "project": "moon-island",
+        "next": [
+            { "tool": "start_concepts", "why": "Make concept images." },
+            { "tool": "add_built_asset", "why": "Or a Blender script." },
+            { "person": true, "why": "Save a key in Settings." },
+        ],
+    });
+    let off = off_in(&config_off(&["lab"]));
+    let scrubbed = body_of(scrub_off_tools(Ok(answer(&body, false)), &off).expect("ok"));
+    let tools: Vec<&str> = scrubbed["next"]
+        .as_array()
+        .expect("next")
+        .iter()
+        .filter_map(|s| s["tool"].as_str())
+        .collect();
+    assert_eq!(tools, ["add_built_asset"]);
+    assert_eq!(scrubbed["next"].as_array().map(Vec::len), Some(2));
+    assert_eq!(scrubbed["project"], "moon-island");
+
+    // Every group on, or no step in an off group: the answer is untouched.
+    let all_on = body_of(scrub_off_tools(Ok(answer(&body, false)), &[]).expect("ok"));
+    assert_eq!(all_on, body);
+    let other = off_in(&config_off(&["game"]));
+    let kept = body_of(scrub_off_tools(Ok(answer(&body, false)), &other).expect("ok"));
+    assert_eq!(kept, body);
 }

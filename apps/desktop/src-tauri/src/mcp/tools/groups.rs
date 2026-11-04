@@ -255,26 +255,53 @@ pub(super) fn with_off_line(
     answer
 }
 
-/// An error answer without a `tryTool` that names a tool of a group that is off.
-pub(super) fn scrub_off_try_tool(
+/// Whether `tool` is in one of the `off` groups.
+pub(super) fn is_off_tool(tool: &str, off: &[&'static ToolGroup]) -> bool {
+    of_tool(tool).is_some_and(|g| off.contains(&g))
+}
+
+/// A `next` list without the steps that name a tool of a group that is
+/// off: that tool would only answer `group-off`. Steps for a person stay.
+pub(super) fn retain_on_steps(steps: &mut Vec<serde_json::Value>, off: &[&'static ToolGroup]) {
+    steps.retain(|s| s["tool"].as_str().is_none_or(|t| !is_off_tool(t, off)));
+}
+
+/// An answer that names no tool of a group that is off: an error loses its
+/// `tryTool`, a success its `next` steps that point at such a tool.
+pub(super) fn scrub_off_tools(
     mut result: Result<rmcp::model::CallToolResponse, rmcp::ErrorData>,
     off: &[&'static ToolGroup],
 ) -> Result<rmcp::model::CallToolResponse, rmcp::ErrorData> {
     if off.is_empty() {
         return result;
     }
-    if let Ok(rmcp::model::CallToolResponse::Complete(answer)) = &mut result
-        && answer.is_error == Some(true)
-    {
+    if let Ok(rmcp::model::CallToolResponse::Complete(answer)) = &mut result {
+        let is_error = answer.is_error == Some(true);
         for block in &mut answer.content {
             if let rmcp::model::ContentBlock::Text(t) = block
                 && let Ok(body) = serde_json::from_str::<serde_json::Value>(&t.text)
             {
-                t.text = super::errors::without_off_tool(body, off).to_string();
+                if is_error {
+                    t.text = super::errors::without_off_tool(body, off).to_string();
+                } else if let Some(text) = without_off_next(body, off) {
+                    t.text = text;
+                }
             }
         }
     }
     result
+}
+
+/// A success body's text with its `next` scrubbed, or None when it named no
+/// tool of a group that is off, so the answer stays as it was written.
+fn without_off_next(mut body: serde_json::Value, off: &[&'static ToolGroup]) -> Option<String> {
+    let steps = body.get_mut("next")?.as_array_mut()?;
+    let before = steps.len();
+    retain_on_steps(steps, off);
+    if steps.len() == before {
+        return None;
+    }
+    Some(serde_json::to_string_pretty(&body).unwrap_or_else(|_| body.to_string()))
 }
 
 /// A tools/list answer, with the cache hints rmcp's own list gives.

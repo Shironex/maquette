@@ -108,6 +108,15 @@ fn saved_ids(path: &Path) -> Vec<String> {
         .collect()
 }
 
+/// How long a test waits on a thread before it fails instead of hanging.
+const WAIT: Duration = Duration::from_secs(5);
+
+/// Waits for one message, panicking with what never came after `WAIT`.
+fn wait<T>(rx: &mpsc::Receiver<T>, what: &str) -> T {
+    rx.recv_timeout(WAIT)
+        .unwrap_or_else(|err| panic!("timed out after {WAIT:?} waiting for {what}: {err}"))
+}
+
 #[test]
 fn closing_while_a_job_saves_keeps_its_saved_send() {
     let root = tempfile::tempdir().expect("dir");
@@ -119,7 +128,7 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
     let (release, release_rx) = mpsc::channel::<()>();
     *jobs.shared.before_save.lock().expect("hook") = Some(Box::new(move || {
         changed_tx.send(()).expect("changed");
-        release_rx.recv().expect("released");
+        wait(&release_rx, "the test to release the parked save");
     }));
     let saving = {
         let shared = Arc::clone(&jobs.shared);
@@ -130,7 +139,7 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
             })
         })
     };
-    changed.recv().expect("the save changed the job");
+    wait(&changed, "the save to change the job");
 
     // close() runs on another thread while the save is parked.
     let (started_tx, started) = mpsc::channel();
@@ -143,7 +152,7 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
             done_tx.send(()).expect("done");
         })
     };
-    started.recv().expect("close started");
+    wait(&started, "close() to start");
     let finished_early = done.recv_timeout(Duration::from_millis(200)).is_ok();
     release.send(()).expect("release");
     saving.join().expect("save thread").expect("saved");
@@ -177,7 +186,7 @@ fn a_saved_change_is_on_disk_before_anyone_reads_it() {
     let (release, release_rx) = mpsc::channel::<()>();
     *jobs.shared.before_save.lock().expect("hook") = Some(Box::new(move || {
         changed_tx.send(()).expect("changed");
-        release_rx.recv().expect("released");
+        wait(&release_rx, "the test to release the parked save");
     }));
     let saving = {
         let shared = Arc::clone(&jobs.shared);
@@ -188,7 +197,7 @@ fn a_saved_change_is_on_disk_before_anyone_reads_it() {
             })
         })
     };
-    changed.recv().expect("the save changed the job");
+    wait(&changed, "the save to change the job");
 
     // A reader while the save is parked, as a finished job is read and
     // another open of the workspace then loads the file.
@@ -206,7 +215,7 @@ fn a_saved_change_is_on_disk_before_anyone_reads_it() {
     release.send(()).expect("release");
     saving.join().expect("save thread").expect("saved");
     reader.join().expect("reader");
-    let (message, saved) = early.unwrap_or_else(|_| read.recv().expect("read"));
+    let (message, saved) = early.unwrap_or_else(|_| wait(&read, "the reader's result"));
 
     assert_eq!(message.as_deref(), Some("on disk first"));
     assert!(

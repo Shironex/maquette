@@ -1,8 +1,8 @@
 //! The tool groups a person turns off in Settings > Agents: a real client
 //! lists only the groups that are on, a call to an off group's tool is
-//! refused and runs nothing, the core groups stay, an older workspace file's
-//! avatar and rig switch carries over, and a connected client hears when
-//! the list changes.
+//! refused and runs nothing, a success answer's next skips the off tools,
+//! the core groups stay, an older workspace file's avatar and rig switch
+//! folds into the group list and is not written back, and a connected client hears when the list changes.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -117,6 +117,29 @@ async fn an_off_group_leaves_the_list_and_its_tools_run_nothing() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_success_answer_s_next_skips_the_tools_of_an_off_group() {
+    let dir = tempfile::tempdir().expect("temp");
+    let session = session_in(dir.path(), true, off(&["lab"]));
+    let (client, server, _host) = serve(session).await;
+    call(
+        &client,
+        "create_project",
+        json!({ "name": "Moon island", "kind": "website" }),
+    )
+    .await;
+    let listed = call(&client, "list_assets", json!({ "project": "moon-island" })).await;
+    let tools: Vec<&str> = listed["next"]
+        .as_array()
+        .expect("next")
+        .iter()
+        .filter_map(|s| s["tool"].as_str())
+        .collect();
+    assert_eq!(tools, ["add_built_asset"], "{listed}");
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn the_core_groups_stay_listed_whatever_the_file_says() {
     let dir = tempfile::tempdir().expect("temp");
     let session = session_in(dir.path(), true, off(&["start", "project", "nope"]));
@@ -141,11 +164,12 @@ async fn the_core_groups_stay_listed_whatever_the_file_says() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off() {
+async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off_and_drops_the_switch()
+ {
     let dir = tempfile::tempdir().expect("temp");
     let root = dir.path().join("ws");
     workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
-    // The file as the version before the groups wrote it.
+    // A file from before the groups, with only the old avatar and rig switch.
     let file = root.join("maquette.json");
     let mut saved: Value =
         serde_json::from_slice(&std::fs::read(&file).expect("read")).expect("json");
@@ -161,14 +185,11 @@ async fn an_older_workspace_file_with_the_switch_off_keeps_the_avatar_tools_off(
     assert_eq!(config.agents.rules.tool_groups_off, vec!["avatar-rig"]);
     let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
     session.set_workspace(root.clone(), config).expect("set");
-    // A settings save writes the group list and, for one release, the old
-    // switch beside it for a computer that still runs the version before.
     session.update_config(|_| {}).expect("save");
     let text = std::fs::read_to_string(&file).expect("read");
     let saved: Value = serde_json::from_str(&text).expect("json");
-    assert_eq!(
-        saved["agents"]["rules"]["avatarRigTools"],
-        json!(false),
+    assert!(
+        saved["agents"]["rules"].get("avatarRigTools").is_none(),
         "{text}"
     );
     assert_eq!(

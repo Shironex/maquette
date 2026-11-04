@@ -3,6 +3,11 @@ import { fileUrl } from '@/ipc/files';
 import { lineOf, placesOf } from '@/state/plan-camera';
 import { usePlanCameraStore } from '@/state/use-plan-camera-store';
 
+/** Where a proposal stop sits against its place in the main line. */
+function movedNote(from: number, at: number): string {
+  return from === at ? `still stop ${from}` : `moved from stop ${from}`;
+}
+
 /**
  * What a stop node shows beside its stop: its place in the main line, or
  * the proposal it belongs to and the place the stop has in the main line
@@ -21,7 +26,8 @@ export function useStopBody(node: PlanNode) {
   else if (line && !line.main && stop && view) {
     const doc = view.doc.plan.nodes;
     const was = view.main.findIndex(id => doc.find(n => n.id === id)?.stop?.id === stop.id);
-    note = was >= 0 ? `was stop ${was + 1}` : 'new angle';
+    const at = line.nodes.indexOf(node.id) + 1;
+    note = was < 0 ? 'new angle' : movedNote(was + 1, at);
   }
   const at = line ? line.nodes.indexOf(node.id) + 1 : 0;
   return {

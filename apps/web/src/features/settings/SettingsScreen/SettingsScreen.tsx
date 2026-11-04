@@ -69,6 +69,7 @@ export default function SettingsScreen() {
       <main className="flex min-h-0 flex-1">
         <SectionNav active={active} onSelect={go} />
         <div className="min-w-0 flex-1 overflow-y-auto px-6 py-[18px]">
+          {/* The nav's order down the left column and on down the right, with the open project's panel on top of the right; the split keeps both columns near one height. */}
           <div className="grid grid-cols-1 items-start gap-3.5 min-[1280px]:grid-cols-2">
             <div className="flex flex-col gap-3.5">
               <WorkspaceSection active={active === 'workspace'} config={draft} />
@@ -89,9 +90,6 @@ export default function SettingsScreen() {
                 <BlenderMissing className="mx-4 mb-2" />
                 <ToolList density="compact" />
               </section>
-              <ProjectSection active={active === 'project'} />
-            </div>
-            <div className="flex flex-col gap-3.5">
               <Panel
                 id="settings-providers"
                 title="3D providers"
@@ -115,6 +113,9 @@ export default function SettingsScreen() {
                 config={draft}
                 onChange={c => setDraft(c)}
               />
+            </div>
+            <div className="flex flex-col gap-3.5">
+              <ProjectSection active={active === 'project'} />
               <Panel
                 id="settings-budgets"
                 title="Budgets and compression"

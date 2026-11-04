@@ -20,7 +20,7 @@ pub mod lock;
 mod register;
 pub mod sync;
 
-pub use agent_rules::{AVATAR_RIG_GROUP, AgentRules};
+pub use agent_rules::AgentRules;
 pub use avatar::AvatarDefaults;
 pub use lab::{LAB_MAX_CONCURRENCY, LabSettings};
 pub use register::register;
@@ -295,11 +295,12 @@ pub fn open(root: &Path) -> CoreResult<WorkspaceConfig> {
     Ok(config)
 }
 
-/// Files from before the tool groups kept one `avatarRigTools` switch; its
-/// meaning moves into `toolGroupsOff` unless the file already has the list.
+/// Files from before the tool groups kept one `avatarRigTools` switch. A
+/// saved `false` becomes `toolGroupsOff: ["avatar-rig"]` unless the file
+/// already has the list. Nothing writes the switch any more.
 fn fold_legacy_avatar_switch(text: &str) -> Result<String, serde_json::Error> {
     let mut root: serde_json::Value = serde_json::from_str(text)?;
-    agent_rules::read_legacy_switch(&mut root);
+    agent_rules::fold_legacy_switch(&mut root);
     serde_json::to_string(&root)
 }
 
@@ -372,13 +373,7 @@ fn ensure_layout(root: &Path, layout: &FolderLayout) -> CoreResult<()> {
 /// Validates, then writes pretty JSON atomically.
 pub fn save(root: &Path, config: &WorkspaceConfig) -> CoreResult<()> {
     validate(config)?;
-    let path = root.join(CONFIG_FILE);
-    // For one release the old avatar and rig switch is written beside the
-    // group list, for a computer synced to this workspace that still runs
-    // the version before the groups.
-    let mut value = serde_json::to_value(config).map_err(|e| CoreError::json(&path, e))?;
-    agent_rules::write_legacy_switch(&mut value, &config.agents.rules);
-    write_json(&path, &value)
+    write_json(&root.join(CONFIG_FILE), config)
 }
 
 /// True when `name` is one plain folder name, safe to join onto a root.
