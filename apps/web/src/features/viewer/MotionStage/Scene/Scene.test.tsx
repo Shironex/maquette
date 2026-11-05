@@ -111,6 +111,18 @@ describe('the motion scene', () => {
     expect(result.current.line).toBeNull();
   });
 
+  it('plays a clip found by its name at a share of it', async () => {
+    const model = await loaded();
+    const hips = model.scene.getObjectByName('hips')!;
+    const { rerender } = renderHook(
+      ({ share }) => useClip(model, { clip: 'Walk loop', time: { share }, trail: false }, null),
+      { initialProps: { share: 0.25 } }
+    );
+    expect(hips.position.z).toBeCloseTo(0.5);
+    rerender({ share: 0.75 });
+    expect(hips.position.z).toBeCloseTo(1.5);
+  });
+
   it('grows the framing along the walk', () => {
     const framing = {
       box: new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 2, 0.5)),

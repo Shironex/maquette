@@ -107,7 +107,13 @@ export function useClip(
   framing: Framing | null
 ): { line: THREE.Line | null; target: THREE.Vector3 | null } {
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
-  const animation = loaded && clip !== null ? (loaded.clips[clip] ?? null) : null;
+  const animation = !loaded
+    ? null
+    : typeof clip === 'string'
+      ? (loaded.clips.find(c => c.name === clip) ?? null)
+      : clip !== null
+        ? (loaded.clips[clip] ?? null)
+        : null;
   const player = useMemo(
     () => (loaded && animation ? clipPlayer(loaded.scene, animation) : null),
     [loaded, animation]
@@ -139,9 +145,10 @@ export function useClip(
     },
     [line]
   );
+  const at = typeof time === 'number' ? time : time.share * (animation?.duration ?? 0);
   useEffect(() => {
-    player?.seek(time);
-  }, [player, time, points]);
+    player?.seek(at);
+  }, [player, at, points]);
   return { line, target: framed?.target ?? null };
 }
 

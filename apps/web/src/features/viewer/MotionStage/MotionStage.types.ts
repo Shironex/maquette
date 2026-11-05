@@ -3,10 +3,13 @@ import type { PartOffset } from '../motion-pose';
 export interface MotionStageProps {
   /** A URL the web view can fetch: the asset protocol, or a mock file. */
   url: string | null;
-  /** The clip to play, by its place among the file's animations; none holds the rest pose. */
-  clip: number | null;
-  /** Seconds into the clip. */
-  time: number;
+  /**
+   * The clip to play, by its place among the file's animations or by its
+   * name; none (or a name the file lacks) holds the rest pose.
+   */
+  clip: number | string | null;
+  /** Seconds into the clip, or how far into it as a share of its length. */
+  time: number | { share: number };
   skeleton: boolean;
   /** The path the root walks over the clip, dashed on the floor. */
   trail: boolean;
