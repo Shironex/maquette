@@ -337,6 +337,31 @@ fn a_prop_removed_after_the_fill_reads_open_and_never_blocks_a_change() {
     assert!(restored.warnings.is_empty());
     assert_eq!(restored.recipe.layers.len(), 2);
 
+    let mut point = lantern();
+    point.id = "spot".into();
+    point.kind = BlankKind::Point;
+    point.point = Some([0.0, 1.0, 0.5]);
+    let mut open = lantern();
+    open.prop = None;
+    let resent = update(
+        dir.path(),
+        &gone,
+        &id,
+        RecipeChange {
+            blanks: Some(vec![open, point]),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("blanks sent with the gone prop's blank open go through");
+    assert_eq!(resent.recipe.blanks.len(), 2);
+    assert!(!resent.recipe.blanks[0].filled(), "it still reads open");
+    let kept = get(dir.path(), &lantern_project(), &id).expect("kept");
+    assert_eq!(
+        kept.recipe.blanks[0].prop.as_deref(),
+        Some("lantern"),
+        "sending a blank that only read open keeps its prop"
+    );
+
     let refused = update(
         dir.path(),
         &gone,

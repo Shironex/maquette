@@ -12,9 +12,9 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
-    check_name, check_props, dir, is_recipe_id, load_file, normalized, path, settle_props,
-    validate,
+    BlankKind, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank, RecipeFile,
+    RecipeLayer, check_name, check_props, dir, is_recipe_id, load_file, normalized, path,
+    settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -261,13 +261,34 @@ fn with_ids(layers: Vec<RecipeLayer>) -> Vec<RecipeLayer> {
         .collect()
 }
 
+/// Puts back the stored prop of each prop blank sent open whose prop the
+/// project no longer has: it read as open, so sending it open again is not
+/// a choice to empty it, and restoring the asset fills it again.
+fn keep_stale_props(next: &mut RecipeFile, current: &RecipeFile, manifest: &ProjectManifest) {
+    for blank in &mut next.blanks {
+        if blank.kind != BlankKind::Prop || blank.prop.is_some() {
+            continue;
+        }
+        let stale = current
+            .blanks
+            .iter()
+            .find(|b| b.id == blank.id && b.kind == BlankKind::Prop)
+            .and_then(|b| b.prop.as_ref())
+            .filter(|p| !manifest.assets.iter().any(|a| &a.id == *p));
+        if let Some(prop) = stale {
+            blank.prop = Some(prop.clone());
+        }
+    }
+}
+
 /// Replaces the name, the changes, the blanks or any of them of the recipe
 /// `id`, as the file holds it now, in one write after checking the whole
 /// result. Blanks sent must name assets of `manifest`'s project. When the
 /// blanks are kept, they stay in the file as they are: a prop blank naming
 /// an asset the project no longer has keeps its prop, so restoring the
 /// asset fills it again, and only the answer reads it as open, with a
-/// warning, as [`get`] does.
+/// warning, as [`get`] does. A prop blank sent open whose stored prop is
+/// such a gone asset keeps it too, since it only read as open.
 /// `edited` moves only when something changed; the revision never does.
 ///
 /// # Errors
@@ -301,6 +322,7 @@ pub fn update(
     validate(&next)?;
     if sent_blanks {
         check_props(&next, manifest)?;
+        keep_stale_props(&mut next, &current, manifest);
     }
     if next != current {
         next.edited = now_rfc3339();
