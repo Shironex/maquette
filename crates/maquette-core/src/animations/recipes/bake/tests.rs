@@ -884,3 +884,26 @@ fn each_run_bakes_in_a_folder_of_its_own() {
     assert_ne!(first, second, "a new run takes a new folder");
     assert!(!first[0].exists(), "the earlier run's folder is cleared");
 }
+
+#[test]
+fn a_bake_reads_as_out_of_date_once_its_base_clip_gets_other_keys() {
+    let p = reaching();
+    let (bakes, _) = self::bakes(false);
+    bakes
+        .start(
+            p.root(),
+            &p.config,
+            Toolbox::default(),
+            &p.request(),
+            RecipeBakeStarter::Person,
+        )
+        .expect("start");
+    let done = settled(&bakes, &p);
+    assert_eq!(done.stale, None, "{:?}", done.error);
+    let base = done.result.as_ref().expect("result").base_clip.clone();
+    let mut clip = crate::animations::load(p.root(), &base).expect("clip");
+    clip.hash = "imported-again".into();
+    store(p.root(), &clip).expect("store");
+    let stale = settled(&bakes, &p).stale.expect("stale");
+    assert!(stale.contains("other keys"), "{stale}");
+}
