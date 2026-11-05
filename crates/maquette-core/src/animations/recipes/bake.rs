@@ -14,19 +14,22 @@
 //! the cache, which neither the clip library nor an export pack reads, and
 //! adding a model file refuses it there. It also carries a mark in its own
 //! GLB (`asset.extras`), which packs and Save clips to the library honour
-//! wherever the file ends up.
+//! while the file keeps it; accepting a marked file records the bake on the
+//! asset, which outlives the mark (see `crate::recipes::baked`).
 
 use serde::{Deserialize, Serialize};
 
 mod job;
-mod mark;
 mod result;
 mod service;
 mod stale;
 
+pub use crate::recipes::baked::{
+    MARK_KEY, RecipeBakeMark, RecipeBakeUse, mark_of, marked_mixamo, took_mixamo, write_mark,
+};
 pub use job::{Prepared, open_blanks, prepare};
-pub use mark::{MARK_KEY, RecipeBakeMark, mark_of, marked_mixamo, write_mark};
 pub use result::GAP_LIMIT_CM;
+pub use result::mark_for;
 pub use service::{RecipeBakes, record_of};
 pub use stale::{RECIPE_CHANGED, stale_of};
 

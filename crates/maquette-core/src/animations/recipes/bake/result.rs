@@ -126,3 +126,14 @@ pub(crate) fn result_of(
         warnings: prepared.warnings.clone(),
     }
 }
+
+/// The mark a finished bake writes into its staged model.
+pub fn mark_for(result: &RecipeBakeResult) -> crate::recipes::baked::RecipeBakeMark {
+    crate::recipes::baked::RecipeBakeMark {
+        recipe: result.recipe.clone(),
+        recipe_version: result.recipe_version.clone(),
+        base_clip: result.base_clip.clone(),
+        clip: result.clip.clone(),
+        mixamo: result.mixamo,
+    }
+}

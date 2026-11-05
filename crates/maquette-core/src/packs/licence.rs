@@ -7,9 +7,10 @@
 //! and the manifest say so. A clip counts as Mixamo's when the model baked
 //! a library clip read from a Mixamo rig, or when the model's own rig uses
 //! Mixamo's bone names and it did not come from Tripo (Tripo's rigs use
-//! those names for clips Tripo made), or when its file carries the mark of
-//! a recipe bake that counts as Mixamo's. That errs on the side of leaving
-//! a clip out.
+//! those names for clips Tripo made), or when a recipe bake of a Mixamo clip
+//! came into it (by the mark in its file, or the record accepting a marked
+//! file left in `recipe-bakes.json`). That errs on the side of leaving a clip
+//! out.
 
 use std::path::Path;
 
@@ -68,13 +69,17 @@ pub fn may_be_mixamo(
 /// Whether the model at `file` holds a recipe bake of a Mixamo clip, by the
 /// mark the bake wrote into it.
 pub fn marked_mixamo(file: &Path) -> bool {
-    crate::animations::recipes::bake::marked_mixamo(file)
+    crate::recipes::baked::marked_mixamo(file)
 }
 
-/// Whether the asset baked a library clip that came from a Mixamo rig, by
-/// the project's `animations.json`. A clip no longer in the library counts
+/// Whether the asset baked a library clip that came from a Mixamo rig, or
+/// took in a recipe bake of a Mixamo clip, by the project's
+/// `animations.json` and `recipe-bakes.json`. A clip no longer in the library counts
 /// as Mixamo's, so a doubt leaves it out.
 pub fn baked_mixamo(root: &Path, project_dir: &Path, asset: &str) -> bool {
+    if crate::recipes::baked::took_mixamo(project_dir, asset) {
+        return true;
+    }
     let Ok(record) = uses::of_asset(project_dir, asset) else {
         return false;
     };

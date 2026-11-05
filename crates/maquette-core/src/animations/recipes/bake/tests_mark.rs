@@ -55,3 +55,52 @@ fn a_mixamo_bake_is_left_out_of_packs_and_never_saved_to_the_library() {
     let free = plan(root.path(), &config, &from, false, &[]).expect("plan");
     assert_eq!(free.clips[0].from_library, None);
 }
+
+#[test]
+fn an_accepted_mixamo_bake_stays_flagged_after_a_blender_round_trip_drops_its_mark() {
+    let p = super::tests::project_with(humanoid());
+    let (root, config) = (p.root(), &p.config);
+    assert!(!licence::baked_mixamo(root, &p.dir, "elsheria"));
+
+    // A staged bake copied out of the cache and dropped into the inbox.
+    let inbox = crate::inbox::inbox_dir(root, config);
+    fs::create_dir_all(&inbox).expect("inbox");
+    let dropped = inbox.join("baked.glb");
+    fs::write(&dropped, humanoid()).expect("model");
+    write_mark(&dropped, &mark(true)).expect("mark");
+    let accepted = crate::inbox::accept(
+        root,
+        config,
+        &crate::inbox::AcceptRequest {
+            item: "baked.glb".into(),
+            project: p.id.clone(),
+            asset: Some("elsheria".into()),
+            name: None,
+            prep: None,
+        },
+    )
+    .expect("accept");
+    assert_eq!(accepted.version.version, 2);
+    let bakes = crate::recipes::baked::of_asset(&p.dir, "elsheria").expect("bakes");
+    assert_eq!(bakes.len(), 1);
+    assert_eq!((bakes[0].version, bakes[0].mixamo), (2, true));
+
+    // A Blender step writes the next version without the mark.
+    fs::write(p.dir.join("models/elsheria_v3.glb"), humanoid()).expect("v3");
+    crate::project::modify(root, &config.layout, &p.id, |m| {
+        crate::assets::add_version(m, "elsheria", "models/elsheria_v3.glb".into(), None).map(|_| ())
+    })
+    .expect("v3");
+    assert_eq!(mark_of(&p.dir.join("models/elsheria_v3.glb")), None);
+
+    // Still Mixamo's for packs, and Save clips still skips its clip.
+    assert!(licence::baked_mixamo(root, &p.dir, "elsheria"));
+    let from = ClipsFrom {
+        project: Some(p.id.clone()),
+        asset: Some("elsheria".into()),
+        inbox: None,
+    };
+    let plan = plan(root, config, &from, false, &[]).expect("plan");
+    assert_eq!(plan.version, Some(3));
+    assert_eq!(plan.clips[0].from_library.as_deref(), Some("idle-clip"));
+}

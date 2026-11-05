@@ -43,6 +43,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 use crate::plans::trimmed;
 
+pub mod baked;
 mod check;
 mod files;
 

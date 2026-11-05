@@ -13,8 +13,7 @@ use std::thread;
 use std::time::Instant;
 
 use super::job::{self, PROGRESS_FILE, Prepared};
-use super::mark::{RecipeBakeMark, write_mark};
-use super::result::{read_run, result_of};
+use super::result::{mark_for, read_run, result_of};
 use super::{
     RecipeBakeProgress, RecipeBakeRecord, RecipeBakeRequest, RecipeBakeStarter, RecipeBakeState,
     STAGED_FILE, WORK_DIR,
@@ -24,6 +23,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::pipeline::history::now_ms;
 use crate::pipeline::tools::Toolbox;
+use crate::recipes::baked::write_mark;
 use crate::workspace::{WorkspaceConfig, is_single_segment};
 
 const RECORD_FILE: &str = "bake.json";
@@ -334,7 +334,7 @@ impl RecipeBakes {
             &running.dir,
             started.elapsed().as_secs_f32(),
         );
-        write_mark(&staged, &RecipeBakeMark::of(&result))?;
+        write_mark(&staged, &mark_for(&result))?;
         Ok(result)
     }
 

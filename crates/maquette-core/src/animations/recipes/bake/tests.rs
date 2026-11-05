@@ -109,7 +109,7 @@ impl Project {
 
 /// Frostveil with Elsheria (a fixture humanoid, `model`) and a recipe
 /// "Reach out" on a Mixamo clip of the library, with no changes yet.
-fn project_with(model: Vec<u8>) -> Project {
+pub(super) fn project_with(model: Vec<u8>) -> Project {
     let tmp = tempfile::tempdir().expect("temp");
     let root = tmp.path();
     store(
@@ -531,7 +531,7 @@ fn a_bake_runs_as_a_job_and_stages_its_model_outside_the_project_and_library() {
     assert!(staged.is_file());
     // The staged model carries its Mixamo mark in its own GLB.
     let mark = mark_of(&staged).expect("mark");
-    assert_eq!(mark, RecipeBakeMark::of(&result));
+    assert_eq!(mark, mark_for(&result));
     assert!(mark.mixamo && marked_mixamo(&staged));
     let cache = p.root().join(&p.config.layout.cache);
     assert!(staged.starts_with(&cache), "{}", staged.display());
