@@ -6,6 +6,9 @@ import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
+import { useRecipeCompareStore } from '@/state/use-recipe-compare-store';
+import { useRecipeLibraryStore } from '@/state/use-recipe-library-store';
+import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import RecipesStage from './RecipesStage';
 
@@ -17,6 +20,9 @@ afterEach(() => {
   useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
   useRecipeBakesStore.setState(useRecipeBakesStore.getInitialState(), true);
   useMotionStore.setState(useMotionStore.getInitialState(), true);
+  useRecipeLibraryStore.setState(useRecipeLibraryStore.getInitialState(), true);
+  useRecipeSaveStore.setState(useRecipeSaveStore.getInitialState(), true);
+  useRecipeCompareStore.setState(useRecipeCompareStore.getInitialState(), true);
 });
 
 /** The demo recipes with Frostveil's rigged demo models loaded, as the Motion view has them. */
@@ -159,5 +165,66 @@ describe('the recipes stage', () => {
       'aria-disabled',
       'true'
     );
+  });
+});
+
+describe('the recipes stage and the recipe library', () => {
+  /** The lantern recipe's row in the demo list. */
+  async function lanternRow() {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    return within(list).getByText('Reach for the lantern').closest('li')!;
+  }
+
+  it('says the library has a newer revision and opens What changed', async () => {
+    const reach = await lanternRow();
+    expect(await within(reach).findByText('Library has r3')).toBeVisible();
+    await userEvent.click(within(reach).getByRole('button', { name: 'What changed' }));
+    expect(useRecipeCompareStore.getState().sheet).toMatchObject({
+      project: 'frostveil',
+      recipe: 'reach-for-the-lantern',
+    });
+  });
+
+  it('says quietly when the library recipe it came from is gone', async () => {
+    await openMockLibrary('demo');
+    await commands.recipeLibraryRemove('reach-for-the-lantern', null);
+    render(<RecipesStage />);
+    expect(await screen.findByText('Its library recipe is gone.')).toBeVisible();
+    expect(screen.queryByText(/^Library has/)).toBeNull();
+  });
+
+  it('saves to the library and exports from the row menu', async () => {
+    const reach = await lanternRow();
+    const exported = vi.spyOn(commands, 'recipeExport');
+    await userEvent.click(
+      within(reach).getByRole('button', { name: 'More for Reach for the lantern' })
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Save to library/ }));
+    expect(useRecipeSaveStore.getState().sheet).toMatchObject({
+      project: 'frostveil',
+      recipe: 'reach-for-the-lantern',
+    });
+    await userEvent.click(
+      within(reach).getByRole('button', { name: 'More for Reach for the lantern' })
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Export/ }));
+    expect(exported).toHaveBeenCalledWith(
+      { project: 'frostveil', recipe: 'reach-for-the-lantern', entry: null, revision: null },
+      'Reach for the lantern'
+    );
+  });
+
+  it('imports a recipe and shows what to know under the header', async () => {
+    await lanternRow();
+    await userEvent.click(screen.getByRole('button', { name: 'Import' }));
+    const notes = await screen.findByRole('list', { name: 'Import notes' });
+    expect(screen.getByText('Imported Sit and wave')).toBeVisible();
+    expect(notes).toHaveTextContent(/hash differs/);
+    expect(notes).toHaveTextContent(/stone-bench, which Frostveil does not have/);
+    expect(await screen.findByText('Sit and wave')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('list', { name: 'Import notes' })).toBeNull();
   });
 });

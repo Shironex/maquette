@@ -1,26 +1,100 @@
-import { Button, EmptyState, Icon, InlineBanner, Loader } from '@maquette/ui';
+import { Button, EmptyState, Icon, IconButton, InlineBanner, Loader } from '@maquette/ui';
+import { Menu } from '@/features/common/Menu';
 import { MixamoBadge } from '@/features/common/MixamoBadge';
 import type { RecipeSummary } from '@/ipc/client';
+import type { LibraryNote } from '@/state/recipe-library';
 import { recipeLine } from '@/state/recipes';
 import { MotionTabs } from '../MotionTabs';
 import { RecipeBake, useRecipeBake } from '../RecipeBake';
 import { RecipeEditor } from '../RecipeEditor';
 import { RecipeReview } from '../RecipeReview';
-import { useRecipesStage } from './RecipesStage.hooks';
+import { useRecipesStage, useRowMenu } from './RecipesStage.hooks';
 
 const ABOUT =
   'A recipe is a clip from the animation library with changes laid over it. Apply bakes it onto a rigged model as a single clip, staged for a review.';
+
+/** Save to library and Export, behind the row's More button. */
+function RowMenu({
+  name,
+  onSave,
+  onExport,
+}: {
+  name: string;
+  onSave: () => void;
+  onExport: () => void;
+}) {
+  const menu = useRowMenu();
+  return (
+    <span className="relative flex-none">
+      <IconButton
+        icon="dots-three"
+        size="sm"
+        label={`More for ${name}`}
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        onClick={menu.toggle}
+      />
+      {menu.open ? (
+        <Menu
+          label={`More for ${name}`}
+          onClose={menu.close}
+          className="absolute top-[calc(100%+2px)] right-0 z-30 w-[220px]"
+          items={[
+            {
+              id: 'save',
+              label: 'Save to library',
+              icon: 'books',
+              detail: 'As a new revision or a new library recipe',
+              onSelect: onSave,
+            },
+            {
+              id: 'export',
+              label: 'Export',
+              icon: 'export',
+              detail: 'As a .recipe.json where you choose',
+              onSelect: onExport,
+            },
+          ]}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+/** "Library has r3" with What changed, or that the library recipe it came from is gone. */
+function LibraryLine({ note, onCompare }: { note: LibraryNote | null; onCompare: () => void }) {
+  if (!note) return null;
+  if (note.kind === 'gone')
+    return <p className="px-3 text-meta text-fg-mute">Its library recipe is gone.</p>;
+  return (
+    <div className="flex items-center gap-2 px-3 text-meta text-fg-dim">
+      <Icon name="books" size={15} className="text-clay-text" />
+      <span>Library has r{note.latest}</span>
+      <Button size="sm" variant="ghost" onClick={onCompare}>
+        What changed
+      </Button>
+    </div>
+  );
+}
 
 function Row({
   project,
   recipe,
   onEdit,
   opening,
+  note,
+  onSave,
+  onExport,
+  onCompare,
 }: {
   project: string;
   recipe: RecipeSummary;
   onEdit: () => void;
   opening: boolean;
+  note: LibraryNote | null;
+  onSave: () => void;
+  onExport: () => void;
+  onCompare: () => void;
 }) {
   const bake = useRecipeBake(
     project,
@@ -69,7 +143,9 @@ function Row({
         >
           Apply
         </Button>
+        <RowMenu name={recipe.name} onSave={onSave} onExport={onExport} />
       </div>
+      <LibraryLine note={note} onCompare={onCompare} />
       <RecipeBake
         record={bake.record}
         assetName={bake.assetName}
@@ -96,6 +172,7 @@ export default function RecipesStage() {
     edit,
     opening,
     openError,
+    ...library
   } = useRecipesStage();
   const rows = recipes?.map(r => (
     <Row
@@ -104,8 +181,39 @@ export default function RecipesStage() {
       recipe={r}
       opening={opening === r.id}
       onEdit={() => edit(r.id)}
+      note={library.noteOf(r)}
+      onSave={() => library.saveToLibrary(r.id)}
+      onExport={() => library.exportFile(r)}
+      onCompare={() => library.compare(r.id)}
     />
   ));
+  const importButton = (
+    <Button
+      icon="download-simple"
+      loading={library.importing}
+      tooltip="Brings a .recipe.json in as a new recipe"
+      onClick={library.importFile}
+    >
+      Import
+    </Button>
+  );
+  const notes = library.imported?.notes.map(n => <li key={n}>{n}</li>);
+  const importNote = library.imported ? (
+    <InlineBanner
+      tone={!library.imported.name ? 'danger' : notes?.length ? 'warning' : 'success'}
+      title={
+        library.imported.name ? `Imported ${library.imported.name}` : 'The recipe was not imported'
+      }
+      detail={
+        notes?.length ? (
+          <ul aria-label="Import notes" className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {notes}
+          </ul>
+        ) : undefined
+      }
+      actions={<IconButton icon="x" size="sm" label="Dismiss" onClick={library.dismissImported} />}
+    />
+  ) : null;
   const add = (
     <Button
       icon="plus"
@@ -156,8 +264,10 @@ export default function RecipesStage() {
               <h1 className="text-panel-title">Recipes</h1>
               <p className="text-meta text-fg-mute">{ABOUT}</p>
             </div>
+            {importButton}
             {recipes?.length ? add : null}
           </div>
+          {importNote}
           {openError ? (
             <InlineBanner tone="danger" title="The recipe could not be opened" detail={openError} />
           ) : null}

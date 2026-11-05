@@ -7,6 +7,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { useRigStore } from '@/state/use-rig-store';
 import { openAvatar } from '@/test/open-avatar';
 import { openMockGame } from '@/test/mock-ipc';
@@ -225,5 +226,53 @@ describe('an approval card', () => {
     expect(decide).toHaveBeenCalledWith('approval-recipe-1', false, expect.anything());
     useAgentsStore.setState({ decide: kept });
     useRecipeBakesStore.setState(useRecipeBakesStore.getInitialState(), true);
+  });
+
+  it('opens an agent proposed recipe save in the save sheet, never saving, and Deny turns it down', async () => {
+    const show = vi.fn().mockResolvedValue(undefined);
+    useRecipeSaveStore.setState({ show });
+    const decide = vi.fn().mockResolvedValue(undefined);
+    const kept = useAgentsStore.getState().decide;
+    useAgentsStore.setState({ decide });
+    const saved = vi.spyOn(commands, 'recipeLibrarySave');
+    const ask = {
+      id: 'recipe-save-approval-1',
+      kind: 'recipe-save',
+      project: 'frostveil',
+      runId: null,
+      runNumber: null,
+      step: null,
+      job: 'reach-for-the-lantern',
+      assetName: 'Reach for the lantern',
+      service: null,
+      detail:
+        'An agent proposes saving Reach for the lantern to the recipe library as r4 of Reach for the lantern. 2 lines of changes.',
+      items: [],
+      requestedAtMs: 0,
+      recipeSave: { recipe: 'reach-for-the-lantern', entry: 'reach-for-the-lantern', revision: 4 },
+    } satisfies Approval;
+    const { rerender } = render(<ApprovalCard approval={ask} />);
+    expect(
+      screen.getByRole('alertdialog', { name: 'Save Reach for the lantern to the recipe library?' })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/proposes saving Reach for the lantern/)).toBeVisible();
+    expect(screen.getByText(/Nothing is saved until you look at what changes/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(show).toHaveBeenCalledWith(
+      'frostveil',
+      'reach-for-the-lantern',
+      'reach-for-the-lantern'
+    );
+    rerender(
+      <ApprovalCard approval={{ ...ask, recipeSave: { ...ask.recipeSave, entry: null } }} />
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(show).toHaveBeenLastCalledWith('frostveil', 'reach-for-the-lantern', null);
+    await userEvent.click(screen.getByRole('button', { name: 'Deny' }));
+    expect(decide).toHaveBeenCalledWith('recipe-save-approval-1', false, expect.anything());
+    expect(saved).not.toHaveBeenCalled();
+    useAgentsStore.setState({ decide: kept });
+    useRecipeSaveStore.setState(useRecipeSaveStore.getInitialState(), true);
   });
 });
