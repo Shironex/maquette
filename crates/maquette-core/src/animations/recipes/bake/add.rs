@@ -119,7 +119,11 @@ impl RecipeBakes {
             // The same order as a start takes them, so the two never cross.
             let active = self.active();
             let mut adding = self.adding();
-            if active.contains_key(&name) {
+            // A bake saves its record as finished just before it leaves the
+            // running ones, so only one still running on disk is baking.
+            let baking = active.contains_key(&name)
+                && record_of(root, config, project, recipe)?.is_some_and(|r| r.running());
+            if baking {
                 return Err(CoreError::Invalid(
                     "This recipe is baking again. Add it once the bake is done.".to_string(),
                 ));
