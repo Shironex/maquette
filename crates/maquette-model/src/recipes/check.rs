@@ -7,9 +7,9 @@ use std::collections::BTreeSet;
 use maquette_glb::vrm::is_human_bone;
 
 use super::{
-    BlankKind, HASH_MAX_CHARS, ID_MAX_CHARS, LABEL_MAX_CHARS, LayerKind, LayerSettings, MAX_BLANKS,
-    MAX_CYCLES, MAX_FRAMES, MAX_LAYERS, MAX_OFFSET_METRES, MAX_POINT_METRES, MAX_WAVE_DEGREES,
-    NAME_MAX_CHARS, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
+    BlankKind, GoneProp, HASH_MAX_CHARS, ID_MAX_CHARS, LABEL_MAX_CHARS, LayerKind, LayerSettings,
+    MAX_BLANKS, MAX_CYCLES, MAX_FRAMES, MAX_LAYERS, MAX_OFFSET_METRES, MAX_POINT_METRES,
+    MAX_WAVE_DEGREES, NAME_MAX_CHARS, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::plans::{is_item_id, is_link_id, trimmed};
@@ -281,9 +281,26 @@ pub fn check_props(recipe: &RecipeFile, manifest: &ProjectManifest) -> CoreResul
     Ok(())
 }
 
+/// The prop blanks whose prop is no longer an asset of `manifest`'s project
+/// (removed, or a recipe synced in from another computer).
+pub fn gone_props(recipe: &RecipeFile, manifest: &ProjectManifest) -> Vec<GoneProp> {
+    recipe
+        .blanks
+        .iter()
+        .filter_map(|blank| {
+            let prop = blank.prop.as_ref()?;
+            (!manifest.assets.iter().any(|a| &a.id == prop)).then(|| GoneProp {
+                blank: blank.id.clone(),
+                prop: prop.clone(),
+            })
+        })
+        .collect()
+}
+
 /// Opens each prop blank whose prop is no longer an asset of `manifest`'s
 /// project (removed, or a recipe synced in from another computer), so it
-/// reads as open. Answers with a line per blank it opened.
+/// reads as open. The file is not touched. Answers with a line per blank
+/// it opened.
 pub fn settle_props(recipe: &mut RecipeFile, manifest: &ProjectManifest) -> Vec<String> {
     let mut warnings = Vec::new();
     for blank in &mut recipe.blanks {
@@ -291,7 +308,7 @@ pub fn settle_props(recipe: &mut RecipeFile, manifest: &ProjectManifest) -> Vec<
             && !manifest.assets.iter().any(|a| &a.id == prop)
         {
             warnings.push(format!(
-                "The blank {} named {prop}, which is no longer an asset of {}, so it is open again.",
+                "The blank {} names {prop}, which is no longer an asset of {}, so it reads as open. The file keeps {prop}: restoring the asset fills it again, and clearing the blank empties it for good.",
                 blank.id, manifest.name
             ));
             blank.prop = None;

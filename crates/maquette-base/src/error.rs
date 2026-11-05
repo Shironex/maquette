@@ -33,6 +33,10 @@ pub enum CoreError {
     NotFound(String),
     #[error("{0}")]
     Unavailable(String),
+    /// A write that names the version it read, refused because the file
+    /// changed since.
+    #[error("{0}")]
+    Moved(String),
 }
 
 impl CoreError {
@@ -61,6 +65,7 @@ impl CoreError {
             Self::Invalid(_) => "invalid",
             Self::NotFound(_) => "not-found",
             Self::Unavailable(_) => "unavailable",
+            Self::Moved(_) => "moved",
         }
     }
 

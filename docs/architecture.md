@@ -616,6 +616,32 @@ Mixamo rig. The Motion view's Recipes tab lists them, and New recipe opens the b
 Agents use `list_recipes`, `get_recipe`, `create_recipe` and `update_recipe` in the animation
 group; each write ends in `Host::recipe_changed`, which emits `RecipeChanged`.
 
+A write that leaves the blanks out keeps them as stored, and a prop blank sent open whose stored prop
+is no longer an asset keeps that prop: only reads open it (`RecipeRead::gone` lists them), so
+restoring the asset fills it again, unless the write names the blank in `clear`. A write may carry
+`expected`, the `version` it read (`RecipeRead::version`, the first 16 hex digits of the SHA-256 of
+the file's bytes): the core compares it under the write lock and refuses a moved file with the code
+`moved`, writing nothing, so a hand edit or a sync that keeps `edited` is caught too. `update_recipe`
+refuses lists sent without it (`needs-version`); a name only update may leave it out.
+A change sent without an id gets the lowest free `l-N`; the editor gives the entries a person adds a
+random five character tail (`l-k3x9q`, `prop-...`) that has a letter, never reused, so the two never
+meet.
+
+The editor's state is `state/use-recipe-editor-store.ts`: the file as last read (the base) and the
+draft over it, so leaving the tab keeps the edits. Leaving the recipe with unsaved edits asks first,
+as a canvas does. `state/recipe-check.ts` runs the core's checks on the draft as it is typed;
+`state/recipe-merge.ts` merges an outside write with unsaved edits by change and blank id and asks
+only on a clash (an id both sides added with different entries is two additions: the person's is
+renamed). Save reads the file first, sends only the lists that changed with `expected`, and on
+`moved` reads and merges again for the person to save once more. The rough preview is
+`features/viewer/RecipePreview` (lazy `RecipeStage`): the base clip through the rough retarget, then
+`features/viewer/recipe-pose.ts` lays the changes over (two-bone IK for reach, an aim for look at,
+an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
+Facing comes from the rig (`rigForward`: up crossed with left to right upper arm, else upper leg,
+else +Z) and drives the wave axis, the look bones, where markers sit and so the gap check. The rough
+retarget itself works in world space, so a model facing +X under a +Z clip has its limbs turned to
+the clip's world directions. Each setup starts from the bones as they came and stops the old mixer.
+
 ## VRM
 
 `maquette_glb::vrm` (kept at `inbox::vrm` in core) reads how far a rigged model is from a VRM 1.0

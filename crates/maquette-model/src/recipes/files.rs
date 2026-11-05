@@ -12,9 +12,9 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
-    check_name, check_props, dir, is_recipe_id, load_file, normalized, path, settle_props,
-    validate,
+    BlankKind, GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank,
+    RecipeFile, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id, load_file,
+    load_versioned, normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -58,6 +58,16 @@ pub struct RecipeChange {
     pub name: Option<String>,
     pub layers: Option<Vec<RecipeLayer>>,
     pub blanks: Option<Vec<RecipeBlank>>,
+    /// The `version` of the recipe as it was read (a hash of the file's
+    /// bytes). Given, a file that changed since in any way is refused (code
+    /// `moved`) and nothing is written.
+    #[serde(default)]
+    pub expected: Option<String>,
+    /// Prop blanks to empty for good, even when the prop they name is no
+    /// longer an asset (which a blank sent open otherwise keeps). A blank
+    /// sent with a prop keeps that prop.
+    #[serde(default)]
+    pub clear: Vec<String>,
 }
 
 /// A recipe as read for its project, prop blanks the project no longer
@@ -66,12 +76,24 @@ pub struct RecipeChange {
 pub struct RecipeRead {
     pub recipe: RecipeFile,
     pub warnings: Vec<String>,
+    /// The prop blanks that read open because their asset is gone; the
+    /// file keeps each prop.
+    pub gone: Vec<GoneProp>,
+    /// A hash of the file's bytes, which a write may send back as
+    /// `expected`.
+    pub version: String,
 }
 
 /// Opens the prop blanks `manifest`'s project no longer has.
-fn settled(mut recipe: RecipeFile, manifest: &ProjectManifest) -> RecipeRead {
+fn settled(mut recipe: RecipeFile, version: String, manifest: &ProjectManifest) -> RecipeRead {
+    let gone = gone_props(&recipe, manifest);
     let warnings = settle_props(&mut recipe, manifest);
-    RecipeRead { recipe, warnings }
+    RecipeRead {
+        recipe,
+        warnings,
+        gone,
+        version,
+    }
 }
 
 /// The longest slug a free id starts from, leaving room for `-9999`.
@@ -149,8 +171,8 @@ pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<Re
         if !is_recipe_id(id) || !entry.path().is_file() {
             continue;
         }
-        found.push(match load_file(&entry.path()) {
-            Ok(recipe) => summary(id, &settled(recipe, manifest)),
+        found.push(match load_versioned(&entry.path()) {
+            Ok((recipe, version)) => summary(id, &settled(recipe, version, manifest)),
             Err(err) => broken(id, err.to_string()),
         });
     }
@@ -164,7 +186,17 @@ pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<Re
 ///
 /// Fails when it is missing or [`load_file`] refuses it.
 pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResult<RecipeRead> {
-    Ok(settled(load_file(&path(project_dir, id)?)?, manifest))
+    let (recipe, version) = load_versioned(&path(project_dir, id)?)?;
+    Ok(settled(recipe, version, manifest))
+}
+
+/// The version ([`super::version_of`]) of the recipe `id` as it is on disk.
+///
+/// # Errors
+///
+/// Fails when it is missing or [`load_file`] refuses it.
+pub fn version(project_dir: &Path, id: &str) -> CoreResult<String> {
+    Ok(load_versioned(&path(project_dir, id)?)?.1)
 }
 
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
@@ -234,6 +266,8 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<RecipeSumm
     let read = RecipeRead {
         recipe,
         warnings: Vec::new(),
+        gone: Vec::new(),
+        version: String::new(),
     };
     Ok(summary(id, &read))
 }
@@ -261,17 +295,75 @@ fn with_ids(layers: Vec<RecipeLayer>) -> Vec<RecipeLayer> {
         .collect()
 }
 
+/// Puts back the stored prop of each prop blank sent open whose prop the
+/// project no longer has: it read as open, so sending it open again is not
+/// a choice to empty it, and restoring the asset fills it again. A blank
+/// named in `clear` is left empty.
+fn keep_stale_props(
+    next: &mut RecipeFile,
+    current: &RecipeFile,
+    manifest: &ProjectManifest,
+    clear: &[String],
+) {
+    for blank in &mut next.blanks {
+        if blank.kind != BlankKind::Prop || blank.prop.is_some() || clear.contains(&blank.id) {
+            continue;
+        }
+        let stale = current
+            .blanks
+            .iter()
+            .find(|b| b.id == blank.id && b.kind == BlankKind::Prop)
+            .and_then(|b| b.prop.as_ref())
+            .filter(|p| !manifest.assets.iter().any(|a| &a.id == *p));
+        if let Some(prop) = stale {
+            blank.prop = Some(prop.clone());
+        }
+    }
+}
+
+/// Refuses a `clear` naming something that is not a prop blank of `next`.
+fn check_clear(next: &RecipeFile, clear: &[String]) -> CoreResult<()> {
+    match clear.iter().find(|id| {
+        !next
+            .blanks
+            .iter()
+            .any(|b| &&b.id == id && b.kind == BlankKind::Prop)
+    }) {
+        Some(id) => Err(CoreError::Invalid(format!(
+            "The recipe has no prop blank {id} to clear."
+        ))),
+        None => Ok(()),
+    }
+}
+
+/// Refuses a write that read the recipe at another version.
+fn check_expected(id: &str, current: &str, expected: Option<&str>) -> CoreResult<()> {
+    match expected {
+        Some(read) if read != current => Err(CoreError::Moved(format!(
+            "The recipe {id} changed since it was read (its version is now {current}). Read it again and send the change once more."
+        ))),
+        _ => Ok(()),
+    }
+}
+
 /// Replaces the name, the changes, the blanks or any of them of the recipe
 /// `id`, as the file holds it now, in one write after checking the whole
 /// result. Blanks sent must name assets of `manifest`'s project. When the
-/// blanks are kept, a prop blank naming an asset the project no longer has
-/// is opened instead of refusing the change, with a warning in the answer.
+/// blanks are kept, they stay in the file as they are: a prop blank naming
+/// an asset the project no longer has keeps its prop, so restoring the
+/// asset fills it again, and only the answer reads it as open, with a
+/// warning, as [`get`] does. A prop blank sent open whose stored prop is
+/// such a gone asset keeps it too, since it only read as open, unless
+/// `clear` names it. With `expected`, a file whose version (a hash of its
+/// bytes) moved since it was read is refused under the write lock, so no
+/// write landing in between, nor a hand edit or a sync, is overwritten.
 /// `edited` moves only when something changed; the revision never does.
 ///
 /// # Errors
 ///
-/// Fails on a name [`check_name`] refuses, when the recipe is gone, the
-/// result does not validate or the file cannot be written.
+/// Fails on a name [`check_name`] refuses, when the recipe is gone or
+/// changed since `expected`, `clear` names no prop blank, the result does
+/// not validate or the file cannot be written.
 pub fn update(
     project_dir: &Path,
     manifest: &ProjectManifest,
@@ -283,30 +375,40 @@ pub fn update(
     }
     let _lock = writing();
     let file = path(project_dir, id)?;
-    let current = load_file(&file)?;
+    let (current, current_version) = load_versioned(&file)?;
+    check_expected(id, &current_version, change.expected.as_deref())?;
     let mut next = current.clone();
-    let mut warnings = Vec::new();
     if let Some(name) = change.name {
         next.name = trimmed(&name).to_string();
     }
     if let Some(layers) = change.layers {
         next.layers = with_ids(layers);
     }
-    match change.blanks {
-        Some(blanks) => next.blanks = blanks,
-        None => warnings = settle_props(&mut next, manifest),
+    let sent_blanks = change.blanks.is_some();
+    if let Some(blanks) = change.blanks {
+        next.blanks = blanks;
     }
     let mut next = normalized(&next);
     validate(&next)?;
-    check_props(&next, manifest)?;
-    if next != current {
+    check_clear(&next, &change.clear)?;
+    if sent_blanks {
+        check_props(&next, manifest)?;
+        keep_stale_props(&mut next, &current, manifest, &change.clear);
+    } else {
+        for blank in &mut next.blanks {
+            if change.clear.contains(&blank.id) {
+                blank.prop = None;
+            }
+        }
+    }
+    let version = if next == current {
+        current_version
+    } else {
         next.edited = now_rfc3339();
         write_json(&file, &next)?;
-    }
-    Ok(RecipeRead {
-        recipe: next,
-        warnings,
-    })
+        version(project_dir, id)?
+    };
+    Ok(settled(next, version, manifest))
 }
 
 /// Moves the recipe file into `trash_dir` (the workspace's trash for this

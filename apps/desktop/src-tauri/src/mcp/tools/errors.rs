@@ -151,6 +151,14 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Check the project id; list_projects gives every id.",
             "list_projects",
         )),
+        "moved" => Some(agent(
+            "Read the recipe again with get_recipe, keep what changed there, and send your change with its version as expected.",
+            "get_recipe",
+        )),
+        super::recipes::NEEDS_VERSION => Some(agent(
+            "Call get_recipe, then send the change with its version as expected.",
+            "get_recipe",
+        )),
         super::groups::GROUP_OFF => Some(person(
             "Ask the person to turn the group on in Settings > Agents in the Maquette app. No tool can. get_started names the groups that are off.",
             Some("get_started"),

@@ -184,7 +184,9 @@ speed?, pinFeet? }], map?, dryRun? }`. Run with `dryRun: true` first and read th
   `{ project }`, `create_recipe` `{ project, clip, name? }`, then `update_recipe` `{ project,
 recipe, name?, changes?, blanks? }` with `reach`, `nudge`, `look-at` or `wave` changes on VRM
   humanoid bones (`rightHand`, `head`) and `prop` or `point` blanks. Each list is replaced whole,
-  so read `get_recipe` first. Baking a recipe is not built yet: say so instead of promising it.
+  so read `get_recipe` first and pass its `version` as `expected` (needed with changes or blanks): a recipe the person changed
+  since is refused (`moved`), so read it again rather than overwrite their edits. Baking a recipe
+  is not built yet: say so instead of promising it.
 - Importing Mixamo FBX or a pack zip: `import_animations` `{ paths, singles?, keepDuplicates?,
 dryRun? }`, paths inside the workspace; use `dryRun` first. Clips keep their own frame rate (30
   fps stays 30 fps) and the model exports at the highest rate among its clips.

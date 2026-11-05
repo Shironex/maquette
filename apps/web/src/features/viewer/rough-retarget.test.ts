@@ -69,6 +69,31 @@ describe('the rough retarget', () => {
     expect(arm.y).toBeCloseTo(Math.SQRT1_2, 3);
   });
 
+  it('lines a model facing +X up with the clip in world space, not with its own facing', () => {
+    const skeleton = rig('s', 1, 0);
+    const model = rig('m', 1, 0);
+    model.rotation.y = Math.PI / 2;
+    const pose = roughRetarget(skeleton, model, hold, PAIRS);
+    pose!(0.5);
+    model.updateWorldMatrix(true, true);
+    // The left arm pointed out to the model's side (world -Z); it turns to the clip's +X,
+    // which is the way this model faces, and the hips move along world +X too.
+    const arm = at(model, 'mFore').sub(at(model, 'mArm')).normalize();
+    expect(arm.x).toBeCloseTo(1, 3);
+    expect(at(model, 'mHips').x).toBeCloseTo(0.5, 3);
+  });
+
+  it('stops its mixer and puts the clip skeleton back as it came', () => {
+    const skeleton = rig('s', 1, 0);
+    const pose = roughRetarget(skeleton, rig('m', 1, 0), hold, PAIRS);
+    pose!(0.5);
+    skeleton.updateWorldMatrix(true, true);
+    expect(at(skeleton, 'sHips').x).toBeCloseTo(0.5, 3);
+    pose!.stop();
+    skeleton.updateWorldMatrix(true, true);
+    expect(at(skeleton, 'sHips').x).toBeCloseTo(0, 3);
+  });
+
   it('finds bones by the names three.js gives them and gives up with none', () => {
     const skeleton = rig('s', 1, 0);
     const model = rig('m', 1, 0);
