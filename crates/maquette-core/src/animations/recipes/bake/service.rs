@@ -4,7 +4,7 @@
 //! Cancel kills Blender part way; a bake the app closed on reads as stopped
 //! when it opens again.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +41,8 @@ struct Inner {
     runner: Arc<dyn ScriptRunner + Send + Sync>,
     on_change: OnChange,
     active: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    /// Recipes being added as a version now: no bake starts meanwhile.
+    adding: Mutex<HashSet<String>>,
 }
 
 /// The service. Cheap to clone.
@@ -49,7 +51,7 @@ pub struct RecipeBakes {
     inner: Arc<Inner>,
 }
 
-fn key(project: &str, recipe: &str) -> String {
+pub(super) fn key(project: &str, recipe: &str) -> String {
     format!("{project}/{recipe}")
 }
 
@@ -188,6 +190,7 @@ impl RecipeBakes {
                 runner,
                 on_change: Box::new(on_change),
                 active: Mutex::new(HashMap::new()),
+                adding: Mutex::new(HashSet::new()),
             }),
         }
     }
@@ -197,12 +200,15 @@ impl RecipeBakes {
         (self.inner.on_change)(record);
     }
 
-    /// Whether `recipe` of `project` is baking now.
-    pub(super) fn baking(&self, project: &str, recipe: &str) -> bool {
-        self.active().contains_key(&key(project, recipe))
+    /// The recipes being added as a version now.
+    pub(super) fn adding(&self) -> MutexGuard<'_, HashSet<String>> {
+        self.inner
+            .adding
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
+    pub(super) fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
         self.inner
             .active
             .lock()
@@ -256,6 +262,12 @@ impl RecipeBakes {
             if active.contains_key(&name) {
                 return Err(CoreError::Invalid(format!(
                     "{} is baking already. Wait for it, or cancel it first.",
+                    prepared.doc.recipe.name
+                )));
+            }
+            if self.adding().contains(&name) {
+                return Err(CoreError::Invalid(format!(
+                    "{} is being added as a version now. Bake it again once that is done.",
                     prepared.doc.recipe.name
                 )));
             }

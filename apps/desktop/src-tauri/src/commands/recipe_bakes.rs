@@ -7,8 +7,9 @@
 
 use std::sync::Arc;
 
+use maquette_core::ErrorPayload;
 use maquette_core::animations::recipes::bake::{
-    RecipeBakeRecord, RecipeBakeRequest, RecipeBakeStarter, RecipeBakes, ready_to_add, record_of,
+    BAKE_CHANGED, RecipeBakeRecord, RecipeBakeRequest, RecipeBakeStarter, RecipeBakes, record_of,
 };
 use maquette_core::pipeline::runner::{NullSink, PipelineRunner};
 use maquette_core::providers::ledger::Decision;
@@ -117,11 +118,18 @@ pub fn recipe_bake_cancel(
     Ok(bakes.0.cancel(&project, &recipe)?)
 }
 
+/// The code of a refused add whose staged bake is another than the one the
+/// person looked at.
+pub const BAKE_CHANGED_CODE: &str = "bake-changed";
+
 /// Adds a reviewed bake as its model's next version, on the route the rig
 /// doctor's Add as vN takes: into the Inbox for the asset, then accepted.
-/// A bake that is out of date is refused. The new version is recorded as
-/// the recipe's (and Mixamo's, for a Mixamo base), the staged model is
-/// cleared and an agent's approval for it ends as approved.
+/// `finished_ms` is the `finishedMs` of the bake the person looked at;
+/// another staged bake is refused (`bake-changed`), and so is one out of
+/// date. The recipe is held from the check to the end, so no bake starts
+/// and no second add runs meanwhile. The new version is recorded as the
+/// recipe's (and Mixamo's, for a Mixamo base), the staged model is cleared
+/// and an agent's approval for it ends as approved.
 #[tauri::command]
 #[specta::specta]
 pub async fn recipe_bake_add(
@@ -132,22 +140,30 @@ pub async fn recipe_bake_add(
     bakes: State<'_, RecipeBakeJobs>,
     project: String,
     recipe: String,
+    finished_ms: Option<f64>,
 ) -> CommandResult<RecipeBakeRecord> {
     let (root, config) = session.workspace()?;
-    let (ready, staged) = ready_to_add(&root, &config, &project, &recipe)?;
+    let claim = bakes
+        .0
+        .claim_add(&root, &config, &project, &recipe, finished_ms)
+        .map_err(|err| {
+            let mut payload = ErrorPayload::from(err);
+            if payload.message.starts_with(BAKE_CHANGED) {
+                payload.code = BAKE_CHANGED_CODE.to_string();
+            }
+            payload
+        })?;
     let done = add_as_next_version(
         session,
         service,
         studio,
         pipelines,
-        (project.clone(), ready.asset.clone()),
-        &staged,
+        (project.clone(), claim.record.asset.clone()),
+        &claim.staged,
         NextVersionFrom::StagedBake,
     )
     .await?;
-    let added = bakes
-        .0
-        .added(&root, &config, &project, &recipe, done.version.version)?;
+    let added = claim.added(&root, &config, done.version.version);
     bakes
         .1
         .close_recipe_bake(&project, &recipe, Decision::Approved);

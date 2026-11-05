@@ -447,11 +447,14 @@ export const commands = {
 	/**
 	 *  Adds a reviewed bake as its model's next version, on the route the rig
 	 *  doctor's Add as vN takes: into the Inbox for the asset, then accepted.
-	 *  A bake that is out of date is refused. The new version is recorded as
-	 *  the recipe's (and Mixamo's, for a Mixamo base), the staged model is
-	 *  cleared and an agent's approval for it ends as approved.
+	 *  `finished_ms` is the `finishedMs` of the bake the person looked at;
+	 *  another staged bake is refused (`bake-changed`), and so is one out of
+	 *  date. The recipe is held from the check to the end, so no bake starts
+	 *  and no second add runs meanwhile. The new version is recorded as the
+	 *  recipe's (and Mixamo's, for a Mixamo base), the staged model is cleared
+	 *  and an agent's approval for it ends as approved.
 	 */
-	recipeBakeAdd: (project: string, recipe: string) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_add", { project, recipe }),
+	recipeBakeAdd: (project: string, recipe: string, finishedMs: number | null) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_add", { project, recipe, finishedMs }),
 	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.

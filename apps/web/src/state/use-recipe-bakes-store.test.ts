@@ -76,8 +76,8 @@ describe('the recipe bakes store', () => {
       },
     });
     const add = vi.spyOn(commands, 'recipeBakeAdd').mockResolvedValue(added);
-    expect(await store.add('frostveil', 'reach-out')).toBe(true);
-    expect(add).toHaveBeenCalledWith('frostveil', 'reach-out');
+    expect(await store.add('frostveil', 'reach-out', 5)).toBe(true);
+    expect(add).toHaveBeenCalledWith('frostveil', 'reach-out', 5);
     const after = useRecipeBakesStore.getState();
     expect(after.reviewing).toBeNull();
     expect(after.bakes[KEY]?.state).toBe('added');
@@ -95,7 +95,7 @@ describe('the recipe bakes store', () => {
     });
     const store = useRecipeBakesStore.getState();
     store.openReview('frostveil', 'reach-out');
-    expect(await store.add('frostveil', 'reach-out')).toBe(false);
+    expect(await store.add('frostveil', 'reach-out', 5)).toBe(false);
     expect(useRecipeBakesStore.getState().reviewing).not.toBeNull();
     expect(useRecipeBakesStore.getState().addErrors[KEY]).toMatch(/out of date/);
   });

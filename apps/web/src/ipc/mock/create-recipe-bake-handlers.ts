@@ -44,6 +44,7 @@ interface BakeContext {
 
 /** The core's words for a bake that is out of date. */
 const OUT_OF_DATE = 'Not added: this bake is out of date.';
+const BAKE_CHANGED = 'Not added: the bake changed since you looked at it.';
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
@@ -307,11 +308,16 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       );
       return record;
     },
-    recipe_bake_add: ({ project, recipe }: Args) => {
+    recipe_bake_add: ({ project, recipe, finishedMs }: Args) => {
       seed();
       const key = keyOf(project, recipe);
       const record = bakes.get(key);
       if (!record) fail('invalid', 'This recipe has no bake to add. Apply it first.');
+      if (record.state === 'done' && record.finishedMs !== (finishedMs ?? null))
+        fail(
+          'bake-changed',
+          `${BAKE_CHANGED} ${record.recipeName} was baked again since. Look at the new bake, then add it.`
+        );
       if (record.state === 'added')
         fail('invalid', `This bake was added already, as v${record.addedVersion ?? 0}.`);
       if (record.state !== 'done' || !record.result)

@@ -48,7 +48,11 @@ interface RecipeBakesStore {
    */
   showReview: (project: string, recipe: string) => Promise<void>;
   /** Adds the reviewed bake as its model's next version. */
-  add: (project: string, recipe: string) => Promise<boolean>;
+  /**
+   * Adds the bake the review shows, the one that finished at `finishedMs`;
+   * another staged since is refused (`bake-changed`).
+   */
+  add: (project: string, recipe: string, finishedMs: number | null) => Promise<boolean>;
 }
 
 const without = <T>(map: Record<string, T>, key: string) => {
@@ -137,12 +141,12 @@ export const useRecipeBakesStore = create<RecipeBakesStore>((set, get) => {
       useAppStore.getState().setView('motion');
     },
 
-    add: async (project, recipe) => {
+    add: async (project, recipe, finishedMs) => {
       const key = bakeKey(project, recipe);
       busy(key, true);
       set({ addErrors: without(get().addErrors, key) });
       try {
-        const record = await commands.recipeBakeAdd(project, recipe);
+        const record = await commands.recipeBakeAdd(project, recipe, finishedMs);
         keep(record);
         set({ reviewing: null });
         useAppStore.getState().notify({

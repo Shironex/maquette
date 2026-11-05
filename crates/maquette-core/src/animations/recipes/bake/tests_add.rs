@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use super::tests::{Project, bakes, humanoid, point, reach, reaching, settled};
 use super::*;
+use crate::error::CoreResult;
 use crate::pipeline::tools::Toolbox;
 use crate::recipes::baked;
 
@@ -50,6 +51,10 @@ fn accept(p: &Project, file: &Path) -> u32 {
     .version
 }
 
+fn claim(bakes: &RecipeBakes, p: &Project, viewed: Option<f64>) -> CoreResult<AddClaim> {
+    bakes.claim_add(p.root(), &p.config, &p.id, &p.recipe.id, viewed)
+}
+
 fn refused(p: &Project) -> String {
     match ready_to_add(p.root(), &p.config, &p.id, &p.recipe.id) {
         Ok(_) => panic!("not refused"),
@@ -67,15 +72,14 @@ fn a_fresh_bake_is_added_as_the_next_version_with_its_recipe_recorded_and_cleare
         .clone()
         .expect("a done bake reads with its review");
     assert!(!review.lines.is_empty());
-    let (ready, staged) = ready_to_add(p.root(), &p.config, &p.id, &p.recipe.id).expect("ready");
-    assert_eq!(ready.state, RecipeBakeState::Done);
+    let claim = claim(&bakes, &p, done.finished_ms).expect("claim");
+    assert_eq!(claim.record.state, RecipeBakeState::Done);
+    let staged = claim.staged.clone();
     assert!(staged.is_file());
 
     let version = accept(&p, &staged);
     assert_eq!(version, 2);
-    let added = bakes
-        .added(p.root(), &p.config, &p.id, &p.recipe.id, version)
-        .expect("added");
+    let added = claim.added(p.root(), &p.config, version);
     assert_eq!(added.state, RecipeBakeState::Added);
     assert_eq!(added.added_version, Some(2));
     assert!(!staged.exists(), "the staged model is cleared");
@@ -145,6 +149,7 @@ fn a_bake_whose_recipe_or_model_moved_on_is_refused_and_asks_for_a_new_bake() {
 fn a_version_that_came_in_without_its_mark_is_still_recorded_as_the_bake() {
     let p = reaching();
     let (bakes, done) = baked_once(&p);
+    let claim = claim(&bakes, &p, done.finished_ms).expect("claim");
     // A file that lost its mark on the way in: the accept records nothing.
     let plain = p.root().join("plain.glb");
     fs::write(&plain, humanoid()).expect("plain");
@@ -154,9 +159,7 @@ fn a_version_that_came_in_without_its_mark_is_still_recorded_as_the_bake() {
             .expect("read")
             .is_empty()
     );
-    bakes
-        .added(p.root(), &p.config, &p.id, &p.recipe.id, version)
-        .expect("added");
+    claim.added(p.root(), &p.config, version);
     let uses = baked::of_asset(&p.dir, "elsheria").expect("read");
     assert_eq!(uses.len(), 1);
     let result = done.result.expect("result");
@@ -243,4 +246,60 @@ fn a_record_from_before_the_replaced_list_still_reads() {
     fields.insert("replaces".into(), serde_json::json!("wave"));
     let read: RecipeBakeResult = serde_json::from_value(json).expect("old record");
     assert!(read.replaced.is_empty());
+}
+
+#[test]
+fn an_add_holds_the_recipe_and_takes_only_the_bake_the_person_looked_at() {
+    let p = reaching();
+    let (bakes, _) = baked_once(&p);
+    let done = settled(&bakes, &p);
+    // Another bake than the one looked at: refused, nothing held.
+    let other = Some(done.finished_ms.expect("finished") - 1.0);
+    let Err(err) = claim(&bakes, &p, other) else {
+        panic!("not refused");
+    };
+    assert!(err.to_string().starts_with(BAKE_CHANGED), "{err}");
+
+    let held = claim(&bakes, &p, done.finished_ms).expect("claim");
+    // While it is held, a second add and a new bake are both refused.
+    let Err(twice) = claim(&bakes, &p, done.finished_ms) else {
+        panic!("added twice");
+    };
+    assert!(twice.to_string().contains("being added already"), "{twice}");
+    let start = bakes.start(
+        p.root(),
+        &p.config,
+        Toolbox::default(),
+        &p.request(),
+        RecipeBakeStarter::Person,
+    );
+    let Err(baking) = start else {
+        panic!("baked during an add");
+    };
+    assert!(baking.to_string().contains("being added"), "{baking}");
+
+    // Let go without adding: the recipe is free again.
+    drop(held);
+    claim(&bakes, &p, done.finished_ms).expect("free again");
+}
+
+#[test]
+fn a_finished_add_is_saved_even_when_the_bakes_record_cannot_be_written() {
+    let p = reaching();
+    let (bakes, done) = baked_once(&p);
+    let claim = claim(&bakes, &p, done.finished_ms).expect("claim");
+    let version = accept(&p, &claim.staged.clone());
+    // recipe-bakes.json is a newer format this build cannot write over.
+    fs::write(
+        p.dir.join(baked::BAKES_FILE),
+        r#"{"version": 99, "assets": {}}"#,
+    )
+    .expect("newer");
+    let added = claim.added(p.root(), &p.config, version);
+    assert_eq!(added.state, RecipeBakeState::Added);
+    let read = record_of(p.root(), &p.config, &p.id, &p.recipe.id)
+        .expect("read")
+        .expect("record");
+    assert_eq!(read.added_version, Some(version));
+    assert!(refused(&p).contains("added already"), "{}", refused(&p));
 }

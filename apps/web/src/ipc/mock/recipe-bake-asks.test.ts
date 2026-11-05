@@ -35,18 +35,26 @@ describe('recipe bake approvals in mock mode', () => {
       agents: 'recipe',
     });
     const args = { project: 'frostveil', recipe: 'reach-for-the-lantern' };
-    const bake = (await handle('recipe_bake_get', args)) as { review: { warns: number } };
+    const bake = (await handle('recipe_bake_get', args)) as {
+      review: { warns: number };
+      finishedMs: number;
+    };
     expect(bake.review.warns).toBe(1);
+    const add = { ...args, finishedMs: bake.finishedMs };
+    // Another bake than the one looked at is refused.
+    await expect(
+      handle('recipe_bake_add', { ...args, finishedMs: bake.finishedMs - 1 })
+    ).rejects.toMatchObject({ code: 'bake-changed' });
     const status = (await handle('mcp_status')) as { approvals: { kind: string }[] };
     expect(status.approvals.map(a => a.kind)).toEqual(['recipe-bake']);
-    const added = (await handle('recipe_bake_add', args)) as {
+    const added = (await handle('recipe_bake_add', add)) as {
       state: string;
       addedVersion: number;
     };
     expect(added).toMatchObject({ state: 'added', addedVersion: 3 });
     const after = (await handle('mcp_status')) as { approvals: unknown[] };
     expect(after.approvals).toEqual([]);
-    await expect(handle('recipe_bake_add', args)).rejects.toMatchObject({
+    await expect(handle('recipe_bake_add', add)).rejects.toMatchObject({
       message: 'This bake was added already, as v3.',
     });
   });

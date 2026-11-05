@@ -79,7 +79,7 @@ export function useRecipeReview() {
       },
     },
     close: store.closeReview,
-    add: () => void store.add(project, recipe),
+    add: () => void store.add(project, recipe, record?.finishedMs ?? null),
     /** Bakes the recipe again onto the same model; the list shows it run. */
     bakeAgain: async () => {
       if (!record) return;
