@@ -3,7 +3,8 @@ import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { RecipeBlanks } from '../RecipeBlanks';
 import { RecipeChanges } from '../RecipeChanges';
 import { RecipePlayer } from '../RecipePlayer';
-import { useRecipeEditor } from './RecipeEditor.hooks';
+import { ApplyButton, EditorBake } from './EditorApply';
+import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
 
 /**
  * One recipe open: the rough preview with its timeline, the changes and the
@@ -13,6 +14,7 @@ import { useRecipeEditor } from './RecipeEditor.hooks';
  */
 export default function RecipeEditor() {
   const v = useRecipeEditor();
+  const applying = useEditorApply(v.saveBlocked === 'Nothing to save' ? undefined : v.saveBlocked);
   const { editing } = v;
   if (!editing) return null;
   const { doc } = editing;
@@ -53,7 +55,9 @@ export default function RecipeEditor() {
         >
           Save
         </Button>
+        <ApplyButton v={applying} />
       </div>
+      <EditorBake v={applying} />
       {v.gone ? (
         <InlineBanner
           tone="danger"

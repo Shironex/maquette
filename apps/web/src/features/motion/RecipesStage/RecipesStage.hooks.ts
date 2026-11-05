@@ -28,6 +28,7 @@ export function useRecipesStage() {
   }, [project, editingProject]);
   const mine = owner === project;
   return {
+    project,
     recipes: mine ? list : null,
     error: mine ? error : null,
     editing: Boolean(editing),

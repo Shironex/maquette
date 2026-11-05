@@ -1,0 +1,50 @@
+/** A finished recipe bake and its record, for the bake tests. */
+import type { RecipeBakeRecord, RecipeBakeResult } from '@/ipc/client';
+
+export const RESULT: RecipeBakeResult = {
+  recipe: 'reach-out',
+  recipeName: 'Reach out',
+  recipeVersion: 'v1',
+  baseClip: 'standing-idle',
+  baseHash: 'h1',
+  recipeBaseHash: null,
+  mixamo: true,
+  asset: 'elsheria',
+  assetName: 'Elsheria',
+  fromVersion: 2,
+  clip: 'reach_out',
+  frames: 31,
+  file: '/ws/cache/recipes/frostveil/reach-out/staged.glb',
+  facing: [0, 0, 1],
+  slideCm: 0.8,
+  slideFrames: null,
+  slideFoot: null,
+  baseSlideCm: 0.8,
+  stretchMm: 3.4,
+  stretchFrame: 12,
+  baseStretchMm: 2.9,
+  stretchNote: null,
+  reaches: [
+    { layer: 'l-1', bone: 'rightHand', gapCm: 0.4, frame: 30, reached: true, flipFrame: null },
+    { layer: 'l-2', bone: 'leftHand', gapCm: 3.2, frame: 30, reached: false, flipFrame: 18 },
+  ],
+  blenderSeconds: 2.1,
+  seconds: 2.62,
+  warnings: [],
+};
+
+export const record = (over: Partial<RecipeBakeRecord> = {}): RecipeBakeRecord => ({
+  project: 'frostveil',
+  recipe: 'reach-out',
+  recipeName: 'Reach out',
+  asset: 'elsheria',
+  state: 'done',
+  startedBy: 'person',
+  progress: null,
+  error: null,
+  startedMs: 1,
+  updatedMs: 2,
+  finishedMs: 2,
+  result: RESULT,
+  ...over,
+});

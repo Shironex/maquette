@@ -26,6 +26,7 @@ import { CHANGED_MARK, recentCanvases } from '@/state/plan-recent';
 import { usePlanRecentStore } from '@/state/use-plan-recent-store';
 import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
+import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -293,6 +294,9 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.imageSettingsChanged.listen(e => onImageSettings(e.payload)),
       events.planChanged.listen(e =>
         usePlanRecentStore.getState().onChanged(e.payload.project, e.payload.id)
+      ),
+      events.recipeBakeChanged.listen(e =>
+        useRecipeBakesStore.getState().onChanged(e.payload.record)
       ),
       events.recipeChanged.listen(e => {
         useRecipesStore.getState().onChanged(e.payload.project);

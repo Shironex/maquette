@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import type { RecipeOutside } from '@/state/recipe-editor.types';
 import { checkDraft, problemCount } from '@/state/recipe-check';
+import { blankFilled } from '@/state/recipe-draft';
 import { isDirty, useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { useRecipeBake } from '../RecipeBake';
 
 /**
  * The open recipe's header and its questions: unsaved edits, Save and
@@ -64,5 +66,33 @@ export function useRecipeEditor() {
           useTheirs: store.useTheirs,
         }
       : null,
+  };
+}
+
+/**
+ * The open recipe's Apply and its bake. Unsaved edits are saved first
+ * (Save and apply), so the bake is the recipe on show; a save that cannot
+ * go through keeps Apply off with its reason.
+ */
+export function useEditorApply(saveBlocked: string | undefined) {
+  const editing = useRecipeEditorStore(s => s.editing);
+  const saving = useRecipeEditorStore(s => s.saving);
+  const draft = editing?.draft;
+  const bake = useRecipeBake(editing?.project ?? '', editing?.id ?? '', {
+    open: draft?.blanks.filter(b => !blankFilled(b)).length ?? 0,
+    layers: draft?.layers.length ?? 0,
+  });
+  const dirty = isDirty(editing);
+  const apply = async () => {
+    const store = useRecipeEditorStore.getState();
+    if (dirty && !(await store.save())) return;
+    await bake.apply(useRecipeEditorStore.getState().editing?.doc.version ?? null);
+  };
+  return {
+    bake,
+    dirty,
+    blocked: bake.blocked ?? (dirty ? saveBlocked : undefined),
+    loading: saving || (bake.busy && !bake.running),
+    apply: () => void apply(),
   };
 }

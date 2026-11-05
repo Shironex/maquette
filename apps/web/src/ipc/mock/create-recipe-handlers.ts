@@ -26,6 +26,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { checkDraft } from '@/state/recipe-check';
 import { fail, type Args } from './backend-options';
+import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
 import { slugOf } from './plan-store';
 
 interface RecipeContext {
@@ -253,6 +254,12 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   };
 
   return {
+    ...createRecipeBakeHandlers({
+      doc: (project, id) => doc(project, id, existing(project, id)),
+      assetName: (project, asset) =>
+        (ctx.project(project).assets ?? []).find(a => a.id === asset)?.name ?? null,
+      state: ctx.state,
+    }),
     recipe_list: ({ project }: Args) =>
       [...recipes(project)]
         .map(([id, recipe]) => summary(String(project), id, recipe))
