@@ -4,7 +4,8 @@
 //! scene layout, an asset's refs, the timeline, the settings types the
 //! layers above read, what the inbox and the provider sends share, the
 //! stored part of `prepare.json`, `built.json`, `materials.json`,
-//! `avatar.json` and `ship.json`, and the planning canvases in `plans/`.
+//! `avatar.json` and `ship.json`, the planning canvases in `plans/` and the
+//! animation recipes in `recipes/`.
 //! Nothing here talks to a network service or runs Blender; it uses only
 //! the maquette-base and maquette-glb crates.
 
@@ -16,6 +17,7 @@ pub mod materials;
 pub mod plans;
 pub mod prepare;
 pub mod project;
+pub mod recipes;
 pub mod refs;
 pub mod sends;
 pub mod settings;
@@ -28,7 +30,7 @@ pub use maquette_base::{error, fs, json};
 
 /// One `register` per model module, in this order: each adds the IPC types
 /// it owns.
-const REGISTRIES: [fn(specta::Types) -> specta::Types; 12] = [
+const REGISTRIES: [fn(specta::Types) -> specta::Types; 13] = [
     settings::register,
     sends::register,
     workspace::register,
@@ -41,6 +43,7 @@ const REGISTRIES: [fn(specta::Types) -> specta::Types; 12] = [
     materials::register,
     avatar::register,
     plans::register,
+    recipes::register,
 ];
 
 /// Registers this crate's IPC types with the shell's TypeScript export;
@@ -73,6 +76,8 @@ mod tests {
             "ProviderSettings",
             "PlanFile",
             "PlanSummary",
+            "RecipeFile",
+            "RecipeSummary",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }

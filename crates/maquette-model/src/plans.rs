@@ -85,6 +85,7 @@ pub mod text;
 pub use change::{Changed, KeepNeed, Writer, change, keep, keep_confirmed, keep_needs, undo};
 pub use check::{check_name, is_link_id, is_project_relative, validate};
 pub use create::{create, create_by, create_seeded};
+pub(crate) use files::move_file;
 pub use files::{PlanDoc, PlanSummary, get, list, remove, rename, save};
 pub use person::{apply_person, same_canvas};
 pub use settings::{mark_fine, set_auto_layout};
@@ -331,7 +332,7 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
 /// (checked before reading), comes from a newer Maquette or holds values
 /// [`validate`] refuses once normalised.
 pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
-    let text = match read_capped(file) {
+    let text = match read_capped(file, MAX_FILE_BYTES) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
             return Err(CoreError::NotFound(format!(
@@ -359,16 +360,16 @@ pub fn load_file(file: &Path) -> CoreResult<PlanFile> {
     Ok(plan)
 }
 
-/// The file's text, refused unread when its size is over [`MAX_FILE_BYTES`].
-/// The read stops at the cap too, for a file that grows meanwhile.
-fn read_capped(file: &Path) -> io::Result<String> {
+/// The file's text, refused unread when its size is over `cap` bytes. The
+/// read stops at the cap too, for a file that grows meanwhile.
+pub(crate) fn read_capped(file: &Path, cap: u64) -> io::Result<String> {
     let handle = fs::File::open(file)?;
-    if handle.metadata()?.len() > MAX_FILE_BYTES {
+    if handle.metadata()?.len() > cap {
         return Err(io::ErrorKind::FileTooLarge.into());
     }
     let mut text = String::new();
-    handle.take(MAX_FILE_BYTES + 1).read_to_string(&mut text)?;
-    if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
+    handle.take(cap + 1).read_to_string(&mut text)?;
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > cap {
         return Err(io::ErrorKind::FileTooLarge.into());
     }
     Ok(text)
