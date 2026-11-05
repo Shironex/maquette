@@ -14,7 +14,7 @@ use super::{load_entry, read_revision};
 use crate::animations::recipes::{RecipeDoc, doc_of};
 use crate::error::CoreResult;
 use crate::project::{self, ProjectManifest, now_rfc3339};
-use crate::recipes::{self, BlankKind, RecipeFile, RecipeFrom, RecipeRead};
+use crate::recipes::{self, BlankKind, RecipeFile, RecipeRead};
 use crate::workspace::FolderLayout;
 
 /// What use_recipe copies.
@@ -129,10 +129,7 @@ pub fn use_recipe(
     let now = now_rfc3339();
     recipe.created.clone_from(&now);
     recipe.edited = now;
-    recipe.from = Some(RecipeFrom {
-        entry: entry.id.clone(),
-        revision: recipe.revision,
-    });
+    recipe.from = Some(super::link_to(&entry, recipe.revision));
     let notes = open_missing_props(&mut recipe, &manifest);
     landed(root, &project_dir, &manifest, &recipe, None, notes)
 }

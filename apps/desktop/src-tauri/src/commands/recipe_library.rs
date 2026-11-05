@@ -35,6 +35,16 @@ pub(crate) fn get(
     Ok(library::get(&root, entry, revision)?)
 }
 
+/// The library recipe a project's recipe came from, while it is still that
+/// recipe (same id and uid): none when it is gone or its id was taken again.
+pub(crate) fn linked(
+    session: &Session,
+    from: &maquette_core::recipes::RecipeFrom,
+) -> CommandResult<Option<LibraryRecipeEntry>> {
+    let (root, _) = session.workspace()?;
+    Ok(library::linked_entry(&root, from)?.map(|(entry, _)| entry))
+}
+
 pub(crate) fn use_in(session: &Session, request: &UseRecipe) -> CommandResult<RecipeUsed> {
     let (root, config) = session.workspace()?;
     Ok(library::use_recipe(&root, &config.layout, request)?)

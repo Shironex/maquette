@@ -17,6 +17,14 @@ import { baseOf, layer, newRecipe } from './recipe-files';
 
 const DAY = 86_400_000;
 
+/** The demo lantern recipe's uid, which Frostveil's lantern recipe links to. */
+export const REACH_UID = '5eed0000000000a1';
+
+let made = 0;
+/** A fresh uid for a mock library recipe: 16 hex digits. */
+export const newUid = () =>
+  (clock.nowMs() * 1000 + made++).toString(16).padStart(16, '0').slice(-16);
+
 /** A library recipe and its revisions' files, by revision. */
 export interface StoredEntry {
   entry: LibraryRecipeEntry;
@@ -48,7 +56,8 @@ export function revisionOf(
 export function storedEntry(
   id: string,
   name: string,
-  revisions: readonly [RecipeFile, LibraryRecipeRevision][]
+  revisions: readonly [RecipeFile, LibraryRecipeRevision][],
+  uid: string = newUid()
 ): StoredEntry {
   const files = new Map<number, RecipeFile>();
   for (const [file, rev] of revisions)
@@ -59,6 +68,7 @@ export function storedEntry(
     entry: {
       version: 1,
       id,
+      uid,
       name,
       createdAt: first,
       updatedAt: last?.savedAt ?? first,
@@ -95,11 +105,16 @@ export function demoLibrary(
     };
     out.set(
       'reach-for-the-lantern',
-      storedEntry('reach-for-the-lantern', reach.name, [
-        [reach, revisionOf(1, ago(8), from)],
-        [r2, revisionOf(2, ago(4), from)],
-        [r3, revisionOf(3, ago(1), from)],
-      ])
+      storedEntry(
+        'reach-for-the-lantern',
+        reach.name,
+        [
+          [reach, revisionOf(1, ago(8), from)],
+          [r2, revisionOf(2, ago(4), from)],
+          [r3, revisionOf(3, ago(1), from)],
+        ],
+        REACH_UID
+      )
     );
   }
   const walk = clips.find(c => c.rig.kind !== 'mixamo') ?? clips[0];
@@ -110,9 +125,12 @@ export function demoLibrary(
     ];
     out.set(
       'wave-hello',
-      storedEntry('wave-hello', wave.name, [
-        [wave, revisionOf(1, ago(6), { imported: 'wave-hello.recipe.json' })],
-      ])
+      storedEntry(
+        'wave-hello',
+        wave.name,
+        [[wave, revisionOf(1, ago(6), { imported: 'wave-hello.recipe.json' })]],
+        '5eed0000000000b2'
+      )
     );
   }
   const idle = named(clips, 'Sword And Shield Idle', clips[1]);
@@ -127,9 +145,12 @@ export function demoLibrary(
     ];
     out.set(
       'guard-and-look',
-      storedEntry('guard-and-look', guard.name, [
-        [guard, revisionOf(1, ago(3), { project: 'frostveil', recipe: 'guard-and-look' })],
-      ])
+      storedEntry(
+        'guard-and-look',
+        guard.name,
+        [[guard, revisionOf(1, ago(3), { project: 'frostveil', recipe: 'guard-and-look' })]],
+        '5eed0000000000c3'
+      )
     );
   }
   return out;

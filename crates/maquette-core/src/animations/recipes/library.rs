@@ -34,12 +34,14 @@ use crate::project::{latin_slug, windows_safe};
 use crate::recipes::{self, ID_MAX_CHARS, RECIPE_SUFFIX, RecipeFile, is_recipe_id, version_of};
 
 mod diff;
+mod link;
 mod remove;
 mod save;
 mod transfer;
 mod use_in;
 
 pub use diff::changes;
+pub use link::{link_to, linked_entry};
 pub use remove::{REMOVED_DIR, remove_entry, remove_revision};
 pub use save::{
     RecipeCompare, RecipeSave, RecipeSavePlan, RecipeSaved, compare, plan_save, save_back,
@@ -82,6 +84,10 @@ pub struct LibraryRecipeEntry {
     pub version: u32,
     /// The folder name.
     pub id: String,
+    /// Made once with the entry and never changed: a project recipe's link
+    /// names it, so an id taken again after a removal is not mistaken for
+    /// the recipe it came from.
+    pub uid: String,
     pub name: String,
     pub created_at: String,
     pub updated_at: String,
@@ -106,6 +112,8 @@ impl LibraryRecipeEntry {
 #[serde(rename_all = "camelCase")]
 pub struct LibraryRecipeSummary {
     pub id: String,
+    /// The entry's uid; empty when it could not be read.
+    pub uid: String,
     /// The entry's name, or its id when it could not be read.
     pub name: String,
     /// A hash of `entry.json`, sent back as `expected` by a write.
@@ -201,6 +209,12 @@ pub(super) fn read_capped(file: &Path, cap: u64) -> CoreResult<String> {
 }
 
 fn check_entry(entry: &LibraryRecipeEntry) -> CoreResult<()> {
+    if !recipes::is_entry_uid(&entry.uid) {
+        return Err(CoreError::Invalid(format!(
+            "The library recipe {} has no uid it can be told apart by.",
+            entry.id
+        )));
+    }
     if entry.revisions.len() > MAX_REVISIONS {
         return Err(CoreError::Invalid(format!(
             "The library recipe {} lists more than {MAX_REVISIONS} revisions.",
@@ -303,6 +317,7 @@ fn count(n: usize) -> u32 {
 fn summary(root: &Path, id: &str) -> LibraryRecipeSummary {
     let mut line = LibraryRecipeSummary {
         id: id.to_string(),
+        uid: String::new(),
         name: id.to_string(),
         version: String::new(),
         latest: 0,
@@ -323,6 +338,7 @@ fn summary(root: &Path, id: &str) -> LibraryRecipeSummary {
         }
     };
     line.name.clone_from(&entry.name);
+    line.uid.clone_from(&entry.uid);
     line.version = version;
     line.updated_at.clone_from(&entry.updated_at);
     match read_revision(root, &entry, None) {

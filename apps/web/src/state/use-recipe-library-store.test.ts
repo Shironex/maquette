@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands, type LibraryRecipeSummary } from '@/ipc/client';
+import { REACH_UID } from '@/ipc/mock/recipe-library-fixtures';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
 import { libraryNote } from './recipe-library';
 import { useRecipeLibraryStore } from './use-recipe-library-store';
@@ -66,14 +67,15 @@ describe('the recipe library store', () => {
     await openMockLibrary('demo');
     await store().load();
     const list = store().list;
-    const from = { entry: 'reach-for-the-lantern', revision: 1 };
+    const from = { entry: 'reach-for-the-lantern', uid: REACH_UID, revision: 1 };
     expect(libraryNote(from, list)).toEqual({
       kind: 'newer',
       entry: 'reach-for-the-lantern',
       latest: 3,
     });
     expect(libraryNote({ ...from, revision: 3 }, list)).toBeNull();
-    expect(libraryNote({ entry: 'gone', revision: 1 }, list)).toEqual({ kind: 'gone' });
+    expect(libraryNote({ ...from, entry: 'gone' }, list)).toEqual({ kind: 'gone' });
+    expect(libraryNote({ ...from, uid: '0000000000000bad' }, list)).toEqual({ kind: 'gone' });
     expect(libraryNote(from, null)).toBeNull();
   });
 });

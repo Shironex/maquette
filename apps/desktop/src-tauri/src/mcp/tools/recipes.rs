@@ -290,14 +290,16 @@ impl McpTools {
                 let doc = commands::get(host.session(), &args.project, &args.recipe)?;
                 let mut out = recipe_view(&doc);
                 if let Some(from) = &doc.recipe.from {
-                    let latest =
-                        crate::commands::recipe_library::get(host.session(), &from.entry, None);
-                    out["library"] = match latest {
-                        Ok(latest) => json!({
+                    let linked = crate::commands::recipe_library::linked(host.session(), from)
+                        .ok()
+                        .flatten()
+                        .and_then(|entry| entry.latest().map(|r| r.revision));
+                    out["library"] = match linked {
+                        Some(latest) => json!({
                             "entry": from.entry, "revision": from.revision,
-                            "latest": latest.revision, "newer": latest.revision > from.revision,
+                            "latest": latest, "newer": latest > from.revision,
                         }),
-                        Err(_) => {
+                        None => {
                             json!({ "entry": from.entry, "revision": from.revision, "gone": true })
                         }
                     };

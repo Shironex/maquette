@@ -69,7 +69,9 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
     }
     check_base(&recipe.base)?;
     if let Some(from) = &recipe.from
-        && (!super::is_recipe_id(&from.entry) || from.revision == 0)
+        && (!super::is_recipe_id(&from.entry)
+            || !super::is_entry_uid(&from.uid)
+            || from.revision == 0)
     {
         return invalid("The recipe names a library recipe that cannot be one.".into());
     }

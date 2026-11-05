@@ -28,6 +28,7 @@ import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
 import { createRecipeLibraryHandlers } from './create-recipe-library-handlers';
 import { baseOf, isMixamo, layer, matchBase, newRecipe, versionOf } from './recipe-files';
 import { slugOf } from './plan-store';
+import { REACH_UID } from './recipe-library-fixtures';
 
 interface RecipeContext {
   clips: () => readonly AnimationClip[];
@@ -71,7 +72,7 @@ function demoRecipes(
       layer('l-3', 'wave', 'leftLowerArm', { start: 0.65, end: 0.95, cycles: 2, amount: 25 }),
     ];
     // Saved to the recipe library as r1, which has r3 since (see recipe-library-fixtures.ts).
-    reach.from = { entry: 'reach-for-the-lantern', revision: 1 };
+    reach.from = { entry: 'reach-for-the-lantern', uid: REACH_UID, revision: 1 };
     out.set('reach-for-the-lantern', reach);
   }
   if (second) {

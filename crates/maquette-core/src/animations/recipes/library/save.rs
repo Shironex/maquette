@@ -15,7 +15,7 @@ use super::{
 };
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, now_rfc3339};
-use crate::recipes::{self, RecipeFile, RecipeFrom};
+use crate::recipes::{self, RecipeFile};
 use crate::workspace::FolderLayout;
 
 /// What a save back would do, for the confirm sheet.
@@ -165,7 +165,12 @@ pub fn compare(
             file.name
         )));
     };
-    let (found, _) = load_entry(root, &from.entry)?;
+    let Some((found, _)) = super::linked_entry(root, from)? else {
+        return Err(CoreError::NotFound(format!(
+            "the library recipe {} came from",
+            file.name
+        )));
+    };
     let newest = read_revision(root, &found, None)?;
     Ok(RecipeCompare {
         entry: found.id.clone(),
@@ -205,7 +210,7 @@ pub fn save_back(root: &Path, layout: &FolderLayout, save: &RecipeSave) -> CoreR
         recipe: Some(save.recipe.clone()),
         imported: None,
     };
-    let (entry, revision) = {
+    let (entry, revision, from) = {
         let _turn = turn();
         let entry = match &save.entry {
             Some(id) => {
@@ -233,6 +238,7 @@ pub fn save_back(root: &Path, layout: &FolderLayout, save: &RecipeSave) -> CoreR
             None => LibraryRecipeEntry {
                 version: super::ENTRY_VERSION,
                 id: free_entry_id(root, &file.name)?,
+                uid: super::link::new_uid(&file.name),
                 name: file.name.clone(),
                 created_at: now.clone(),
                 updated_at: now.clone(),
@@ -243,11 +249,8 @@ pub fn save_back(root: &Path, layout: &FolderLayout, save: &RecipeSave) -> CoreR
         let mut stored = file.clone();
         stored.revision = entry.last_revision;
         write_revision(root, &entry, &stored)?;
-        (entry.id.clone(), entry.last_revision)
-    };
-    let from = RecipeFrom {
-        entry: entry.clone(),
-        revision,
+        let from = super::link_to(&entry, entry.last_revision);
+        (entry.id.clone(), entry.last_revision, from)
     };
     let linked = recipes::link(&dir, &save.recipe, from, Some(&recipe_version)).is_ok();
     Ok(RecipeSaved {

@@ -318,6 +318,7 @@ pub fn import_to_library(root: &Path, file: &Path) -> CoreResult<RecipeImported>
         }
         let entry = LibraryRecipeEntry {
             version: ENTRY_VERSION,
+            uid: super::link::new_uid(&id),
             id,
             name: recipe.name.clone(),
             created_at: now.clone(),

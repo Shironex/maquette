@@ -11,6 +11,7 @@ import type {
   RecipeUsed,
 } from '../client';
 import { createBackend } from './backend';
+import { REACH_UID } from './recipe-library-fixtures';
 
 function backend(library: string | null = 'demo', agents: string | null = null) {
   return createBackend({
@@ -64,6 +65,7 @@ describe('the mock recipe library', () => {
     const recipes = (await handle('recipe_list', { project: 'frostveil' })) as RecipeSummary[];
     expect(recipes.find(r => r.id === 'reach-for-the-lantern')?.from).toEqual({
       entry: 'reach-for-the-lantern',
+      uid: REACH_UID,
       revision: 1,
     });
     const compare = (await handle('recipe_library_compare', {
@@ -128,7 +130,11 @@ describe('the mock recipe library', () => {
       request: { project: 'frostveil', entry: 'reach-for-the-lantern', revision: 2, name: null },
     })) as RecipeUsed;
     expect(used.doc.id).toBe('reach-for-the-lantern-2');
-    expect(used.doc.recipe.from).toEqual({ entry: 'reach-for-the-lantern', revision: 2 });
+    expect(used.doc.recipe.from).toEqual({
+      entry: 'reach-for-the-lantern',
+      uid: REACH_UID,
+      revision: 2,
+    });
     expect(used.notes).toContain(
       'The project has a recipe reach-for-the-lantern already, so this one is reach-for-the-lantern-2.'
     );

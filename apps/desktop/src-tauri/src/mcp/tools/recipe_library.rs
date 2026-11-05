@@ -203,12 +203,10 @@ impl McpTools {
         let found = self
             .blocking(move |host, hub| {
                 let doc = recipes::get(host.session(), &args.project, &args.recipe)?;
-                let came_from = doc
-                    .recipe
-                    .from
-                    .as_ref()
-                    .map(|f| f.entry.clone())
-                    .filter(|e| commands::get(host.session(), e, None).is_ok());
+                let came_from = match &doc.recipe.from {
+                    Some(from) => commands::linked(host.session(), from)?.map(|entry| entry.id),
+                    None => None,
+                };
                 let entry = if args.new_entry { None } else { args.entry.or(came_from) };
                 let plan =
                     commands::plan_save(host.session(), &args.project, &args.recipe, entry.as_deref())?;

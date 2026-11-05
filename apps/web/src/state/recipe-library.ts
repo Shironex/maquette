@@ -40,7 +40,8 @@ export function libraryNote(
   list: readonly LibraryRecipeSummary[] | null
 ): LibraryNote | null {
   if (!from || !list) return null;
-  const entry = list.find(e => e.id === from.entry);
+  // Same id and uid: an id taken again after a removal is another recipe.
+  const entry = list.find(e => e.id === from.entry && e.uid === from.uid);
   if (!entry) return { kind: 'gone' };
   return entry.latest > from.revision
     ? { kind: 'newer', entry: entry.id, latest: entry.latest }

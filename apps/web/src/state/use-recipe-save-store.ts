@@ -88,8 +88,14 @@ export const useRecipeSaveStore = create<RecipeSaveStore>((set, get) => {
         const library = useRecipeLibraryStore.getState();
         const [doc] = await Promise.all([commands.recipeGet(project, recipe), library.load()]);
         if (read !== plans) return;
-        const from = doc.recipe.from?.entry ?? null;
-        const kept = useRecipeLibraryStore.getState().list?.some(e => e.id === from) ? from : null;
+        const from = doc.recipe.from;
+        const kept =
+          from &&
+          useRecipeLibraryStore
+            .getState()
+            .list?.some(e => e.id === from.entry && e.uid === from.uid)
+            ? from.entry
+            : null;
         const revisionOf = entry ?? kept;
         const ready = { ...sheet, revisionOf, entry: entry === undefined ? revisionOf : entry };
         set({ sheet: ready });

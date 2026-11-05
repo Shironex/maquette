@@ -46,6 +46,7 @@ describe('the library recipes', () => {
     vi.spyOn(commands, 'recipeLibraryList').mockResolvedValueOnce([
       {
         id: 'broken',
+        uid: '',
         name: 'broken',
         version: 'v',
         latest: 0,

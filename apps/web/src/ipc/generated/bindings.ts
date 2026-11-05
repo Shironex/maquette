@@ -474,7 +474,8 @@ export const commands = {
 	 *  Saves a project's recipe to the library as the person confirmed it in
 	 *  the sheet: always a new revision, never an overwrite. An entry that
 	 *  moved since the sheet read it is refused (`moved`). An agent's proposal
-	 *  for this recipe ends as approved.
+	 *  for this recipe ends as approved when it went where the agent asked,
+	 *  and as cancelled when the person saved it elsewhere.
 	 */
 	recipeLibrarySave: (save: RecipeSave) => __TAURI_INVOKE<RecipeSaved>("recipe_library_save", { save }),
 	/**  Removes one revision of a library recipe (moved aside, never deleted). */
@@ -4458,6 +4459,12 @@ export type LibraryRecipeEntry = {
 	version: number,
 	/**  The folder name. */
 	id: string,
+	/**
+	 *  Made once with the entry and never changed: a project recipe's link
+	 *  names it, so an id taken again after a removal is not mistaken for
+	 *  the recipe it came from.
+	 */
+	uid: string,
 	name: string,
 	createdAt: string,
 	updatedAt: string,
@@ -4484,6 +4491,8 @@ export type LibraryRecipeRevision = {
 /**  A line in the list of library recipes. */
 export type LibraryRecipeSummary = {
 	id: string,
+	/**  The entry's uid; empty when it could not be read. */
+	uid: string,
 	/**  The entry's name, or its id when it could not be read. */
 	name: string,
 	/**  A hash of `entry.json`, sent back as `expected` by a write. */
@@ -6977,6 +6986,12 @@ export type RecipeFile = {
 export type RecipeFrom = {
 	/**  The library recipe's id. */
 	entry: string,
+	/**
+	 *  The library recipe's uid, made once when it was made. An entry of
+	 *  the same id with another uid is another recipe (the first was
+	 *  removed and its id taken again), so the link reads as gone.
+	 */
+	uid: string,
 	/**  Its revision, from 1. */
 	revision: number,
 };

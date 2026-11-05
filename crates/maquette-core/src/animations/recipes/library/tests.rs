@@ -523,7 +523,8 @@ fn an_import_is_checked_whole_and_capped_before_it_is_parsed() {
     assert!(refused.to_string().contains("256 KB"), "{refused}");
 
     let mut sneaky = good.clone();
-    sneaky["from"] = serde_json::json!({ "entry": "reach-out", "revision": 7 });
+    sneaky["from"] =
+        serde_json::json!({ "entry": "reach-out", "uid": "0123456789abcdef", "revision": 7 });
     sneaky["name"] = serde_json::json!("../../etc/passwd");
     let nasty = out.join("..%2F..%2Fescape.recipe.json");
     fs::write(&nasty, sneaky.to_string()).expect("write");
@@ -697,4 +698,28 @@ fn a_recipe_behind_the_library_reads_what_the_newer_revision_changes() {
         crate::animations::recipes::create(&w.root, &w.dir(&w.moon), "still", Some("Own"))
             .expect("own");
     assert!(compare(&w.root, &w.config.layout, &w.moon, &made_here.id).is_err());
+}
+
+#[test]
+fn a_link_to_a_removed_entry_whose_id_is_taken_again_reads_as_gone() {
+    let w = ws();
+    w.save(&w.plan(None)).expect("r1");
+    let from = w.recipe("reach-out").from.expect("linked");
+    assert!(crate::recipes::is_entry_uid(&from.uid), "{}", from.uid);
+    assert!(linked_entry(&w.root, &from).expect("read").is_some());
+
+    remove_entry(&w.root, "reach-out", None).expect("remove");
+    assert!(linked_entry(&w.root, &from).expect("read").is_none());
+    let to = exported(&w);
+    let again = import_to_library(&w.root, &to).expect("import");
+    assert_eq!(again.entry, "reach-out", "the id is free again");
+    let (other, _) = load_entry(&w.root, "reach-out").expect("entry");
+    assert_ne!(other.uid, from.uid, "another recipe, another uid");
+
+    assert!(
+        linked_entry(&w.root, &from).expect("read").is_none(),
+        "the old link never points at the new recipe"
+    );
+    let gone = compare(&w.root, &w.config.layout, &w.frost, "reach-out").expect_err("gone");
+    assert!(matches!(gone, CoreError::NotFound(_)), "{gone:?}");
 }

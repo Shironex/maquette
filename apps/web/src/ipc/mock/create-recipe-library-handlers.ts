@@ -99,6 +99,7 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     const newest = e.files.get(latest);
     return {
       id: e.entry.id,
+      uid: e.entry.uid,
       name: e.entry.name,
       version: versionOf(e.entry),
       latest,
@@ -201,7 +202,9 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
       entries().set(id, stored);
     }
     const revision = stored.entry.lastRevision;
-    ctx.recipes(project).set(recipe, { ...file, from: { entry: stored.entry.id, revision } });
+    ctx
+      .recipes(project)
+      .set(recipe, { ...file, from: { entry: stored.entry.id, uid: stored.entry.uid, revision } });
     currentSaveAsks()?.close(project, recipe);
     changed();
     return {
@@ -232,7 +235,11 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
       const e = entryOf(entry);
       const { at, file } = fileAt(e, revision);
       const named = name?.trim() || file.name;
-      return land(project, { ...file, name: named, from: { entry: e.entry.id, revision: at } }, []);
+      return land(
+        project,
+        { ...file, name: named, from: { entry: e.entry.id, uid: e.entry.uid, revision: at } },
+        []
+      );
     },
     recipe_library_plan_save: ({ project, recipe, entry }: Args) =>
       planSave(String(project), String(recipe), (entry as string | null) ?? null),
@@ -240,6 +247,8 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
       const file = recipeOf(project, recipe);
       if (!file.from) fail('invalid', `${file.name} came from no library recipe.`);
       const e = entryOf(file.from.entry);
+      if (e.entry.uid !== file.from.uid)
+        fail('not-found', `the library recipe ${file.name} came from was not found`);
       const newest = fileAt(e, null);
       return {
         entry: e.entry.id,

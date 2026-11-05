@@ -205,6 +205,10 @@ pub struct GoneProp {
 pub struct RecipeFrom {
     /// The library recipe's id.
     pub entry: String,
+    /// The library recipe's uid, made once when it was made. An entry of
+    /// the same id with another uid is another recipe (the first was
+    /// removed and its id taken again), so the link reads as gone.
+    pub uid: String,
     /// Its revision, from 1.
     pub revision: u32,
 }
@@ -279,6 +283,11 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
 /// comes from a newer Maquette or holds values [`validate`] refuses.
 pub fn load_file(file: &Path) -> CoreResult<RecipeFile> {
     Ok(load_versioned(file)?.0)
+}
+
+/// True for a library recipe uid: 8 to 64 lowercase hex digits.
+pub fn is_entry_uid(uid: &str) -> bool {
+    (8..=64).contains(&uid.len()) && uid.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// A recipe file's version: the first 16 hex digits of the SHA-256 of its

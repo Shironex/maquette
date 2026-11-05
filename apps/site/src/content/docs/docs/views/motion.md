@@ -66,7 +66,7 @@ An agent asks for the same add with [`add_recipe_bake`](/docs/agents/mcp-tools/#
 
 Recipes can also live outside any project, in the workspace's recipe library, next to the clip library. The [Animations](/docs/views/animations/#recipes) library lists them under **Recipes**, each with every revision it was saved as (r1, r2 and on) and where each came from. **Use in project** there copies a revision into a project as a new recipe that remembers it: point blanks keep their points, and a prop blank whose asset the project does not have opens, with a note, for you to fill with one of its props. The base clip is found in the clip library by name and frame count; when it is missing the recipe is still made and says so, and a clip with other keys only warns.
 
-A recipe that came from the library shows **Library has rN** on its line once the library has a newer revision than the one it came from. **What changed** lists, in plain words, what the newer revision adds, removes or edits, and **Use rN** copies it in as a new recipe; your recipe stays as it is.
+A recipe that came from the library shows **Library has rN** on its line once the library has a newer revision than the one it came from. When that library recipe was removed it reads as gone, even if a later recipe took the same id. **What changed** lists, in plain words, what the newer revision adds, removes or edits, and **Use rN** copies it in as a new recipe; your recipe stays as it is.
 
 ### Save to the library
 
