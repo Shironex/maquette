@@ -31,6 +31,7 @@ use crate::workspace::is_single_segment;
 pub(crate) mod blender;
 pub mod import;
 pub mod names;
+pub mod recipes;
 pub mod retarget;
 pub mod rig;
 pub mod save;
