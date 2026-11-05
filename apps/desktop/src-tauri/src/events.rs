@@ -119,6 +119,14 @@ pub struct RecipeChanged {
     pub project: String,
 }
 
+/// A recipe bake changed: it started, moved on a frame, or finished, failed
+/// or was cancelled. The Motion view's Apply follows it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeBakeChanged {
+    pub record: maquette_core::animations::recipes::bake::RecipeBakeRecord,
+}
+
 /// An agent changed a project's scene layout through the MCP server, so
 /// the Layout editor reloads it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

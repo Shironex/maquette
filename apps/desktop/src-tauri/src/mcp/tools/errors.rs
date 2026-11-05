@@ -155,6 +155,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Read the recipe again with get_recipe, keep what changed there, and send your change with its version as expected.",
             "get_recipe",
         )),
+        super::recipe_bake::OPEN_BLANKS => Some(agent(
+            "Fill the open blanks with update_recipe (a prop's asset id or a point), then bake again.",
+            "update_recipe",
+        )),
         super::recipes::NEEDS_VERSION => Some(agent(
             "Call get_recipe, then send the change with its version as expected.",
             "get_recipe",

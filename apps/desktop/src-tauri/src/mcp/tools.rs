@@ -41,6 +41,7 @@ pub mod plan_extras;
 pub mod plans;
 pub mod prepare;
 pub mod projects;
+pub mod recipe_bake;
 pub mod recipes;
 pub mod refs;
 pub mod renders;
@@ -234,7 +235,7 @@ impl McpTools {
         ));
         all.merge(tagged(
             "animation",
-            Self::animations_router() + Self::retarget_router() + Self::recipes_router(),
+            Self::animations_router() + Self::retarget_router() + Self::recipe_routers(),
         ));
         all.merge(tagged(
             "export",

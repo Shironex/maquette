@@ -260,6 +260,8 @@ async fn the_recipe_tools_are_hidden_and_refused_while_the_animation_group_is_of
         "get_recipe",
         "create_recipe",
         "update_recipe",
+        "bake_recipe",
+        "get_recipe_bake",
     ] {
         let refused = raw_call(
             &client,
