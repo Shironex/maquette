@@ -323,6 +323,7 @@ pub(crate) fn add_version(
     }
     fs::create_dir_all(&models).map_err(|e| CoreError::io(&models, e))?;
     fs::copy(output, &target).map_err(|e| CoreError::io(&target, e))?;
+    crate::recipes::baked::note(project_dir, id, &target, number)?;
     assets::add_version(manifest, id, format!("models/{file_name}"), stats)
 }
 

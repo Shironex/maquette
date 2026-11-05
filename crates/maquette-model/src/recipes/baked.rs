@@ -2,8 +2,9 @@
 //! clips. A staged bake carries a mark in its own GLB (`asset.extras`):
 //! the recipe and version it was baked from, the new clip and whether it
 //! counts as Mixamo's. Any Blender import and export drops that mark, so
-//! accepting a marked file as a version also records the bake on the asset
-//! in the project's `recipe-bakes.json`, which every later version keeps.
+//! bringing a marked file in as a version (inbox accept, a build, a library
+//! entry, a game import) also records the bake on the asset in the
+//! project's `recipe-bakes.json`, which every later version keeps.
 //! Packs and Save clips to the library read both.
 
 use std::collections::BTreeMap;
@@ -125,6 +126,21 @@ pub fn record(project_dir: &Path, asset: &str, bake: RecipeBakeUse) -> CoreResul
     file.version = BAKES_VERSION;
     file.assets.entry(asset.to_string()).or_default().push(bake);
     write_json(&project_dir.join(BAKES_FILE), &file)
+}
+
+/// Records the bake the model at `file` carries, when it carries one, as
+/// `version` of `asset`. Every route that brings a model file in as a
+/// version calls this, so the bake outlives a later step that drops the
+/// mark.
+///
+/// # Errors
+///
+/// Fails when the record cannot be read or written.
+pub fn note(project_dir: &Path, asset: &str, file: &Path, version: u32) -> CoreResult<()> {
+    match mark_of(file) {
+        Some(mark) => record(project_dir, asset, RecipeBakeUse::of(&mark, version)),
+        None => Ok(()),
+    }
 }
 
 /// The bakes accepted as versions of `asset`, oldest first.

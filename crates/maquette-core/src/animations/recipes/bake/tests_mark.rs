@@ -104,3 +104,29 @@ fn an_accepted_mixamo_bake_stays_flagged_after_a_blender_round_trip_drops_its_ma
     assert_eq!(plan.version, Some(3));
     assert_eq!(plan.clips[0].from_library.as_deref(), Some("idle-clip"));
 }
+
+#[test]
+fn a_marked_bake_brought_in_by_a_build_is_recorded_too() {
+    let p = super::tests::project_with(humanoid());
+    let (root, config) = (p.root(), &p.config);
+    let out = tempfile::tempdir().expect("tempdir");
+
+    // An unmarked output records nothing.
+    let plain = out.path().join("plain.glb");
+    fs::write(&plain, humanoid()).expect("model");
+    let mut manifest = crate::project::load(root, &config.layout, &p.id).expect("load");
+    crate::built::add_model_version(&mut manifest, &p.dir, "elsheria", &plain, None)
+        .expect("plain");
+    assert!(!licence::baked_mixamo(root, &p.dir, "elsheria"));
+
+    // A marked one is recorded on the asset under its new version.
+    let marked = out.path().join("marked.glb");
+    fs::write(&marked, humanoid()).expect("model");
+    write_mark(&marked, &mark(true)).expect("mark");
+    let version = crate::built::add_model_version(&mut manifest, &p.dir, "elsheria", &marked, None)
+        .expect("marked");
+    let bakes = crate::recipes::baked::of_asset(&p.dir, "elsheria").expect("bakes");
+    assert_eq!(bakes.len(), 1);
+    assert_eq!((bakes[0].version, bakes[0].mixamo), (version.version, true));
+    assert!(licence::baked_mixamo(root, &p.dir, "elsheria"));
+}
