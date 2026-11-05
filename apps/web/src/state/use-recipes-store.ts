@@ -25,6 +25,9 @@ interface RecipesStore {
   create: (clip: string, name: string) => Promise<RecipeDoc | null>;
 }
 
+/** Counts list reads, so an older answer never replaces a newer one. */
+let reads = 0;
+
 export const useRecipesStore = create<RecipesStore>((set, get) => ({
   project: null,
   list: null,
@@ -35,11 +38,13 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
 
   load: async project => {
     if (get().project !== project) set({ project, list: null, error: null });
+    const read = ++reads;
+    const latest = () => read === reads && get().project === project;
     try {
       const list = await commands.recipeList(project);
-      if (get().project === project) set({ list, error: null });
+      if (latest()) set({ list, error: null });
     } catch (error) {
-      if (get().project === project) set({ error: errorMessage(error) });
+      if (latest()) set({ error: errorMessage(error) });
     }
   },
 

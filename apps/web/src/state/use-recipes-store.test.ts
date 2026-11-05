@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAnimationsStore } from './use-animations-store';
 import { useRecipesStore } from './use-recipes-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
@@ -33,5 +33,27 @@ describe('the recipes store', () => {
     expect(doc?.recipe.name).toBe(clip.name);
     expect(useRecipesStore.getState().picking).toBeNull();
     expect(useRecipesStore.getState().list).toHaveLength(before + 1);
+  });
+});
+
+describe('reading the list', () => {
+  it('keeps the newest list when an older read answers last', async () => {
+    await openMockLibrary('demo');
+    const { commands } = await import('@/ipc/client');
+    let release: (() => void) | undefined;
+    const slow = vi.spyOn(commands, 'recipeList').mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          release = () => resolve([]);
+        })
+    );
+    const first = useRecipesStore.getState().load('frostveil');
+    await useRecipesStore.getState().load('frostveil');
+    const newest = useRecipesStore.getState().list;
+    expect(newest!.length).toBeGreaterThan(0);
+    release!();
+    await first;
+    expect(useRecipesStore.getState().list).toBe(newest);
+    slow.mockRestore();
   });
 });
