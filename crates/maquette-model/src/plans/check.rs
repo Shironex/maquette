@@ -17,7 +17,9 @@ fn invalid<T>(message: String) -> CoreResult<T> {
     Err(CoreError::Invalid(message))
 }
 
-fn is_item_id(id: &str) -> bool {
+/// True for a node, edge, blank or change id: ASCII letters, digits, dashes
+/// and underscores, at most [`ID_MAX_CHARS`] long.
+pub(crate) fn is_item_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= ID_MAX_CHARS
         && id

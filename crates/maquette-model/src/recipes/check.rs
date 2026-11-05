@@ -12,7 +12,7 @@ use super::{
     NAME_MAX_CHARS, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::plans::{is_link_id, trimmed};
+use crate::plans::{is_item_id, is_link_id, trimmed};
 use crate::project::ProjectManifest;
 
 /// The hands and feet a reach moves.
@@ -31,14 +31,6 @@ const WAVE_BONES: [&str; 6] = [
 
 fn invalid<T>(message: String) -> CoreResult<T> {
     Err(CoreError::Invalid(message))
-}
-
-fn is_item_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= ID_MAX_CHARS
-        && id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// One line of at most `max` characters, not blank.
