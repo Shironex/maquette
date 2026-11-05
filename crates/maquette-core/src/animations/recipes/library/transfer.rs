@@ -19,7 +19,7 @@ use super::{
 };
 use crate::animations::recipes::match_base;
 use crate::error::{CoreError, CoreResult};
-use crate::project::{self, latin_slug, now_rfc3339};
+use crate::project::{self, latin_slug, now_rfc3339, windows_safe};
 use crate::recipes::{self, RECIPE_SUFFIX, RecipeFile};
 use crate::workspace::FolderLayout;
 
@@ -191,8 +191,13 @@ fn agent_export_names(root: &Path, name: &str) -> CoreResult<impl Iterator<Item 
         .trim()
         .trim_end_matches(RECIPE_SUFFIX)
         .trim_end_matches(".json");
-    let base = latin_slug(stem).unwrap_or_else(|| "recipe".to_string());
-    let base: String = base.chars().take(recipes::ID_MAX_CHARS).collect();
+    let base = latin_slug(stem).map_or_else(
+        || "recipe".to_string(),
+        |slug| {
+            let short: String = slug.chars().take(recipes::ID_MAX_CHARS).collect();
+            windows_safe(short.trim_end_matches('-').to_string())
+        },
+    );
     Ok((1..10_000).map(move |n| {
         let stem = if n == 1 {
             base.clone()

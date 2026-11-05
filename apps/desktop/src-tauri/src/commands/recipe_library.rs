@@ -220,7 +220,8 @@ pub async fn recipe_export(
 ) -> CommandResult<Option<RecipeExported>> {
     tauri::async_runtime::spawn_blocking(move || {
         use tauri::Manager as _;
-        let stem = maquette_core::project::latin_slug(&name).unwrap_or_else(|| "recipe".into());
+        let stem = maquette_core::project::latin_slug(&name)
+            .map_or_else(|| "recipe".into(), maquette_core::project::windows_safe);
         let picked = app
             .dialog()
             .file()

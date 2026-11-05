@@ -596,6 +596,11 @@ fn agents_import_only_inside_the_workspace_and_export_only_to_a_fresh_file() {
         "a taken name is skipped"
     );
     assert_eq!(fs::read_to_string(&taken).expect("kept"), "taken");
+    let device = agent_export(&w.root, &w.config.layout, &source, "CON").expect("con");
+    assert_eq!(
+        device.file, "con-1.recipe.json",
+        "never a name Windows keeps"
+    );
 }
 
 #[test]
