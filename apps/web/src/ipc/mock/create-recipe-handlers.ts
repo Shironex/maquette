@@ -2,13 +2,20 @@
  * Animation recipes in mock mode: each project's recipes kept in memory,
  * made from the mock clip library, with the core's checks that matter to
  * the view (a name, a free id, a known clip, a recipe that still exists).
- * Base clips match by name and frame count as the core matches them. With
- * `?library=demo`, Frostveil opens with two recipes, one whose base clip
- * the library has with other keys.
+ * Base clips match by name and frame count as the core matches them. Prop
+ * blanks are read against the project as the core reads them: a prop that is
+ * no longer an asset reads open with a warning, stays stored, and a write is
+ * checked whole first. With `?library=demo`, Frostveil opens with two
+ * recipes: one with a reach, a look and a wave on its first prop and a
+ * point, and one whose base clip the library has with other keys and whose
+ * torch prop is gone.
  */
 import type {
   AnimationClip,
   BaseMatch,
+  ProjectManifest,
+  RecipeBlank,
+  RecipeLayer,
   RecipeBase,
   RecipeChange,
   RecipeDoc,
@@ -16,11 +23,13 @@ import type {
   RecipeSummary,
 } from '../client';
 import { clock } from '@/lib/clock';
+import { checkDraft } from '@/state/recipe-check';
 import { fail, type Args } from './backend-options';
 import { slugOf } from './plan-store';
 
 interface RecipeContext {
   clips: () => readonly AnimationClip[];
+  project: (id: string) => ProjectManifest;
   state: string | null;
 }
 
@@ -63,35 +72,65 @@ function newRecipe(name: string, base: RecipeBase): RecipeFile {
   return { version: 1, name, revision: 1, created: now, edited: now, base, blanks: [], layers: [] };
 }
 
-/** Frostveil's demo recipes: one on a library clip, one whose clip came back with new keys. */
-function demoRecipes(clips: readonly AnimationClip[]): Map<string, RecipeFile> {
+const layer = (
+  id: string,
+  kind: RecipeLayer['kind'],
+  bone: string,
+  settings: Partial<RecipeLayer['settings']>
+): RecipeLayer => ({
+  id,
+  kind,
+  bone,
+  settings: {
+    weight: 1,
+    start: 0,
+    end: 1,
+    target: null,
+    rotation: null,
+    offset: null,
+    cycles: null,
+    amount: null,
+    ...settings,
+  },
+});
+
+/**
+ * Frostveil's demo recipes: a reach, a look and a wave on its first prop and
+ * a point, and one whose clip came back with new keys and whose torch is gone.
+ */
+function demoRecipes(
+  clips: readonly AnimationClip[],
+  prop: string | null
+): Map<string, RecipeFile> {
   const out = new Map<string, RecipeFile>();
   const [first, second] = clips;
   if (first) {
     const reach = newRecipe('Reach for the lantern', baseOf(first));
     reach.blanks = [
-      { id: 'lantern', label: 'The prop the hand reaches', kind: 'prop', prop: null, point: null },
+      { id: 'lantern', label: 'The prop the hand reaches', kind: 'prop', prop, point: null },
+      {
+        id: 'shelf',
+        label: 'Where the eyes go after',
+        kind: 'point',
+        prop: null,
+        point: [0.35, 1.45, 0.6],
+      },
     ];
     reach.layers = [
-      {
-        id: 'l-1',
-        kind: 'reach',
-        bone: 'rightHand',
-        settings: {
-          weight: 1,
-          start: 0.2,
-          end: 0.6,
-          target: 'lantern',
-          rotation: null,
-          offset: null,
-          cycles: null,
-          amount: null,
-        },
-      },
+      layer('l-1', 'reach', 'rightHand', { start: 0.1, end: 0.35, target: 'lantern' }),
+      layer('l-2', 'look-at', 'head', { start: 0.1, end: 0.9, weight: 0.8, target: 'shelf' }),
+      layer('l-3', 'wave', 'leftLowerArm', { start: 0.65, end: 0.95, cycles: 2, amount: 25 }),
     ];
     out.set('reach-for-the-lantern', reach);
   }
-  if (second) out.set('look-around', newRecipe('Look around', { ...baseOf(second), hash: 'old' }));
+  if (second) {
+    const look = newRecipe('Look around', { ...baseOf(second), hash: 'old' });
+    look.blanks = [
+      { id: 'torch', label: 'The torch on the wall', kind: 'prop', prop: 'old-torch', point: null },
+    ];
+    look.layers = [layer('l-1', 'look-at', 'head', { start: 0.2, end: 0.8, target: 'torch' })];
+    out.set('look-around', look);
+  }
   return out;
 }
 
@@ -102,7 +141,9 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   const recipes = (project: unknown) => {
     if (!seeded) {
       seeded = true;
-      byProject.set('frostveil', demoRecipes(ctx.clips()));
+      const prop =
+        (ctx.project('frostveil').assets ?? []).find(a => a.kind !== 'character')?.id ?? null;
+      byProject.set('frostveil', demoRecipes(ctx.clips(), prop));
     }
     const id = String(project);
     let found = byProject.get(id);
@@ -121,7 +162,22 @@ export function createRecipeHandlers(ctx: RecipeContext) {
     if (!name.trim()) fail('invalid', 'Give the recipe a name.');
     if (name.trim().length > 120) fail('invalid', 'Keep the recipe under 120 characters.');
   };
-  const doc = (id: string, recipe: RecipeFile): RecipeDoc => {
+  const hasAsset = (project: string, id: string) =>
+    (ctx.project(project).assets ?? []).some(a => a.id === id);
+  /** The recipe as read for `project`: gone props open, a warning each. */
+  const settled = (project: string, recipe: RecipeFile): [RecipeFile, string[]] => {
+    const warnings: string[] = [];
+    const blanks = recipe.blanks.map(b => {
+      if (b.kind !== 'prop' || !b.prop || hasAsset(project, b.prop)) return b;
+      warnings.push(
+        `The blank ${b.id} named ${b.prop}, which is no longer an asset of ${ctx.project(project).name}, so it is open again.`
+      );
+      return { ...b, prop: null };
+    });
+    return [{ ...recipe, blanks }, warnings];
+  };
+  const doc = (project: string, id: string, stored: RecipeFile): RecipeDoc => {
+    const [recipe, warnings] = settled(project, stored);
     const [base, clip] = matchBase(ctx.clips(), recipe.base);
     return {
       id,
@@ -129,23 +185,38 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       recipe,
       base,
       mixamo: recipe.base.mixamo || clip?.rig.kind === 'mixamo',
-      warnings: [],
+      warnings,
     };
   };
-  const summary = (id: string, recipe: RecipeFile): RecipeSummary => ({
-    id,
-    file: fileOf(id),
-    name: recipe.name,
-    base: recipe.base.name,
-    frames: recipe.base.frames,
-    mixamo: recipe.base.mixamo,
-    layers: recipe.layers.length,
-    blanks: recipe.blanks.length,
-    open: recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point)).length,
-    edited: recipe.edited,
-    warnings: [],
-    problem: null,
-  });
+  const summary = (project: string, id: string, stored: RecipeFile): RecipeSummary => {
+    const [recipe, warnings] = settled(project, stored);
+    return {
+      id,
+      file: fileOf(id),
+      name: recipe.name,
+      base: recipe.base.name,
+      frames: recipe.base.frames,
+      mixamo: recipe.base.mixamo,
+      layers: recipe.layers.length,
+      blanks: recipe.blanks.length,
+      open: recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point)).length,
+      edited: recipe.edited,
+      warnings,
+      problem: null,
+    };
+  };
+  /** Sent blanks checked against the project, a sent open blank keeping a gone prop. */
+  const blanksFor = (project: string, current: RecipeFile, sent: RecipeBlank[]) =>
+    sent.map(b => {
+      if (b.kind !== 'prop') return b;
+      if (b.prop && !hasAsset(project, b.prop))
+        fail(
+          'invalid',
+          `The blank ${b.id} names ${b.prop}, which is not an asset of ${ctx.project(project).name}.`
+        );
+      const stored = current.blanks.find(c => c.id === b.id && c.kind === 'prop')?.prop;
+      return !b.prop && stored && !hasAsset(project, stored) ? { ...b, prop: stored } : b;
+    });
   const freeId = (project: unknown, name: string) => {
     // A name with no letters or digits makes 'recipe', as the core makes it.
     const base = /[a-z0-9]/i.test(name) ? slugOf(name) : 'recipe';
@@ -157,9 +228,9 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   return {
     recipe_list: ({ project }: Args) =>
       [...recipes(project)]
-        .map(([id, recipe]) => summary(id, recipe))
+        .map(([id, recipe]) => summary(String(project), id, recipe))
         .sort((a, b) => a.id.localeCompare(b.id)),
-    recipe_get: ({ project, id }: Args) => doc(String(id), existing(project, id)),
+    recipe_get: ({ project, id }: Args) => doc(String(project), String(id), existing(project, id)),
     recipe_create: ({ project, clip, name }: Args) => {
       const found = ctx.clips().find(c => c.id === String(clip));
       if (!found) fail('not_found', `Not found: the library clip ${String(clip)}`);
@@ -168,27 +239,34 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       const id = freeId(project, named);
       const recipe = newRecipe(named, baseOf(found));
       recipes(project).set(id, recipe);
-      return doc(id, recipe);
+      return doc(String(project), id, recipe);
     },
     recipe_rename: ({ project, id, name }: Args) => {
       checkName(String(name));
       const recipe = { ...existing(project, id), name: String(name).trim() };
       recipes(project).set(String(id), recipe);
-      return summary(String(id), recipe);
+      return summary(String(project), String(id), recipe);
     },
     recipe_update: ({ project, id, change }: Args) => {
       const { name, layers, blanks } = change as RecipeChange;
       if (name != null) checkName(name);
       const current = existing(project, id);
-      const recipe: RecipeFile = {
+      const next: RecipeFile = {
         ...current,
         name: name?.trim() ?? current.name,
-        layers: layers ?? current.layers,
-        blanks: blanks ?? current.blanks,
-        edited: clock.now().toISOString(),
+        layers: (layers ?? current.layers).map((l, i) => (l.id ? l : { ...l, id: `l-${i + 1}` })),
+        blanks: blanks ? blanksFor(String(project), current, blanks) : current.blanks,
       };
+      const problems = checkDraft(next);
+      const first = [
+        ...problems.general,
+        ...Object.values(problems.blanks),
+        ...Object.values(problems.layers),
+      ][0];
+      if (first) fail('invalid', first);
+      const recipe = { ...next, edited: clock.now().toISOString() };
       recipes(project).set(String(id), recipe);
-      return doc(String(id), recipe);
+      return doc(String(project), String(id), recipe);
     },
     recipe_remove: ({ project, id }: Args) => {
       existing(project, id);

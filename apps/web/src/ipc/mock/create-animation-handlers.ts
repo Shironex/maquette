@@ -338,7 +338,7 @@ export function createAnimationHandlers(ctx: AnimationContext) {
     bakedClips: retarget.bakedClips,
     handlers: {
       ...retarget.handlers,
-      ...createRecipeHandlers({ clips: () => clips, state: ctx.state }),
+      ...createRecipeHandlers({ clips: () => clips, project: ctx.project, state: ctx.state }),
       animations_get: () => view(),
       dialog_pick_clips: () => PICKED,
       animations_read_import: (args: Args) => readImport(args.paths as string[]),
