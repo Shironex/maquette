@@ -482,14 +482,12 @@ def stash(arm, action, slot):
     track.mute = True
 
 
-def main():
-    args = parse_args()
-    started = time.time()
-    with open(args.job, encoding="utf-8") as f:
-        job = json.load(f)
-    base = os.path.dirname(os.path.abspath(args.job))
-    at = lambda rel: os.path.join(base, rel)  # noqa: E731
-
+def retarget(job, at):
+    """Imports the job's model and bakes each of its clips onto it, as
+    actions stashed on the model's armature. Returns the scene, the model's
+    armature, its objects, the report so far and, per clip id, the action
+    it baked; a clip that failed is in the report with its error only.
+    `at` turns a path of the job into one Blender opens."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     out_fps = max((clip_fps(c) for c in job["clips"]), default=DEFAULT_FPS)
@@ -506,6 +504,7 @@ def main():
     feet = {side: bone for side, bone in zip(sides, job.get("feet", []))}
 
     report = {"clips": [], "driven": 0, "alignedDeg": 0.0, "hipsScale": 1.0}
+    made_by_clip = {}
     for clip in job["clips"]:
         entry = {"id": clip["id"], "name": clip["name"], "error": None}
         found = None
@@ -526,6 +525,7 @@ def main():
             made, slot, info = bake(scene, tgt, src, action, clip, feet, job.get("follow", []), out_fps)
             stash(target_arm, made, slot)
             keep.add(made)
+            made_by_clip[clip["id"]] = made
             report["driven"] = max(report["driven"], info.pop("driven"))
             report["alignedDeg"] = round(max(report["alignedDeg"], info.pop("aligned")), 2)
             report["hipsScale"] = round(info.pop("hipsScale"), 4)
@@ -541,6 +541,11 @@ def main():
         report["clips"].append(entry)
 
     set_fps(scene, out_fps)
+    return scene, target_arm, model_objects, report, made_by_clip
+
+
+def export(path, target_arm, model_objects):
+    """Writes the model's objects, with every action they keep, as GLB."""
     data = target_arm.animation_data
     if data is not None:
         data.action = None
@@ -549,17 +554,31 @@ def main():
         if obj.name in bpy.data.objects:
             obj.select_set(True)
     bpy.ops.export_scene.gltf(
-        filepath=at(job["out"]),
+        filepath=path,
         export_format="GLB",
         use_selection=True,
         export_animations=True,
         export_animation_mode="ACTIONS",
         export_yup=True,
     )
+
+
+def main():
+    args = parse_args()
+    started = time.time()
+    with open(args.job, encoding="utf-8") as f:
+        job = json.load(f)
+    base = os.path.dirname(os.path.abspath(args.job))
+    at = lambda rel: os.path.join(base, rel)  # noqa: E731
+
+    _, target_arm, model_objects, report, _ = retarget(job, at)
+    export(at(job["out"]), target_arm, model_objects)
     report["seconds"] = round(time.time() - started, 2)
     with open(at(job["report"]), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
     log(f"wrote {job['out']}")
 
 
-main()
+# The recipe bake imports this file for its parts; run on its own, it bakes.
+if __name__ == "__main__":
+    main()

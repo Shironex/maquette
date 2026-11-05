@@ -120,17 +120,20 @@ struct Pending {
     library: Vec<(String, u32, String)>,
 }
 
-struct Model {
-    dir: PathBuf,
-    name: String,
-    version: u32,
-    path: PathBuf,
-    bytes: f64,
-    joints: Vec<String>,
-    clips: Vec<String>,
+/// A rigged model's newest version, as a retarget reads it.
+pub(crate) struct Model {
+    /// The project's folder.
+    pub dir: PathBuf,
+    pub name: String,
+    pub version: u32,
+    pub path: PathBuf,
+    pub bytes: f64,
+    pub joints: Vec<String>,
+    pub clips: Vec<String>,
 }
 
-fn model(
+/// The newest version of `asset_id`, which has to have a rig.
+pub(crate) fn model(
     root: &Path,
     config: &WorkspaceConfig,
     project_id: &str,
@@ -165,7 +168,7 @@ fn library_clips(root: &Path, ids: &[String]) -> CoreResult<Vec<AnimationClip>> 
     ids.iter().map(|id| super::load(root, id)).collect()
 }
 
-fn bone_names(clip: &AnimationClip) -> Vec<String> {
+pub(crate) fn bone_names(clip: &AnimationClip) -> Vec<String> {
     clip.rig.bones.iter().map(|b| b.name.clone()).collect()
 }
 
