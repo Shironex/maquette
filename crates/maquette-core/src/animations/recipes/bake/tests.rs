@@ -403,6 +403,21 @@ fn the_report_reads_as_the_result_the_review_shows() {
     assert!(read_run(&work).is_err());
 }
 
+/// The run folders in a bake's folder.
+fn runs_in(dir: &std::path::Path) -> Vec<PathBuf> {
+    let mut runs: Vec<PathBuf> = fs::read_dir(dir)
+        .expect("dir")
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("run-"))
+        })
+        .collect();
+    runs.sort();
+    runs
+}
+
 /// A runner that writes what the bake script would, or that waits to be
 /// cancelled.
 struct Fake {
@@ -520,14 +535,9 @@ fn a_bake_runs_as_a_job_and_stages_its_model_outside_the_project_and_library() {
     assert!(mark.mixamo && marked_mixamo(&staged));
     let cache = p.root().join(&p.config.layout.cache);
     assert!(staged.starts_with(&cache), "{}", staged.display());
-    assert!(
-        !staged
-            .parent()
-            .expect("dir")
-            .join("run")
-            .join("in")
-            .exists()
-    );
+    let runs = runs_in(staged.parent().expect("dir"));
+    assert_eq!(runs.len(), 1, "{runs:?}");
+    assert!(!runs[0].join("in").exists(), "the copies are gone");
     // Nothing was added to the model or to the clip library.
     let manifest = crate::project::load(p.root(), &p.config.layout, &p.id).expect("manifest");
     assert_eq!(
@@ -731,4 +741,34 @@ fn a_bake_that_panics_ends_as_failed_and_the_recipe_can_bake_again() {
         }
     }
     assert_eq!(settled(&broken, &p).state, RecipeBakeState::Failed);
+}
+
+#[test]
+fn each_run_bakes_in_a_folder_of_its_own() {
+    let p = reaching();
+    let (bakes, _) = self::bakes(false);
+    let bake = || {
+        bakes
+            .start(
+                p.root(),
+                &p.config,
+                Toolbox::default(),
+                &p.request(),
+                RecipeBakeStarter::Person,
+            )
+            .expect("start");
+        settled(&bakes, &p)
+    };
+    let dir = PathBuf::from(bake().result.expect("result").file)
+        .parent()
+        .expect("dir")
+        .to_path_buf();
+    let first = runs_in(&dir);
+    // A Blender left over from that run writing on finds its folder gone,
+    // never the next run's.
+    assert_eq!(bake().state, RecipeBakeState::Done);
+    let second = runs_in(&dir);
+    assert_eq!((first.len(), second.len()), (1, 1));
+    assert_ne!(first, second, "a new run takes a new folder");
+    assert!(!first[0].exists(), "the earlier run's folder is cleared");
 }

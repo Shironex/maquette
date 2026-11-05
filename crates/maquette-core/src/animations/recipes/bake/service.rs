@@ -27,8 +27,10 @@ use crate::pipeline::tools::Toolbox;
 use crate::workspace::{WorkspaceConfig, is_single_segment};
 
 const RECORD_FILE: &str = "bake.json";
-/// The run's own files, cleared when a bake starts again.
-const RUN_DIR: &str = "run";
+/// Each run's own files go in a folder of its own, `run-<id>`, so a Blender
+/// left over from an earlier session never writes into a new run's folder.
+/// Earlier runs' folders are cleared when a bake starts again.
+const RUN_PREFIX: &str = "run-";
 const CLOSED: &str = "The app closed during this bake. Bake it again.";
 /// Why a bake whose thread panicked stopped.
 pub(super) const BROKE: &str = "The bake stopped on an error inside Maquette. Bake it again.";
@@ -98,6 +100,28 @@ fn save(dir: &Path, record: &RecipeBakeRecord) -> CoreResult<()> {
     write_json(&dir.join(RECORD_FILE), record)
 }
 
+/// A fresh run folder name, never the same twice in a session or across one.
+fn run_name() -> String {
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    format!(
+        "{RUN_PREFIX}{}-{}",
+        now_ms() as u64,
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
+/// Every earlier run folder in a bake's folder.
+fn clear_runs(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if entry.file_name().to_string_lossy().starts_with(RUN_PREFIX) {
+            clear(&entry.path());
+        }
+    }
+}
+
 /// A file or folder from an earlier bake, gone before a new one starts.
 fn clear(path: &Path) {
     let gone = if path.is_dir() {
@@ -116,6 +140,8 @@ fn clear(path: &Path) {
 struct Running {
     record: Mutex<RecipeBakeRecord>,
     dir: PathBuf,
+    /// This run's own folder in `dir`.
+    work: PathBuf,
     inner: Arc<Inner>,
 }
 
@@ -224,7 +250,7 @@ impl RecipeBakes {
             }
             active.insert(name.clone(), Arc::clone(&cancel));
         }
-        clear(&dir.join(RUN_DIR));
+        clear_runs(&dir);
         clear(&dir.join(STAGED_FILE));
         let now = now_ms();
         let record = RecipeBakeRecord {
@@ -244,6 +270,7 @@ impl RecipeBakes {
         };
         let running = Arc::new(Running {
             record: Mutex::new(record.clone()),
+            work: dir.join(run_name()),
             dir,
             inner: Arc::clone(&self.inner),
         });
@@ -280,7 +307,7 @@ impl RecipeBakes {
         cancel: &AtomicBool,
     ) -> CoreResult<super::RecipeBakeResult> {
         let started = Instant::now();
-        let work = running.dir.join(RUN_DIR);
+        let work = running.work.clone();
         fs::create_dir_all(&work).map_err(|e| CoreError::io(&work, e))?;
         running.update(|r| {
             r.progress = Some(RecipeBakeProgress {
