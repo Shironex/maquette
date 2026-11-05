@@ -26,6 +26,7 @@ pub mod settings;
 pub mod uses;
 
 pub use bake::{RETARGET_SCRIPT, bake, draft, draft_file};
+pub(crate) use bake::{ScriptJob, Staged, script_job};
 pub use bones::{BonePair, MapChoice, PairMatch};
 pub use rest::{BoneTurn, FollowChoice, OnlyBone, RestCompare, RestShape};
 pub use review::{ClipReview, RetargetReview, ReviewStatus};

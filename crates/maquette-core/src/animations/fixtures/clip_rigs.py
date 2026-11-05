@@ -16,6 +16,8 @@
 - model: a box figure on a 22 bone humanoid rig with its own bone names
   (hips, spine, chest, upper_arm.L) in an A pose, with one clip "idle",
   written as GLB: the model a library clip is retargeted onto.
+- model_x: the same model turned to face +X (glTF axes), its rig and box
+  turned with it.
 """
 
 import math
@@ -238,10 +240,18 @@ def make_custom(path):
     write_fbx(path)
 
 
-def make_model(path, extra=()):
+def make_model(path, extra=(), turn=0.0):
     reset()
     arm = armature("elsheria_rig", [*a_pose(T_POSE), *extra], lambda n: MODEL_NAMES.get(n, n))
-    skinned_box(arm, size=0.4)
+    box = skinned_box(arm, size=0.4)
+    if turn:
+        # Turned in its rest, not by its object: the rig itself faces the other way.
+        arm.rotation_euler.z = math.radians(turn)
+        bpy.ops.object.select_all(action="DESELECT")
+        arm.select_set(True)
+        box.select_set(True)
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
     arm.animation_data_create().action = bpy.data.actions.new("idle")
     key_bone(arm, "chest", [(0, {"rotation_quaternion": (1, 0, 0, 0)}), (30, {"rotation_quaternion": (0.995, 0.1, 0, 0)})])
     bpy.ops.object.select_all(action="SELECT")
@@ -264,6 +274,9 @@ def main():
         make_custom(out)
     elif which == "model":
         make_model(out)
+    elif which == "model_x":
+        # Blender's -Y (glTF +Z) turned 90 degrees about Z faces +X.
+        make_model(out, turn=90.0)
     elif which == "model_socket":
         # A bone only on the model, off the hips, nowhere near the hand.
         make_model(out, [("sword_socket", "Hips", (0.4, 0, 1.0), (0.4, 0, 1.1))])
