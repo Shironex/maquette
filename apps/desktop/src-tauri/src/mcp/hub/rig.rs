@@ -54,6 +54,7 @@ impl Hub {
                 after: sheet(&case.after),
             }),
             preview: None,
+            recipe_save: None,
         })
     }
 

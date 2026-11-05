@@ -28,6 +28,7 @@ decide_render
 discard_inbox_model
 dismiss_download
 export_pack
+export_recipe
 find_look_alikes
 get_apply_preview
 get_avatar
@@ -42,6 +43,7 @@ get_game
 get_image_backend
 get_inbox_checks
 get_layout
+get_library_recipe
 get_material_tweaks
 get_motion
 get_pack
@@ -66,6 +68,7 @@ get_starters
 get_style_board
 import_animations
 import_game_models
+import_recipe
 layout_canvas
 list_animations
 list_assets
@@ -75,6 +78,7 @@ list_fixups
 list_handoffs
 list_inbox
 list_library
+list_library_recipes
 list_packs
 list_projects
 list_recipes
@@ -88,6 +92,7 @@ pick_concepts
 preview_fixups
 prioritize_concept_jobs
 propose_camera_plan
+propose_recipe_save
 propose_removal
 rebuild_built_asset
 redo_inbox_model
@@ -140,4 +145,5 @@ update_recipe
 update_starters
 use_animations
 use_from_library
+use_recipe
 use_ref_candidate

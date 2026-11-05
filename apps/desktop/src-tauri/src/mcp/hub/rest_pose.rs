@@ -126,6 +126,7 @@ impl Hub {
             version: Some(ask.version),
             sheets: Some(ask.sheets.clone()),
             preview: None,
+            recipe_save: None,
         })
     }
 

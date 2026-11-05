@@ -29,7 +29,7 @@ describe('the tool group rows', () => {
     const avatar = await screen.findByRole('switch', { name: 'Avatar and rig tools' });
     expect(avatar).toBeChecked();
     expect(screen.getAllByRole('switch')).toHaveLength(MOCK_TOOL_GROUPS.length);
-    expect(screen.getByText('141 of 141 tools offered')).toBeInTheDocument();
+    expect(screen.getByText('147 of 147 tools offered')).toBeInTheDocument();
     expect(screen.getByText('VRM avatars and the rig doctor')).toBeInTheDocument();
     expect(screen.getByText(/keeps its list until it reconnects/)).toBeInTheDocument();
   });
@@ -43,7 +43,7 @@ describe('the tool group rows', () => {
     expect(onChange).toHaveBeenLastCalledWith(withGroup(config, 'avatar-rig', false));
     expect(onChange.mock.lastCall?.[0].agents.rules.toolGroupsOff).toEqual(['game', 'avatar-rig']);
     expect(screen.getByRole('switch', { name: 'Game projects tools' })).not.toBeChecked();
-    expect(screen.getByText('136 of 141 tools offered')).toBeInTheDocument();
+    expect(screen.getByText('142 of 147 tools offered')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('switch', { name: 'Game projects tools' }));
     expect(onChange.mock.lastCall?.[0].agents.rules.toolGroupsOff).toEqual([]);
   });
@@ -71,8 +71,8 @@ describe('the tool group rows', () => {
 
   it('count the offered tools from the groups that are on', () => {
     expect(offeredCount(MOCK_TOOL_GROUPS, ['avatar-rig', 'start'])).toEqual({
-      offered: 134,
-      total: 141,
+      offered: 140,
+      total: 147,
     });
   });
 });

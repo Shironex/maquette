@@ -274,7 +274,7 @@ const shots = {
     await p.getByRole('button', { name: 'Agents', exact: true }).click();
     await p.getByText('Listening on http://127.0.0.1:4791/mcp', { exact: false }).waitFor();
     await p.getByRole('switch', { name: 'Avatar and rig tools' }).uncheck({ force: true });
-    await p.getByText('134 of 141 tools offered').waitFor();
+    await p.getByText('140 of 147 tools offered').waitFor();
     await p
       .getByText('Tool groups', { exact: true })
       .first()

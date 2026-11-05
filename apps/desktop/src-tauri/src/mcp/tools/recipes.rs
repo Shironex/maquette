@@ -165,7 +165,7 @@ fn blank_of(arg: BlankArg) -> Result<RecipeBlank, ToolError> {
 }
 
 /// One change in a few fields; settings its kind does not use are left out.
-fn change_view(layer: &RecipeLayer) -> Value {
+pub(super) fn change_view(layer: &RecipeLayer) -> Value {
     let mut out = Map::new();
     out.insert("id".into(), json!(layer.id));
     out.insert("kind".into(), to_value(layer.kind));
@@ -178,7 +178,7 @@ fn change_view(layer: &RecipeLayer) -> Value {
 }
 
 /// A recipe as agents read it.
-fn recipe_view(doc: &RecipeDoc) -> Value {
+pub(super) fn recipe_view(doc: &RecipeDoc) -> Value {
     let recipe = &doc.recipe;
     let mut base = json!({
         "name": recipe.base.name, "frames": recipe.base.frames,
@@ -281,14 +281,31 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, and library: found, hash-differs or missing, as matched in this computer's animation library by name and frame count, with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project no longer has reads as an open blank, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clip, and the settings its kind uses). Reads only.",
+        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, and library: found, hash-differs or missing, as matched in this computer's animation library by name and frame count, with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project no longer has reads as an open blank, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clip, and the settings its kind uses). library names the library recipe and revision it came from or was saved as, the library's newest revision and newer when that is later (or gone); saveWaiting is the approval of a save a person has not answered yet. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {
         let found = self
-            .blocking(move |host, _| {
+            .blocking(move |host, hub| {
                 let doc = commands::get(host.session(), &args.project, &args.recipe)?;
-                Ok(with_next(recipe_view(&doc), after(&doc)))
+                let mut out = recipe_view(&doc);
+                if let Some(from) = &doc.recipe.from {
+                    let latest =
+                        crate::commands::recipe_library::get(host.session(), &from.entry, None);
+                    out["library"] = match latest {
+                        Ok(latest) => json!({
+                            "entry": from.entry, "revision": from.revision,
+                            "latest": latest.revision, "newer": latest.revision > from.revision,
+                        }),
+                        Err(_) => {
+                            json!({ "entry": from.entry, "revision": from.revision, "gone": true })
+                        }
+                    };
+                }
+                if let Some(waiting) = hub.recipe_save_for(&args.project, &args.recipe) {
+                    out["saveWaiting"] = json!(waiting.id);
+                }
+                Ok(with_next(out, after(&doc)))
             })
             .await;
         respond(found)

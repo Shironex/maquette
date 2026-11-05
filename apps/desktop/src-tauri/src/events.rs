@@ -119,6 +119,12 @@ pub struct RecipeChanged {
     pub project: String,
 }
 
+/// The recipe library changed: a recipe was saved back, imported, or a
+/// revision or entry removed, so the Animations library and the Recipes
+/// tab's "library has a newer revision" notes reload.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct RecipeLibraryChanged;
+
 /// A recipe bake changed: it started, moved on a frame, or finished, failed
 /// or was cancelled. The Motion view's Apply follows it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
