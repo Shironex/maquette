@@ -26,6 +26,7 @@ import { CHANGED_MARK, recentCanvases } from '@/state/plan-recent';
 import { usePlanRecentStore } from '@/state/use-plan-recent-store';
 import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useGameStore } from '@/state/use-game-store';
@@ -293,7 +294,10 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.planChanged.listen(e =>
         usePlanRecentStore.getState().onChanged(e.payload.project, e.payload.id)
       ),
-      events.recipeChanged.listen(e => useRecipesStore.getState().onChanged(e.payload.project)),
+      events.recipeChanged.listen(e => {
+        useRecipesStore.getState().onChanged(e.payload.project);
+        void useRecipeEditorStore.getState().onChanged(e.payload.project);
+      }),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());

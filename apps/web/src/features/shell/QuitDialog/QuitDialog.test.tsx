@@ -9,6 +9,7 @@ import { usePipelineStore } from '@/state/use-pipeline-store';
 import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { useQuitStore } from '@/state/use-quit-store';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { QuitDialog, useQuitGuard } from '.';
 
@@ -21,6 +22,7 @@ afterEach(() => {
   usePrepareStore.setState({ drafts: {} });
   useQuitStore.setState({ asking: false, applying: false, error: null });
   usePlansStore.setState(usePlansStore.getInitialState(), true);
+  useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
   vi.restoreAllMocks();
 });
 
@@ -155,6 +157,30 @@ describe('the quit dialog', () => {
     act(() => useQuitStore.getState().ask());
     const dialog = await screen.findByRole('dialog', { name: 'Save the canvas before quitting?' });
     expect(within(dialog).getByText(/The canvas Combat ideas has edits/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save and quit' }));
+    await waitFor(() => expect(calls.map(([c]) => c)).toContain('quit_now'));
+    expect(save).toHaveBeenCalledOnce();
+  });
+
+  it('saves a recipe with unsaved edits before quitting', async () => {
+    const calls = await record();
+    const recipe = { name: 'Reach for the lantern', layers: [], blanks: [] };
+    useRecipeEditorStore.setState({
+      editing: {
+        project: 'frostveil',
+        id: 'reach',
+        doc: { recipe } as never,
+        draft: {
+          layers: [],
+          blanks: [{ id: 'b', label: 'b', kind: 'point', prop: null, point: null }],
+        },
+      },
+    });
+    const save = vi.spyOn(useRecipeEditorStore.getState(), 'saveForQuit').mockResolvedValue(null);
+    render(<QuitDialog />);
+    act(() => useQuitStore.getState().ask());
+    const dialog = await screen.findByRole('dialog', { name: 'Save the recipe before quitting?' });
+    expect(within(dialog).getByText(/The recipe Reach for the lantern has edits/)).toBeVisible();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save and quit' }));
     await waitFor(() => expect(calls.map(([c]) => c)).toContain('quit_now'));
     expect(save).toHaveBeenCalledOnce();

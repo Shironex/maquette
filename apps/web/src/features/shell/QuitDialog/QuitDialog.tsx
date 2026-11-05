@@ -13,11 +13,12 @@ export default function QuitDialog() {
     title,
     drafts,
     canvas,
+    recipe,
   } = useQuitDialog();
   if (!asking) return null;
   const where = names.join(', ') || 'this workspace';
   const models = drafts === 1 ? '1 Inbox model has' : `${drafts} Inbox models have`;
-  const saves = names.length > 0 || canvas !== null;
+  const saves = names.length > 0 || canvas !== null || recipe !== null;
   return (
     <ChoiceDialog
       title={title}
@@ -50,6 +51,11 @@ export default function QuitDialog() {
       {canvas ? (
         <p className={names.length || drafts ? 'mt-2' : undefined}>
           The canvas {canvas} has edits that are not saved yet. Quitting without saving drops them.
+        </p>
+      ) : null}
+      {recipe ? (
+        <p className={names.length || drafts || canvas ? 'mt-2' : undefined}>
+          The recipe {recipe} has edits that are not saved yet. Quitting without saving drops them.
         </p>
       ) : null}
       {error ? (
