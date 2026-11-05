@@ -37,10 +37,10 @@ describe('the recipes stage', () => {
     expect(screen.getByRole('button', { name: 'New recipe' })).toBeInTheDocument();
   });
 
-  it('says when a prop blank opened again because its asset is gone', async () => {
+  it('says when a prop blank reads open because its asset is gone', async () => {
     await openMockLibrary('demo');
     const warning =
-      'The blank lantern named lantern, which is no longer an asset of Frostveil, so it is open again.';
+      'The blank lantern names lantern, which is no longer an asset of Frostveil, so it reads as open.';
     vi.spyOn(commands, 'recipeList').mockResolvedValueOnce([
       {
         id: 'reach',
