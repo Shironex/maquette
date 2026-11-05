@@ -616,6 +616,18 @@ Mixamo rig. The Motion view's Recipes tab lists them, and New recipe opens the b
 Agents use `list_recipes`, `get_recipe`, `create_recipe` and `update_recipe` in the animation
 group; each write ends in `Host::recipe_changed`, which emits `RecipeChanged`.
 
+A write that leaves the blanks out keeps them as stored, and a prop blank sent open whose stored prop
+is no longer an asset keeps that prop: only reads open it, so restoring the asset fills it again.
+
+The editor's state is `state/use-recipe-editor-store.ts`: the file as last read (the base) and the
+draft over it, so leaving the tab keeps the edits. Leaving the recipe with unsaved edits asks first,
+as a canvas does. `state/recipe-check.ts` runs the core's checks on the draft as it is typed;
+`state/recipe-merge.ts` merges an outside write with unsaved edits by change and blank id and asks
+only on a clash, and Save reads the file first. The rough preview is
+`features/viewer/RecipePreview` (lazy `RecipeStage`): the base clip through the rough retarget, then
+`features/viewer/recipe-pose.ts` lays the changes over (two-bone IK for reach, an aim for look at,
+an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
+
 ## VRM
 
 `maquette_glb::vrm` (kept at `inbox::vrm` in core) reads how far a rigged model is from a VRM 1.0
