@@ -397,8 +397,11 @@ export const commands = {
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
 	recipeList: (project: string) => __TAURI_INVOKE<RecipeSummary[]>("recipe_list", { project }),
 	recipeGet: (project: string, id: string) => __TAURI_INVOKE<RecipeDoc>("recipe_get", { project, id }),
-	/**  Makes a recipe on the library clip `clip`, called `name` or after the clip. */
-	recipeCreate: (project: string, clip: string, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
+	/**
+	 *  Makes a recipe on the library clip `clip`, or on the model's rest pose
+	 *  when it is null, called `name` or after the clip.
+	 */
+	recipeCreate: (project: string, clip: string | null, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
 	/**  Renames a recipe; its file and id stay. */
 	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
 	/**
@@ -2027,7 +2030,9 @@ export type BaseStatus =
 /**  A clip of the same name and frame count, with other keys. */
 "hash-differs" | 
 /**  No clip of that name and frame count. */
-"missing";
+"missing" | 
+/**  The recipe runs on the model's rest pose and needs no clip. */
+"rest";
 
 /**  An item of a batch that did not go out. */
 export type BatchFailure = {
@@ -6774,7 +6779,10 @@ export type RecipeBakeResult = {
 	recipeName: string,
 	/**  The recipe file's version (a hash of its bytes) it was baked from. */
 	recipeVersion: string,
-	/**  The library clip it started from, and the hash of its keys. */
+	/**
+	 *  The library clip it started from, and the hash of its keys; both
+	 *  empty for a bake on the rest pose.
+	 */
 	baseClip: string,
 	baseHash: string,
 	/**  The hash the recipe holds for its base, when the library's differs. */
@@ -6862,6 +6870,16 @@ export type RecipeBakeUse = {
 /**
  *  The library clip a recipe starts from, by what matches it on another
  *  computer: its name and frame count. The hash tells keys that changed.
+ * 
+ *  Two other shapes keep the same fields, so a version 1 reader that does
+ *  not know them still reads the file (as a base clip it cannot find):
+ * 
+ *  - `rest`: the recipe runs on the model's rest pose for `frames` frames
+ *    at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
+ *    its hash empty and it is never Mixamo's.
+ *  - An empty `hash` (not rest): a base known by its name only, as a
+ *    starter recipe names it when the clip library had no such clip. It
+ *    matches the first library clip of that name, whatever its frames.
  */
 export type RecipeBase = {
 	name: string,
@@ -6871,6 +6889,8 @@ export type RecipeBase = {
 	hash: string,
 	/**  Read from a Mixamo rig: a bake counts as Mixamo's. */
 	mixamo: boolean,
+	/**  The model's rest pose, no base clip. A file from before reads false. */
+	rest?: boolean,
 };
 
 /**  A target the person or an agent fills per project. */

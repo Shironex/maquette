@@ -35,7 +35,9 @@ pub fn stale_of(
         Ok(now) if now != result.recipe_version => return Some(RECIPE_CHANGED.to_string()),
         Ok(_) => {}
     }
-    if let Ok(clip) = crate::animations::load(root, &result.base_clip)
+    // A bake on the rest pose has no base clip to change.
+    if !result.base_clip.is_empty()
+        && let Ok(clip) = crate::animations::load(root, &result.base_clip)
         && clip.hash != result.base_hash
     {
         return Some(format!(

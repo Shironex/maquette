@@ -35,7 +35,12 @@ pub struct CreateRecipeArgs {
     /// The project id.
     pub project: String,
     /// The library clip it starts from, by id as list_animations returns it.
-    pub clip: String,
+    /// Leave it out with restPose true to start from the model's rest pose.
+    pub clip: Option<String>,
+    /// True starts the recipe on the model's rest pose (2 seconds, 60
+    /// frames at 30 fps) with no base clip; never Mixamo's.
+    #[serde(default)]
+    pub rest_pose: bool,
     /// The recipe name, one line, up to 120 characters. Defaults to the clip's name.
     pub name: Option<String>,
 }
@@ -185,6 +190,9 @@ pub(super) fn recipe_view(doc: &RecipeDoc) -> Value {
         "seconds": to_short_value(recipe.base.length), "hash": recipe.base.hash,
         "library": to_value(doc.base.status),
     });
+    if recipe.base.rest {
+        base["rest"] = json!(true);
+    }
     if let Some(clip) = &doc.base.clip {
         base["clip"] = json!(clip);
     }
@@ -281,7 +289,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, and library: found, hash-differs or missing, as matched in this computer's animation library by name and frame count, with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project no longer has reads as an open blank, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clip, and the settings its kind uses). library names the library recipe and revision it came from or was saved as, the library's newest revision and newer when that is later (or gone); saveWaiting is the approval of a save a person has not answered yet. Reads only.",
+        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, rest when it runs on the model's rest pose with no clip, and library: found, hash-differs, missing or rest, as matched in this computer's animation library by name and frame count, or by name alone when the hash is empty (a starter's clip), with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project no longer has reads as an open blank, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clip, and the settings its kind uses). library names the library recipe and revision it came from or was saved as, the library's newest revision and newer when that is later (or gone); saveWaiting is the approval of a save a person has not answered yet. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {
@@ -314,15 +322,20 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make an animation recipe in a project on a clip of the animation library, as the Motion view's Recipes tab does; writes one file, recipes/<id>.recipe.json, holding the base clip's name, frames, length and hash, never keys or a mesh. It starts with no changes or blanks; add them with update_recipe. A recipe on a Mixamo clip is marked mixamo: its bake will count as Mixamo's. Website and game projects both take recipes. Nothing is baked and nothing is spent."
+        description = "Make an animation recipe in a project on a clip of the animation library (clip), or on the model's rest pose with no base clip (restPose true: 60 frames at 30 fps, never Mixamo's), as the Motion view's Recipes tab does; writes one file, recipes/<id>.recipe.json, holding the base clip's name, frames, length and hash, never keys or a mesh. It starts with no changes or blanks; add them with update_recipe. A starter recipe (list_library_recipes) can be used instead with use_recipe. A recipe on a Mixamo clip is marked mixamo: its bake will count as Mixamo's. Website and game projects both take recipes. Nothing is baked and nothing is spent."
     )]
     async fn create_recipe(&self, Parameters(args): Parameters<CreateRecipeArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
+                if args.clip.is_some() == args.rest_pose {
+                    return Err(ToolError::from(
+                        "Give clip (a library clip id from list_animations) or restPose true, one of the two.",
+                    ));
+                }
                 let doc = commands::create(
                     host.session(),
                     &args.project,
-                    &args.clip,
+                    args.clip.as_deref(),
                     args.name.as_deref(),
                 )?;
                 host.recipe_changed(&args.project);

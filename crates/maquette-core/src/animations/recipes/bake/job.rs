@@ -22,8 +22,10 @@ use crate::recipes::{BlankKind, LayerKind, RecipeLayer};
 use crate::workspace::WorkspaceConfig;
 
 mod clip_name;
+mod rest;
 pub(crate) use clip_name::clip_name;
 use clip_name::clip_note;
+use rest::RestSpec;
 
 const BAKE_FILE: &str = "bake_recipe.py";
 const RETARGET_FILE: &str = "retarget_clips.py";
@@ -137,7 +139,8 @@ pub(crate) enum TargetSpec {
 /// A bake that passed its checks, ready to stage.
 pub struct Prepared {
     pub doc: RecipeDoc,
-    pub clip: AnimationClip,
+    /// The base clip; none for a recipe on the rest pose.
+    pub clip: Option<AnimationClip>,
     pub asset: String,
     pub(crate) model: Model,
     pub(crate) setting: ClipSetting,
@@ -208,27 +211,32 @@ pub fn prepare(
             doc.recipe.name
         ));
     }
-    let clip_id = match (&doc.base.status, &doc.base.clip) {
-        (BaseStatus::Found | BaseStatus::HashDiffers, Some(id)) => id.clone(),
+    let clip = match (&doc.base.status, &doc.base.clip) {
+        (BaseStatus::Rest, _) => None,
+        (BaseStatus::Found | BaseStatus::HashDiffers, Some(id)) => Some(load_clip(root, id)?),
         _ => {
             return invalid(doc.base.warning.clone().unwrap_or_else(|| {
                 "The recipe's base clip is not in the animation library.".to_string()
             }));
         }
     };
-    let clip = load_clip(root, &clip_id)?;
     let model = retarget::model(root, config, &request.project, &request.asset)?;
     let entry = retarget::uses::of_asset(&model.dir, &request.asset)?;
-    let map = bones::suggest(&retarget::bone_names(&clip), &model.joints, &entry.map, &[]);
-    let mut setting = settings::default_for(&clip);
-    setting.name.clone_from(&doc.recipe.name);
+    let names = clip.as_ref().map(retarget::bone_names).unwrap_or_default();
+    let map = bones::suggest(&names, &model.joints, &entry.map, &[]);
     let base = settings::snake(&doc.recipe.name);
     // A record that cannot be read names no earlier bake: the older clip
     // then stays and the new one takes a free name.
     let bakes = crate::recipes::baked::of_asset(&model.dir, &request.asset).unwrap_or_default();
     let naming = clip_name(&model.clips, &bakes, &doc.id);
-    let setting =
-        settings::normalise(&[setting], std::slice::from_ref(&clip), &naming.taken)?.remove(0);
+    let setting = match &clip {
+        Some(clip) => {
+            let mut setting = settings::default_for(clip);
+            setting.name.clone_from(&doc.recipe.name);
+            settings::normalise(&[setting], std::slice::from_ref(clip), &naming.taken)?.remove(0)
+        }
+        None => rest::setting(&base, doc.recipe.base.frames, &naming.taken),
+    };
     let note = clip_note(&base, &setting.name, &naming.replace, &model.name);
     let hips = model_bone("hips", &map, &model.joints).ok_or_else(|| {
         CoreError::Invalid(format!(
@@ -352,8 +360,11 @@ fn targets_of(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RecipeSpec<'a> {
-    /// The base clip's library id, as the retarget job names it.
-    clip: &'a str,
+    /// The base clip's library id, as the retarget job names it; none on
+    /// the rest pose.
+    clip: Option<&'a str>,
+    /// The rest pose to hold instead of a base clip.
+    rest: Option<RestSpec<'a>>,
     hips: &'a str,
     bones: &'a BTreeMap<String, String>,
     layers: &'a [RecipeLayer],
@@ -382,10 +393,13 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
         root,
         work,
         &prepared.model,
-        (
-            std::slice::from_ref(&prepared.clip),
-            std::slice::from_ref(&prepared.setting),
-        ),
+        match &prepared.clip {
+            Some(clip) => (
+                std::slice::from_ref(clip),
+                std::slice::from_ref(&prepared.setting),
+            ),
+            None => (&[], &[]),
+        },
         &prepared.map,
         Staged {
             replace: prepared.replace.clone(),
@@ -412,7 +426,11 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
         &RecipeJob {
             retarget: job,
             recipe: RecipeSpec {
-                clip: &prepared.clip.id,
+                clip: prepared.clip.as_ref().map(|c| c.id.as_str()),
+                rest: prepared
+                    .clip
+                    .is_none()
+                    .then(|| RestSpec::of(&prepared.setting)),
                 hips: &prepared.hips,
                 bones: &prepared.bones,
                 layers: &prepared.doc.recipe.layers,

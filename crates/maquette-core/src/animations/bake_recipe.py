@@ -21,6 +21,13 @@ recipe, and where the model, the report and the progress go:
                 "stretchFrames": 10},
      "out": "staged.glb", "report": "result.json", "progress": "progress.json"}
 
+A recipe on the rest pose has no base clip: "retarget" then lists no clips
+and the recipe holds "clip": null and "rest": {"name": "wave_hello",
+"frames": 90, "fps": 30}. The model is still imported through the retarget
+and the rest pose is held for those frames, keyed as a clip of its own, so
+the changes are laid over it as over any clip and its feet measure the rest
+pose's (still) feet.
+
 How it bakes: the base clip goes onto the model through the retarget, as
 Use on model bakes it, under the clip's new name. Then, frame by frame, the
 recipe's changes are laid over it in order, each eased in and out over its
@@ -387,9 +394,21 @@ def end_frame(layer, count):
     return max(0, min(count - 1, int(math.floor(end * (count - 1) + 1e-6))))
 
 
+def rest_action(rt, arm, hips, frames):
+    """An action that holds the rest pose for `frames` frames, as a base clip would."""
+    keys = Keys(arm, rt.hierarchy_order(arm.data), hips)
+    times = [0.0, float(max(frames - 1, 1))]
+    still = Quaternion((1.0, 0.0, 0.0, 0.0))
+    rot = {b.name: [still.copy(), still.copy()] for b in keys.order}
+    loc = [Vector((0.0, 0.0, 0.0)), Vector((0.0, 0.0, 0.0))]
+    action, _ = rt.write_action("recipe_rest_pose", keys, times, rot, loc, {})
+    rt.play(arm, action)
+    return action
+
+
 def solve(rt, scene, arm, objects, action, job, at, progress):
     recipe = job["recipe"]
-    clip_spec = job["retarget"]["clips"][0]
+    clip_spec = job["clipSpec"]
     rig = Rig(arm, recipe["bones"])
     height = model_height(objects, arm)
     targets = targets_of(rt, rig, recipe.get("targets", {}), height, at)
@@ -558,17 +577,28 @@ def main():
         rt = load_sibling(folder, "retarget_clips")
         scene, arm, objects, report, made = rt.retarget(job["retarget"], at)
         recipe = job["recipe"]
-        entry = next(c for c in report["clips"] if c["id"] == recipe["clip"])
-        if entry.get("error"):
-            raise RuntimeError(f"the base clip could not go on the model: {entry['error']}")
+        rest = recipe.get("rest")
+        if rest:
+            fps = float(rest.get("fps") or rt.DEFAULT_FPS)
+            rt.set_fps(scene, fps)
+            frames = max(int(rest["frames"]), 2)
+            entry = {"frames": frames, "travel": 0.0}
+            action = rest_action(rt, arm, recipe["hips"], frames)
+            name = rest["name"]
+            job["clipSpec"] = {"fps": fps}
+        else:
+            entry = next(c for c in report["clips"] if c["id"] == recipe["clip"])
+            if entry.get("error"):
+                raise RuntimeError(f"the base clip could not go on the model: {entry['error']}")
+            action = made[recipe["clip"]]
+            name = job["retarget"]["clips"][0]["name"]
+            job["clipSpec"] = job["retarget"]["clips"][0]
         job["frames"] = entry["frames"]
-        action = made[recipe["clip"]]
-        name = job["retarget"]["clips"][0]["name"]
         rig, height, solved = solve(rt, scene, arm, objects, action, job, at, progress)
         progress.set("Writing the model", 0, 1)
         write_clip(rt, arm, action, name, recipe["hips"], solved)
         rt.export(at(job["out"]), arm, objects)
-        base_track = entry.get("feet", {})
+        base_track = entry.get("feet") or {side: track_of(points) for side, points in solved["baseFeet"].items()}
         result = {
             "clip": name,
             "frames": entry["frames"],

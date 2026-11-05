@@ -118,7 +118,8 @@ pub struct RecipeBakeResult {
     pub recipe_name: String,
     /// The recipe file's version (a hash of its bytes) it was baked from.
     pub recipe_version: String,
-    /// The library clip it started from, and the hash of its keys.
+    /// The library clip it started from, and the hash of its keys; both
+    /// empty for a bake on the rest pose.
     pub base_clip: String,
     pub base_hash: String,
     /// The hash the recipe holds for its base, when the library's differs.
@@ -212,3 +213,5 @@ mod tests_add;
 mod tests_blender;
 #[cfg(test)]
 mod tests_mark;
+#[cfg(test)]
+mod tests_rest;

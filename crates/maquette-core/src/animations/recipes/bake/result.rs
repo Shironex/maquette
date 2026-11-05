@@ -92,14 +92,24 @@ pub(crate) fn result_of(
     let planted = slide.cm > crate::animations::retarget::review::PLANTED_CM;
     let stretch = run.stretch.clone().unwrap_or_default();
     let doc = &prepared.doc;
+    // A bake on the rest pose has no base clip: it names none.
+    let (base_clip, base_hash) = prepared
+        .clip
+        .as_ref()
+        .map(|c| (c.id.clone(), c.hash.clone()))
+        .unwrap_or_default();
+    // A base known by name only (from a starter) has no hash to differ.
+    let recipe_base_hash = (prepared.clip.is_some()
+        && !doc.recipe.base.hash.is_empty()
+        && doc.recipe.base.hash != base_hash)
+        .then(|| doc.recipe.base.hash.clone());
     RecipeBakeResult {
         recipe: doc.id.clone(),
         recipe_name: doc.recipe.name.clone(),
         recipe_version: doc.version.clone(),
-        base_clip: prepared.clip.id.clone(),
-        base_hash: prepared.clip.hash.clone(),
-        recipe_base_hash: (doc.recipe.base.hash != prepared.clip.hash)
-            .then(|| doc.recipe.base.hash.clone()),
+        base_clip,
+        base_hash,
+        recipe_base_hash,
         mixamo: doc.mixamo,
         asset: prepared.asset.clone(),
         asset_name: prepared.model.name.clone(),

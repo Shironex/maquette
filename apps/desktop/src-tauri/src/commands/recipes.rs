@@ -39,7 +39,7 @@ pub(crate) fn get(session: &Session, project: &str, id: &str) -> CommandResult<R
 pub(crate) fn create(
     session: &Session,
     project: &str,
-    clip: &str,
+    clip: Option<&str>,
     name: Option<&str>,
 ) -> CommandResult<RecipeDoc> {
     let (root, _) = session.workspace()?;
@@ -83,16 +83,17 @@ pub fn recipe_get(
     get(&session, &project, &id)
 }
 
-/// Makes a recipe on the library clip `clip`, called `name` or after the clip.
+/// Makes a recipe on the library clip `clip`, or on the model's rest pose
+/// when it is null, called `name` or after the clip.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn recipe_create(
     session: State<'_, Session>,
     project: String,
-    clip: String,
+    clip: Option<String>,
     name: Option<String>,
 ) -> CommandResult<RecipeDoc> {
-    create(&session, &project, &clip, name.as_deref())
+    create(&session, &project, clip.as_deref(), name.as_deref())
 }
 
 /// Renames a recipe; its file and id stay.

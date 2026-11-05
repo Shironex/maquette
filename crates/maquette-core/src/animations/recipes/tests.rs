@@ -11,7 +11,7 @@ fn a_recipe_on_a_library_clip_keeps_its_name_frames_hash_and_mixamo_mark() {
         &library_clip("idle", "Standing Idle", "Singles", "h1"),
     )
     .expect("store");
-    let doc = create(&root, &project, "idle", None).expect("create");
+    let doc = create(&root, &project, Some("idle"), None).expect("create");
     assert_eq!(doc.id, "standing-idle");
     assert_eq!(doc.file, "recipes/standing-idle.recipe.json");
     assert_eq!(doc.recipe.base.name, "Standing Idle");
@@ -21,9 +21,9 @@ fn a_recipe_on_a_library_clip_keeps_its_name_frames_hash_and_mixamo_mark() {
     );
     assert!(doc.recipe.base.mixamo && doc.mixamo);
     assert_eq!(doc.base.status, BaseStatus::Found);
-    let named = create(&root, &project, "idle", Some("Wave hello")).expect("named");
+    let named = create(&root, &project, Some("idle"), Some("Wave hello")).expect("named");
     assert_eq!(named.recipe.name, "Wave hello");
-    assert!(create(&root, &project, "nope", None).is_err());
+    assert!(create(&root, &project, Some("nope"), None).is_err());
 }
 
 #[test]

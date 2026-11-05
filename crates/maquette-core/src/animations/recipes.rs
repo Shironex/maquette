@@ -26,6 +26,8 @@ pub enum BaseStatus {
     HashDiffers,
     /// No clip of that name and frame count.
     Missing,
+    /// The recipe runs on the model's rest pose and needs no clip.
+    Rest,
 }
 
 /// A recipe's base clip in the library.
@@ -69,15 +71,51 @@ pub fn base_of(clip: &AnimationClip) -> RecipeBase {
         length: clip.length,
         hash: clip.hash.clone(),
         mixamo: clip.rig.kind == SourceRig::Mixamo,
+        rest: false,
     }
 }
 
+/// The first clip of `clips` called `name`, case aside, whatever its
+/// frame count.
+pub fn clip_named<'a>(clips: &'a [AnimationClip], name: &str) -> Option<&'a AnimationClip> {
+    let name = name.trim().to_lowercase();
+    clips.iter().find(|c| c.name.trim().to_lowercase() == name)
+}
+
 /// Finds `base` among `clips` by name (case aside) and frame count,
-/// preferring the clip with the same keys.
+/// preferring the clip with the same keys. A rest pose base needs no clip;
+/// a base known by name only takes the first clip of that name.
 pub fn match_base<'a>(
     clips: &'a [AnimationClip],
     base: &RecipeBase,
 ) -> (BaseMatch, Option<&'a AnimationClip>) {
+    if base.rest {
+        let rest = BaseMatch {
+            status: BaseStatus::Rest,
+            clip: None,
+            warning: None,
+        };
+        return (rest, None);
+    }
+    if base.name_only() {
+        if let Some(clip) = clip_named(clips, &base.name) {
+            let found = BaseMatch {
+                status: BaseStatus::Found,
+                clip: Some(clip.id.clone()),
+                warning: None,
+            };
+            return (found, Some(clip));
+        }
+        let missing = BaseMatch {
+            status: BaseStatus::Missing,
+            clip: None,
+            warning: Some(format!(
+                "The animation library has no clip called {}. Import one before baking.",
+                base.name
+            )),
+        };
+        return (missing, None);
+    }
     let name = base.name.trim().to_lowercase();
     let same: Vec<&AnimationClip> = clips
         .iter()
@@ -171,7 +209,8 @@ pub fn update(
 }
 
 /// Makes a recipe in the project at `project_dir` on the library clip
-/// `clip_id`, called `name` or else after the clip.
+/// `clip_id`, or on the model's rest pose when there is none, called
+/// `name` or else after the clip (or "Rest pose").
 ///
 /// # Errors
 ///
@@ -180,15 +219,19 @@ pub fn update(
 pub fn create(
     root: &Path,
     project_dir: &Path,
-    clip_id: &str,
+    clip_id: Option<&str>,
     name: Option<&str>,
 ) -> CoreResult<RecipeDoc> {
-    let clip = load(root, clip_id)?;
+    let clip = clip_id.map(|id| load(root, id)).transpose()?;
+    let base = clip
+        .as_ref()
+        .map_or_else(|| RecipeBase::rest_pose(recipes::REST_FRAMES), base_of);
     let name = name
         .map(str::trim)
         .filter(|n| !n.is_empty())
-        .unwrap_or(&clip.name);
-    let (id, recipe) = recipes::create(project_dir, name, base_of(&clip))?;
+        .unwrap_or(&base.name)
+        .to_string();
+    let (id, recipe) = recipes::create(project_dir, &name, base)?;
     let version = recipes::version(project_dir, &id)?;
     let read = RecipeRead {
         recipe,
@@ -196,7 +239,7 @@ pub fn create(
         gone: Vec::new(),
         version,
     };
-    Ok(doc_of(&id, read, std::slice::from_ref(&clip)))
+    Ok(doc_of(&id, read, clip.as_slice()))
 }
 
 #[cfg(test)]
