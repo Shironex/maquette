@@ -1203,7 +1203,7 @@ Makes a recipe on a clip of the animation library, as the Recipes tab in the Mot
 
 `changes the project`
 
-Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, the blanks stay as they are and the change is never refused for them: a prop blank whose asset is gone keeps its prop in the file, so restoring the asset fills it again, and reads as open with a line in `warnings`. A prop blank you send open whose stored prop is such a gone asset keeps it the same way, since it only read as open. Answers with the recipe as `get_recipe` reads it.
+Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, the blanks stay as they are and the change is never refused for them: a prop blank whose asset is gone keeps its prop in the file, so restoring the asset fills it again, and reads as open with a line in `warnings`. A prop blank you send open whose stored prop is such a gone asset keeps it the same way, since it only read as open; name it in `clear` to empty it for good. Pass `expected`, the `edited` stamp `get_recipe` answered with, and a recipe that a person or another agent changed since is refused (`moved`) with nothing written: read it again and resend. A change without an id gets the lowest free `l-N`; the Motion view gives the entries a person adds random ids (`l-k3x9q`), so the two never meet. Answers with the recipe as `get_recipe` reads it.
 
 A change is `{ id?, kind, bone, weight?, start?, end?, target?, rotation?, offset?, cycles?, amount? }`. Bones are VRM humanoid names. `start` and `end` are shares of the clip from 0 to 1, and `weight` is 0 to 1 (1 by default).
 
@@ -1214,15 +1214,17 @@ A change is `{ id?, kind, bone, weight?, start?, end?, target?, rotation?, offse
 | `nudge`   | any humanoid bone                                                                         | `rotation` in degrees (within 180 each way) and or `offset` in metres (within 2 each way). |
 | `wave`    | `leftUpperArm`, `rightUpperArm`, `leftLowerArm`, `rightLowerArm`, `leftHand`, `rightHand` | `cycles` (more than 0, at most 50) and `amount` in degrees (more than 0, at most 90).      |
 
-A blank is `{ id, label, kind, prop?, point? }`: `kind` is `prop` (an asset of the project, by id) or `point` (`[x, y, z]` in metres with y up). Left empty, it stays open for the person or another agent to fill.
+A blank is `{ id, label, kind, prop?, point? }`: `kind` is `prop` (an asset of the project, by id) or `point` (`[x, y, z]` in metres from where the model stands, in its own frame: x to its left, y up, z the way it faces). Left empty, it stays open for the person or another agent to fill.
 
-| Parameter | Type     | Required | Notes                                  |
-| --------- | -------- | -------- | -------------------------------------- |
-| `project` | string   | yes      | The project id.                        |
-| `recipe`  | string   | yes      | The recipe id.                         |
-| `name`    | string   | no       | A new name.                            |
-| `changes` | object[] | no       | Every change, in order. Replaces them. |
-| `blanks`  | object[] | no       | Every blank. Replaces them.            |
+| Parameter  | Type     | Required | Notes                                                            |
+| ---------- | -------- | -------- | ---------------------------------------------------------------- |
+| `project`  | string   | yes      | The project id.                                                  |
+| `recipe`   | string   | yes      | The recipe id.                                                   |
+| `name`     | string   | no       | A new name.                                                      |
+| `changes`  | object[] | no       | Every change, in order. Replaces them.                           |
+| `blanks`   | object[] | no       | Every blank. Replaces them.                                      |
+| `expected` | string   | no       | The `edited` stamp read. A recipe changed since is refused.      |
+| `clear`    | string[] | no       | Prop blank ids to empty for good, even when their asset is gone. |
 
 ```json
 {
