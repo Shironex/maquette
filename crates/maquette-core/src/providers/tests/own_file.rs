@@ -91,6 +91,27 @@ fn only_real_model_files_outside_the_versions_are_taken() {
     fs::create_dir_all(export.parent().expect("parent")).expect("dir");
     fs::write(&export, fixture::clean_prop()).expect("write");
     assert!(check(&world.root, &world.config, &export).is_ok());
+
+    // A staged recipe bake carries its Mixamo mark only through its review.
+    let staged = world
+        .root
+        .join(&world.config.layout.cache)
+        .join(crate::workspace::RECIPE_BAKES_DIR)
+        .join("p")
+        .join("wave")
+        .join("staged.glb");
+    fs::create_dir_all(staged.parent().expect("parent")).expect("dir");
+    fs::write(&staged, fixture::clean_prop()).expect("write");
+    assert_eq!(refused(&staged).to_string(), STAGED_BAKE);
+    // Other cache files, like a rig doctor draft, are still taken.
+    let draft = world
+        .root
+        .join(&world.config.layout.cache)
+        .join("rig")
+        .join("draft.glb");
+    fs::create_dir_all(draft.parent().expect("parent")).expect("dir");
+    fs::write(&draft, fixture::clean_prop()).expect("write");
+    assert!(check(&world.root, &world.config, &draft).is_ok());
 }
 
 #[test]

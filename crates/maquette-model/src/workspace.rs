@@ -27,6 +27,10 @@ pub use register::register;
 
 pub const CONFIG_FILE: &str = "maquette.json";
 pub const CONFIG_VERSION: u32 = 1;
+/// The workspace cache folder recipe bakes are staged in. A staged bake
+/// never becomes a version as a plain file: it carries the recipe's Mixamo
+/// mark, which only its review keeps.
+pub const RECIPE_BAKES_DIR: &str = "recipes";
 
 /// Files the OS drops into folders. They do not make a folder "not empty".
 const IGNORED_ENTRIES: [&str; 3] = [".DS_Store", "Thumbs.db", "desktop.ini"];

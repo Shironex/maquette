@@ -28,7 +28,7 @@ pub use service::{RecipeBakes, record_of};
 pub const BAKE_SCRIPT: &str = include_str!("../bake_recipe.py");
 /// The workspace cache folder recipe bakes are staged in, per project and
 /// recipe: `<cache>/recipes/<project>/<recipe>/`.
-pub const WORK_DIR: &str = "recipes";
+pub const WORK_DIR: &str = crate::workspace::RECIPE_BAKES_DIR;
 /// The staged model in a bake's folder.
 pub const STAGED_FILE: &str = "staged.glb";
 
