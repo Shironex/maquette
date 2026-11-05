@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 134 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 138 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 ## Tool groups
 
@@ -25,7 +25,7 @@ Every tool belongs to one group, and its description starts with that group in b
 | `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.     |
 | `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                         |
 | `[library]`    | 12    | Models kept outside any project, copied in and out.                                    |
-| `[animation]`  | 5     | The clip library and baking clips onto a rigged model.                                 |
+| `[animation]`  | 9     | The clip library, baking clips onto a rigged model and animation recipes.              |
 | `[export]`     | 8     | Export packs for other engines and render styles.                                      |
 | `[avatar-rig]` | 7     | VRM avatars and the rig doctor.                                                        |
 
@@ -95,6 +95,8 @@ These look at the workspace and change nothing.
 | [`get_rig_doctor`](#get_rig_doctor)           | A rig doctor case: its sheets, defects, checks, progress and why it stopped                                                                                                                                                                                                                                                                                                                                        | Nothing | No       |
 | [`list_rig_doctors`](#list_rig_doctors)       | The rig doctor's cases, newest first                                                                                                                                                                                                                                                                                                                                                                               | Nothing | No       |
 | [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                                                                                                                                                                           | Nothing | No       |
+| [`list_recipes`](#list_recipes)               | A project's animation recipes: id, name, base clip and frames, whether the base clip is Mixamo's, and the change and blank counts with how many blanks are open                                                                                                                                                                                                                                                    | Nothing | No       |
+| [`get_recipe`](#get_recipe)                   | One animation recipe: its base clip as matched in this computer's library, its blanks and its changes in order                                                                                                                                                                                                                                                                                                     | Nothing | No       |
 | [`list_canvases`](#list_canvases)             | A project's planning canvases: id, name, preset, node and link counts and when each last changed                                                                                                                                                                                                                                                                                                                   |
 | [`get_canvas`](#get_canvas)                   | A planning canvas: its nodes and the links between them, each node with who added it                                                                                                                                                                                                                                                                                                                               |
 | [`get_changes`](#get_changes)                 | A planning canvas's change log, newest first, with the change ids `undo_run` takes                                                                                                                                                                                                                                                                                                                                 |
@@ -166,6 +168,8 @@ These look at the workspace and change nothing.
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                                                                                                                                                        | Nothing | No       |
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                                                                                        | Nothing | No       |
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                                                                                            | Nothing | No       |
+| [`create_recipe`](#create_recipe)                     | Makes an animation recipe on a library clip, as the Motion view's Recipes tab does; bakes nothing                                                                                                                                                                      | Nothing | No       |
+| [`update_recipe`](#update_recipe)                     | Changes a recipe's name, changes or blanks, checked whole before anything is written; bakes nothing                                                                                                                                                                    | Nothing | No       |
 | [`get_retarget_review`](#get_retarget_review)         | A model's last retarget review and the library clips baked into it                                                                                                                                                                                                     | Nothing | No       |
 | [`create_canvas`](#create_canvas)                     | Makes a planning canvas in a project, blank or from the Story or Game mechanics preset                                                                                                                                                                                 |
 | [`add_nodes`](#add_nodes)                             | Adds nodes and links to a planning canvas, placed beside a node, clear of the others                                                                                                                                                                                   |
@@ -1161,6 +1165,82 @@ A model's last retarget review: each library clip baked onto it with its status,
 | --------- | ------ | -------- | --------------- |
 | `project` | string | yes      | The project id. |
 | `asset`   | string | yes      | The asset id.   |
+
+### list_recipes
+
+`read only`
+
+Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, and when it last changed. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
+
+| Parameter | Type   | Required | Notes           |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+
+### get_recipe
+
+`read only`
+
+Reads one recipe: its name, `revision`, and `base` with the clip's name, frames, seconds and hash, plus `library`: `found`, `hash-differs` or `missing`, as matched in this computer's animation library by name and frame count, with the matching `clip` id and a `warning` when the match is not exact. A different hash is only a warning: the clip may have been imported again. `mixamo` says a bake will count as Mixamo's (kept out of export packs and never saved to the clip library); the recipe file itself stays shareable. Then its `blanks` (targets filled per project) and its `changes` in the order they are laid over the clip.
+
+| Parameter | Type   | Required | Notes                                      |
+| --------- | ------ | -------- | ------------------------------------------ |
+| `project` | string | yes      | The project id.                            |
+| `recipe`  | string | yes      | The recipe id, as `list_recipes` gives it. |
+
+### create_recipe
+
+`changes the project`
+
+Makes a recipe on a clip of the animation library, as the Recipes tab in the Motion view does. It writes one file holding the base clip's name, frames, length and hash, never keys, a mesh or a skeleton, and starts with no changes or blanks. A recipe on a Mixamo clip is marked `mixamo`. Website and game projects both take recipes. Nothing is baked and nothing is spent; baking a recipe into a model's next version comes in a later update.
+
+| Parameter | Type   | Required | Notes                                                       |
+| --------- | ------ | -------- | ----------------------------------------------------------- |
+| `project` | string | yes      | The project id.                                             |
+| `clip`    | string | yes      | The library clip id, as `list_animations` gives it.         |
+| `name`    | string | no       | One line, up to 120 characters. The clip's name by default. |
+
+### update_recipe
+
+`changes the project`
+
+Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked before anything is written, and the revision does not move. Answers with the recipe as `get_recipe` reads it.
+
+A change is `{ id?, kind, bone, weight?, start?, end?, target?, rotation?, offset?, cycles?, amount? }`. Bones are VRM humanoid names. `start` and `end` are shares of the clip from 0 to 1, and `weight` is 0 to 1 (1 by default).
+
+| Kind      | Bones                                                                                     | Settings                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `reach`   | `leftHand`, `rightHand`, `leftFoot`, `rightFoot`                                          | `target`: a blank's id. The limb reaches it with IK.                                       |
+| `look-at` | `head`, `neck`                                                                            | `target`: a blank's id. The head or neck turns to follow it.                               |
+| `nudge`   | any humanoid bone                                                                         | `rotation` in degrees (within 180 each way) and or `offset` in metres (within 2 each way). |
+| `wave`    | `leftUpperArm`, `rightUpperArm`, `leftLowerArm`, `rightLowerArm`, `leftHand`, `rightHand` | `cycles` (more than 0, at most 50) and `amount` in degrees (more than 0, at most 90).      |
+
+A blank is `{ id, label, kind, prop?, point? }`: `kind` is `prop` (an asset of the project, by id) or `point` (`[x, y, z]` in metres with y up). Left empty, it stays open for the person or another agent to fill.
+
+| Parameter | Type     | Required | Notes                                  |
+| --------- | -------- | -------- | -------------------------------------- |
+| `project` | string   | yes      | The project id.                        |
+| `recipe`  | string   | yes      | The recipe id.                         |
+| `name`    | string   | no       | A new name.                            |
+| `changes` | object[] | no       | Every change, in order. Replaces them. |
+| `blanks`  | object[] | no       | Every blank. Replaces them.            |
+
+```json
+{
+  "project": "frostveil",
+  "recipe": "standing-idle",
+  "blanks": [
+    {
+      "id": "lantern",
+      "label": "The prop the hand reaches",
+      "kind": "prop",
+      "prop": "crystal-lantern"
+    }
+  ],
+  "changes": [
+    { "kind": "reach", "bone": "rightHand", "target": "lantern", "start": 0.2, "end": 0.6 }
+  ]
+}
+```
 
 ### start_rig_doctor
 
