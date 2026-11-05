@@ -60,6 +60,15 @@ describe('the settings of a pack', () => {
     expect(screen.getByText('As they are')).toBeVisible();
   });
 
+  it('says why clips stay out when a project cannot tell its recipe bakes', async () => {
+    await openSettings();
+    const plan = usePackStore.getState().plan!;
+    const why =
+      "Moon Island's recipe-bakes.json cannot be read, so the clips of its models stay out.";
+    act(() => usePackStore.setState({ plan: { ...plan, warnings: [why] } }));
+    expect(screen.getByText(content => content.includes(why))).toBeVisible();
+  });
+
   it('saves the settings as a preset', async () => {
     await openSettings();
     await userEvent.click(screen.getByRole('button', { name: 'Save as preset' }));

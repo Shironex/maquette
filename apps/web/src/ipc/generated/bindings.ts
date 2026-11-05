@@ -5309,6 +5309,11 @@ export type PackPlan = {
 	mixamo: number,
 	/**  Models left out, each with why. */
 	skipped: string[],
+	/**
+	 *  What to know about the plan: a project whose `recipe-bakes.json`
+	 *  cannot be read, so its models' clips stay out.
+	 */
+	warnings?: string[],
 };
 
 /**  Settings saved under a name. */

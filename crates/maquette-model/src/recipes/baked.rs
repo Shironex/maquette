@@ -163,6 +163,15 @@ pub fn note(project_dir: &Path, asset: &str, file: &Path, version: u32) -> CoreR
     }
 }
 
+/// Whether the project's record can be read: a missing one can.
+///
+/// # Errors
+///
+/// Fails when it is broken or comes from a newer Maquette.
+pub fn check(project_dir: &Path) -> CoreResult<()> {
+    load(project_dir).map(|_| ())
+}
+
 /// The bakes accepted as versions of `asset`, oldest first.
 ///
 /// # Errors
