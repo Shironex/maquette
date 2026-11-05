@@ -1,6 +1,6 @@
 {
   "name": "@maquette/desktop",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "Maquette desktop shell (Tauri 2); the Rust side lives in src-tauri and crates/*",
   "scripts": {
