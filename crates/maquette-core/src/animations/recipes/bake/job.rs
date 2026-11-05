@@ -148,9 +148,9 @@ pub struct Prepared {
     pub(crate) targets: BTreeMap<String, TargetSpec>,
     /// Prop asset ids to the files to copy in, absolute.
     pub(crate) props: BTreeMap<String, PathBuf>,
-    /// The model's clip of the same name an earlier bake of this recipe
-    /// added, which the new clip replaces.
-    pub(crate) replace: Option<String>,
+    /// The model's clips earlier bakes of this recipe added, which the new
+    /// clip replaces.
+    pub(crate) replace: Vec<String>,
     /// What the name clash with the model's clips came to, in a sentence.
     pub(crate) clip_note: Option<String>,
     pub warnings: Vec<String>,
@@ -226,10 +226,10 @@ pub fn prepare(
     // A record that cannot be read names no earlier bake: the older clip
     // then stays and the new one takes a free name.
     let bakes = crate::recipes::baked::of_asset(&model.dir, &request.asset).unwrap_or_default();
-    let naming = clip_name(&base, &model.clips, &bakes, &doc.id);
+    let naming = clip_name(&model.clips, &bakes, &doc.id);
     let setting =
         settings::normalise(&[setting], std::slice::from_ref(&clip), &naming.taken)?.remove(0);
-    let note = clip_note(&base, &setting.name, naming.replace.as_deref(), &model.name);
+    let note = clip_note(&base, &setting.name, &naming.replace, &model.name);
     let hips = model_bone("hips", &map, &model.joints).ok_or_else(|| {
         CoreError::Invalid(format!(
             "{} has no hips in its bone map, so a clip cannot go on it.",
@@ -388,7 +388,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
         ),
         &prepared.map,
         Staged {
-            replace: prepared.replace.iter().cloned().collect(),
+            replace: prepared.replace.clone(),
             follow: prepared.follow.clone(),
         },
     )?;

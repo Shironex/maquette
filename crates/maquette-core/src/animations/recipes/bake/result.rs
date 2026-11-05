@@ -109,7 +109,7 @@ pub(crate) fn result_of(
         } else {
             run.clip.clone()
         },
-        replaces: prepared.replace.clone(),
+        replaced: prepared.replace.clone(),
         clip_note: prepared.clip_note.clone(),
         frames: run.frames,
         file: work.join(STAGED_FILE).display().to_string(),

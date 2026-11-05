@@ -1,57 +1,51 @@
-//! How a recipe bake's clip is named against the model's clips: a same
-//! named clip an earlier bake of the recipe added is replaced, any other
-//! stays and the new clip takes the next free name.
+//! How a recipe bake's clip is named against the model's clips: every
+//! clip an earlier bake of the recipe added is replaced, whatever it was
+//! named; any other stays and the new clip takes the first free name.
 
 /// How a bake's clip is named against the model's clips.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ClipName {
     /// The names the new clip must keep clear of.
     pub taken: Vec<String>,
-    /// The clip of the same name an earlier bake of this recipe added: the
-    /// new one replaces it and keeps the name.
-    pub replace: Option<String>,
+    /// The model's clips earlier bakes of this recipe added: the new one
+    /// replaces them all, so rebakes never pile up `name_2`, `name_3`.
+    pub replace: Vec<String>,
 }
 
-/// The rule for a recipe's clip named `base` on a model whose clips are
-/// `clips` and whose accepted recipe bakes are `bakes`: a same named clip
-/// that an earlier bake of recipe `recipe` added is replaced; any other
-/// keeps its name, and the new clip takes `base_2` and on.
+/// The rule for a recipe's clip on a model whose clips are `clips` and
+/// whose accepted recipe bakes are `bakes`: each clip that an earlier bake
+/// of recipe `recipe` added is replaced and its name is free again; any
+/// other keeps its name, and the new clip takes the base name or `base_2`
+/// and on.
 pub(crate) fn clip_name(
-    base: &str,
     clips: &[String],
     bakes: &[crate::recipes::baked::RecipeBakeUse],
     recipe: &str,
 ) -> ClipName {
-    let ours = !base.is_empty()
-        && clips.iter().any(|c| c == base)
-        && bakes.iter().any(|b| b.recipe == recipe && b.clip == base);
-    if !ours {
-        return ClipName {
-            taken: clips.to_vec(),
-            replace: None,
-        };
-    }
-    ClipName {
-        taken: clips.iter().filter(|c| *c != base).cloned().collect(),
-        replace: Some(base.to_string()),
-    }
+    let ours = |clip: &String| bakes.iter().any(|b| b.recipe == recipe && &b.clip == clip);
+    let (replace, taken) = clips.iter().cloned().partition(|c| ours(c));
+    ClipName { taken, replace }
 }
 
 /// The sentence the review shows about the clip's name, if it clashed.
-pub(super) fn clip_note(
-    base: &str,
-    name: &str,
-    replace: Option<&str>,
-    model: &str,
-) -> Option<String> {
-    if let Some(old) = replace {
-        return Some(format!(
+pub(super) fn clip_note(base: &str, name: &str, replace: &[String], model: &str) -> Option<String> {
+    let replaced = match replace {
+        [] => None,
+        [old] => Some(format!(
             "Replaces {old}, the clip an earlier bake of this recipe added to {model}."
-        ));
-    }
-    (!base.is_empty() && name != base).then(|| {
+        )),
+        _ => Some(format!(
+            "Replaces {}, the clips earlier bakes of this recipe added to {model}.",
+            replace.join(", ")
+        )),
+    };
+    let kept = (!base.is_empty() && name != base).then(|| {
         format!(
             "{model} already has a clip named {base} that this recipe did not make, so it stays and this one is named {name}."
         )
-    })
+    });
+    match (replaced, kept) {
+        (Some(r), Some(k)) => Some(format!("{r} {k}")),
+        (r, k) => r.or(k),
+    }
 }

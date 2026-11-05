@@ -132,11 +132,12 @@ pub struct RecipeBakeResult {
     pub from_version: u32,
     /// The new clip's name in the model.
     pub clip: String,
-    /// The model's clip of that name an earlier bake of this recipe added,
-    /// which this one replaces. A same named clip from anywhere else stays,
-    /// and the new clip takes `name_2` and on.
+    /// The model's clips earlier bakes of this recipe added, whatever they
+    /// were named, which this one replaces. A same named clip from anywhere
+    /// else stays, and the new clip takes `name_2` and on. (Records from
+    /// before held one name as `replaces`, which is no longer read.)
     #[serde(default)]
-    pub replaces: Option<String>,
+    pub replaced: Vec<String>,
     /// What a name clash with the model's clips came to, in a sentence.
     #[serde(default)]
     pub clip_note: Option<String>,

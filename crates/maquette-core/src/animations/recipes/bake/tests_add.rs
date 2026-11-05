@@ -233,3 +233,14 @@ fn line_of(result: &RecipeBakeResult, id: &str) -> RecipeReviewLine {
         .find(|l| l.id == id)
         .expect("line")
 }
+
+#[test]
+fn a_record_from_before_the_replaced_list_still_reads() {
+    let (_bakes, done) = baked_once(&reaching());
+    let mut json = serde_json::to_value(done.result.expect("result")).expect("json");
+    let fields = json.as_object_mut().expect("object");
+    fields.remove("replaced");
+    fields.insert("replaces".into(), serde_json::json!("wave"));
+    let read: RecipeBakeResult = serde_json::from_value(json).expect("old record");
+    assert!(read.replaced.is_empty());
+}

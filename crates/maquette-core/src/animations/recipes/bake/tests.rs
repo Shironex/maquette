@@ -280,7 +280,7 @@ fn a_bake_gathers_the_bones_targets_and_clip_name_it_needs() {
 }
 
 #[test]
-fn a_same_named_clip_is_replaced_only_when_this_recipe_made_it() {
+fn every_clip_this_recipe_made_is_replaced_whatever_its_name() {
     use crate::recipes::baked::RecipeBakeUse;
     let bake = |recipe: &str, clip: &str| RecipeBakeUse {
         recipe: recipe.into(),
@@ -290,24 +290,42 @@ fn a_same_named_clip_is_replaced_only_when_this_recipe_made_it() {
         mixamo: false,
         version: 2,
     };
-    let clips = vec!["Idle".to_string(), "wave".to_string()];
-    // No clash: the model's clips stay as they are.
-    let free = job::clip_name("reach_out", &clips, &[], "reach-out");
-    assert_eq!((free.taken.clone(), free.replace), (clips.clone(), None));
+    let clips = vec!["Idle".to_string(), "wave".to_string(), "wave_2".to_string()];
+    // No earlier bake: the model's clips stay as they are.
+    let free = job::clip_name(&clips, &[], "wave");
+    assert_eq!(
+        (free.taken.clone(), free.replace),
+        (clips.clone(), Vec::new())
+    );
     // This recipe made wave before: replaced, and the name is free again.
-    let ours = job::clip_name("wave", &clips, &[bake("wave", "wave")], "wave");
-    assert_eq!(ours.replace.as_deref(), Some("wave"));
-    assert_eq!(ours.taken, ["Idle"]);
-    // Another recipe, or the model's own clip: kept, so the new one is wave_2.
-    for bakes in [
-        vec![bake("other", "wave")],
-        vec![bake("wave", "wave_2")],
-        vec![],
-    ] {
-        let kept = job::clip_name("wave", &clips, &bakes, "wave");
-        assert_eq!(kept.replace, None);
-        assert_eq!(kept.taken, clips);
-    }
+    let ours = job::clip_name(&clips, &[bake("wave", "wave")], "wave");
+    assert_eq!(ours.replace, ["wave"]);
+    assert_eq!(ours.taken, ["Idle", "wave_2"]);
+    // It made wave_2 because wave was someone else's: wave_2 is replaced,
+    // so a rebake takes wave_2 again instead of wave_3.
+    let second = job::clip_name(
+        &clips,
+        &[bake("other", "wave"), bake("wave", "wave_2")],
+        "wave",
+    );
+    assert_eq!(second.replace, ["wave_2"]);
+    assert_eq!(second.taken, ["Idle", "wave"]);
+    // Both are its own: both go.
+    let both = job::clip_name(
+        &clips,
+        &[bake("wave", "wave"), bake("wave", "wave_2")],
+        "wave",
+    );
+    assert_eq!(both.replace, ["wave", "wave_2"]);
+    assert_eq!(both.taken, ["Idle"]);
+    // Another recipe's clip, or one the model no longer has: nothing goes.
+    let kept = job::clip_name(
+        &clips,
+        &[bake("other", "wave"), bake("wave", "gone")],
+        "wave",
+    );
+    assert!(kept.replace.is_empty());
+    assert_eq!(kept.taken, clips);
 }
 
 #[test]
@@ -340,7 +358,7 @@ fn a_rebake_onto_its_own_clip_replaces_it_and_another_clip_of_that_name_stays() 
     // The model's own idle stays; the bake takes idle_2 and says why.
     let kept = prepare(p.root(), &p.config, &p.request()).expect("prepared");
     assert_eq!(kept.setting.name, "idle_2");
-    assert_eq!(kept.replace, None);
+    assert!(kept.replace.is_empty());
     let note = kept.clip_note.clone().expect("note");
     assert!(note.contains("already has a clip named idle"), "{note}");
 
@@ -360,7 +378,7 @@ fn a_rebake_onto_its_own_clip_replaces_it_and_another_clip_of_that_name_stays() 
     .expect("record");
     let ours = prepare(p.root(), &p.config, &p.request()).expect("prepared");
     assert_eq!(ours.setting.name, "idle");
-    assert_eq!(ours.replace.as_deref(), Some("idle"));
+    assert_eq!(ours.replace, ["idle"]);
     assert!(
         ours.clip_note
             .as_deref()
