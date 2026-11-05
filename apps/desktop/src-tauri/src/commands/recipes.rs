@@ -1,0 +1,126 @@
+//! Animation recipes: a project's recipes, one file each in its `recipes/`
+//! folder, each a base clip from the animation library with changes laid
+//! over it. Listing, making one from a library clip, reading, renaming,
+//! changing and removing them. Nothing here bakes or runs Blender. The
+//! helpers are shared with the MCP tools, so both make the same checks.
+
+use maquette_core::animations::recipes::{self as library_recipes, RecipeDoc};
+use maquette_core::assets::remove::project_trash;
+use maquette_core::project;
+use maquette_core::recipes::{self, RecipeChange, RecipeSummary};
+use tauri::State;
+
+use super::CommandResult;
+use super::plans::project_dir;
+use crate::session::Session;
+
+pub(crate) fn list(session: &Session, project: &str) -> CommandResult<Vec<RecipeSummary>> {
+    Ok(recipes::list(&project_dir(session, project)?)?)
+}
+
+pub(crate) fn get(session: &Session, project: &str, id: &str) -> CommandResult<RecipeDoc> {
+    let (root, _) = session.workspace()?;
+    let dir = project_dir(session, project)?;
+    Ok(library_recipes::get(&root, &dir, id)?)
+}
+
+pub(crate) fn create(
+    session: &Session,
+    project: &str,
+    clip: &str,
+    name: Option<&str>,
+) -> CommandResult<RecipeDoc> {
+    let (root, _) = session.workspace()?;
+    let dir = project_dir(session, project)?;
+    Ok(library_recipes::create(&root, &dir, clip, name)?)
+}
+
+pub(crate) fn update(
+    session: &Session,
+    project: &str,
+    id: &str,
+    change: RecipeChange,
+) -> CommandResult<RecipeDoc> {
+    let (root, config) = session.workspace()?;
+    let manifest = project::load(&root, &config.layout, project)?;
+    let dir = project::dir(&root, &config.layout, project)?;
+    recipes::update(&dir, &manifest, id, change)?;
+    Ok(library_recipes::get(&root, &dir, id)?)
+}
+
+pub(crate) fn remove(session: &Session, project: &str, id: &str) -> CommandResult<String> {
+    let (root, config) = session.workspace()?;
+    let dir = project_dir(session, project)?;
+    let trash = project_trash(&root, &config.layout, project)?;
+    Ok(recipes::remove(&dir, &trash, id)?)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_list(
+    session: State<'_, Session>,
+    project: String,
+) -> CommandResult<Vec<RecipeSummary>> {
+    list(&session, &project)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_get(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+) -> CommandResult<RecipeDoc> {
+    get(&session, &project, &id)
+}
+
+/// Makes a recipe on the library clip `clip`, called `name` or after the clip.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_create(
+    session: State<'_, Session>,
+    project: String,
+    clip: String,
+    name: Option<String>,
+) -> CommandResult<RecipeDoc> {
+    create(&session, &project, &clip, name.as_deref())
+}
+
+/// Renames a recipe; its file and id stay.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_rename(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    name: String,
+) -> CommandResult<RecipeSummary> {
+    Ok(recipes::rename(
+        &project_dir(&session, &project)?,
+        &id,
+        &name,
+    )?)
+}
+
+/// Replaces a recipe's changes, blanks or both, checked whole first.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_update(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    change: RecipeChange,
+) -> CommandResult<RecipeDoc> {
+    update(&session, &project, &id, change)
+}
+
+/// Moves the recipe file into the workspace trash; returns where it went.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_remove(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+) -> CommandResult<String> {
+    remove(&session, &project, &id)
+}
