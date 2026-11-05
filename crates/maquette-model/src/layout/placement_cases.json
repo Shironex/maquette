@@ -1,0 +1,35 @@
+{
+  "_note": "Placements and their column major matrices, read by the layout tests here and the web recipe preview tests so both compose a placement the same way.",
+  "cases": [
+    {
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": 1,
+      "matrix": [1.0, 0.0, 0.0, 0, -0.0, 1.0, 0.0, 0, 0.0, -0.0, 1.0, 0, 0, 0, 0, 1]
+    },
+    {
+      "position": [1, 2, 3],
+      "rotation": [0, 90, 0],
+      "scale": 1,
+      "matrix": [0.0, 0.0, -1.0, 0, -0.0, 1.0, 0.0, 0, 1.0, -0.0, 0.0, 0, 1, 2, 3, 1]
+    },
+    {
+      "position": [0.5, 0, -1],
+      "rotation": [30, 45, 60],
+      "scale": 2,
+      "matrix": [
+        0.707107, 1.853553, 0.253653, 0, -1.224745, 0.253653, 1.56066, 0, 1.414214, -0.707107,
+        1.224745, 0, 0.5, 0, -1, 1
+      ]
+    },
+    {
+      "position": [-2, 1, 0.25],
+      "rotation": [-90, 10, 170],
+      "scale": 0.5,
+      "matrix": [
+        -0.484923, 0.085505, -0.086824, 0, -0.085505, 0.015077, 0.492404, 0, 0.086824, 0.492404,
+        0.0, 0, -2, 1, 0.25, 1
+      ]
+    }
+  ]
+}

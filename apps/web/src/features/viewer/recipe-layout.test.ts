@@ -1,7 +1,27 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { LayoutView } from '@/ipc/client';
-import { layoutSpot } from './recipe-layout';
+import { layoutSpot, placementMatrix } from './recipe-layout';
 import { targetsOf } from './recipe-pose';
+
+/** The core's placement cases (`layout/placement_cases.json`), which its own tests run too. */
+const placements = JSON.parse(
+  readFileSync(
+    resolve(
+      import.meta.dirname,
+      '../../../../../crates/maquette-model/src/layout/placement_cases.json'
+    ),
+    'utf8'
+  )
+) as {
+  cases: {
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: number;
+    matrix: number[];
+  }[];
+};
 
 /** Elsheria turned a quarter about Y, a lantern 1 m along world +Z. */
 function view(placeModel = true, present = true): LayoutView {
@@ -32,6 +52,17 @@ describe('a prop target by the layout', () => {
     expect(layoutSpot(view(), 'elsheria', 'cup')).toBeNull();
     // As in the bake, a prop whose newest model file is gone takes the slot.
     expect(layoutSpot(view(true, false), 'elsheria', 'lantern')).toBeNull();
+  });
+
+  it('composes a placement as the core does, by the shared cases', () => {
+    for (const c of placements.cases) {
+      const m = placementMatrix({
+        position: c.position,
+        rotation: c.rotation,
+        scale: c.scale,
+      });
+      m.elements.forEach((got, i) => expect(got).toBeCloseTo(c.matrix[i]!, 5));
+    }
   });
 
   it('puts a placed prop at its spot and keeps the next prop in the second slot', () => {
