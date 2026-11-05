@@ -32,8 +32,14 @@ import { slugOf } from './plan-store';
 interface RecipeContext {
   clips: () => readonly AnimationClip[];
   project: (id: string) => ProjectManifest;
+  saveProject: (next: ProjectManifest) => ProjectManifest;
+  alias: (path: string, from: string) => void;
+  root: () => string;
   state: string | null;
 }
+
+/** The bundled clay figure's own clips; a mock bake onto it plays its wave. */
+const STAND_IN_CLIPS: Record<string, string> = { 'clay-figure': 'Wave' };
 
 const fileOf = (id: string) => `recipes/${id}.recipe.json`;
 
@@ -263,6 +269,38 @@ export function createRecipeHandlers(ctx: RecipeContext) {
         const version = Math.max(1, ...(found.versions ?? []).map(v => v.version));
         return { name: found.name, version };
       },
+      addVersion: (project, id) => {
+        const p = ctx.project(project);
+        const found = (p.assets ?? []).find(a => a.id === id);
+        if (!found) fail('not_found', `Not found: the asset ${id}`);
+        const last = found.versions[found.versions.length - 1];
+        const number = (last?.version ?? 0) + 1;
+        const file = `models/${id.replace(/-/g, '_')}_v${number}.glb`;
+        const at = clock.now().toISOString();
+        const version = { version: number, file, createdAt: at, stats: last?.stats ?? null };
+        ctx.saveProject({
+          ...p,
+          assets: (p.assets ?? []).map(a =>
+            a.id === id ? { ...a, versions: [...a.versions, version], updatedAt: at } : a
+          ),
+        });
+        const dir = `${ctx.root()}/projects/${project}`;
+        if (last) ctx.alias(`${dir}/${file}`, `${dir}/${last.file}`);
+        return number;
+      },
+      stage: (project, id, file) => {
+        const found = (ctx.project(project).assets ?? []).find(a => a.id === id);
+        const last = found?.versions[found.versions.length - 1];
+        if (last) ctx.alias(file, `${ctx.root()}/projects/${project}/${last.file}`);
+      },
+      demoModel: () => {
+        const assets = ctx.project('frostveil').assets ?? [];
+        return (
+          (assets.find(a => a.id === 'clay-figure') ?? assets.find(a => a.id === 'elsheria'))?.id ??
+          'elsheria'
+        );
+      },
+      standInClip: asset => STAND_IN_CLIPS[asset] ?? null,
       state: ctx.state,
     }),
     recipe_list: ({ project }: Args) =>

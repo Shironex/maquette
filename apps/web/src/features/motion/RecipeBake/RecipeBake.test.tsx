@@ -1,7 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { REVIEW_NEXT } from '@/state/recipe-bake';
 import { record } from '@/test/recipe-bake-fixture';
 import RecipeBake from './RecipeBake';
 
@@ -21,15 +20,39 @@ describe('a recipe bake panel', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('shows a finished bake with its numbers and what comes next', () => {
-    render(<RecipeBake record={record()} busy={false} error={null} onCancel={() => {}} />);
+  it('shows a finished bake with its numbers against their limits and Review', async () => {
+    const onReview = vi.fn();
+    render(
+      <RecipeBake
+        record={record()}
+        busy={false}
+        error={null}
+        onCancel={() => {}}
+        onReview={onReview}
+      />
+    );
     const lines = screen.getByRole('list', { name: 'Bake result' });
-    expect(within(lines).getByText('0.4 cm from its target')).toBeVisible();
-    expect(within(lines).getByText('3.2 cm from its target')).toBeVisible();
+    expect(within(lines).getByText('0.4 cm')).toBeVisible();
+    expect(within(lines).getByText('3.2 cm')).toBeVisible();
+    expect(within(lines).getAllByRole('img', { name: 'Worth a look' })).toHaveLength(2);
     expect(within(lines).getByText('Foot slide')).toBeVisible();
-    expect(screen.getByText(REVIEW_NEXT)).toBeVisible();
+    expect(screen.getByText('2 of 6 numbers warn')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(onReview).toHaveBeenCalled();
     expect(screen.getByText('Mixamo')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  });
+
+  it('shows an added bake as its version, with what became of a same-named clip', () => {
+    const added = record({
+      state: 'added',
+      addedVersion: 3,
+      result: { ...record().result!, clipNote: 'Elsheria already has a clip named reach_out.' },
+    });
+    render(<RecipeBake record={added} busy={false} error={null} onCancel={() => {}} />);
+    expect(screen.getByText('Added as v3 of Elsheria.')).toBeVisible();
+    expect(screen.getByText('Elsheria already has a clip named reach_out.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Review' })).toBeNull();
   });
 
   it('marks a bake out of date with the reason', () => {

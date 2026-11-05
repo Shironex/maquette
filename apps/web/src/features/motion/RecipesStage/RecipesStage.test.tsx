@@ -9,6 +9,8 @@ import { useRecipesStore } from '@/state/use-recipes-store';
 import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import RecipesStage from './RecipesStage';
 
+vi.mock('@react-three/fiber', () => import('@/test/fake-fiber'));
+
 afterEach(() => {
   clearMocks();
   useRecipesStore.setState(useRecipesStore.getInitialState(), true);
@@ -105,7 +107,7 @@ describe('the recipes stage', () => {
     const list = await screen.findByRole('list', { name: 'Project recipes' });
     const reach = within(list).getByText('Reach for the lantern').closest('li')!;
     // The demo opens with a finished bake of this recipe.
-    expect(await within(reach).findByText('Review and add as a version comes next')).toBeVisible();
+    expect(await within(reach).findByRole('button', { name: 'Review' })).toBeVisible();
     expect(within(reach).queryByText('Out of date')).not.toBeInTheDocument();
     await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
     expect(await within(reach).findByRole('progressbar')).toBeVisible();
@@ -117,6 +119,18 @@ describe('the recipes stage', () => {
     });
     await userEvent.click(within(reach).getByRole('button', { name: 'Cancel' }));
     expect(await within(reach).findByText(/last bake was cancelled/)).toBeVisible();
+  });
+
+  it('opens a finished bake in the review and goes back to the list', async () => {
+    await openWithModels();
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    await userEvent.click(await within(reach).findByRole('button', { name: 'Review' }));
+    expect(await screen.findByRole('region', { name: 'Recipe review' })).toBeVisible();
+    expect(screen.queryByRole('list', { name: 'Project recipes' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByRole('list', { name: 'Project recipes' })).toBeVisible();
   });
 
   it('refuses a bake of a recipe that changed since the list read it', async () => {

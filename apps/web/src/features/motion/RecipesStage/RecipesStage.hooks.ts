@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/state/use-app-store';
+import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 
 /**
- * The open project's recipes, loaded when the project changes, and the one
- * open in the editor. A recipe with unsaved edits stays open while the
+ * The open project's recipes, loaded when the project changes, the one
+ * open in the editor and whether a bake is open in the review. A recipe with unsaved edits stays open while the
  * project changes, so the question about them can still be answered on it.
  */
 export function useRecipesStage() {
@@ -18,6 +19,7 @@ export function useRecipesStage() {
   const editing = useRecipeEditorStore(s => s.editing);
   const opening = useRecipeEditorStore(s => s.opening);
   const openError = useRecipeEditorStore(s => s.openError);
+  const reviewed = useRecipeBakesStore(s => s.reviewing?.project ?? null);
   useEffect(() => {
     if (project) void load(project);
   }, [project, load]);
@@ -32,6 +34,8 @@ export function useRecipesStage() {
     recipes: mine ? list : null,
     error: mine ? error : null,
     editing: Boolean(editing),
+    /** A bake of this project is open in the review. */
+    reviewing: Boolean(project) && reviewed === project,
     opening,
     openError,
     retry: () => (project ? void load(project) : undefined),

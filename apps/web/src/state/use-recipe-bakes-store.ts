@@ -2,11 +2,21 @@
  * Recipe bakes: each recipe's last bake, started by Apply or by an agent.
  * The core runs one headless Blender run per recipe and stages its model in
  * the workspace cache; the records stay up to date through the recipe bake
- * changed event, whichever view is on show.
+ * changed event, whichever view is on show. A finished bake opens in the
+ * review, where Add makes it the model's next version.
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type RecipeBakeRecord } from '@/ipc/client';
-import { bakeKey } from './recipe-bake';
+import { addedLine, bakeKey } from './recipe-bake';
+import { useAppStore } from './use-app-store';
+import { useMotionStore } from './use-motion-store';
+import { useProjectsStore } from './use-projects-store';
+
+/** The bake open in the review. */
+export interface ReviewedBake {
+  project: string;
+  recipe: string;
+}
 
 interface RecipeBakesStore {
   /** Bakes by `project/recipe`; null once read and never baked. */
@@ -26,6 +36,19 @@ interface RecipeBakesStore {
   ) => Promise<boolean>;
   cancel: (project: string, recipe: string) => Promise<void>;
   onChanged: (record: RecipeBakeRecord) => void;
+  /** The bake open in the review, or none. */
+  reviewing: ReviewedBake | null;
+  /** What an add was refused with, by key. */
+  addErrors: Record<string, string>;
+  openReview: (project: string, recipe: string) => void;
+  closeReview: () => void;
+  /**
+   * Opens the review from elsewhere (an agent's approval card): the
+   * project, the Motion view and its Recipes tab.
+   */
+  showReview: (project: string, recipe: string) => Promise<void>;
+  /** Adds the reviewed bake as its model's next version. */
+  add: (project: string, recipe: string) => Promise<boolean>;
 }
 
 const without = <T>(map: Record<string, T>, key: string) => {
@@ -48,6 +71,8 @@ export const useRecipeBakesStore = create<RecipeBakesStore>((set, get) => {
     bakes: {},
     busy: {},
     errors: {},
+    reviewing: null,
+    addErrors: {},
 
     load: async (project, recipe) => {
       const key = bakeKey(project, recipe);
@@ -90,5 +115,49 @@ export const useRecipeBakesStore = create<RecipeBakesStore>((set, get) => {
     },
 
     onChanged: keep,
+
+    openReview: (project, recipe) => {
+      set({
+        reviewing: { project, recipe },
+        addErrors: without(get().addErrors, bakeKey(project, recipe)),
+      });
+      void get().load(project, recipe);
+    },
+
+    closeReview: () => set({ reviewing: null }),
+
+    showReview: async (project, recipe) => {
+      const app = useAppStore.getState();
+      if (app.workspace?.project?.id !== project) {
+        const switched = await useProjectsStore.getState().switchTo(project);
+        if (!switched) return;
+      }
+      useMotionStore.getState().setTab('recipes');
+      get().openReview(project, recipe);
+      useAppStore.getState().setView('motion');
+    },
+
+    add: async (project, recipe) => {
+      const key = bakeKey(project, recipe);
+      busy(key, true);
+      set({ addErrors: without(get().addErrors, key) });
+      try {
+        const record = await commands.recipeBakeAdd(project, recipe);
+        keep(record);
+        set({ reviewing: null });
+        useAppStore.getState().notify({
+          status: 'done',
+          title: addedLine(record),
+          detail: record.result?.clipNote ?? undefined,
+        });
+        void useMotionStore.getState().onChanged(project);
+        return true;
+      } catch (error) {
+        set({ addErrors: { ...get().addErrors, [key]: errorMessage(error) } });
+        return false;
+      } finally {
+        busy(key, false);
+      }
+    },
   };
 });

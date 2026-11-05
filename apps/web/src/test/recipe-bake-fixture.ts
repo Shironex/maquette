@@ -1,5 +1,5 @@
 /** A finished recipe bake and its record, for the bake tests. */
-import type { RecipeBakeRecord, RecipeBakeResult } from '@/ipc/client';
+import type { RecipeBakeRecord, RecipeBakeResult, RecipeBakeReview } from '@/ipc/client';
 
 export const RESULT: RecipeBakeResult = {
   recipe: 'reach-out',
@@ -33,6 +33,91 @@ export const RESULT: RecipeBakeResult = {
   warnings: [],
 };
 
+/** The core's review of RESULT: the left hand falls short and flips. */
+export const REVIEW: RecipeBakeReview = {
+  lines: [
+    {
+      id: 'gap-l-1',
+      label: 'Hand gap',
+      about: 'rightHand (l-1)',
+      value: '0.4 cm',
+      limit: '2 cm',
+      measured: 0.4,
+      max: 2,
+      unit: 'cm',
+      status: 'pass',
+      note: "At frame 30, the reach's end.",
+    },
+    {
+      id: 'flip-l-1',
+      label: 'Elbow',
+      about: 'rightHand (l-1)',
+      value: 'bends as the clip has it',
+      limit: 'no flip',
+      measured: null,
+      max: null,
+      unit: null,
+      status: 'pass',
+      note: null,
+    },
+    {
+      id: 'gap-l-2',
+      label: 'Hand gap',
+      about: 'leftHand (l-2)',
+      value: '3.2 cm',
+      limit: '2 cm',
+      measured: 3.2,
+      max: 2,
+      unit: 'cm',
+      status: 'warn',
+      note: "At frame 30, the reach's end.",
+    },
+    {
+      id: 'flip-l-2',
+      label: 'Elbow',
+      about: 'leftHand (l-2)',
+      value: 'flips at frame 18',
+      limit: 'no flip',
+      measured: null,
+      max: null,
+      unit: null,
+      status: 'warn',
+      note: 'The elbow bends the other way than the clip has it from there.',
+    },
+    {
+      id: 'feet',
+      label: 'Foot slide',
+      about: null,
+      value: '0.8 cm',
+      limit: '2.3 cm',
+      measured: 0.8,
+      max: 2.3,
+      unit: 'cm',
+      status: 'pass',
+      note: 'The base clip slides 0.8 cm on this model; up to 1.5 cm more passes.',
+    },
+    {
+      id: 'stretch',
+      label: 'Rig stretch',
+      about: null,
+      value: '3.4 mm',
+      limit: '7.9 mm',
+      measured: 3.4,
+      max: 7.9,
+      unit: 'mm',
+      status: 'pass',
+      note: 'The base clip stretches 2.9 mm; up to 5 mm more passes.',
+    },
+  ],
+  warns: 2,
+};
+
+/** The same bake with every number within its limit. */
+export const PASSING: RecipeBakeReview = {
+  lines: REVIEW.lines.map(l => ({ ...l, status: 'pass' })),
+  warns: 0,
+};
+
 export const record = (over: Partial<RecipeBakeRecord> = {}): RecipeBakeRecord => ({
   project: 'frostveil',
   recipe: 'reach-out',
@@ -46,5 +131,6 @@ export const record = (over: Partial<RecipeBakeRecord> = {}): RecipeBakeRecord =
   updatedMs: 2,
   finishedMs: 2,
   result: RESULT,
+  review: REVIEW,
   ...over,
 });

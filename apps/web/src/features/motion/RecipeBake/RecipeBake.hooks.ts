@@ -53,5 +53,7 @@ export function useRecipeBake(
     apply: (expected?: string | null) =>
       model ? store.start(project, recipe, model.asset, expected) : Promise.resolve(false),
     cancel: () => void store.cancel(project, recipe),
+    /** Opens the finished bake in the review. */
+    review: () => store.openReview(project, recipe),
   };
 }
