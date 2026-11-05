@@ -407,6 +407,7 @@ fn the_report_reads_as_the_result_the_review_shows() {
 /// cancelled.
 struct Fake {
     hold: bool,
+    panics: bool,
 }
 
 impl ScriptRunner for Fake {
@@ -437,6 +438,7 @@ impl ScriptRunner for Fake {
         extra: &[String],
         watch: &mut Watch<'_>,
     ) -> CoreResult<()> {
+        assert!(!self.panics, "a bug in the bake");
         if !self.hold {
             self.run_step(tools, work, name, script, extra)?;
             (watch.tick)();
@@ -455,9 +457,16 @@ impl ScriptRunner for Fake {
 }
 
 fn bakes(hold: bool) -> (RecipeBakes, Arc<Mutex<Vec<RecipeBakeRecord>>>) {
+    bakes_on(Fake {
+        hold,
+        panics: false,
+    })
+}
+
+fn bakes_on(fake: Fake) -> (RecipeBakes, Arc<Mutex<Vec<RecipeBakeRecord>>>) {
     let told = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::clone(&told);
-    let bakes = RecipeBakes::new(Arc::new(Fake { hold }), move |r: &RecipeBakeRecord| {
+    let bakes = RecipeBakes::new(Arc::new(fake), move |r: &RecipeBakeRecord| {
         sink.lock().expect("told").push(r.clone());
     });
     (bakes, told)
@@ -679,4 +688,47 @@ fn a_bake_reads_as_out_of_date_once_the_recipe_or_the_model_moves_on() {
         saved.contains("\"stale\": null") || !saved.contains("stale"),
         "{saved}"
     );
+}
+
+#[test]
+fn a_bake_that_panics_ends_as_failed_and_the_recipe_can_bake_again() {
+    let p = reaching();
+    let (broken, _) = bakes_on(Fake {
+        hold: false,
+        panics: true,
+    });
+    broken
+        .start(
+            p.root(),
+            &p.config,
+            Toolbox::default(),
+            &p.request(),
+            RecipeBakeStarter::Person,
+        )
+        .expect("start");
+    let failed = settled(&broken, &p);
+    assert_eq!(failed.state, RecipeBakeState::Failed);
+    assert_eq!(failed.error.as_deref(), Some(super::service::BROKE));
+    // It left the running ones: the same service starts it again.
+    let started = Instant::now();
+    loop {
+        match broken.start(
+            p.root(),
+            &p.config,
+            Toolbox::default(),
+            &p.request(),
+            RecipeBakeStarter::Person,
+        ) {
+            Ok(_) => break,
+            Err(err) => {
+                assert!(err.to_string().contains("baking already"), "{err}");
+                assert!(
+                    started.elapsed() < Duration::from_secs(10),
+                    "stuck as baking"
+                );
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+    }
+    assert_eq!(settled(&broken, &p).state, RecipeBakeState::Failed);
 }

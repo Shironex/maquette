@@ -30,6 +30,8 @@ const RECORD_FILE: &str = "bake.json";
 /// The run's own files, cleared when a bake starts again.
 const RUN_DIR: &str = "run";
 const CLOSED: &str = "The app closed during this bake. Bake it again.";
+/// Why a bake whose thread panicked stopped.
+pub(super) const BROKE: &str = "The bake stopped on an error inside Maquette. Bake it again.";
 
 type OnChange = Box<dyn Fn(&RecipeBakeRecord) + Send + Sync>;
 
@@ -251,11 +253,13 @@ impl RecipeBakes {
         let spawned = thread::Builder::new()
             .name("recipe-bake".to_string())
             .spawn(move || {
-                let outcome = bakes.bake(&root, &running, &prepared, &tools, &cancel);
-                // Saved as finished before it leaves the running ones, so a
-                // read in between never takes it for one the app closed on.
-                finish(&running, outcome);
-                bakes.active().remove(&name);
+                let mut ending = Ending {
+                    running: Arc::clone(&running),
+                    bakes: bakes.clone(),
+                    name,
+                    outcome: None,
+                };
+                ending.outcome = Some(bakes.bake(&root, &running, &prepared, &tools, &cancel));
             });
         if let Err(err) = spawned {
             self.active()
@@ -319,6 +323,28 @@ impl RecipeBakes {
             .ok_or_else(|| CoreError::Invalid("This recipe is not baking.".to_string()))?;
         flag.store(true, Ordering::SeqCst);
         Ok(())
+    }
+}
+
+/// Ends a bake when its thread does, also when it panics: saved as
+/// finished (failed, for a panic) before it leaves the running ones, so a
+/// read in between never takes it for one the app closed on, and the
+/// recipe can bake again.
+struct Ending {
+    running: Arc<Running>,
+    bakes: RecipeBakes,
+    name: String,
+    outcome: Option<CoreResult<super::RecipeBakeResult>>,
+}
+
+impl Drop for Ending {
+    fn drop(&mut self) {
+        let outcome = self
+            .outcome
+            .take()
+            .unwrap_or_else(|| Err(CoreError::Invalid(BROKE.to_string())));
+        finish(&self.running, outcome);
+        self.bakes.active().remove(&self.name);
     }
 }
 
