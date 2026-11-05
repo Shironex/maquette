@@ -262,11 +262,7 @@ fn pin_feet(
     before: review::RunReport,
     pinned: &[String],
 ) -> CoreResult<(review::RunReport, Vec<String>)> {
-    for clip in job
-        .clips
-        .iter_mut()
-        .filter(|c| pinned.contains(&c.id))
-    {
+    for clip in job.clips.iter_mut().filter(|c| pinned.contains(&c.id)) {
         if let Some(first) = before.clips.iter().find(|r| r.id == clip.id) {
             clip.pins = feet::pins(&first.feet);
         }
