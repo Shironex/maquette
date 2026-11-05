@@ -12,8 +12,9 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, check_name,
-    check_props, dir, is_recipe_id, load_file, normalized, path, settle_props, validate,
+    ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
+    check_name, check_props, dir, is_recipe_id, load_file, normalized, path, settle_props,
+    validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -72,6 +73,9 @@ fn settled(mut recipe: RecipeFile, manifest: &ProjectManifest) -> RecipeRead {
     let warnings = settle_props(&mut recipe, manifest);
     RecipeRead { recipe, warnings }
 }
+
+/// The longest slug a free id starts from, leaving room for `-9999`.
+const SLUG_MAX_CHARS: usize = ID_MAX_CHARS - 5;
 
 static WRITES: Mutex<()> = Mutex::new(());
 
@@ -165,7 +169,13 @@ pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResu
 
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
 fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
-    let base = latin_slug(name).map_or_else(|| "recipe".to_string(), windows_safe);
+    let base = latin_slug(name).map_or_else(
+        || "recipe".to_string(),
+        |slug| {
+            let short: String = slug.chars().take(SLUG_MAX_CHARS).collect();
+            windows_safe(short.trim_end_matches('-').to_string())
+        },
+    );
     for n in 1..10_000 {
         let id = if n == 1 {
             base.clone()

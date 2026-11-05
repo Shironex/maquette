@@ -364,3 +364,13 @@ fn a_name_and_changes_land_in_one_write() {
         .recipe;
     assert_eq!(kept.blanks.len(), 1, "a refused name writes nothing");
 }
+
+#[test]
+fn a_long_name_still_leaves_room_for_a_number() {
+    let dir = tempfile::tempdir().expect("temp");
+    let name = "a".repeat(100);
+    let (first, _) = create(dir.path(), &name, base()).expect("first");
+    assert!(first.len() + "-9999".len() <= ID_MAX_CHARS, "{first}");
+    let (second, _) = create(dir.path(), &name, base()).expect("second");
+    assert_eq!(second, format!("{first}-2"));
+}
