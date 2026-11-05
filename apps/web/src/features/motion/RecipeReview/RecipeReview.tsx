@@ -206,16 +206,19 @@ export default function RecipeReview() {
           ) : null}
           {review ? (
             <>
-              <p className="text-meta font-medium text-fg-dim">{reviewSummary(review)}</p>
+              {/* The note sits above the numbers, where a floating card never reaches. */}
+              <div className="flex flex-col gap-0.5">
+                <p className="text-meta font-medium text-fg-dim">{reviewSummary(review)}</p>
+                <p className="text-meta text-fg-mute">
+                  A warn asks for a look; it does not stop the add.
+                </p>
+              </div>
               <ul
                 aria-label="Review numbers"
                 className="m-0 flex list-none flex-col rounded-card border border-line bg-raised px-3 py-0.5"
               >
                 {lines}
               </ul>
-              <p className="text-meta text-fg-mute">
-                A warn asks for a look; it does not stop the add.
-              </p>
             </>
           ) : null}
         </aside>
