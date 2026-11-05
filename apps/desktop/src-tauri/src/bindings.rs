@@ -172,6 +172,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             recipe_bakes::recipe_bake_start,
             recipe_bakes::recipe_bake_get,
             recipe_bakes::recipe_bake_cancel,
+            recipe_bakes::recipe_bake_add,
             plans::plan_pick_image,
             plans::plan_open_link,
             plans::plan_links,

@@ -405,7 +405,12 @@ fn no_mcp_tool_can_answer_an_approval() {
     let mut files = Vec::new();
     rust_files(&mcp, &mut files);
     // The answering code itself, and the tests that call it.
-    let own = ["hub/decisions.rs", "hub/rig.rs", "hub/tests.rs"];
+    let own = [
+        "hub/decisions.rs",
+        "hub/rig.rs",
+        "hub/recipe_bake.rs",
+        "hub/tests.rs",
+    ];
     files.retain(|f| !own.iter().any(|o| f.ends_with(o)));
     assert!(files.len() > 40, "found the module: {}", files.len());
     let answers = [
@@ -414,6 +419,8 @@ fn no_mcp_tool_can_answer_an_approval() {
         "settle",
         "expire_all",
         "close_rig_doctor",
+        "close_recipe_bake",
+        "recipe_bake_add",
         "from_card",
         "mcp_decide",
         "avatar_decide",

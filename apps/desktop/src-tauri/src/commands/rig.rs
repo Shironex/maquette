@@ -9,7 +9,6 @@ use std::sync::Arc;
 use maquette_core::inbox::{self, AcceptRequest};
 use maquette_core::pipeline::runner::{NullSink, PipelineRunner};
 use maquette_core::providers::ledger::Decision;
-use maquette_core::providers::own_file::{self, OwnFile};
 use maquette_core::rig::{
     RigChainEdit, RigDoctors, RigRecord, RigRoute, RigRun, RigSource, RigStarter, RigState,
     got_worse, waits_for_chains,
@@ -271,27 +270,16 @@ pub async fn rig_land(
         rig.1.close_rig_doctor(&id, Decision::Cancelled);
         return Ok(rig.0.held(&root, &config, &id, why)?);
     }
-    let tools = toolchain::toolbox(&session).await?;
-    let added = own_file::add(
-        &studio.0,
-        &pipelines.0,
-        &tools,
-        &OwnFile {
-            root: &root,
-            config: &config,
-            project: &project,
-            asset: &asset,
-            file: &draft,
-        },
-    )?;
-    let request = AcceptRequest {
-        item: added.inbox_file,
-        project,
-        asset: Some(asset),
-        name: None,
-        prep: None,
-    };
-    let done = super::inbox::inbox_accept(session.clone(), service, studio, request).await?;
+    let done = super::inbox::add_as_next_version(
+        session,
+        service,
+        studio,
+        pipelines,
+        (project, asset),
+        &draft,
+        super::inbox::NextVersionFrom::OwnFile,
+    )
+    .await?;
     rig.1.close_rig_doctor(&id, Decision::Approved);
     Ok(rig.0.landed(&root, &config, &id, done.version.version)?)
 }

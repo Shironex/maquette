@@ -127,6 +127,58 @@ pub async fn inbox_set_kind(
     Ok(item)
 }
 
+/// The check a file takes on its way in as the next version: any file a
+/// person picked, or only a recipe bake staged in the workspace cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NextVersionFrom {
+    OwnFile,
+    StagedBake,
+}
+
+/// Adds `file` as the next version of `asset`: checked and put in the Inbox
+/// for the asset, then accepted. The one route the rig doctor's and a
+/// recipe's Add as vN share, so both get what Accept does (studio jobs,
+/// split bakes, thumbnails, the recipe bake mark).
+pub(crate) async fn add_as_next_version(
+    session: State<'_, Session>,
+    service: State<'_, Thumbs>,
+    studio: State<'_, Studio>,
+    pipelines: State<'_, super::pipeline::Pipelines>,
+    target: (String, String),
+    file: &std::path::Path,
+    from: NextVersionFrom,
+) -> CommandResult<AcceptResult> {
+    let (root, config) = session.workspace()?;
+    let tools = toolchain::toolbox(&session).await?;
+    let (project, asset) = target;
+    let own = maquette_core::providers::own_file::OwnFile {
+        root: &root,
+        config: &config,
+        project: &project,
+        asset: &asset,
+        file,
+    };
+    let added = match from {
+        NextVersionFrom::OwnFile => {
+            maquette_core::providers::own_file::add(&studio.0, &pipelines.0, &tools, &own)
+        }
+        NextVersionFrom::StagedBake => maquette_core::providers::own_file::add_staged_bake(
+            &studio.0,
+            &pipelines.0,
+            &tools,
+            &own,
+        ),
+    }?;
+    let request = AcceptRequest {
+        item: added.inbox_file,
+        project,
+        asset: Some(asset),
+        name: None,
+        prep: None,
+    };
+    inbox_accept(session, service, studio, request).await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn inbox_accept(

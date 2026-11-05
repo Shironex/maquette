@@ -445,6 +445,14 @@ export const commands = {
 	/**  Stops a running bake: Blender is killed and nothing is staged. */
 	recipeBakeCancel: (project: string, recipe: string) => __TAURI_INVOKE<null>("recipe_bake_cancel", { project, recipe }),
 	/**
+	 *  Adds a reviewed bake as its model's next version, on the route the rig
+	 *  doctor's Add as vN takes: into the Inbox for the asset, then accepted.
+	 *  A bake that is out of date is refused. The new version is recorded as
+	 *  the recipe's (and Mixamo's, for a Mixamo base), the staged model is
+	 *  cleared and an agent's approval for it ends as approved.
+	 */
+	recipeBakeAdd: (project: string, recipe: string) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_add", { project, recipe }),
+	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
 	 */
@@ -1256,6 +1264,11 @@ export type ApprovalKind =
  *  sheets and add the draft as a version.
  */
 "rig-doctor" | 
+/**
+ *  A recipe bake an agent asked to add waits for a person to review it
+ *  in the Motion view and add it as the model's next version.
+ */
+"recipe-bake" | 
 /**
  *  The first start of the dev server of a repo an agent set waits for a
  *  person to read the folder and the command.
@@ -2928,7 +2941,7 @@ export type DecisionRecord = {
 	approval: string,
 	/**
 	 *  What waited: `send-to-3d`, `image-round`, `ship`, `page-preview`,
-	 *  `rest-pose`, `reweight`, `springs` or `rig-doctor`.
+	 *  `rest-pose`, `reweight`, `springs`, `rig-doctor` or `recipe-bake`.
 	 */
 	kind: string,
 	decision: Decision,
@@ -2966,6 +2979,11 @@ export type DecisionSource =
 "avatar" | 
 /**  The Rig doctor: the draft was added, dropped or started over. */
 "rig-doctor" | 
+/**
+ *  A recipe bake's review in the Motion view: the bake was added, or a
+ *  new bake of the recipe replaced it.
+ */
+"recipe-review" | 
 /**
  *  The jobs it held left the approval state first: cancelled in Sends
  *  or the Lab, or by an agent's cancel of its own Lab jobs.

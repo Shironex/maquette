@@ -125,6 +125,7 @@ mod tests {
             DecisionSource::Unknown,
             DecisionSource::Avatar,
             DecisionSource::RigDoctor,
+            DecisionSource::RecipeReview,
             DecisionSource::JobsCancelled,
             DecisionSource::Quit,
         ] {
