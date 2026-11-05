@@ -324,17 +324,19 @@ impl RecipeBakes {
         };
         job::run(self.inner.runner.as_ref(), tools, &work, &mut watch)?;
         let run = read_run(&work)?;
-        let staged = running.dir.join(STAGED_FILE);
-        fs::rename(work.join(STAGED_FILE), &staged).map_err(|e| CoreError::io(&staged, e))?;
-        // The copies of the model and the clip are not needed any more.
-        clear(&work.join("in"));
         let result = result_of(
             &run,
             prepared,
             &running.dir,
             started.elapsed().as_secs_f32(),
         );
-        write_mark(&staged, &mark_for(&result))?;
+        // Marked in the run's folder, then moved in whole: the staged model
+        // is never there unmarked or half written.
+        write_mark(&work.join(STAGED_FILE), &mark_for(&result))?;
+        let staged = running.dir.join(STAGED_FILE);
+        fs::rename(work.join(STAGED_FILE), &staged).map_err(|e| CoreError::io(&staged, e))?;
+        // The copies of the model and the clip are not needed any more.
+        clear(&work.join("in"));
         Ok(result)
     }
 
