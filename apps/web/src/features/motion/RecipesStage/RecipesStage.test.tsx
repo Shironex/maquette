@@ -111,10 +111,25 @@ describe('the recipes stage', () => {
     expect(start.mock.calls[0]?.[0]).toMatchObject({
       project: 'frostveil',
       recipe: 'reach-for-the-lantern',
+      expected: expect.stringMatching(/.+/),
       asset: useMotionStore.getState().view?.models.find(m => m.rig && !m.error)?.asset,
     });
     await userEvent.click(within(reach).getByRole('button', { name: 'Cancel' }));
     expect(await within(reach).findByText(/last bake was cancelled/)).toBeVisible();
+  });
+
+  it('refuses a bake of a recipe that changed since the list read it', async () => {
+    await openWithModels();
+    const listed = await commands.recipeList('frostveil');
+    vi.spyOn(commands, 'recipeList').mockResolvedValueOnce(
+      listed.map(r => (r.id === 'reach-for-the-lantern' ? { ...r, version: 'older' } : r))
+    );
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
+    expect(await within(reach).findByText(/changed since it was read/)).toBeVisible();
+    expect(within(reach).queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('keeps Apply off for a recipe with an open blank', async () => {

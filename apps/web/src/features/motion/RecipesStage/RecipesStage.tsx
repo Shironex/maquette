@@ -65,7 +65,7 @@ function Row({
           disabled={Boolean(bake.blocked)}
           disabledReason={bake.blocked ?? undefined}
           tooltip={bake.model ? `Bakes it onto ${bake.model.name}` : undefined}
-          onClick={() => void bake.apply()}
+          onClick={() => void bake.apply(recipe.version || null)}
         >
           Apply
         </Button>
