@@ -1,4 +1,5 @@
 import { Button, EmptyState, Icon, InlineBanner, Loader } from '@maquette/ui';
+import { MixamoBadge } from '@/features/common/MixamoBadge';
 import type { RecipeSummary } from '@/ipc/client';
 import { recipeLine } from '@/state/recipes';
 import { MotionTabs } from '../MotionTabs';
@@ -53,14 +54,7 @@ function Row({
             <span className="block text-meta text-amber">{recipe.warnings.join(' ')}</span>
           ) : null}
         </span>
-        {recipe.mixamo ? (
-          <span
-            title="Its bake counts as Mixamo's: kept out of export packs. The recipe file can still be shared."
-            className="flex-none rounded-pill border border-line px-2 text-[11.5px] leading-5 text-fg-dim"
-          >
-            Mixamo
-          </span>
-        ) : null}
+        {recipe.mixamo ? <MixamoBadge /> : null}
         <Button size="sm" icon="note-pencil" loading={opening} onClick={onEdit}>
           Edit
         </Button>

@@ -16,6 +16,7 @@ afterEach(() => {
     selected: null,
     importing: null,
     layout: 'grid',
+    show: 'clips',
   });
 });
 
@@ -91,5 +92,17 @@ describe('the Animations view', () => {
     render(<AnimationsView />);
     expect(await screen.findByText('No clips yet')).toBeVisible();
     expect(screen.getAllByRole('button', { name: 'Import clips' })).toHaveLength(2);
+  });
+
+  it('shows the library recipes instead of the clips, and back', async () => {
+    await openMockLibrary('demo');
+    render(<AnimationsView />);
+    await screen.findByRole('region', { name: 'Clips' });
+    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
+    expect(await screen.findByRole('heading', { name: 'Library recipes' })).toBeVisible();
+    expect(screen.queryByRole('searchbox', { name: 'Find a clip' })).toBeNull();
+    expect(useAnimationsStore.getState().show).toBe('recipes');
+    await userEvent.click(screen.getByRole('button', { name: 'Clips' }));
+    expect(await screen.findByRole('region', { name: 'Clips' })).toBeVisible();
   });
 });

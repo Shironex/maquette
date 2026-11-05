@@ -17,6 +17,7 @@ import {
   NO_ANIMATION_FILTERS,
   type AnimationFilters,
   type AnimationLayout,
+  type AnimationShow,
   type ImportChoices,
 } from './animations';
 import { useAppStore } from './use-app-store';
@@ -51,6 +52,8 @@ interface AnimationsStore {
   error: string | null;
   filters: AnimationFilters;
   layout: AnimationLayout;
+  /** Clips or recipes, kept for the session. */
+  show: AnimationShow;
   /** The clip the side panel shows. */
   selected: string | null;
   importing: ImportSheet | null;
@@ -63,6 +66,7 @@ interface AnimationsStore {
   onChanged: () => void;
   setFilters: (change: Partial<AnimationFilters>) => void;
   setLayout: (layout: AnimationLayout) => void;
+  setShow: (show: AnimationShow) => void;
   select: (clip: string | null) => void;
 
   openImport: () => void;
@@ -97,6 +101,7 @@ export const useAnimationsStore = create<AnimationsStore>((set, get) => ({
   error: null,
   filters: NO_ANIMATION_FILTERS,
   layout: 'grid',
+  show: 'clips',
   selected: null,
   importing: null,
   saving: null,
@@ -119,6 +124,7 @@ export const useAnimationsStore = create<AnimationsStore>((set, get) => ({
 
   setFilters: change => set(s => ({ filters: { ...s.filters, ...change } })),
   setLayout: layout => set({ layout }),
+  setShow: show => set({ show }),
   select: selected => set({ selected }),
 
   openImport: () => set({ importing: emptyImport() }),
