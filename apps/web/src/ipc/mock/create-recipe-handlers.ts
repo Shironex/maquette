@@ -229,6 +229,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       version: versionOf(stored),
       warnings,
       problem: null,
+      from: stored.from ?? null,
     };
   };
   /**

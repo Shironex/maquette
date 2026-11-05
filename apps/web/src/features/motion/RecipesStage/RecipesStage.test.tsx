@@ -72,6 +72,7 @@ describe('the recipes stage', () => {
         version: 'v1',
         warnings: [warning],
         problem: null,
+        from: null,
       },
     ]);
     render(<RecipesStage />);

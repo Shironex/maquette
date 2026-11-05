@@ -68,6 +68,11 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
         return invalid("A recipe's revision starts at 1.".into());
     }
     check_base(&recipe.base)?;
+    if let Some(from) = &recipe.from
+        && (!super::is_recipe_id(&from.entry) || from.revision == 0)
+    {
+        return invalid("The recipe names a library recipe that cannot be one.".into());
+    }
     if recipe.blanks.len() > MAX_BLANKS {
         return invalid(format!("A recipe holds at most {MAX_BLANKS} blanks."));
     }

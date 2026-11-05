@@ -6797,6 +6797,19 @@ export type RecipeFile = {
 	blanks: RecipeBlank[],
 	/**  In the order they are laid over the clip. */
 	layers: RecipeLayer[],
+	/**
+	 *  The library recipe and revision it was copied from or last saved
+	 *  as; none for a recipe made here or imported. Never exported.
+	 */
+	from?: RecipeFrom | null,
+};
+
+/**  The library recipe and revision a project's recipe came from. */
+export type RecipeFrom = {
+	/**  The library recipe's id. */
+	entry: string,
+	/**  Its revision, from 1. */
+	revision: number,
 };
 
 /**  One change laid over the base clip, on one humanoid bone. */
@@ -6883,6 +6896,8 @@ export type RecipeSummary = {
 	version: string,
 	/**  Why the file could not be read, for a recipe that only lists. */
 	problem: string | null,
+	/**  The library recipe and revision it came from or was last saved as. */
+	from: RecipeFrom | null,
 };
 
 /**  A one click fix the panel offers next to a warning. */
