@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands } from '@/ipc/client';
 import { useRecipesStore } from '@/state/use-recipes-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
 import RecipesStage from './RecipesStage';
@@ -31,5 +32,29 @@ describe('the recipes stage', () => {
       'true'
     );
     expect(screen.getByRole('button', { name: 'New recipe' })).toBeInTheDocument();
+  });
+
+  it('says when a prop blank opened again because its asset is gone', async () => {
+    await openMockLibrary('demo');
+    const warning =
+      'The blank lantern named lantern, which is no longer an asset of Frostveil, so it is open again.';
+    vi.spyOn(commands, 'recipeList').mockResolvedValueOnce([
+      {
+        id: 'reach',
+        file: 'recipes/reach.recipe.json',
+        name: 'Reach for the lantern',
+        base: 'Standing Idle',
+        frames: 120,
+        mixamo: false,
+        layers: 1,
+        blanks: 1,
+        open: 1,
+        edited: '2026-11-05T10:00:00.000Z',
+        warnings: [warning],
+        problem: null,
+      },
+    ]);
+    render(<RecipesStage />);
+    expect(await screen.findByText(warning)).toBeInTheDocument();
   });
 });

@@ -29,6 +29,9 @@ function Row({ recipe }: { recipe: RecipeSummary }) {
         <span className="block truncate font-mono text-[11.5px] text-fg-mute">
           {recipeLine(recipe)}
         </span>
+        {recipe.warnings.length ? (
+          <span className="block text-meta text-amber">{recipe.warnings.join(' ')}</span>
+        ) : null}
       </span>
       {recipe.mixamo ? (
         <span
