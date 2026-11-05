@@ -51,6 +51,7 @@ fn a_pack_needs_blender() {
         estimate_bytes: 0.0,
         mixamo: 0,
         skipped: Vec::new(),
+        warnings: Vec::new(),
     };
     let err = packs
         .start(

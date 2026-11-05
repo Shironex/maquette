@@ -20,7 +20,8 @@ use super::inbox::{AcceptArgs, accept_item};
 use super::{McpTools, Out, ToolError, respond, to_value, workspace};
 use crate::mcp::host::Host;
 
-/// The code of a staged recipe bake sent to add_model_file.
+/// The code of a staged recipe bake (any file carrying a bake's mark) sent
+/// to add_model_file or attach_download.
 pub(super) const STAGED_BAKE: &str = "staged-bake";
 
 /// A refused model file, with its own code when it is a staged recipe bake.
@@ -144,12 +145,14 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Attach a download from list_handoffs (needsLook or unmatched) to an asset: it goes into the inbox for that asset as a named export does, for the asset's newest waiting By hand send, or aimed at the asset when none waits. The usual checks run there; accept it with accept_inbox_model (its id is inboxFile), which goes to that asset by default and closes the asset's By hand sends still waiting. Check a needsLook download before attaching it: its name was only close. The download itself stays where it is. Spends nothing."
+        description = "Attach a download from list_handoffs (needsLook or unmatched) to an asset: it goes into the inbox for that asset as a named export does, for the asset's newest waiting By hand send, or aimed at the asset when none waits. The usual checks run there; accept it with accept_inbox_model (its id is inboxFile), which goes to that asset by default and closes the asset's By hand sends still waiting. Check a needsLook download before attaching it: its name was only close. A download carrying a recipe bake's mark is refused as staged-bake: it becomes a version only through its review. The download itself stays where it is. Spends nothing."
     )]
     async fn attach_download(&self, Parameters(args): Parameters<AttachDownloadArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let arrival = watcher(host)?.attach(&args.arrival, &args.project, &args.asset)?;
+                let arrival = watcher(host)?
+                    .attach(&args.arrival, &args.project, &args.asset)
+                    .map_err(refused_file)?;
                 Ok(json!({
                     "inboxFile": arrival.inbox_file,
                     "job": arrival.job,
@@ -162,7 +165,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Add a model file someone made or fixed themselves (an absolute path to a .glb, .gltf, .fbx or .obj, outside the inbox, the projects' models folders and the staged recipe bakes, which are refused as staged-bake) as an asset's next version. It is copied, never moved: a .glb as it is, the others turned into a GLB by headless Blender. It goes into the inbox for the asset as attach_download does, for the asset's newest waiting By hand send when one waits (accepting closes it) or aimed at the asset when none does, and the usual checks run there. With accept true it is accepted into the asset right away and the answer carries the version. Spends nothing."
+        description = "Add a model file someone made or fixed themselves (an absolute path to a .glb, .gltf, .fbx or .obj, outside the inbox and the projects' models folders; a staged recipe bake, or any file carrying a bake's mark, is refused as staged-bake) as an asset's next version. It is copied, never moved: a .glb as it is, the others turned into a GLB by headless Blender. It goes into the inbox for the asset as attach_download does, for the asset's newest waiting By hand send when one waits (accepting closes it) or aimed at the asset when none does, and the usual checks run there. With accept true it is accepted into the asset right away and the answer carries the version. Spends nothing."
     )]
     async fn add_model_file(&self, Parameters(args): Parameters<AddModelFileArgs>) -> Out {
         let found = self

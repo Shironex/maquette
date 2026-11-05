@@ -9,6 +9,7 @@
  */
 import type { Approval, McpCall, McpStatus, RigRecord, WorkspaceConfig } from '../client';
 import { createRigHandlers } from './create-rig-handlers';
+import { createRecipeBakeAsks } from './recipe-bake-asks';
 import { clock } from '@/lib/clock';
 import { MOCK_TOOL_GROUPS } from './mock-tool-groups';
 
@@ -55,6 +56,9 @@ export function agentCalls(now: number): McpCall[] {
   }));
 }
 
+/** The `?agents=` scenes that turn the MCP server on. */
+export const AGENT_SCENES = ['active', 'batch', 'images', 'preview', 'many', 'recipe'];
+
 export function createFakeAgents({
   config,
   active,
@@ -72,6 +76,7 @@ export function createFakeAgents({
    * `batch`: the send waiting is a batch of three. `images`: an OpenAI Images
    * round waits instead of it. `preview`: only a page preview waits, the first
    * start of a repo an agent set. `many`: a batch, a round and a preview together.
+   * `recipe`: only an add of a recipe bake waits (with `?library=demo`).
    */
   scene?: string | null;
   emit?: (status: McpStatus) => void;
@@ -84,6 +89,8 @@ export function createFakeAgents({
   /** What an agent's rig doctor case waits for; only the rig doctor view adds it. */
   rig?: { state: string | null; pace: number; emit: (record: RigRecord) => void };
 }) {
+  // Recipe bakes an agent asked to add; only the review adds one, Deny turns it down.
+  const recipeBakes = createRecipeBakeAsks(() => changed(), scene === 'recipe');
   const many = scene === 'many';
   const batch = scene === 'batch' || many;
   const images = scene === 'images' || many;
@@ -186,6 +193,9 @@ export function createFakeAgents({
     ];
   }
 
+  // Only the recipe bake's add waits, raised by the recipe handlers.
+  if (scene === 'recipe') approvals = [];
+
   if (preview) {
     approvals = [
       ...(many ? approvals : []),
@@ -233,6 +243,7 @@ export function createFakeAgents({
         ...(games?.approvals() ?? []),
         ...(avatars?.approvals() ?? []),
         ...(rig?.approvals() ?? []),
+        ...recipeBakes.approvals(),
       ],
     };
   };
@@ -249,6 +260,7 @@ export function createFakeAgents({
         games?.decide(game, Boolean(approve));
         return status();
       }
+      if (recipeBakes.deny(approvalId as string)) return status();
       const found = approvals.find(a => a.id === approvalId);
       if (!found) {
         throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };

@@ -130,3 +130,61 @@ fn a_marked_bake_brought_in_by_a_build_is_recorded_too() {
     assert_eq!((bakes[0].version, bakes[0].mixamo), (version.version, true));
     assert!(licence::baked_mixamo(root, &p.dir, "elsheria"));
 }
+
+#[test]
+fn save_clips_refuses_while_the_bakes_record_cannot_be_read() {
+    let p = super::tests::project_with(humanoid());
+    let (root, config) = (p.root(), &p.config);
+    let from = ClipsFrom {
+        project: Some(p.id.clone()),
+        asset: Some("elsheria".into()),
+        inbox: None,
+    };
+    assert!(plan(root, config, &from, false, &[]).is_ok(), "readable");
+    let record = p.dir.join(crate::recipes::baked::BAKES_FILE);
+    for text in [r#"{"version": 9, "assets": {}}"#, "{ broken"] {
+        fs::write(&record, text).expect("record");
+        let err = plan(root, config, &from, false, &[]).expect_err("refused");
+        assert!(
+            err.to_string()
+                .starts_with(crate::animations::save::BAKES_UNREADABLE),
+            "{err}"
+        );
+        assert!(err.to_string().contains("recipe-bakes.json"), "{err}");
+    }
+}
+
+#[test]
+fn a_pack_plan_says_why_clips_stay_out_when_the_bakes_record_cannot_be_read() {
+    use crate::packs::{PackSettings, PackSource, plan as pack_plan};
+    let p = super::tests::project_with(humanoid());
+    let (root, config) = (p.root(), &p.config);
+    let source = PackSource::Project {
+        project: p.id.clone(),
+    };
+    let none = |_: &std::path::Path, _: &crate::assets::Asset, _: u32| {
+        (crate::library::LibrarySource::Imported, None)
+    };
+    let fine = pack_plan(
+        root,
+        &config.layout,
+        &source,
+        &PackSettings::default(),
+        &none,
+    )
+    .expect("plan");
+    assert!(fine.warnings.is_empty());
+    fs::write(p.dir.join(crate::recipes::baked::BAKES_FILE), "{ broken").expect("record");
+    let doubt = pack_plan(
+        root,
+        &config.layout,
+        &source,
+        &PackSettings::default(),
+        &none,
+    )
+    .expect("plan");
+    assert_eq!(doubt.warnings.len(), 1, "{:?}", doubt.warnings);
+    assert!(doubt.warnings[0].contains("recipe-bakes.json"));
+    assert!(doubt.warnings[0].contains("Frostveil"));
+    assert!(doubt.models[0].mixamo, "its clips stay out");
+}

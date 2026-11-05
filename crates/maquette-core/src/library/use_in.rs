@@ -138,7 +138,9 @@ pub fn use_in_project(
             .flatten();
         asset.thumbnail = picture;
         asset.versions[0].file = file.clone();
-        crate::recipes::baked::note(&project_dir, &asset.id, &project_dir.join(&file), 1)?;
+        let bakes =
+            crate::recipes::baked::incoming(&project_dir.join(&file), &chosen.recipe_bakes, 1);
+        crate::recipes::baked::record_all(&project_dir, &asset.id, bakes)?;
         let placed = asset.clone();
         project::modify(root, layout, project_id, |m| {
             if m.assets.iter().any(|a| a.id == placed.id) {

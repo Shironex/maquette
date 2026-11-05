@@ -1,7 +1,8 @@
 //! A real MCP client and recipe bakes: a recipe with open blanks is refused
 //! with a code and a fix naming them, a recipe never baked reads as no bake,
 //! and the test host, which runs no bake service, says so rather than
-//! starting one. Nothing runs Blender.
+//! starting one. Adding a bake refuses one out of date and otherwise waits
+//! for a person. Nothing runs Blender.
 
 use serde_json::{Value, json};
 
@@ -132,6 +133,99 @@ async fn a_bake_names_the_open_blanks_and_a_recipe_never_baked_reads_as_none() {
         "{done}"
     );
     assert_eq!(done["next"][0]["tool"], "bake_recipe", "{done}");
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
+/// Writes `record` as the saved bake of `recipe`, with a staged model.
+fn save_bake(dir: &std::path::Path, recipe: &str, record: &Value) {
+    let root = dir.join("ws");
+    let config = maquette_core::workspace::open(&root).expect("config");
+    let folder = root
+        .join(&config.layout.cache)
+        .join(maquette_core::workspace::RECIPE_BAKES_DIR)
+        .join(PROJECT)
+        .join(recipe);
+    std::fs::create_dir_all(&folder).expect("folder");
+    std::fs::write(folder.join("bake.json"), record.to_string()).expect("record");
+    std::fs::write(
+        folder.join(maquette_core::animations::recipes::bake::STAGED_FILE),
+        "staged",
+    )
+    .expect("staged");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn adding_a_bake_refuses_one_out_of_date_and_otherwise_waits_for_a_person() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (client, server, _host) = serve(fixture(dir.path())).await;
+    let made = call(
+        &client,
+        "create_recipe",
+        json!({ "project": PROJECT, "clip": "standing-dodge-left" }),
+    )
+    .await;
+    let id = made["id"].as_str().expect("id").to_string();
+    let args = json!({ "project": PROJECT, "recipe": id });
+
+    let none = raw_call(&client, "add_recipe_bake", args.clone()).await;
+    assert_eq!(none.is_error, Some(true));
+    assert!(text(&none).contains("no bake"), "{}", text(&none));
+
+    // Baked from another version of the recipe: out of date.
+    save_bake(dir.path(), &id, &done_record(&id));
+    let stale = raw_call(&client, "add_recipe_bake", args.clone()).await;
+    assert_eq!(stale.is_error, Some(true));
+    let body: Value = serde_json::from_str(&text(&stale)).expect("json");
+    assert_eq!(body["code"], "stale-bake", "{body}");
+    assert_eq!(body["tryTool"], "bake_recipe", "{body}");
+    assert!(
+        body["error"]
+            .as_str()
+            .is_some_and(|e| e.starts_with(maquette_core::animations::recipes::bake::OUT_OF_DATE)),
+        "{body}"
+    );
+
+    // Baked from this version onto the newest model: it waits for a person.
+    let mut fresh = done_record(&id);
+    fresh["result"]["recipeVersion"] = made["version"].clone();
+    save_bake(dir.path(), &id, &fresh);
+    let read = call(&client, "get_recipe_bake", args.clone()).await;
+    assert_eq!(read["bake"]["stale"], Value::Null, "{read}");
+    assert_eq!(read["bake"]["review"]["warns"], 0, "{read}");
+    let feet = read["bake"]["review"]["lines"]
+        .as_array()
+        .expect("lines")
+        .iter()
+        .find(|l| l["id"] == "feet")
+        .cloned()
+        .expect("feet");
+    assert_eq!(feet["status"], "pass", "{feet}");
+    assert_eq!(feet["max"], 2.0, "{feet}");
+    assert_eq!(read["next"][0]["tool"], "add_recipe_bake", "{read}");
+
+    let waiting = call(&client, "add_recipe_bake", args.clone()).await;
+    assert_eq!(waiting["status"], "waiting for approval", "{waiting}");
+    assert_eq!(waiting["pollEverySeconds"], 5, "{waiting}");
+    assert!(
+        waiting["whereToApprove"]
+            .as_str()
+            .is_some_and(|w| w.contains("Motion view")),
+        "{waiting}"
+    );
+    assert!(!waiting.to_string().contains("staged.glb"), "{waiting}");
+    let approval = waiting["approval"].as_str().expect("approval").to_string();
+    let again = call(&client, "add_recipe_bake", args.clone()).await;
+    assert_eq!(
+        again["approval"],
+        approval.as_str(),
+        "one approval per bake"
+    );
+    let polled = call(&client, "get_recipe_bake", args).await;
+    assert_eq!(polled["status"], "waiting for approval", "{polled}");
+    assert_eq!(polled["approval"], approval.as_str(), "{polled}");
+    assert_eq!(polled["bake"]["state"], "done", "nothing added by a tool");
 
     client.cancel().await.expect("close");
     server.stop();

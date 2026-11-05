@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { RESULT, record } from '@/test/recipe-bake-fixture';
+import { PASSING, RESULT, REVIEW, record } from '@/test/recipe-bake-fixture';
 import {
   RECIPE_CHANGED,
+  addLabel,
+  addedLine,
   applyBlocked,
   progressOf,
-  resultLines,
   resultSummary,
+  reviewSummary,
   staleOf,
 } from './recipe-bake';
 
@@ -46,18 +48,12 @@ describe('a recipe bake', () => {
     expect(progressOf(going).share).toBeCloseTo(12 / 31);
   });
 
-  it('lists each reach, the feet and the rig, marking what needs a look', () => {
-    const lines = resultLines(RESULT);
-    expect(lines.map(l => [l.label, l.value, l.bad])).toEqual([
-      ['Reach rightHand', '0.4 cm from its target', false],
-      ['Reach leftHand', '3.2 cm from its target', true],
-      ['Foot slide', '0.8 cm', false],
-      ['Rig stretch', '3.4 mm', false],
-    ]);
-    expect(lines[1]?.note).toBe('The joint bends the other way from frame 18.');
-    expect(lines[3]?.note).toBe('The base clip: 2.9 mm.');
-    const unmeasured = resultLines({ ...RESULT, stretchMm: null, stretchNote: 'No skin.' });
-    expect(unmeasured[3]).toMatchObject({ value: 'not measured', note: 'No skin.' });
+  it('sums up the review, names the version an add makes and what was added', () => {
+    expect(reviewSummary(REVIEW)).toBe('2 of 6 numbers warn');
+    expect(reviewSummary({ ...REVIEW, warns: 1 })).toBe('1 of 6 numbers warns');
+    expect(reviewSummary(PASSING)).toBe('Every number passes');
+    expect(addLabel(RESULT)).toBe('Add as v3');
+    expect(addedLine(record({ state: 'added', addedVersion: 3 }))).toBe('Added as v3 of Elsheria.');
     expect(resultSummary(RESULT)).toBe('reach_out · 31 f · onto Elsheria v2 · 2.6 s');
   });
 });

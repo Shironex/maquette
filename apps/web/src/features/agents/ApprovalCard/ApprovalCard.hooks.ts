@@ -9,6 +9,7 @@ import { formatUsd } from '@/state/image-api';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
+import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRigStore } from '@/state/use-rig-store';
 
 /**
@@ -201,10 +202,14 @@ function useRestPose(approval: Approval) {
         if (approval.job) void useRigStore.getState().showCase(approval.job);
         return;
       }
+      if (approval.kind === 'recipe-bake') {
+        if (approval.job) void useRecipeBakesStore.getState().showReview(project, approval.job);
+        return;
+      }
       if (asset) useAvatarStore.getState().open(project, asset, version ?? null);
     },
     deny: async (by: DecidedBy) => {
-      if (approval.kind === 'rig-doctor') {
+      if (approval.kind === 'rig-doctor' || approval.kind === 'recipe-bake') {
         await useAgentsStore.getState().decide(approval.id, false, by);
         return;
       }

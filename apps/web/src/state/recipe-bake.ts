@@ -1,12 +1,14 @@
 /**
  * A recipe's bake as the Motion view shows it: whether Apply can start one,
- * and the result's numbers in short lines. Pure helpers; the store is
+ * its progress, and the review's numbers against their limits. Pure helpers; the store is
  * use-recipe-bakes-store.ts.
  */
-import type { RecipeBakeRecord, RecipeBakeResult } from '@/ipc/client';
-
-/** What the result says comes after a bake. */
-export const REVIEW_NEXT = 'Review and add as a version comes next';
+import type {
+  RecipeBakeRecord,
+  RecipeBakeResult,
+  RecipeBakeReview,
+  RecipeReviewStatus,
+} from '@/ipc/client';
 
 /** A reach may end this far from its target, cm (the core's limit). */
 export const GAP_LIMIT_CM = 2;
@@ -56,54 +58,29 @@ export function progressOf(record: RecipeBakeRecord): { label: string; share: nu
   return { label: p.label, share: p.total > 0 ? Math.min(p.done / p.total, 1) : 0 };
 }
 
-const cm = (n: number) => `${n.toFixed(1)} cm`;
-const mm = (n: number) => `${n.toFixed(1)} mm`;
+/** How a review line reads at a glance: its icon, colour and word. */
+export const STATUS_LOOK: Record<
+  RecipeReviewStatus,
+  { icon: 'check-circle' | 'warning' | 'minus'; tone: string; words: string }
+> = {
+  pass: { icon: 'check-circle', tone: 'text-sage', words: 'Passes' },
+  warn: { icon: 'warning', tone: 'text-amber', words: 'Worth a look' },
+  'not-measured': { icon: 'minus', tone: 'text-fg-mute', words: 'Not measured' },
+};
 
-/** One measured number of a finished bake, with whether it needs a look. */
-export interface BakeLine {
-  id: string;
-  label: string;
-  value: string;
-  note: string | null;
-  bad: boolean;
+/** "Every number passes", "1 of 7 numbers warns", "2 of 7 numbers warn". */
+export function reviewSummary(review: RecipeBakeReview): string {
+  const all = review.lines.length;
+  if (review.warns === 0) return all === 1 ? 'The number passes' : 'Every number passes';
+  return `${review.warns} of ${all} ${all === 1 ? 'number' : 'numbers'} ${review.warns === 1 ? 'warns' : 'warn'}`;
 }
 
-/** The result's numbers: each reach's gap and elbow or knee, the feet, the rig. */
-export function resultLines(result: RecipeBakeResult): BakeLine[] {
-  const slide = result.slideCm ?? 0;
-  const baseSlide = result.baseSlideCm ?? 0;
-  const reaches: BakeLine[] = result.reaches.map(r => ({
-    id: `reach-${r.layer}`,
-    label: `Reach ${r.bone}`,
-    value: r.gapCm == null ? 'not measured' : `${cm(r.gapCm)} from its target`,
-    note: r.flipFrame == null ? null : `The joint bends the other way from frame ${r.flipFrame}.`,
-    bad: !r.reached || r.flipFrame != null,
-  }));
-  const feet: BakeLine = {
-    id: 'feet',
-    label: 'Foot slide',
-    value: cm(slide),
-    note: `The base clip slides ${cm(baseSlide)} on this model.`,
-    bad: slide > baseSlide + 0.5 && result.slideFrames != null,
-  };
-  const stretch: BakeLine =
-    result.stretchMm == null
-      ? {
-          id: 'stretch',
-          label: 'Rig stretch',
-          value: 'not measured',
-          note: result.stretchNote,
-          bad: false,
-        }
-      : {
-          id: 'stretch',
-          label: 'Rig stretch',
-          value: mm(result.stretchMm),
-          note: result.baseStretchMm == null ? null : `The base clip: ${mm(result.baseStretchMm)}.`,
-          bad: result.baseStretchMm != null && result.stretchMm > result.baseStretchMm + 5,
-        };
-  return [...reaches, feet, stretch];
-}
+/** The add's label: "Add as v3", the version after the one it was baked onto. */
+export const addLabel = (result: RecipeBakeResult) => `Add as v${result.fromVersion + 1}`;
+
+/** What an added bake says: "Added as v3 of Elsheria." */
+export const addedLine = (record: RecipeBakeRecord) =>
+  `Added as v${record.addedVersion ?? (record.result?.fromVersion ?? 0) + 1} of ${record.result?.assetName ?? record.asset}.`;
 
 /** "reach_out · 31 f · onto Elsheria v1 · 2.4 s". */
 export function resultSummary(result: RecipeBakeResult): string {

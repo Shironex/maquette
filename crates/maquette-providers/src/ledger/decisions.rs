@@ -57,6 +57,9 @@ pub enum DecisionSource {
     Avatar,
     /// The Rig doctor: the draft was added, dropped or started over.
     RigDoctor,
+    /// A recipe bake's review in the Motion view: the bake was added, or a
+    /// new bake of the recipe replaced it.
+    RecipeReview,
     /// The jobs it held left the approval state first: cancelled in Sends
     /// or the Lab, or by an agent's cancel of its own Lab jobs.
     JobsCancelled,
@@ -152,7 +155,7 @@ pub struct DecisionRecord {
     /// each time the app starts, so read it with `requested_at_ms`).
     pub approval: String,
     /// What waited: `send-to-3d`, `image-round`, `ship`, `page-preview`,
-    /// `rest-pose`, `reweight`, `springs` or `rig-doctor`.
+    /// `rest-pose`, `reweight`, `springs`, `rig-doctor` or `recipe-bake`.
     pub kind: String,
     pub decision: Decision,
     /// Where it was answered from, how, and the window at that moment.

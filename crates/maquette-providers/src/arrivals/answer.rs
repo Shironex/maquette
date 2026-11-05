@@ -45,6 +45,7 @@ impl Arrivals {
                 arrival.name
             )));
         }
+        crate::own_file::not_a_bake(Path::new(&arrival.path))?;
         let landed = self
             .inner
             .studio

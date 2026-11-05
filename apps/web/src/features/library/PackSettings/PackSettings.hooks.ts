@@ -14,6 +14,8 @@ export function usePackSettings() {
   const [presetName, setPresetName] = useState('');
   const current = s.presets.find(p => p.id === s.preset);
   const mixamo = s.plan?.mixamo ?? 0;
+  // A project whose record of recipe bakes cannot be read says so here.
+  const doubts = (s.plan?.warnings ?? []).join(' ');
   const presetNote = current
     ? current.builtIn
       ? ['Comes with Maquette', current.used ? `used ${current.used}x` : null]
@@ -37,9 +39,14 @@ export function usePackSettings() {
     presetNote,
     presetOptions: s.presets.map(p => ({ value: p.id, label: p.name })),
     where: s.out ?? `${root}/exports`,
-    mixamoNote: mixamo
-      ? `${mixamo === 1 ? '1 model is' : `${mixamo} models are`} on a Mixamo rig: Mixamo clips are never shared, so they stay out and the bones stay in.`
-      : "Clips that may be Mixamo's always stay out; the bones stay in.",
+    mixamoNote: [
+      mixamo
+        ? `${mixamo === 1 ? '1 model is' : `${mixamo} models are`} on a Mixamo rig: Mixamo clips are never shared, so they stay out and the bones stay in.`
+        : "Clips that may be Mixamo's always stay out; the bones stay in.",
+      doubts,
+    ]
+      .filter(Boolean)
+      .join(' '),
     startNaming: () => setNaming(true),
     stopNaming: () => {
       setNaming(false);

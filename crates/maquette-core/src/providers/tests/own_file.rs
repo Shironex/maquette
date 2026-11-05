@@ -177,6 +177,76 @@ fn a_glb_lands_in_the_inbox_aimed_at_the_asset_and_stays_where_it_was() {
 }
 
 #[test]
+fn only_the_reviewed_route_takes_a_staged_bake_and_it_keeps_its_mark() {
+    let world = World::new();
+    let jobs = studio(&world);
+    let runner = NoBlender;
+    let staged = world
+        .root
+        .join(&world.config.layout.cache)
+        .join(crate::workspace::RECIPE_BAKES_DIR)
+        .join(&world.project)
+        .join("wave")
+        .join("staged.glb");
+    fs::create_dir_all(staged.parent().expect("parent")).expect("dir");
+    fs::write(&staged, fixture::clean_prop()).expect("write");
+    let mark = crate::recipes::baked::RecipeBakeMark {
+        recipe: "wave".into(),
+        recipe_version: "v".into(),
+        base_clip: "idle".into(),
+        clip: "wave".into(),
+        mixamo: true,
+    };
+    crate::recipes::baked::write_mark(&staged, &mark).expect("mark");
+    assert_eq!(
+        add(&jobs, &runner, &tools(), &own(&world, &staged))
+            .expect_err("refused")
+            .to_string(),
+        STAGED_BAKE
+    );
+    let added = add_staged_bake(&jobs, &runner, &tools(), &own(&world, &staged)).expect("added");
+    let item = inbox::item(&world.root, &world.config, &added.inbox_file).expect("in the inbox");
+    assert_eq!(
+        crate::recipes::baked::mark_of(Path::new(&item.file)),
+        Some(mark),
+        "accepting it records the bake"
+    );
+    assert!(staged.is_file(), "copied, never moved");
+    // Any other file is no staged bake.
+    let outside = tempfile::tempdir().expect("tempdir");
+    let other = outside.path().join("fix.glb");
+    fs::write(&other, fixture::clean_prop()).expect("write");
+    let err = add_staged_bake(&jobs, &runner, &tools(), &own(&world, &other)).expect_err("no");
+    assert!(
+        err.to_string().contains("not a staged recipe bake"),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_marked_bake_copied_out_of_the_cache_is_refused_too() {
+    let world = World::new();
+    let jobs = studio(&world);
+    let outside = tempfile::tempdir().expect("tempdir");
+    let copied = outside.path().join("wave.glb");
+    fs::write(&copied, fixture::clean_prop()).expect("write");
+    crate::recipes::baked::write_mark(&copied, &mark()).expect("mark");
+    let err = add(&jobs, &NoBlender, &tools(), &own(&world, &copied)).expect_err("refused");
+    assert_eq!(err.to_string(), STAGED_BAKE);
+    assert!(check(&world.root, &world.config, &copied).is_err());
+}
+
+pub(super) fn mark() -> crate::recipes::baked::RecipeBakeMark {
+    crate::recipes::baked::RecipeBakeMark {
+        recipe: "wave".into(),
+        recipe_version: "v".into(),
+        base_clip: "idle".into(),
+        clip: "wave".into(),
+        mixamo: true,
+    }
+}
+
+#[test]
 fn a_waiting_by_hand_send_takes_the_file_as_its_model() {
     let world = World::new();
     let jobs = studio(&world);

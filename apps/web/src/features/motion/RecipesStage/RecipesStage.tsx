@@ -4,6 +4,7 @@ import { recipeLine } from '@/state/recipes';
 import { MotionTabs } from '../MotionTabs';
 import { RecipeBake, useRecipeBake } from '../RecipeBake';
 import { RecipeEditor } from '../RecipeEditor';
+import { RecipeReview } from '../RecipeReview';
 import { useRecipesStage } from './RecipesStage.hooks';
 
 const ABOUT =
@@ -82,6 +83,7 @@ function Row({
         error={bake.error}
         stale={bake.stale}
         onCancel={bake.cancel}
+        onReview={bake.review}
       />
     </li>
   );
@@ -89,8 +91,18 @@ function Row({
 
 /** The project's animation recipes, with a new one made from a library clip. */
 export default function RecipesStage() {
-  const { project, recipes, error, retry, newRecipe, editing, edit, opening, openError } =
-    useRecipesStage();
+  const {
+    project,
+    recipes,
+    error,
+    retry,
+    newRecipe,
+    editing,
+    reviewing,
+    edit,
+    opening,
+    openError,
+  } = useRecipesStage();
   const rows = recipes?.map(r => (
     <Row
       key={r.id}
@@ -141,6 +153,8 @@ export default function RecipesStage() {
       <MotionTabs />
       {editing ? (
         <RecipeEditor />
+      ) : reviewing ? (
+        <RecipeReview />
       ) : (
         <>
           <div className="flex items-start gap-3">

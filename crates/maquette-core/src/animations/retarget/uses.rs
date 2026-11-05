@@ -114,6 +114,20 @@ pub fn update<T>(
     Ok(out)
 }
 
+/// Drops the asset's entry, as when its copy is undone.
+///
+/// # Errors
+///
+/// As [`load`], or when the file cannot be written.
+pub fn forget(project_dir: &Path, asset: &str) -> CoreResult<()> {
+    let _turn = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut file = load(project_dir)?;
+    if file.assets.remove(asset).is_none() {
+        return Ok(());
+    }
+    write_json(&path(project_dir), &file)
+}
+
 /// The asset's entry, empty when it took nothing.
 ///
 /// # Errors

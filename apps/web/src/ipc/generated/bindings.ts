@@ -434,9 +434,27 @@ export const commands = {
 	 *  out on each read, never saved.
 	 */
 	stale?: string | null,
+	/**
+	 *  A finished bake's numbers against their limits, worked out again on
+	 *  each read.
+	 */
+	review?: RecipeBakeReview | null,
+	/**  The model version it was added as. */
+	addedVersion?: number | null,
 } | null>("recipe_bake_get", { project, recipe }),
 	/**  Stops a running bake: Blender is killed and nothing is staged. */
 	recipeBakeCancel: (project: string, recipe: string) => __TAURI_INVOKE<null>("recipe_bake_cancel", { project, recipe }),
+	/**
+	 *  Adds a reviewed bake as its model's next version, on the route the rig
+	 *  doctor's Add as vN takes: into the Inbox for the asset, then accepted.
+	 *  `finished_ms` is the `finishedMs` of the bake the person looked at;
+	 *  another staged bake is refused (`bake-changed`), and so is one out of
+	 *  date. The recipe is held from the check to the end, so no bake starts
+	 *  and no second add runs meanwhile. The new version is recorded as the
+	 *  recipe's (and Mixamo's, for a Mixamo base), the staged model is cleared
+	 *  and an agent's approval for it ends as approved.
+	 */
+	recipeBakeAdd: (project: string, recipe: string, finishedMs: number | null) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_add", { project, recipe, finishedMs }),
 	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
@@ -1249,6 +1267,11 @@ export type ApprovalKind =
  *  sheets and add the draft as a version.
  */
 "rig-doctor" | 
+/**
+ *  A recipe bake an agent asked to add waits for a person to review it
+ *  in the Motion view and add it as the model's next version.
+ */
+"recipe-bake" | 
 /**
  *  The first start of the dev server of a repo an agent set waits for a
  *  person to read the folder and the command.
@@ -2921,7 +2944,7 @@ export type DecisionRecord = {
 	approval: string,
 	/**
 	 *  What waited: `send-to-3d`, `image-round`, `ship`, `page-preview`,
-	 *  `rest-pose`, `reweight`, `springs` or `rig-doctor`.
+	 *  `rest-pose`, `reweight`, `springs`, `rig-doctor` or `recipe-bake`.
 	 */
 	kind: string,
 	decision: Decision,
@@ -2959,6 +2982,11 @@ export type DecisionSource =
 "avatar" | 
 /**  The Rig doctor: the draft was added, dropped or started over. */
 "rig-doctor" | 
+/**
+ *  A recipe bake's review in the Motion view: the bake was added, or a
+ *  new bake of the recipe replaced it.
+ */
+"recipe-review" | 
 /**
  *  The jobs it held left the approval state first: cancelled in Sends
  *  or the Lab, or by an agent's cancel of its own Lab jobs.
@@ -4394,6 +4422,12 @@ export type LibraryVersion = {
 	prep: ModelPrep | null,
 	/**  The material tweaks it had where it came from. */
 	materials: ModelMaterials | null,
+	/**
+	 *  The recipe bakes its asset took in up to this version where it came
+	 *  from, so a project that uses it records them (a Mixamo bake's clips
+	 *  stay out of packs) even when the file lost the bake's mark.
+	 */
+	recipeBakes?: RecipeBakeUse[],
 };
 
 export type LibraryView = {
@@ -5309,6 +5343,11 @@ export type PackPlan = {
 	mixamo: number,
 	/**  Models left out, each with why. */
 	skipped: string[],
+	/**
+	 *  What to know about the plan: a project whose `recipe-bakes.json`
+	 *  cannot be read, so its models' clips stay out.
+	 */
+	warnings?: string[],
 };
 
 /**  Settings saved under a name. */
@@ -6553,6 +6592,13 @@ export type RecipeBakeRecord = {
 	 *  out on each read, never saved.
 	 */
 	stale?: string | null,
+	/**
+	 *  A finished bake's numbers against their limits, worked out again on
+	 *  each read.
+	 */
+	review?: RecipeBakeReview | null,
+	/**  The model version it was added as. */
+	addedVersion?: number | null,
 };
 
 /**  Bake recipe `recipe` of `project` onto the rigged model `asset`. */
@@ -6589,6 +6635,15 @@ export type RecipeBakeResult = {
 	fromVersion: number,
 	/**  The new clip's name in the model. */
 	clip: string,
+	/**
+	 *  The model's clips earlier bakes of this recipe added, whatever they
+	 *  were named, which this one replaces. A same named clip from anywhere
+	 *  else stays, and the new clip takes `name_2` and on. (Records from
+	 *  before held one name as `replaces`, which is no longer read.)
+	 */
+	replaced?: string[],
+	/**  What a name clash with the model's clips came to, in a sentence. */
+	clipNote?: string | null,
 	frames: number,
 	/**  The staged model, absolute. */
 	file: string,
@@ -6619,11 +6674,35 @@ export type RecipeBakeResult = {
 	warnings: string[],
 };
 
+/**  The review of a finished bake. */
+export type RecipeBakeReview = {
+	lines: RecipeReviewLine[],
+	/**  How many lines warn. */
+	warns: number,
+};
+
 export type RecipeBakeStarter = "person" | "agent";
 
 export type RecipeBakeState = "running" | 
 /**  The staged result is there, waiting for its review. */
-"done" | "failed" | "cancelled";
+"done" | "failed" | "cancelled" | 
+/**
+ *  A person added it as the model's next version; the staged model is
+ *  gone.
+ */
+"added";
+
+/**  A recipe bake accepted as a version of an asset. */
+export type RecipeBakeUse = {
+	recipe: string,
+	recipeVersion: string,
+	baseClip: string,
+	/**  The clip the bake added, by its name in the model. */
+	clip: string,
+	mixamo: boolean,
+	/**  The asset version it came in as. */
+	version: number,
+};
 
 /**
  *  The library clip a recipe starts from, by what matches it on another
@@ -6750,6 +6829,32 @@ export type RecipeReachResult = {
 	 */
 	flipFrame: number | null,
 };
+
+/**  One number of the review. */
+export type RecipeReviewLine = {
+	/**  `gap-l-1`, `flip-l-1`, `feet` or `stretch`. */
+	id: string,
+	/**  "Hand gap", "Elbow", "Foot slide", "Rig stretch". */
+	label: string,
+	/**  The bone and change it is about, for a reach. */
+	about: string | null,
+	/**  What was measured, in words: "1.4 cm", "flips at frame 18". */
+	value: string,
+	/**  The limit it is held to, in words: "2 cm", "no flip", "1.9 cm". */
+	limit: string,
+	/**  The measured number and its limit, in `unit`, when there are numbers. */
+	measured: number | null,
+	max: number | null,
+	unit: string | null,
+	status: RecipeReviewStatus,
+	note: string | null,
+};
+
+export type RecipeReviewStatus = "pass" | 
+/**  Worth a look before adding; it does not stop the add. */
+"warn" | 
+/**  The bake could not measure it (`note` says why). */
+"not-measured";
 
 /**  A line in the list of a project's recipes. */
 export type RecipeSummary = {

@@ -62,7 +62,7 @@ pub fn marked_mixamo(file: &Path) -> bool {
 }
 
 /// A recipe bake accepted as a version of an asset.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeBakeUse {
     pub recipe: String,
@@ -76,6 +76,14 @@ pub struct RecipeBakeUse {
 }
 
 impl RecipeBakeUse {
+    /// Whether `other` is the same bake, whichever version it came in as.
+    pub fn same_bake(&self, other: &Self) -> bool {
+        Self {
+            version: other.version,
+            ..self.clone()
+        } == *other
+    }
+
     pub fn of(mark: &RecipeBakeMark, version: u32) -> Self {
         Self {
             recipe: mark.recipe.clone(),
@@ -128,6 +136,40 @@ pub fn record(project_dir: &Path, asset: &str, bake: RecipeBakeUse) -> CoreResul
     write_json(&project_dir.join(BAKES_FILE), &file)
 }
 
+/// Records every bake in `bakes` on `asset`, oldest first, after the ones
+/// it has. Nothing to record writes nothing.
+///
+/// # Errors
+///
+/// Fails when the record cannot be read or written.
+pub fn record_all(project_dir: &Path, asset: &str, bakes: Vec<RecipeBakeUse>) -> CoreResult<()> {
+    if bakes.is_empty() {
+        return Ok(());
+    }
+    let _turn = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut file = load(project_dir)?;
+    file.version = BAKES_VERSION;
+    file.assets
+        .entry(asset.to_string())
+        .or_default()
+        .extend(bakes);
+    write_json(&project_dir.join(BAKES_FILE), &file)
+}
+
+/// Forgets every bake recorded for `asset`, as when its copy is undone.
+///
+/// # Errors
+///
+/// Fails when the record cannot be read or written.
+pub fn forget(project_dir: &Path, asset: &str) -> CoreResult<()> {
+    let _turn = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut file = load(project_dir)?;
+    if file.assets.remove(asset).is_none() {
+        return Ok(());
+    }
+    write_json(&project_dir.join(BAKES_FILE), &file)
+}
+
 /// Records the bake the model at `file` carries, when it carries one, as
 /// `version` of `asset`. Every route that brings a model file in as a
 /// version calls this, so the bake outlives a later step that drops the
@@ -141,6 +183,36 @@ pub fn note(project_dir: &Path, asset: &str, file: &Path, version: u32) -> CoreR
         Some(mark) => record(project_dir, asset, RecipeBakeUse::of(&mark, version)),
         None => Ok(()),
     }
+}
+
+/// Whether the project's record can be read: a missing one can.
+///
+/// # Errors
+///
+/// Fails when it is broken or comes from a newer Maquette.
+pub fn check(project_dir: &Path) -> CoreResult<()> {
+    load(project_dir).map(|_| ())
+}
+
+/// What to record for the model at `file` coming in as `version` of an
+/// asset: each bake `carried` with it (a library entry keeps them), now as
+/// `version`, and the bake its mark names unless a carried one is the
+/// same. A file whose mark a Blender step dropped still brings its bakes.
+pub fn incoming(file: &Path, carried: &[RecipeBakeUse], version: u32) -> Vec<RecipeBakeUse> {
+    let mut out: Vec<RecipeBakeUse> = carried
+        .iter()
+        .map(|b| RecipeBakeUse {
+            version,
+            ..b.clone()
+        })
+        .collect();
+    if let Some(mark) = mark_of(file) {
+        let marked = RecipeBakeUse::of(&mark, version);
+        if !out.iter().any(|b| b.same_bake(&marked)) {
+            out.push(marked);
+        }
+    }
+    out
 }
 
 /// The bakes accepted as versions of `asset`, oldest first.

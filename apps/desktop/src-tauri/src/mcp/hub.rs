@@ -77,6 +77,9 @@ pub enum ApprovalKind {
     /// A rig doctor fix an agent started waits for a person to look at the
     /// sheets and add the draft as a version.
     RigDoctor,
+    /// A recipe bake an agent asked to add waits for a person to review it
+    /// in the Motion view and add it as the model's next version.
+    RecipeBake,
     /// The first start of the dev server of a repo an agent set waits for a
     /// person to read the folder and the command.
     PagePreview,
@@ -487,6 +490,7 @@ mod decisions;
 
 pub use decisions::{DecisionLog, Refused};
 mod preview;
+mod recipe_bake;
 mod rest_pose;
 mod rig;
 

@@ -4,7 +4,7 @@
 //! Cancel kills Blender part way; a bake the app closed on reads as stopped
 //! when it opens again.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +41,8 @@ struct Inner {
     runner: Arc<dyn ScriptRunner + Send + Sync>,
     on_change: OnChange,
     active: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    /// Recipes being added as a version now: no bake starts meanwhile.
+    adding: Mutex<HashSet<String>>,
 }
 
 /// The service. Cheap to clone.
@@ -49,12 +51,12 @@ pub struct RecipeBakes {
     inner: Arc<Inner>,
 }
 
-fn key(project: &str, recipe: &str) -> String {
+pub(super) fn key(project: &str, recipe: &str) -> String {
     format!("{project}/{recipe}")
 }
 
 /// The folder of the bake of `recipe` in `project`.
-fn folder(
+pub(super) fn folder(
     root: &Path,
     config: &WorkspaceConfig,
     project: &str,
@@ -92,10 +94,11 @@ pub fn record_of(
     let mut record: RecipeBakeRecord =
         serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
     record.stale = super::stale::stale_of(root, config, &record);
+    record.review = record.result.as_ref().map(super::review_of);
     Ok(Some(record))
 }
 
-fn save(dir: &Path, record: &RecipeBakeRecord) -> CoreResult<()> {
+pub(super) fn save(dir: &Path, record: &RecipeBakeRecord) -> CoreResult<()> {
     fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
     write_json(&dir.join(RECORD_FILE), record)
 }
@@ -123,7 +126,7 @@ fn clear_runs(dir: &Path) {
 }
 
 /// A file or folder from an earlier bake, gone before a new one starts.
-fn clear(path: &Path) {
+pub(super) fn clear(path: &Path) {
     let gone = if path.is_dir() {
         fs::remove_dir_all(path)
     } else {
@@ -187,11 +190,25 @@ impl RecipeBakes {
                 runner,
                 on_change: Box::new(on_change),
                 active: Mutex::new(HashMap::new()),
+                adding: Mutex::new(HashSet::new()),
             }),
         }
     }
 
-    fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
+    /// Tells the app about a changed record.
+    pub(super) fn tell(&self, record: &RecipeBakeRecord) {
+        (self.inner.on_change)(record);
+    }
+
+    /// The recipes being added as a version now.
+    pub(super) fn adding(&self) -> MutexGuard<'_, HashSet<String>> {
+        self.inner
+            .adding
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub(super) fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
         self.inner
             .active
             .lock()
@@ -248,6 +265,12 @@ impl RecipeBakes {
                     prepared.doc.recipe.name
                 )));
             }
+            if self.adding().contains(&name) {
+                return Err(CoreError::Invalid(format!(
+                    "{} is being added as a version now. Bake it again once that is done.",
+                    prepared.doc.recipe.name
+                )));
+            }
             active.insert(name.clone(), Arc::clone(&cancel));
         }
         clear_runs(&dir);
@@ -267,6 +290,8 @@ impl RecipeBakes {
             finished_ms: None,
             result: None,
             stale: None,
+            review: None,
+            added_version: None,
         };
         let running = Arc::new(Running {
             record: Mutex::new(record.clone()),
@@ -384,6 +409,7 @@ fn finish(running: &Running, outcome: CoreResult<super::RecipeBakeResult>) {
         match outcome {
             Ok(result) => {
                 r.state = RecipeBakeState::Done;
+                r.review = Some(super::review_of(&result));
                 r.result = Some(result);
             }
             Err(err) if err.to_string() == CANCELLED => r.state = RecipeBakeState::Cancelled,

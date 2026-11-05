@@ -30,6 +30,10 @@ export interface RecipePreviewProps {
   playing: boolean;
   onTick: (delta: number) => void;
   onChecks?: (checks: ReachCheck[]) => void;
+  /** The words on the picture; the rough preview's own without. */
+  label?: string;
+  /** The figure's accessible name. */
+  name?: string;
   className?: string;
 }
 
@@ -55,7 +59,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
   const waiting = why(props);
   return (
     <figure
-      aria-label="Recipe preview"
+      aria-label={props.name ?? 'Recipe preview'}
       className={`relative overflow-hidden rounded-card border border-line bg-studio ${props.className ?? ''}`}
     >
       {ready ? (
@@ -94,7 +98,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
       ) : null}
       <span className="pointer-events-none absolute bottom-2 left-2 inline-flex h-6 items-center gap-1.5 rounded-control bg-app/85 px-2 text-[11.5px] leading-none font-medium text-fg">
         <Icon name="info" size={13} className="text-fg-dim" />
-        {ROUGH_LABEL}
+        {props.label ?? ROUGH_LABEL}
       </span>
     </figure>
   );

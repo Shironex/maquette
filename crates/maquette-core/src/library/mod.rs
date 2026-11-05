@@ -115,6 +115,11 @@ pub struct LibraryVersion {
     pub prep: Option<ModelPrep>,
     /// The material tweaks it had where it came from.
     pub materials: Option<ModelMaterials>,
+    /// The recipe bakes its asset took in up to this version where it came
+    /// from, so a project that uses it records them (a Mixamo bake's clips
+    /// stay out of packs) even when the file lost the bake's mark.
+    #[serde(default)]
+    pub recipe_bakes: Vec<crate::recipes::baked::RecipeBakeUse>,
 }
 
 /// `entry.json`.

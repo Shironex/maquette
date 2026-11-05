@@ -347,7 +347,7 @@ a project id; no tool changes which project the app has open. An empty workspace
     }
 
     #[tool(
-        description = "Copy an asset to another project of the workspace: its refs, every model version, their thumbnails and its finished sends come along under a name and id that are free there. The asset stays where it is. Returns the copy."
+        description = "Copy an asset to another project of the workspace: its refs, every model version, their thumbnails, its finished sends and its animation records (the clips it baked from the library and its recipe bakes, so a Mixamo bake stays out of packs) come along under a name and id that are free there. An animation record that cannot be read refuses the copy. The asset stays where it is. Returns the copy."
     )]
     async fn copy_asset(&self, Parameters(args): Parameters<CopyAssetArgs>) -> Out {
         let found = self

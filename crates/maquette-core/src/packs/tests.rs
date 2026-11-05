@@ -72,6 +72,7 @@ pub(crate) fn entry(
                 ..ModelPrep::default()
             }),
             materials: None,
+            recipe_bakes: Vec::new(),
         }],
         created_at: "2026-10-30T10:00:00Z".into(),
         updated_at: "2026-10-30T10:00:00Z".into(),

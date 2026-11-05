@@ -62,6 +62,7 @@ pub fn run() {
             ));
             app.manage(commands::recipe_bakes::RecipeBakeJobs::new(
                 app.handle().clone(),
+                Arc::clone(&hub),
             ));
             app.manage(commands::renders::RenderJobs::new(app.handle().clone()));
             app.manage(commands::plan_watch::PlanWatch::default());

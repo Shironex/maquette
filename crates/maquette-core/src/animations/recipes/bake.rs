@@ -19,17 +19,24 @@
 
 use serde::{Deserialize, Serialize};
 
+mod add;
 mod job;
 mod result;
+mod review;
 mod service;
 mod stale;
 
 pub use crate::recipes::baked::{
     MARK_KEY, RecipeBakeMark, RecipeBakeUse, mark_of, marked_mixamo, took_mixamo, write_mark,
 };
+pub use add::{AddClaim, BAKE_CHANGED, OUT_OF_DATE, ready_to_add};
 pub use job::{Prepared, open_blanks, prepare};
 pub use result::GAP_LIMIT_CM;
 pub use result::mark_for;
+pub use review::{
+    RecipeBakeReview, RecipeReviewLine, RecipeReviewStatus, SLIDE_OVER_BASE_CM,
+    STRETCH_OVER_BASE_MM, review_of,
+};
 pub use service::{RecipeBakes, record_of};
 pub use stale::{RECIPE_CHANGED, stale_of};
 
@@ -62,6 +69,9 @@ pub enum RecipeBakeState {
     Done,
     Failed,
     Cancelled,
+    /// A person added it as the model's next version; the staged model is
+    /// gone.
+    Added,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -122,6 +132,15 @@ pub struct RecipeBakeResult {
     pub from_version: u32,
     /// The new clip's name in the model.
     pub clip: String,
+    /// The model's clips earlier bakes of this recipe added, whatever they
+    /// were named, which this one replaces. A same named clip from anywhere
+    /// else stays, and the new clip takes `name_2` and on. (Records from
+    /// before held one name as `replaces`, which is no longer read.)
+    #[serde(default)]
+    pub replaced: Vec<String>,
+    /// What a name clash with the model's clips came to, in a sentence.
+    #[serde(default)]
+    pub clip_note: Option<String>,
     pub frames: u32,
     /// The staged model, absolute.
     pub file: String,
@@ -170,6 +189,13 @@ pub struct RecipeBakeRecord {
     /// out on each read, never saved.
     #[serde(default)]
     pub stale: Option<String>,
+    /// A finished bake's numbers against their limits, worked out again on
+    /// each read.
+    #[serde(default)]
+    pub review: Option<RecipeBakeReview>,
+    /// The model version it was added as.
+    #[serde(default)]
+    pub added_version: Option<u32>,
 }
 
 impl RecipeBakeRecord {
@@ -180,6 +206,8 @@ impl RecipeBakeRecord {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_add;
 #[cfg(test)]
 mod tests_blender;
 #[cfg(test)]

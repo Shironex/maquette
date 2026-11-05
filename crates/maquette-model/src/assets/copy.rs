@@ -135,6 +135,31 @@ pub fn copy_to_project(
     to_id: &str,
     sent: &[String],
 ) -> CoreResult<CopiedAsset> {
+    copy_to_project_then(
+        workspace_root,
+        layout,
+        (from_id, asset_id, to_id),
+        sent,
+        |_| Ok(()),
+    )
+}
+
+/// As [`copy_to_project`], calling `before` with the copy's id once its
+/// files are in and before the target's manifest lists it, so records kept
+/// beside the manifest are written first: when `before` fails, the copy is
+/// never listed. It runs under the manifest's write lock, after the id is
+/// checked free, so no other copy to that id runs it meanwhile.
+///
+/// # Errors
+///
+/// As [`copy_to_project`], and what `before` fails with.
+pub fn copy_to_project_then(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    (from_id, asset_id, to_id): (&str, &str, &str),
+    sent: &[String],
+    before: impl FnOnce(&str) -> CoreResult<()>,
+) -> CoreResult<CopiedAsset> {
     if from_id == to_id {
         return Err(CoreError::Invalid(
             "Pick another project to copy the asset to.".to_string(),
@@ -220,6 +245,9 @@ pub fn copy_to_project(
                 m.name, copy.name
             )));
         }
+        // Under the manifest's lock, once the id is known to be free, so a
+        // copy racing to the same id never runs it at the same time.
+        before(&copy.id)?;
         m.assets.push(copy.clone());
         Ok(())
     })?;

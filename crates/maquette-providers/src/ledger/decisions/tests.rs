@@ -147,6 +147,7 @@ fn only_the_app_cards_count_as_card_sources() {
     for other in [
         DecisionSource::Avatar,
         DecisionSource::RigDoctor,
+        DecisionSource::RecipeReview,
         DecisionSource::JobsCancelled,
         DecisionSource::RunCancelled,
         DecisionSource::QuestionChanged,

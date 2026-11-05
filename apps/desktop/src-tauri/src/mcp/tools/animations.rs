@@ -14,7 +14,23 @@ use serde_json::{Value, json};
 
 use crate::commands::animations as commands;
 
-use super::{McpTools, Out, respond, to_short_value, to_value, workspace};
+use super::{McpTools, Out, ToolError, respond, to_short_value, to_value, workspace};
+
+/// The code of save_model_clips refused while the project's
+/// recipe-bakes.json cannot be read.
+pub(super) const BAKES_UNREADABLE: &str = "bakes-unreadable";
+
+/// A refused save, with its own code when the bakes record is unreadable.
+fn refused_save(err: maquette_core::ErrorPayload) -> ToolError {
+    let unreadable = err
+        .message
+        .starts_with(maquette_core::animations::save::BAKES_UNREADABLE);
+    let mut out = ToolError::from(err);
+    if unreadable {
+        out.code = BAKES_UNREADABLE.to_string();
+    }
+    out
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -217,7 +233,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Save a rigged model's clips to the animation library as a pack: the newest version of a project asset (project and asset), or a Tripo job's animations waiting in the Inbox (inbox, its file name). Only the skeleton and the clips' keys go in; the mesh stays where it is. Clips that came from the library are never saved back, and keys the library has already are skipped. The rig is read from the bone names (a Tripo job's rig is tripo). dryRun lists the clips the model offers. Runs Blender headless; spends nothing."
+        description = "Save a rigged model's clips to the animation library as a pack: the newest version of a project asset (project and asset), or a Tripo job's animations waiting in the Inbox (inbox, its file name). Only the skeleton and the clips' keys go in; the mesh stays where it is. Clips that came from the library are never saved back, nor a recipe bake of a Mixamo clip, and keys the library has already are skipped. While the project's recipe-bakes.json cannot be read nothing is saved (bakes-unreadable), since any clip may be such a bake. The rig is read from the bone names (a Tripo job's rig is tripo). dryRun lists the clips the model offers. Runs Blender headless; spends nothing."
     )]
     async fn save_model_clips(&self, Parameters(args): Parameters<SaveModelClipsArgs>) -> Out {
         let found = self
@@ -227,7 +243,8 @@ impl McpTools {
                     asset: args.asset.clone(),
                     inbox: args.inbox.clone(),
                 };
-                let plan = commands::save_plan(host.session(), host.studio(), &from)?;
+                let plan =
+                    commands::save_plan(host.session(), host.studio(), &from).map_err(refused_save)?;
                 if args.dry_run {
                     return Ok(json!({ "dryRun": true, "plan": to_short_value(&plan) }));
                 }
@@ -245,7 +262,8 @@ impl McpTools {
                     tags: args.tags.clone().unwrap_or_default(),
                 };
                 let tools = host.toolbox();
-                let saved = commands::save(host.session(), host.studio(), &tools, &request)?;
+                let saved = commands::save(host.session(), host.studio(), &tools, &request)
+                    .map_err(refused_save)?;
                 host.library_changed();
                 Ok(json!({
                     "pack": request.pack,
@@ -255,5 +273,23 @@ impl McpTools {
             })
             .await;
         respond(found)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use maquette_core::CoreError;
+
+    use super::*;
+
+    #[test]
+    fn an_unreadable_bakes_record_gets_its_own_code() {
+        let unreadable = CoreError::Invalid(format!(
+            "{} Fix or remove it.",
+            maquette_core::animations::save::BAKES_UNREADABLE
+        ));
+        assert_eq!(refused_save(unreadable.payload()).code, BAKES_UNREADABLE);
+        let other = CoreError::Invalid("Pick at least one clip to save.".into());
+        assert_eq!(refused_save(other.payload()).code, "invalid");
     }
 }

@@ -7,6 +7,7 @@ add_fixups
 add_many_to_library
 add_model_file
 add_nodes
+add_recipe_bake
 add_to_library
 assemble_prop
 attach_download

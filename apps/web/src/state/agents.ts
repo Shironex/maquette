@@ -82,6 +82,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   if (approval.kind === 'rig-doctor') {
     return `Add ${approval.assetName ?? 'the draft'}?`;
   }
+  if (approval.kind === 'recipe-bake') {
+    return `Add ${approval.assetName ?? 'the recipe bake'}?`;
+  }
   if (approval.kind === 'reweight') {
     return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
   }
@@ -115,7 +118,9 @@ export function approvalsLabel(approvals: Approval[]): string {
                 ? 'spring chain'
                 : kinds.has('page-preview')
                   ? 'dev server'
-                  : 'send';
+                  : kinds.has('recipe-bake')
+                    ? 'recipe bake'
+                    : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

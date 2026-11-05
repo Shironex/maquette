@@ -64,7 +64,7 @@ pub fn default_name(name: &str, pack: &str) -> String {
 }
 
 /// `Sword Run!` reads `sword_run`; what is left of a name typed by hand.
-fn snake(name: &str) -> String {
+pub(crate) fn snake(name: &str) -> String {
     name.split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|w| !w.is_empty())
         .map(str::to_ascii_lowercase)

@@ -91,6 +91,22 @@ pub struct PackPlan {
     pub mixamo: u32,
     /// Models left out, each with why.
     pub skipped: Vec<String>,
+    /// What to know about the plan: a project whose `recipe-bakes.json`
+    /// cannot be read, so its models' clips stay out.
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+/// Why the clips of `project`'s models stay out, when its record of recipe
+/// bakes cannot be read (each of them then counts as a Mixamo bake).
+fn bakes_warning(dir: &Path, project: &str) -> Option<String> {
+    crate::recipes::baked::check(dir).err().map(|err| {
+        format!(
+            "{}'s recipe-bakes.json cannot be read, so the clips of its models stay out in case one is a recipe bake of a Mixamo clip. Fix or remove {}. {err}",
+            project,
+            dir.join(crate::recipes::baked::BAKES_FILE).display()
+        )
+    })
 }
 
 /// `cast_iron_stove` from "Cast iron stove", once in `taken`.
@@ -183,9 +199,12 @@ fn from_entry(root: &Path, layout: &FolderLayout, entry: &LibraryEntry) -> Resul
         return Err(format!("{}: its model file is missing.", entry.name));
     }
     let from = &latest.from;
-    let baked_mixamo = project::dir(root, layout, &from.project)
-        .map(|dir| licence::baked_mixamo(root, &dir, &from.asset))
-        .unwrap_or(false);
+    // The bakes the entry carries count even when the project it came from
+    // is gone or its record moved on.
+    let baked_mixamo = latest.recipe_bakes.iter().any(|b| b.mixamo)
+        || project::dir(root, layout, &from.project)
+            .map(|dir| licence::baked_mixamo(root, &dir, &from.asset))
+            .unwrap_or(false);
     Ok(Draft {
         name: entry.name.clone(),
         kind: entry.kind,
@@ -215,14 +234,18 @@ fn entries_of(root: &Path, source: &PackSource) -> CoreResult<Vec<String>> {
     }
 }
 
+/// A project's name, its models' drafts and what to know about them.
+type ProjectDrafts = (String, Vec<Result<Draft, String>>, Vec<String>);
+
 fn project_drafts(
     root: &Path,
     layout: &FolderLayout,
     id: &str,
     source_of: &SourceOf<'_>,
-) -> CoreResult<(String, Vec<Result<Draft, String>>)> {
+) -> CoreResult<ProjectDrafts> {
     let manifest = project::load(root, layout, id)?;
     let dir = project::dir(root, layout, id)?;
+    let warnings = bakes_warning(&dir, &manifest.name).into_iter().collect();
     let prep = crate::prepare::load(&dir)?;
     let drafts = manifest
         .assets
@@ -251,7 +274,32 @@ fn project_drafts(
             })
         })
         .collect();
-    Ok((manifest.name, drafts))
+    Ok((manifest.name, drafts, warnings))
+}
+
+/// The warnings for the projects the library entries came from, once each.
+fn entry_warnings(root: &Path, layout: &FolderLayout, ids: &[String]) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    let mut out = Vec::new();
+    for id in ids {
+        let Some(from) = library::load(root, id)
+            .ok()
+            .and_then(|e| e.latest().map(|v| v.from.project.clone()))
+        else {
+            continue;
+        };
+        if !seen.insert(from.clone()) {
+            continue;
+        }
+        let (Ok(dir), Ok(manifest)) = (
+            project::dir(root, layout, &from),
+            project::load(root, layout, &from),
+        ) else {
+            continue;
+        };
+        out.extend(bakes_warning(&dir, &manifest.name));
+    }
+    out
 }
 
 fn kinds(models: &[PackModel], settings: &PackSettings) -> Vec<KindRow> {
@@ -306,10 +354,10 @@ pub fn plan(
     settings: &PackSettings,
     source_of: &SourceOf<'_>,
 ) -> CoreResult<PackPlan> {
-    let (label, drafts) = match source {
+    let (label, drafts, warnings) = match source {
         PackSource::Project { project } => {
-            let (name, drafts) = project_drafts(root, layout, project, source_of)?;
-            (format!("of {name}"), drafts)
+            let (name, drafts, warnings) = project_drafts(root, layout, project, source_of)?;
+            (format!("of {name}"), drafts, warnings)
         }
         _ => {
             let ids = entries_of(root, source)?;
@@ -320,7 +368,8 @@ pub fn plan(
                     Err(err) => Err(format!("{id}: {err}")),
                 })
                 .collect();
-            ("from the library".to_string(), drafts)
+            let warnings = entry_warnings(root, layout, &ids);
+            ("from the library".to_string(), drafts, warnings)
         }
     };
     let mut taken = BTreeSet::new();
@@ -350,5 +399,6 @@ pub fn plan(
         mixamo: u32::try_from(models.iter().filter(|m| m.mixamo).count()).unwrap_or(u32::MAX),
         models,
         skipped,
+        warnings,
     })
 }

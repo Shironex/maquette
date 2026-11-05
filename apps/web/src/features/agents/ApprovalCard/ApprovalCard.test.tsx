@@ -6,6 +6,7 @@ import { commands, type Approval } from '@/ipc/client';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
+import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRigStore } from '@/state/use-rig-store';
 import { openAvatar } from '@/test/open-avatar';
 import { openMockGame } from '@/test/mock-ipc';
@@ -190,5 +191,39 @@ describe('an approval card', () => {
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Open the sheets' }));
     expect(showCase).toHaveBeenCalledWith('spiked-hound-v1');
+  });
+
+  it('opens an agent asked recipe bake in its review, and Deny keeps the bake', async () => {
+    const showReview = vi.fn().mockResolvedValue(undefined);
+    useRecipeBakesStore.setState({ showReview });
+    const decide = vi.fn().mockResolvedValue(undefined);
+    const kept = useAgentsStore.getState().decide;
+    useAgentsStore.setState({ decide });
+    const ask = {
+      id: 'approval-recipe-1',
+      kind: 'recipe-bake',
+      project: 'frostveil',
+      runId: null,
+      runNumber: null,
+      step: null,
+      job: 'reach-for-the-lantern',
+      assetName: 'Clay figure v3',
+      service: null,
+      detail: 'Reach for the lantern baked onto Clay figure v2. 2 numbers of the review warn.',
+      items: [],
+      requestedAtMs: 0,
+      asset: 'clay-figure',
+      version: 2,
+    } satisfies Approval;
+    render(<ApprovalCard approval={ask} />);
+    expect(screen.getByRole('alertdialog', { name: 'Add Clay figure v3?' })).toBeInTheDocument();
+    expect(screen.getByText(/2 numbers of the review warn/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Review the bake' }));
+    expect(showReview).toHaveBeenCalledWith('frostveil', 'reach-for-the-lantern');
+    await userEvent.click(screen.getByRole('button', { name: 'Deny' }));
+    expect(decide).toHaveBeenCalledWith('approval-recipe-1', false, expect.anything());
+    useAgentsStore.setState({ decide: kept });
+    useRecipeBakesStore.setState(useRecipeBakesStore.getInitialState(), true);
   });
 });

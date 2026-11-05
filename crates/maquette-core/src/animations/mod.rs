@@ -29,6 +29,7 @@ use crate::json::write_json;
 use crate::workspace::is_single_segment;
 
 pub(crate) mod blender;
+pub mod copy;
 pub mod import;
 pub mod names;
 pub mod recipes;

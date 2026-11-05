@@ -24,8 +24,9 @@ const SCRIPT_FILE: &str = "to_glb.py";
 /// The workspace cache folder an own file is turned into a GLB in.
 pub const WORK_DIR: &str = "own-files";
 const OUT_FILE: &str = "model.glb";
-/// Why a staged recipe bake is refused as a model file.
-pub const STAGED_BAKE: &str = "That file is a staged recipe bake. It becomes a version through the recipe's review in the Motion view, which keeps whether it counts as Mixamo's, not as a model file.";
+/// Why a staged recipe bake, or any file carrying a recipe bake's mark, is
+/// refused as a model file.
+pub const STAGED_BAKE: &str = "This file is a recipe bake. Add it from the recipe's review in the Motion view, which keeps whether it counts as Mixamo's, not as a model file.";
 
 fn ext_of(file: &Path) -> Option<String> {
     file.extension()
@@ -37,13 +38,43 @@ fn ext_of(file: &Path) -> Option<String> {
 /// Checks `file` can become a version: an absolute path to a `.glb`,
 /// `.gltf`, `.fbx` or `.obj` that exists, outside the workspace's inbox,
 /// every project's `models` folder (a version already there is no new
-/// file) and the staged recipe bakes in the cache. Returns its real path
-/// and its type.
+/// file) and the staged recipe bakes in the cache, and not carrying a
+/// recipe bake's mark wherever it is (a staged bake copied out of the
+/// cache). Returns its real path and its type.
 ///
 /// # Errors
 ///
 /// Says which rule the path breaks.
 pub fn check(root: &Path, config: &WorkspaceConfig, file: &Path) -> CoreResult<(PathBuf, String)> {
+    let (real, ext, bake) = checked(root, config, file)?;
+    if bake {
+        return Err(CoreError::Invalid(STAGED_BAKE.to_string()));
+    }
+    not_a_bake(&real)?;
+    Ok((real, ext))
+}
+
+/// Refuses the model at `file` as [`STAGED_BAKE`] when it carries a recipe
+/// bake's mark in its GLB extras: it becomes a version only through the
+/// recipe's review.
+///
+/// # Errors
+///
+/// [`STAGED_BAKE`] for a marked file.
+pub fn not_a_bake(file: &Path) -> CoreResult<()> {
+    match maquette_model::recipes::baked::mark_of(file) {
+        Some(_) => Err(CoreError::Invalid(STAGED_BAKE.to_string())),
+        None => Ok(()),
+    }
+}
+
+/// As [`check`], with whether the file is a staged recipe bake instead of
+/// refusing it.
+fn checked(
+    root: &Path,
+    config: &WorkspaceConfig,
+    file: &Path,
+) -> CoreResult<(PathBuf, String, bool)> {
     if !file.is_absolute() {
         return Err(CoreError::Invalid(format!(
             "{} is not an absolute path. Give the full path to the model file.",
@@ -76,9 +107,7 @@ pub fn check(root: &Path, config: &WorkspaceConfig, file: &Path) -> CoreResult<(
         .join(&config.layout.cache)
         .join(workspace::RECIPE_BAKES_DIR);
     let real_bakes = fs::canonicalize(&bakes).unwrap_or_else(|_| bakes.clone());
-    if real.starts_with(&bakes) || real.starts_with(&real_bakes) {
-        return Err(CoreError::Invalid(STAGED_BAKE.to_string()));
-    }
+    let bake = real.starts_with(&bakes) || real.starts_with(&real_bakes);
     let projects = real_root.join(&config.layout.projects);
     if let Ok(rest) = real.strip_prefix(&projects) {
         let mut parts = rest.components();
@@ -90,7 +119,7 @@ pub fn check(root: &Path, config: &WorkspaceConfig, file: &Path) -> CoreResult<(
             ));
         }
     }
-    Ok((real, ext))
+    Ok((real, ext, bake))
 }
 
 /// A fresh scratch folder under the workspace cache.
@@ -150,6 +179,43 @@ pub fn add(
     own: &OwnFile<'_>,
 ) -> CoreResult<ModelAttached> {
     let (real, ext) = check(own.root, own.config, own.file)?;
+    attach_checked(studio, runner, tools, own, &real, &ext)
+}
+
+/// Adds a staged recipe bake, after a person reviewed it, as [`add`] adds
+/// a model file: only a `.glb` in the staged recipe bakes is taken, and it
+/// keeps its mark, which accepting it records on the asset. The recipe's
+/// review in the Motion view is the only caller.
+///
+/// # Errors
+///
+/// Fails for a file that is no staged recipe bake, an unknown project or
+/// asset, or when it cannot be copied.
+pub fn add_staged_bake(
+    studio: &ProviderJobs,
+    runner: &dyn ScriptRunner,
+    tools: &Toolbox,
+    own: &OwnFile<'_>,
+) -> CoreResult<ModelAttached> {
+    let (real, ext, bake) = checked(own.root, own.config, own.file)?;
+    if !bake || ext != "glb" {
+        return Err(CoreError::Invalid(format!(
+            "{} is not a staged recipe bake.",
+            own.file.display()
+        )));
+    }
+    attach_checked(studio, runner, tools, own, &real, &ext)
+}
+
+/// Attaches a file [`check`] took (its real path and type) for `own.asset`.
+fn attach_checked(
+    studio: &ProviderJobs,
+    runner: &dyn ScriptRunner,
+    tools: &Toolbox,
+    own: &OwnFile<'_>,
+    real: &Path,
+    ext: &str,
+) -> CoreResult<ModelAttached> {
     let manifest = project::load(own.root, &own.config.layout, own.project)?;
     let asset = match maquette_model::assets::find_by_name(&manifest, own.asset) {
         Some(found) if found.id != own.asset => found.id.clone(),
@@ -158,11 +224,11 @@ pub fn add(
             .clone(),
     };
     if ext == "glb" {
-        return studio.attach(own.project, &asset, &real);
+        return studio.attach(own.project, &asset, real);
     }
     let work = scratch(own.root, own.config)?;
-    let done = to_glb(runner, tools, &work, &real)
-        .and_then(|glb| studio.attach(own.project, &asset, &glb));
+    let done =
+        to_glb(runner, tools, &work, real).and_then(|glb| studio.attach(own.project, &asset, &glb));
     let _ = fs::remove_dir_all(&work);
     done
 }

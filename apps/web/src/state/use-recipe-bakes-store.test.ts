@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { bakeKey } from './recipe-bake';
 import { record } from '@/test/recipe-bake-fixture';
+import { useAppStore } from './use-app-store';
 import { useRecipeBakesStore } from './use-recipe-bakes-store';
 
 const KEY = bakeKey('frostveil', 'reach-out');
@@ -55,5 +56,47 @@ describe('the recipe bakes store', () => {
     await useRecipeBakesStore.getState().cancel('frostveil', 'reach-out');
     expect(cancel).toHaveBeenCalledWith('frostveil', 'reach-out');
     expect(useRecipeBakesStore.getState().bakes[KEY]?.state).toBe('cancelled');
+  });
+
+  it('adds the reviewed bake, closes the review and says what happened', async () => {
+    vi.spyOn(commands, 'recipeBakeGet').mockResolvedValue(record());
+    const store = useRecipeBakesStore.getState();
+    store.openReview('frostveil', 'reach-out');
+    expect(useRecipeBakesStore.getState().reviewing).toEqual({
+      project: 'frostveil',
+      recipe: 'reach-out',
+    });
+    const added = record({
+      state: 'added',
+      addedVersion: 3,
+      updatedMs: 9,
+      result: {
+        ...record().result!,
+        clipNote: 'Replaces reach_out, the clip an earlier bake added.',
+      },
+    });
+    const add = vi.spyOn(commands, 'recipeBakeAdd').mockResolvedValue(added);
+    expect(await store.add('frostveil', 'reach-out', 5)).toBe(true);
+    expect(add).toHaveBeenCalledWith('frostveil', 'reach-out', 5);
+    const after = useRecipeBakesStore.getState();
+    expect(after.reviewing).toBeNull();
+    expect(after.bakes[KEY]?.state).toBe('added');
+    expect(useAppStore.getState().notice).toMatchObject({
+      title: 'Added as v3 of Elsheria.',
+      detail: 'Replaces reach_out, the clip an earlier bake added.',
+    });
+  });
+
+  it('keeps the review open with why an add was refused', async () => {
+    vi.spyOn(commands, 'recipeBakeGet').mockResolvedValue(record());
+    vi.spyOn(commands, 'recipeBakeAdd').mockRejectedValue({
+      code: 'invalid',
+      message: 'Not added: this bake is out of date. The recipe changed since this bake.',
+    });
+    const store = useRecipeBakesStore.getState();
+    store.openReview('frostveil', 'reach-out');
+    expect(await store.add('frostveil', 'reach-out', 5)).toBe(false);
+    expect(useRecipeBakesStore.getState().reviewing).not.toBeNull();
+    expect(useRecipeBakesStore.getState().addErrors[KEY]).toMatch(/out of date/);
   });
 });
