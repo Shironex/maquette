@@ -248,20 +248,27 @@ export function rigForward(bone: (vrm: string) => THREE.Object3D | undefined): T
   return new THREE.Vector3(0, 0, 1);
 }
 
-/** A blank as the preview places it: a point where it says, a prop in a slot in front. */
+/**
+ * A blank as the preview places it: a point where it says, a prop where the
+ * layout places it (as the bake does) or else in a slot in front.
+ */
 export interface RecipeMarker {
   id: string;
   kind: 'prop' | 'point';
   /** A point blank's point, metres from the model's feet with Y up; null for a prop. */
   point: readonly [number, number, number] | null;
+  /** A prop's spot by the layout, in the model's own frame (recipe-layout.ts). */
+  at?: readonly [number, number, number] | null;
 }
 
 /**
  * Where each blank's target sits, in the model's own frame turned to the
  * way it faces (`forward`, level): X to its left, Y up, Z ahead. A point is
  * where it says, from the spot the model stands on. A prop has no place in a
- * recipe, so the preview puts each in a slot in front of the model, within
- * reach of a hand, alternating sides.
+ * recipe: one the layout places (with the model) sits at its spot there, as
+ * the bake places it, and the others take a slot in front of the model,
+ * within reach of a hand, alternating sides. A placed prop still uses up its
+ * slot, as in the bake.
  */
 export function targetsOf(
   markers: readonly RecipeMarker[],
@@ -280,6 +287,11 @@ export function targetsOf(
       continue;
     }
     if (m.kind !== 'prop') continue;
+    if (m.at) {
+      out.set(m.id, new THREE.Vector3(m.at[0], m.at[1], m.at[2]));
+      slot += 1;
+      continue;
+    }
     const side = slot % 2 === 0 ? -1 : 1;
     const row = Math.floor(slot / 2);
     out.set(m.id, place(side * 0.22 * height, 0.65 * height, (0.18 + 0.1 * row) * height));

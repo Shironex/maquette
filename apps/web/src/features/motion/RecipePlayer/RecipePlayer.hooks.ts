@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { RecipeMarker } from '@/features/viewer/RecipePreview';
 import { blankFilled, num } from '@/state/recipe-draft';
 import type { ReachCheck } from '@/state/recipe-review';
+import { layoutSpot } from '@/features/viewer/recipe-layout';
 import { useAnimationsStore } from '@/state/use-animations-store';
+import { useLayoutStore } from '@/state/use-layout-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 
@@ -28,17 +30,27 @@ export function useRecipePlayer() {
   const length = num(editing?.doc.recipe.base.length, 1) || 1;
   const frames = editing?.doc.recipe.base.frames ?? 0;
   const blanks = editing?.draft.blanks;
+  const project = editing?.project ?? null;
+  const layout = useLayoutStore(s => (project && s.project === project ? s.view : null));
+  useEffect(() => {
+    const store = useLayoutStore.getState();
+    if (project && (store.project !== project || !store.view)) void store.load(project);
+  }, [project]);
   const markers = useMemo<RecipeMarker[]>(
     () =>
       (blanks ?? []).filter(blankFilled).map(b => ({
         id: b.id,
         kind: b.kind,
         point: b.point ? [num(b.point[0]), num(b.point[1]), num(b.point[2])] : null,
+        at:
+          b.kind === 'prop' && b.prop && layout && model
+            ? layoutSpot(layout, model.asset, b.prop)
+            : null,
       })),
-    [blanks]
+    [blanks, layout, model]
   );
   return {
-    project: editing?.project ?? null,
+    project,
     model: model ? { asset: model.asset, name: model.name, file: model.file } : null,
     clip: item ? { id: item.clip.id, name: item.clip.name, file: item.file } : null,
     layers: editing?.draft.layers ?? [],
