@@ -2,8 +2,8 @@
 //! blanks and changes, is refused a change that does not check out with the
 //! file left as it was, renames it, sees a base clip whose keys changed as
 //! a warning, sees a prop blank open again once its asset is gone and can
-//! still change the recipe, and is refused every recipe tool while the
-//! animation group is off. Everything happens in a temp workspace; no
+//! still change the recipe, and neither sees nor runs a recipe tool while
+//! the animation group is off. Everything happens in a temp workspace; no
 //! Blender runs.
 
 use maquette_core::project;
@@ -200,12 +200,20 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_recipe_tools_are_refused_while_the_animation_group_is_off() {
+async fn the_recipe_tools_are_hidden_and_refused_while_the_animation_group_is_off() {
     let dir = tempfile::tempdir().expect("temp dir");
     let (client, server, host) = serve(fixture(dir.path())).await;
     host.session
         .update_config(|c| c.agents.rules.tool_groups_off = vec!["animation".into()])
         .expect("save");
+    let listed: Vec<String> = client
+        .list_all_tools()
+        .await
+        .expect("tools")
+        .iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    assert!(listed.iter().any(|n| n == "list_projects"));
     for tool in [
         "list_recipes",
         "get_recipe",
@@ -218,6 +226,7 @@ async fn the_recipe_tools_are_refused_while_the_animation_group_is_off() {
             json!({ "project": PROJECT, "recipe": "x", "clip": "standing-dodge-left" }),
         )
         .await;
+        assert!(!listed.iter().any(|n| n == tool), "{tool} is listed");
         assert_eq!(refused.is_error, Some(true), "{tool}");
         let body: Value = serde_json::from_str(&text(&refused)).expect("json");
         assert_eq!(body["code"], "group-off", "{tool}");
