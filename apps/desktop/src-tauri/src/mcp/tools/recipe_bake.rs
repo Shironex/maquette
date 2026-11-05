@@ -39,6 +39,16 @@ fn bakes(host: &dyn Host) -> Result<&RecipeBakes, String> {
         .ok_or_else(|| "Recipe bakes are not available in this session.".to_string())
 }
 
+/// A bake as agents read it: the staged file's path is left out, since only
+/// a person's review adds it.
+fn shown(record: &RecipeBakeRecord) -> Value {
+    let mut value = to_value(record);
+    if let Some(result) = value.get_mut("result").and_then(Value::as_object_mut) {
+        result.remove("file");
+    }
+    value
+}
+
 /// What to do next with a bake, by how it stands.
 fn after(record: &RecipeBakeRecord) -> Vec<Value> {
     if record.running() {
@@ -66,7 +76,7 @@ impl McpTools {
 #[tool_router(router = recipe_bake_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Bake an animation recipe onto a rigged model of its project, in headless Blender, as the Motion view's Apply does: the base clip goes on through the retarget, then the recipe's changes are solved over it exactly (reach by IK to its target, look-at clamped to 80 degrees, nudge and wave eased in and out), into one new clip named after the recipe. It answers at once; follow it with get_recipe_bake. The model is staged in the workspace cache, never added to the project: a person reviews it and adds it as the next version in the app. A recipe with open blanks is refused (open-blanks) naming them. A bake of a Mixamo base counts as Mixamo's: it stays out of export packs and the clip library. One bake per recipe runs at a time; a new one replaces the staged one before it. Spends no credits."
+        description = "Bake an animation recipe onto a rigged model of its project, in headless Blender, as the Motion view's Apply does: the base clip goes on through the retarget, then the recipe's changes are solved over it exactly (reach by IK to its target, look-at clamped to 80 degrees, nudge and wave eased in and out), into one new clip named after the recipe. It answers at once; follow it with get_recipe_bake. The model is staged in the workspace cache, never added to the project: a person reviews it and adds it as the next version in the app. A recipe with open blanks is refused (open-blanks) naming them. A bake of a Mixamo base counts as Mixamo's: its model is marked, so export packs leave its clips out and save_model_clips skips its clip, and add_model_file refuses the staged file (staged-bake). One bake per recipe runs at a time; a new one replaces the staged one before it. Spends no credits."
     )]
     async fn bake_recipe(&self, Parameters(args): Parameters<BakeRecipeArgs>) -> Out {
         let found = self
@@ -97,14 +107,14 @@ impl McpTools {
                     RecipeBakeStarter::Agent,
                 )?;
                 let next = after(&record);
-                Ok(with_next(to_value(&record), next))
+                Ok(with_next(shown(&record), next))
             })
             .await;
         respond(found)
     }
 
     #[tool(
-        description = "Read a recipe's last bake, or bake null when it was never baked: its state (running, done, failed or cancelled), who started it, progress while it runs, why it stopped, and when done the result: the recipe version and base clip hash it was baked from, mixamo, the new clip's name and frames, the staged file, the facing read from the rig, the planted feet's worst slide in cm (and the base clip's own), the rig's worst stretch past a healthy skin in mm (and the base clip's), each reach's gap to its target in cm at its end (reached within 2 cm) and the first frame its elbow or knee flips, and the timings. Reads only.",
+        description = "Read a recipe's last bake, or bake null when it was never baked: its state (running, done, failed or cancelled), who started it, progress while it runs, why it stopped, and when done the result: the recipe version and base clip hash it was baked from, mixamo, the new clip's name and frames, the facing read from the rig, the planted feet's worst slide in cm (and the base clip's own), the rig's worst stretch past a healthy skin in mm (and the base clip's), each reach's gap to its target in cm at its end (reached within 2 cm) and the first frame its elbow or knee flips, and the timings. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe_bake(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {
@@ -119,7 +129,7 @@ impl McpTools {
                 Ok(match record {
                     Some(record) => {
                         let next = after(&record);
-                        with_next(json!({ "bake": to_value(&record) }), next)
+                        with_next(json!({ "bake": shown(&record) }), next)
                     }
                     None => with_next(
                         json!({ "bake": Value::Null }),
