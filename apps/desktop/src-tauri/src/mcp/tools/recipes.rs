@@ -97,6 +97,11 @@ pub struct UpdateRecipeArgs {
     pub changes: Option<Vec<ChangeArg>>,
     /// Every blank. Replaces them whole.
     pub blanks: Option<Vec<BlankArg>>,
+    /// The `edited` stamp get_recipe answered with. Given, a recipe that
+    /// changed since is refused (moved) and nothing is written.
+    pub expected: Option<String>,
+    /// Prop blank ids to empty for good, even when the asset they name is gone.
+    pub clear: Option<Vec<String>>,
 }
 
 fn layer_kind(given: &str) -> Result<LayerKind, ToolError> {
@@ -312,7 +317,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an animation recipe: a new name (the file and id stay), its changes, its blanks, or any of them. changes and blanks each replace the list whole, so read get_recipe first and send every entry you keep. A change without an id gets a free one. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, a reach or look-at aiming at a blank the recipe has, a nudge with a rotation or offset, a wave with cycles and amount, and a prop blank naming an asset of the project. When blanks is left out, the blanks stay as they are: a prop blank whose asset the project no longer has keeps its prop in the file (restoring the asset fills it again), reads as open, and warnings says which. A prop blank sent open whose stored prop is such a gone asset keeps it the same way. A name, changes and blanks land in one write. The revision does not move. Answers with the recipe as get_recipe reads it. Nothing is baked."
+        description = "Change an animation recipe: a new name (the file and id stay), its changes, its blanks, or any of them. changes and blanks each replace the list whole, so read get_recipe first and send every entry you keep. A change without an id gets a free one. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, a reach or look-at aiming at a blank the recipe has, a nudge with a rotation or offset, a wave with cycles and amount, and a prop blank naming an asset of the project. When blanks is left out, the blanks stay as they are: a prop blank whose asset the project no longer has keeps its prop in the file (restoring the asset fills it again), reads as open, and warnings says which. A prop blank sent open whose stored prop is such a gone asset keeps it the same way; name it in clear to empty it for good. Pass expected (the edited stamp get_recipe answered with) so a recipe a person or another agent changed since is refused with moved instead of overwritten; then read it again and resend. A name, changes and blanks land in one write. The revision does not move. Answers with the recipe as get_recipe reads it. Nothing is baked."
     )]
     async fn update_recipe(&self, Parameters(args): Parameters<UpdateRecipeArgs>) -> Out {
         let found = self
@@ -327,6 +332,8 @@ impl McpTools {
                         .blanks
                         .map(|b| b.into_iter().map(blank_of).collect::<Result<Vec<_>, _>>())
                         .transpose()?,
+                    expected: args.expected,
+                    clear: args.clear.unwrap_or_default(),
                 };
                 let doc = commands::update(host.session(), &args.project, &args.recipe, change)?;
                 host.recipe_changed(&args.project);

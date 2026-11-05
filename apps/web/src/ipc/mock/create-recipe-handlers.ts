@@ -13,6 +13,7 @@
 import type {
   AnimationClip,
   BaseMatch,
+  GoneProp,
   ProjectManifest,
   RecipeBlank,
   RecipeLayer,
@@ -34,6 +35,13 @@ interface RecipeContext {
 }
 
 const fileOf = (id: string) => `recipes/${id}.recipe.json`;
+
+/** Now, or a millisecond past `before` when the clock has not moved, as the core keeps each version's stamp new. */
+function stampAfter(before: string): string {
+  const now = clock.now();
+  const was = Date.parse(before);
+  return (now.getTime() > was ? now : new Date(was + 1)).toISOString();
+}
 
 const baseOf = (clip: AnimationClip): RecipeBase => ({
   name: clip.name,
@@ -164,20 +172,22 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   };
   const hasAsset = (project: string, id: string) =>
     (ctx.project(project).assets ?? []).some(a => a.id === id);
-  /** The recipe as read for `project`: gone props open, a warning each. */
-  const settled = (project: string, recipe: RecipeFile): [RecipeFile, string[]] => {
+  /** The recipe as read for `project`: gone props open, a warning and an entry each. */
+  const settled = (project: string, recipe: RecipeFile): [RecipeFile, string[], GoneProp[]] => {
     const warnings: string[] = [];
+    const gone: GoneProp[] = [];
     const blanks = recipe.blanks.map(b => {
       if (b.kind !== 'prop' || !b.prop || hasAsset(project, b.prop)) return b;
       warnings.push(
-        `The blank ${b.id} named ${b.prop}, which is no longer an asset of ${ctx.project(project).name}, so it is open again.`
+        `The blank ${b.id} names ${b.prop}, which is no longer an asset of ${ctx.project(project).name}, so it reads as open. The file keeps ${b.prop}: restoring the asset fills it again, and clearing the blank empties it for good.`
       );
+      gone.push({ blank: b.id, prop: b.prop });
       return { ...b, prop: null };
     });
-    return [{ ...recipe, blanks }, warnings];
+    return [{ ...recipe, blanks }, warnings, gone];
   };
   const doc = (project: string, id: string, stored: RecipeFile): RecipeDoc => {
-    const [recipe, warnings] = settled(project, stored);
+    const [recipe, warnings, gone] = settled(project, stored);
     const [base, clip] = matchBase(ctx.clips(), recipe.base);
     return {
       id,
@@ -186,6 +196,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       base,
       mixamo: recipe.base.mixamo || clip?.rig.kind === 'mixamo',
       warnings,
+      gone,
     };
   };
   const summary = (project: string, id: string, stored: RecipeFile): RecipeSummary => {
@@ -205,8 +216,16 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       problem: null,
     };
   };
-  /** Sent blanks checked against the project, a sent open blank keeping a gone prop. */
-  const blanksFor = (project: string, current: RecipeFile, sent: RecipeBlank[]) =>
+  /**
+   * Sent blanks checked against the project, a sent open blank keeping a
+   * gone prop unless `clear` names it.
+   */
+  const blanksFor = (
+    project: string,
+    current: RecipeFile,
+    sent: RecipeBlank[],
+    clear: readonly string[]
+  ) =>
     sent.map(b => {
       if (b.kind !== 'prop') return b;
       if (b.prop && !hasAsset(project, b.prop))
@@ -215,7 +234,8 @@ export function createRecipeHandlers(ctx: RecipeContext) {
           `The blank ${b.id} names ${b.prop}, which is not an asset of ${ctx.project(project).name}.`
         );
       const stored = current.blanks.find(c => c.id === b.id && c.kind === 'prop')?.prop;
-      return !b.prop && stored && !hasAsset(project, stored) ? { ...b, prop: stored } : b;
+      const keep = !b.prop && stored && !hasAsset(project, stored) && !clear.includes(b.id);
+      return keep ? { ...b, prop: stored } : b;
     });
   const freeId = (project: unknown, name: string) => {
     // A name with no letters or digits makes 'recipe', as the core makes it.
@@ -248,14 +268,25 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       return summary(String(project), String(id), recipe);
     },
     recipe_update: ({ project, id, change }: Args) => {
-      const { name, layers, blanks } = change as RecipeChange;
+      const { name, layers, blanks, expected, clear = [] } = change as RecipeChange;
       if (name != null) checkName(name);
       const current = existing(project, id);
+      if (expected != null && expected !== current.edited)
+        fail(
+          'moved',
+          `The recipe ${String(id)} changed since it was read (it was edited at ${current.edited}). Read it again and send the change once more.`
+        );
+      const kept = blanks
+        ? blanksFor(String(project), current, blanks, clear)
+        : current.blanks.map(b => (clear.includes(b.id) ? { ...b, prop: null } : b));
+      for (const c of clear)
+        if (!kept.some(b => b.id === c && b.kind === 'prop'))
+          fail('invalid', `The recipe has no prop blank ${c} to clear.`);
       const next: RecipeFile = {
         ...current,
         name: name?.trim() ?? current.name,
         layers: (layers ?? current.layers).map((l, i) => (l.id ? l : { ...l, id: `l-${i + 1}` })),
-        blanks: blanks ? blanksFor(String(project), current, blanks) : current.blanks,
+        blanks: kept,
       };
       const problems = checkDraft(next);
       const first = [
@@ -264,7 +295,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
         ...Object.values(problems.layers),
       ][0];
       if (first) fail('invalid', first);
-      const recipe = { ...next, edited: clock.now().toISOString() };
+      const recipe = { ...next, edited: stampAfter(current.edited) };
       recipes(project).set(String(id), recipe);
       return doc(String(project), String(id), recipe);
     },

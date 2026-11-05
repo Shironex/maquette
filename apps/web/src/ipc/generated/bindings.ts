@@ -3604,6 +3604,17 @@ export type GlbReport = {
 	vrm?: VrmReadiness | null,
 };
 
+/**
+ *  A prop blank whose asset the project no longer has: it reads as open,
+ *  and the file keeps the prop until the blank is cleared.
+ */
+export type GoneProp = {
+	/**  The blank's id. */
+	blank: string,
+	/**  The asset id it still names. */
+	prop: string,
+};
+
 /**  How many parts the semantic model looks for. */
 export type Granularity = "simple" | "balanced" | "detailed";
 
@@ -6504,6 +6515,17 @@ export type RecipeChange = {
 	name?: string | null,
 	layers: RecipeLayer[] | null,
 	blanks: RecipeBlank[] | null,
+	/**
+	 *  The `edited` stamp of the recipe as it was read. Given, a file
+	 *  that changed since is refused (code `moved`) and nothing is written.
+	 */
+	expected?: string | null,
+	/**
+	 *  Prop blanks to empty for good, even when the prop they name is no
+	 *  longer an asset (which a blank sent open otherwise keeps). A blank
+	 *  sent with a prop keeps that prop.
+	 */
+	clear?: string[],
 };
 
 /**
@@ -6527,10 +6549,12 @@ export type RecipeDoc = {
 	 */
 	mixamo: boolean,
 	/**
-	 *  Prop blanks that opened again because the project no longer has
-	 *  their asset, a line each.
+	 *  Prop blanks that read open because the project no longer has their
+	 *  asset, a line each.
 	 */
 	warnings: string[],
+	/**  The same blanks, each with the asset id the file still holds. */
+	gone: GoneProp[],
 };
 
 /**  `recipes/<id>.recipe.json`. */

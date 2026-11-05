@@ -128,6 +128,22 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
         (Some(id.as_str()), Some("Grab it"))
     );
     assert_eq!(renamed["revision"], 1);
+    let moved = call_error(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "name": "Mine",
+                "expected": kept["edited"] }),
+    )
+    .await;
+    assert!(moved.contains("changed since it was read"), "{moved}");
+    let fresh = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "name": "Grab it now",
+                "expected": renamed["edited"] }),
+    )
+    .await;
+    assert_eq!(fresh["name"], "Grab it now");
 
     let (root, _) = host.session.workspace().expect("ws");
     let meta = root.join("library/animations/standing-dodge-left/clip.json");
