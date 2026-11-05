@@ -609,3 +609,14 @@ fn a_long_name_still_leaves_room_for_a_number() {
     let (second, _) = create(dir.path(), &name, base()).expect("second");
     assert_eq!(second, format!("{first}-2"));
 }
+
+#[test]
+fn a_rename_answers_with_the_version_of_the_file_it_wrote() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let renamed = rename(dir.path(), &id, "Reach high").expect("rename");
+    assert!(!renamed.version.is_empty());
+    assert_eq!(renamed.version, version(dir.path(), &id).expect("version"));
+    let same = rename(dir.path(), &id, "Reach high").expect("same name");
+    assert_eq!(same.version, renamed.version, "nothing written, same version");
+}
