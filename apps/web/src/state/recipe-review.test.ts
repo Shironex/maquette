@@ -14,8 +14,8 @@ describe('the preview checks in words', () => {
       [hand, foot]
     );
     expect(lines).toEqual([
-      "Right hand (l-1) stops 5 cm short of its target at the reach's end.",
-      'Right hand (l-1): the elbow bends the other way than the clip has it.',
+      `Right hand (${hand.id}) stops 5 cm short of its target at the reach's end.`,
+      `Right hand (${hand.id}): the elbow bends the other way than the clip has it.`,
     ]);
     expect(checkLines([{ layer: foot.id, gap: 0, flipped: true }], [hand, foot])[0]).toMatch(
       /knee/

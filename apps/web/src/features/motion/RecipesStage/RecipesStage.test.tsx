@@ -67,7 +67,7 @@ describe('the recipes stage', () => {
     const list = await screen.findByRole('list', { name: 'Project recipes' });
     const look = within(list).getByText('Look around').closest('li')!;
     expect(look).toHaveTextContent('1 open blank');
-    expect(look).toHaveTextContent(/The blank torch named old-torch, which is no longer an asset/);
+    expect(look).toHaveTextContent(/The blank torch names old-torch, which is no longer an asset/);
   });
 
   it('opens a recipe in the editor and goes back to the list', async () => {
