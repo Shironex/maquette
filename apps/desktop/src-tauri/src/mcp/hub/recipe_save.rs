@@ -82,10 +82,18 @@ impl Hub {
             .cloned()
     }
 
-    /// The person saved the recipe in the sheet (approved): nothing waits
-    /// any more.
-    pub fn close_recipe_save(&self, project: &str, recipe: &str, decision: Decision) {
+    /// The person saved the recipe in the sheet, to library recipe
+    /// `saved_to` (none for a new one): nothing waits any more. It ends as
+    /// approved only when the save went where the agent asked; saved
+    /// elsewhere, the agent's ask ends as cancelled.
+    pub fn close_recipe_save(&self, project: &str, recipe: &str, saved_to: Option<&str>) {
         if let Some(found) = self.recipe_save_for(project, recipe) {
+            let asked = found.recipe_save.as_ref().map(|ask| ask.entry.as_deref());
+            let decision = if asked == Some(saved_to) {
+                Decision::Approved
+            } else {
+                Decision::Cancelled
+            };
             let by = DecidedBy::from(DecisionSource::RecipeSave);
             if let Err(err) = self.settle(&found.id, decision == Decision::Approved, decision, by) {
                 tracing::warn!(error = ?err, "could not close a recipe save approval");
@@ -123,7 +131,7 @@ mod tests {
             first,
             "one per recipe"
         );
-        hub.request_recipe_save(&plan("wave", None));
+        let second = hub.request_recipe_save(&plan("wave", None));
         let waiting = hub.approvals();
         assert_eq!(waiting.len(), 2);
         assert_eq!(waiting[0].kind, ApprovalKind::RecipeSave);
@@ -137,7 +145,7 @@ mod tests {
             "{:?}",
             waiting[0].detail
         );
-        hub.close_recipe_save("moon", "reach", Decision::Approved);
+        hub.close_recipe_save("moon", "reach", Some("reach"));
         assert!(hub.recipe_save_for("moon", "reach").is_none());
         assert!(
             hub.recipe_save_for("moon", "wave").is_some(),
@@ -147,6 +155,13 @@ mod tests {
             hub.wait_until(&first, || true),
             Some(true),
             "the waiter hears yes"
+        );
+        hub.close_recipe_save("moon", "wave", Some("reach"));
+        assert!(hub.recipe_save_for("moon", "wave").is_none());
+        assert_eq!(
+            hub.wait_until(&second, || true),
+            Some(false),
+            "saved elsewhere is not the agent's yes"
         );
     }
 }

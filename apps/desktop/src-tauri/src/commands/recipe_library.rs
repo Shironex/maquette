@@ -12,7 +12,6 @@ use maquette_core::animations::recipes::library::{
     self, ExportSource, LibraryRecipeDoc, LibraryRecipeEntry, LibraryRecipeSummary, RecipeCompare,
     RecipeExported, RecipeImported, RecipeSave, RecipeSavePlan, RecipeSaved, RecipeUsed, UseRecipe,
 };
-use maquette_core::providers::ledger::Decision;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt as _;
 use tauri_specta::Event as _;
@@ -160,7 +159,8 @@ pub fn recipe_library_compare(
 /// Saves a project's recipe to the library as the person confirmed it in
 /// the sheet: always a new revision, never an overwrite. An entry that
 /// moved since the sheet read it is refused (`moved`). An agent's proposal
-/// for this recipe ends as approved.
+/// for this recipe ends as approved when it went where the agent asked,
+/// and as cancelled when the person saved it elsewhere.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn recipe_library_save(
@@ -173,7 +173,7 @@ pub fn recipe_library_save(
     let saved = library::save_back(&root, &config.layout, &save)?;
     agents
         .hub
-        .close_recipe_save(&save.project, &save.recipe, Decision::Approved);
+        .close_recipe_save(&save.project, &save.recipe, save.entry.as_deref());
     changed(&app, Some(&save.project));
     Ok(saved)
 }
