@@ -191,6 +191,7 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
         (row["changes"].as_u64(), row["open"].as_u64()),
         (Some(3), Some(0))
     );
+    assert_eq!(row["version"], changed["version"], "{listed}");
     assert!(listed.get("next").is_none());
 
     let layout = host.session.workspace().expect("ws").1.layout;

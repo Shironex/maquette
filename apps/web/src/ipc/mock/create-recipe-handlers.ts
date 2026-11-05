@@ -220,6 +220,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       blanks: recipe.blanks.length,
       open: recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point)).length,
       edited: recipe.edited,
+      version: versionOf(stored),
       warnings,
       problem: null,
     };

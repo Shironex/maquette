@@ -43,6 +43,9 @@ pub struct RecipeSummary {
     pub warnings: Vec<String>,
     /// RFC 3339; empty when the file could not be read.
     pub edited: String,
+    /// A hash of the file's bytes, as get answers it, which a write or a
+    /// bake may send back as `expected`; empty when it could not be read.
+    pub version: String,
     /// Why the file could not be read, for a recipe that only lists.
     pub problem: Option<String>,
 }
@@ -126,6 +129,7 @@ fn summary(id: &str, read: &RecipeRead) -> RecipeSummary {
         blanks: count(recipe.blanks.len()),
         open: count(recipe.blanks.iter().filter(|b| !b.filled()).count()),
         edited: recipe.edited.clone(),
+        version: read.version.clone(),
         warnings: read.warnings.clone(),
         problem: None,
     }
@@ -143,6 +147,7 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         blanks: 0,
         open: 0,
         edited: String::new(),
+        version: String::new(),
         warnings: Vec::new(),
         problem: Some(problem),
     }

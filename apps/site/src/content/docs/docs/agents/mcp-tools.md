@@ -1172,7 +1172,7 @@ A model's last retarget review: each library clip baked onto it with its status,
 
 `read only`
 
-Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, and when it last changed. A prop blank whose asset the project no longer has counts as open, with a line in `warnings`. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
+Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, when it last changed and its `version` (send it as `expected` to `update_recipe` or `bake_recipe`). A prop blank whose asset the project no longer has counts as open, with a line in `warnings`. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
 
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |

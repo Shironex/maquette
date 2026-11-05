@@ -6754,6 +6754,11 @@ export type RecipeSummary = {
 	warnings: string[],
 	/**  RFC 3339; empty when the file could not be read. */
 	edited: string,
+	/**
+	 *  A hash of the file's bytes, as get answers it, which a write or a
+	 *  bake may send back as `expected`; empty when it could not be read.
+	 */
+	version: string,
 	/**  Why the file could not be read, for a recipe that only lists. */
 	problem: string | null,
 };
