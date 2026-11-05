@@ -619,8 +619,10 @@ group; each write ends in `Host::recipe_changed`, which emits `RecipeChanged`.
 A write that leaves the blanks out keeps them as stored, and a prop blank sent open whose stored prop
 is no longer an asset keeps that prop: only reads open it (`RecipeRead::gone` lists them), so
 restoring the asset fills it again, unless the write names the blank in `clear`. A write may carry
-`expected`, the `edited` stamp it read: the core compares it under the write lock and refuses a moved
-file with the code `moved`, writing nothing. Each write that changes a recipe gets a stamp of its own.
+`expected`, the `version` it read (`RecipeRead::version`, the first 16 hex digits of the SHA-256 of
+the file's bytes): the core compares it under the write lock and refuses a moved file with the code
+`moved`, writing nothing, so a hand edit or a sync that keeps `edited` is caught too. `update_recipe`
+refuses lists sent without it (`needs-version`); a name only update may leave it out.
 A change sent without an id gets the lowest free `l-N`; the editor gives the entries a person adds a
 random five character tail (`l-k3x9q`, `prop-...`) that has a letter, never reused, so the two never
 meet.
