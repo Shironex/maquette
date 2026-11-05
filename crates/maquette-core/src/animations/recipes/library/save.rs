@@ -43,6 +43,21 @@ pub struct RecipeSavePlan {
     pub same: bool,
 }
 
+/// What a library recipe's newest revision changes against a project's
+/// recipe that came from it, for the "library has a newer revision" note.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeCompare {
+    pub entry: String,
+    pub entry_name: String,
+    /// The revision the project's recipe came from or was saved as.
+    pub revision: u32,
+    /// The library's newest revision.
+    pub latest: u32,
+    /// What the newest revision changes against the project's recipe.
+    pub changes: Vec<String>,
+}
+
 /// A confirmed save back.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -70,9 +85,10 @@ pub struct RecipeSaved {
     pub linked: bool,
 }
 
-/// The same recipe for the library: name, base, blanks and changes.
+/// The same recipe for the library: nothing [`changes`] would list (the
+/// prop that fills a blank belongs to each project, so it does not count).
 fn same_content(a: &RecipeFile, b: &RecipeFile) -> bool {
-    a.name == b.name && a.base == b.base && a.blanks == b.blanks && a.layers == b.layers
+    changes(Some(a), b).is_empty()
 }
 
 fn on_disk(
@@ -127,6 +143,37 @@ pub fn plan_save(
     plan.changes = changes(Some(&newest), &file);
     plan.same = same_content(&newest, &file);
     Ok(plan)
+}
+
+/// What the newest revision of the library recipe that the recipe `recipe`
+/// of `project_id` came from changes against it.
+///
+/// # Errors
+///
+/// Fails for an unknown project or recipe, a recipe that came from no
+/// library recipe, or an entry that is gone or unreadable.
+pub fn compare(
+    root: &Path,
+    layout: &FolderLayout,
+    project_id: &str,
+    recipe: &str,
+) -> CoreResult<RecipeCompare> {
+    let (_, file, _) = on_disk(root, layout, project_id, recipe)?;
+    let Some(from) = &file.from else {
+        return Err(CoreError::Invalid(format!(
+            "{} came from no library recipe.",
+            file.name
+        )));
+    };
+    let (found, _) = load_entry(root, &from.entry)?;
+    let newest = read_revision(root, &found, None)?;
+    Ok(RecipeCompare {
+        entry: found.id.clone(),
+        entry_name: found.name.clone(),
+        revision: from.revision,
+        latest: newest.revision,
+        changes: changes(Some(&file), &newest),
+    })
 }
 
 /// Saves the recipe as the person confirmed: a new library recipe, or the

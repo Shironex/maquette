@@ -244,6 +244,11 @@ fn each_save_adds_a_revision_says_what_changed_and_never_reuses_a_number() {
     );
     assert_eq!(w.save(&plan).expect("r2").revision, 2);
 
+    let behind = compare(&w.root, &w.config.layout, &w.frost, "reach-out-2");
+    assert!(behind.is_err(), "no such recipe");
+    let current = compare(&w.root, &w.config.layout, &w.frost, "reach-out").expect("compare");
+    assert_eq!((current.revision, current.latest), (2, 2));
+    assert!(current.changes.is_empty(), "{:?}", current.changes);
     let entry = remove_revision(&w.root, "reach-out", 2, None).expect("remove r2");
     assert_eq!(entry.revisions.len(), 1);
     assert_eq!(entry.last_revision, 2, "r2 is never handed out again");
@@ -616,4 +621,35 @@ fn the_list_reads_every_entry_and_shows_a_broken_one_with_its_problem() {
         "a revision file is only rN.recipe.json"
     );
     assert!(get(&w.root, "../reach-out", None).is_err());
+}
+
+#[test]
+fn a_recipe_behind_the_library_reads_what_the_newer_revision_changes() {
+    let w = ws();
+    w.save(&w.plan(None)).expect("r1");
+    let used = use_recipe(
+        &w.root,
+        &w.config.layout,
+        &UseRecipe {
+            project: w.moon.clone(),
+            entry: "reach-out".into(),
+            revision: None,
+            name: None,
+        },
+    )
+    .expect("use");
+    w.change(vec![
+        layer("l-1", LayerKind::Reach, "rightHand", Some("lamp")),
+        layer("l-2", LayerKind::LookAt, "head", Some("gate")),
+    ]);
+    let plan = w.plan(Some("reach-out"));
+    assert!(!plan.same);
+    w.save(&plan).expect("r2");
+    let behind = compare(&w.root, &w.config.layout, &w.moon, &used.doc.id).expect("compare");
+    assert_eq!((behind.revision, behind.latest), (1, 2));
+    assert_eq!(behind.changes, ["Adds the look at on head (l-2)."]);
+    let made_here =
+        crate::animations::recipes::create(&w.root, &w.dir(&w.moon), "still", Some("Own"))
+            .expect("own");
+    assert!(compare(&w.root, &w.config.layout, &w.moon, &made_here.id).is_err());
 }

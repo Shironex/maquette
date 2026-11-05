@@ -1,6 +1,7 @@
 //! What a recipe changes against a library revision, in plain words, for
 //! the save back sheet: the name, the base clip, and each change and blank
-//! added, removed or edited (matched by id).
+//! added, removed or edited (matched by id). Which prop fills a prop blank
+//! is not counted, since asset ids belong to each project.
 
 use crate::recipes::{BlankKind, LayerKind, RecipeBlank, RecipeFile, RecipeLayer};
 
@@ -54,11 +55,12 @@ fn layer_edits(a: &RecipeLayer, b: &RecipeLayer) -> Vec<&'static str> {
     out
 }
 
+/// The fields of a blank that differ, by name. Which prop fills a prop
+/// blank is left out: asset ids belong to each project.
 fn blank_edits(a: &RecipeBlank, b: &RecipeBlank) -> Vec<&'static str> {
-    let pairs: [(&'static str, bool); 4] = [
+    let pairs: [(&'static str, bool); 3] = [
         ("label", a.label != b.label),
         ("kind", a.kind != b.kind),
-        ("prop", a.prop != b.prop),
         ("point", a.point != b.point),
     ];
     pairs

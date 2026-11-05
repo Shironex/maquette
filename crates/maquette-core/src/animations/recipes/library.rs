@@ -41,7 +41,9 @@ mod use_in;
 
 pub use diff::changes;
 pub use remove::{REMOVED_DIR, remove_entry, remove_revision};
-pub use save::{RecipeSave, RecipeSavePlan, RecipeSaved, plan_save, save_back};
+pub use save::{
+    RecipeCompare, RecipeSave, RecipeSavePlan, RecipeSaved, compare, plan_save, save_back,
+};
 pub use transfer::{
     AGENT_EXPORTS, ExportSource, RecipeExported, RecipeImported, agent_export_path,
     agent_import_path, export, export_text, import_to_library, import_to_project, read_import,
