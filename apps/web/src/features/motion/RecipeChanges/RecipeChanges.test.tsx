@@ -28,8 +28,10 @@ describe('the recipe changes', () => {
     await userEvent.selectOptions(screen.getByLabelText('Kind of change'), 'nudge');
     await userEvent.click(screen.getByRole('button', { name: 'Add change' }));
     const draft = useRecipeEditorStore.getState().editing?.draft;
-    expect(draft?.layers.at(-1)).toMatchObject({ id: 'l-4', kind: 'nudge', bone: 'spine' });
-    expect(screen.getByRole('group', { name: 'Change l-4 settings' })).toBeVisible();
+    const added = draft?.layers.at(-1);
+    expect(added).toMatchObject({ kind: 'nudge', bone: 'spine' });
+    expect(added?.id).toMatch(/^l-[a-z0-9]{5}$/);
+    expect(screen.getByRole('group', { name: `Change ${added?.id} settings` })).toBeVisible();
   });
 
   it('marks a change the core would refuse on its row', async () => {

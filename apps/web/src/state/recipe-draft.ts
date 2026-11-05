@@ -48,9 +48,27 @@ export const sameDraft = (a: RecipeDraft, b: RecipeDraft) => deepEqual(a, b);
 export const num = (v: number | null | undefined, or = 0) =>
   typeof v === 'number' && Number.isFinite(v) ? v : or;
 
-/** A free id: `prefix-1`, `prefix-2` and on. */
-export function freeId(prefix: string, taken: readonly string[]): string {
-  for (let n = 1; ; n += 1) if (!taken.includes(`${prefix}-${n}`)) return `${prefix}-${n}`;
+const ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+/** Every id the editor handed out, so one never comes back after its entry is removed. */
+const issued = new Set<string>();
+
+/**
+ * A fresh id for an entry made in the editor: `prefix-` and five random
+ * letters and digits, at least one a letter. The core numbers the changes
+ * it fills in (`l-3`), so the two never meet, and an agent picking the same
+ * id at the same time is all but impossible (and merges as two additions).
+ * No id is handed out twice.
+ */
+export function freeId(prefix: string, taken: readonly string[], random = Math.random): string {
+  for (;;) {
+    let tail = '';
+    for (let i = 0; i < 5; i += 1) tail += ID_CHARS[Math.floor(random() * ID_CHARS.length)];
+    const id = `${prefix}-${tail}`;
+    if (/[a-z]/.test(tail) && !taken.includes(id) && !issued.has(id)) {
+      issued.add(id);
+      return id;
+    }
+  }
 }
 
 /** `settings` with only what `kind` reads, the rest filled with a starting value. */

@@ -24,7 +24,8 @@ const lantern: RecipeBlank = {
 describe('recipe drafts', () => {
   it('starts a change on its kind with what the kind reads and a free id', () => {
     const reach = newLayer('reach', [], [lantern]);
-    expect(reach).toMatchObject({ id: 'l-1', bone: 'rightHand' });
+    expect(reach.id).toMatch(/^l-[a-z0-9]{5}$/);
+    expect(reach.bone).toBe('rightHand');
     expect(reach.settings).toMatchObject({
       target: 'lantern',
       start: 0.25,
@@ -32,7 +33,7 @@ describe('recipe drafts', () => {
       rotation: null,
     });
     const wave = newLayer('wave', [reach], []);
-    expect(wave.id).toBe('l-2');
+    expect(wave.id).not.toBe(reach.id);
     expect(wave.settings).toMatchObject({ cycles: 3, amount: 30, target: null });
     expect(newLayer('nudge', [], []).settings.rotation).toEqual([0, 0, 0]);
   });
@@ -47,13 +48,27 @@ describe('recipe drafts', () => {
 
   it('adds open blanks, switches their kind and removes one with what aimed at it', () => {
     const point = newBlank('point', [lantern]);
-    expect(point).toMatchObject({ id: 'point-1', kind: 'point', point: null });
+    expect(point).toMatchObject({ kind: 'point', point: null });
+    expect(point.id).toMatch(/^point-[a-z0-9]{5}$/);
     expect(withBlankKind(lantern, 'point')).toMatchObject({ prop: null, point: null });
     const reach = newLayer('reach', [], [lantern]);
     const left = withoutBlank({ layers: [reach], blanks: [lantern, point] }, 'lantern');
     expect(left.blanks).toEqual([point]);
     expect(left.layers[0]!.settings.target).toBeNull();
-    expect(freeId('l', ['l-1', 'l-3'])).toBe('l-2');
+  });
+
+  it('hands out ids that never look like the numbered ones of the core and never come back', () => {
+    // Digits only first (as the core numbers), then a taken id, then a fresh one.
+    const rolls = [...'11111', ...'abcde', ...'abcde', ...'fghij'].map(
+      c => ('abcdefghijklmnopqrstuvwxyz0123456789'.indexOf(c) + 0.5) / 36
+    );
+    const random = () => rolls.shift() ?? 0.5;
+    expect(freeId('l', ['l-abcde'], random)).toBe('l-fghij');
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i += 1) seen.add(freeId('l', []));
+    expect(seen.size).toBe(200);
+    const removed = freeId('prop', []);
+    for (let i = 0; i < 200; i += 1) expect(freeId('prop', [])).not.toBe(removed);
   });
 
   it('turns shares into frames and says each change and fill in words', () => {

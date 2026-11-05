@@ -2,10 +2,12 @@
  * A recipe changed outside (an agent's update_recipe) while the editor holds
  * unsaved edits: the three versions are merged change by change and blank by
  * blank, by id. What only one side touched comes through; what both changed
- * differently is a clash, answered Keep mine or Use theirs.
+ * differently is a clash, answered Keep mine or Use theirs. An id both
+ * sides added with different entries is two additions, never a clash: the
+ * person's gets a fresh id (and the changes aiming at a renamed blank follow).
  */
 import { deepEqual } from '@/lib/deepEqual';
-import type { RecipeDraft } from './recipe-draft';
+import { freeId, type RecipeDraft } from './recipe-draft';
 
 interface Keyed {
   id: string;
@@ -56,8 +58,45 @@ export interface DraftMerge {
   clashes: string[];
 }
 
+/** Fresh ids for the entries of `mine` that `theirs` added under the same id with something else. */
+function renames<T extends Keyed>(
+  base: T[],
+  mine: T[],
+  theirs: T[],
+  prefix: (item: T) => string
+): Map<string, string> {
+  const taken = [...base, ...mine, ...theirs].map(i => i.id);
+  const out = new Map<string, string>();
+  for (const m of mine) {
+    const t = theirs.find(i => i.id === m.id);
+    if (t && !base.some(i => i.id === m.id) && !deepEqual(m, t))
+      out.set(m.id, freeId(prefix(m), taken));
+  }
+  return out;
+}
+
+/** `mine` with the ids both sides added kept apart. */
+function apart(base: RecipeDraft, mine: RecipeDraft, theirs: RecipeDraft): RecipeDraft {
+  const blankIds = renames(base.blanks, mine.blanks, theirs.blanks, b => b.kind);
+  const layerIds = renames(base.layers, mine.layers, theirs.layers, () => 'l');
+  if (!blankIds.size && !layerIds.size) return mine;
+  return {
+    blanks: mine.blanks.map(b => ({ ...b, id: blankIds.get(b.id) ?? b.id })),
+    layers: mine.layers.map(l => {
+      const target = l.settings.target;
+      const aim = target ? (blankIds.get(target) ?? target) : target;
+      return { ...l, id: layerIds.get(l.id) ?? l.id, settings: { ...l.settings, target: aim } };
+    }),
+  };
+}
+
 /** Lays the outside change from `base` to `theirs` over the person's `mine`. */
-export function mergeDrafts(base: RecipeDraft, mine: RecipeDraft, theirs: RecipeDraft): DraftMerge {
+export function mergeDrafts(
+  base: RecipeDraft,
+  ownDraft: RecipeDraft,
+  theirs: RecipeDraft
+): DraftMerge {
+  const mine = apart(base, ownDraft, theirs);
   const layers = mergeList(base.layers, mine.layers, theirs.layers);
   const blanks = mergeList(base.blanks, mine.blanks, theirs.blanks);
   return {

@@ -10,7 +10,7 @@ const blank = (id: string, prop: string | null = null): RecipeBlank => ({
   prop,
   point: null,
 });
-const reach = newLayer('reach', [], [blank('lantern')]);
+const reach = { ...newLayer('reach', [], [blank('lantern')]), id: 'l-1' };
 const wave = { ...newLayer('wave', [reach], []), id: 'l-2' };
 const base: RecipeDraft = { layers: [reach, wave], blanks: [blank('lantern')] };
 
@@ -49,5 +49,37 @@ describe('merging an outside change', () => {
     expect(merged.clashes).toEqual(['blank lantern']);
     expect(merged.mine.blanks).toEqual([]);
     expect(merged.theirs.blanks[0]!.prop).toBe('lantern-post');
+  });
+
+  it('keeps an id both sides added with different entries as two additions, never a clash', () => {
+    const torch = { ...blank('prop-k3x9q', 'torch'), label: 'Mine' };
+    const mineAim = { ...reach, id: 'l-k3x9q', settings: { ...reach.settings, target: torch.id } };
+    const mine = { layers: [...base.layers, mineAim], blanks: [...base.blanks, torch] };
+    const theirsAim = { ...wave, id: 'l-k3x9q' };
+    const theirs = {
+      layers: [...base.layers, theirsAim],
+      blanks: [...base.blanks, { ...torch, label: 'Theirs', prop: 'barrel' }],
+    };
+    const merged = mergeDrafts(base, mine, theirs);
+    expect(merged.clashes).toEqual([]);
+    expect(merged.mine).toEqual(merged.theirs);
+    const ids = merged.mine.blanks.map(b => b.id);
+    expect(ids).toHaveLength(3);
+    expect(merged.mine.blanks.find(b => b.id === 'prop-k3x9q')?.label).toBe('Theirs');
+    const renamed = merged.mine.blanks.find(b => b.label === 'Mine');
+    expect(renamed?.id).toMatch(/^prop-[a-z0-9]{5}$/);
+    expect(renamed?.id).not.toBe('prop-k3x9q');
+    expect(merged.mine.layers).toHaveLength(4);
+    const aim = merged.mine.layers.find(l => l.kind === 'reach' && l.id !== 'l-1');
+    expect(aim?.id).not.toBe('l-k3x9q');
+    expect(aim?.settings.target).toBe(renamed?.id);
+  });
+
+  it('takes an id both sides added with the same entry once', () => {
+    const torch = blank('prop-k3x9q', 'torch');
+    const both = { ...base, blanks: [...base.blanks, torch] };
+    const merged = mergeDrafts(base, both, both);
+    expect(merged.clashes).toEqual([]);
+    expect(merged.mine.blanks.map(b => b.id)).toEqual(['lantern', 'prop-k3x9q']);
   });
 });
