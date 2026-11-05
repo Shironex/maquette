@@ -57,7 +57,7 @@ export default function RecipeBlankForm({ id }: { id: string }) {
         <>
           <div className="flex gap-2">{point}</div>
           <p className="text-meta text-fg-mute">
-            Metres from where the model stands, Y up; the model faces +Z.
+            Metres from where the model stands: X to its left, Y up, Z the way it faces.
           </p>
         </>
       )}

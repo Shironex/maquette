@@ -4,8 +4,16 @@
  * stands at rest, then each frame every mapped bone takes its clip bone's
  * world rotation against that bone's rest, and the hips also move, scaled by
  * the hips height. The bake in Blender is the exact one.
+ *
+ * It works in world space and assumes the model faces the way the clip's
+ * skeleton does: a model facing +X under a +Z clip has its limbs turned to
+ * the clip's world directions (an arm out to its side swings round to point
+ * where it faces) and its hips moved along the clip's world axes.
  */
 import * as THREE from 'three';
+
+/** Poses the model at a time of the clip; `stop` stops and uncaches its mixer. */
+export type RoughPose = ((time: number) => void) & { stop: () => void };
 
 export interface RoughPair {
   bone: string;
@@ -56,7 +64,7 @@ export function roughRetarget(
   model: THREE.Object3D,
   clip: THREE.AnimationClip,
   pairs: readonly RoughPair[]
-): ((time: number) => void) | null {
+): RoughPose | null {
   skeleton.updateWorldMatrix(true, true);
   model.updateWorldMatrix(true, true);
   const found = pairs.flatMap(p => {
@@ -90,7 +98,11 @@ export function roughRetarget(
   const mixer = new THREE.AnimationMixer(skeleton);
   mixer.clipAction(clip).play();
   const delta = new THREE.Quaternion();
-  return time => {
+  const stop = () => {
+    mixer.stopAllAction();
+    mixer.uncacheRoot(skeleton);
+  };
+  const pose = (time: number) => {
     mixer.setTime(time);
     skeleton.updateWorldMatrix(true, true);
     for (const d of drives) {
@@ -103,4 +115,5 @@ export function roughRetarget(
     hips.target.position.copy(hips.target.parent?.worldToLocal(world) ?? world);
     hips.target.updateWorldMatrix(false, true);
   };
+  return Object.assign(pose, { stop });
 }

@@ -208,6 +208,29 @@ export function bendOf(root: THREE.Vector3, mid: THREE.Vector3, end: THREE.Vecto
 
 export { positionOf as worldPosition };
 
+const UP = new THREE.Vector3(0, 1, 0);
+
+/**
+ * The way a model faces, level, read from its rig: up crossed with the line
+ * from its left upper arm to its right one (or its upper legs), so a model
+ * that faces +X is read as facing +X. +Z, as VRM faces, when neither pair is
+ * there or the pair lines up with up.
+ */
+export function rigForward(bone: (vrm: string) => THREE.Object3D | undefined): THREE.Vector3 {
+  for (const [left, right] of [
+    ['leftUpperArm', 'rightUpperArm'],
+    ['leftUpperLeg', 'rightUpperLeg'],
+  ] as const) {
+    const l = bone(left);
+    const r = bone(right);
+    if (!l || !r) continue;
+    const across = positionOf(r).sub(positionOf(l));
+    const forward = new THREE.Vector3().crossVectors(UP, across).setY(0);
+    if (forward.lengthSq() > 1e-8) return forward.normalize();
+  }
+  return new THREE.Vector3(0, 0, 1);
+}
+
 /** A blank as the preview places it: a point where it says, a prop in a slot in front. */
 export interface RecipeMarker {
   id: string;
@@ -217,25 +240,32 @@ export interface RecipeMarker {
 }
 
 /**
- * Where each blank's target sits. A point is where it says, from the spot
- * the model stands on. A prop has no place in a recipe, so the preview puts
- * each in a slot in front of the model, within reach of a hand, alternating sides.
+ * Where each blank's target sits, in the model's own frame turned to the
+ * way it faces (`forward`, level): X to its left, Y up, Z ahead. A point is
+ * where it says, from the spot the model stands on. A prop has no place in a
+ * recipe, so the preview puts each in a slot in front of the model, within
+ * reach of a hand, alternating sides.
  */
-export function targetsOf(markers: readonly RecipeMarker[], height: number) {
+export function targetsOf(
+  markers: readonly RecipeMarker[],
+  height: number,
+  forward: THREE.Vector3 = new THREE.Vector3(0, 0, 1)
+) {
+  const ahead = forward.clone().setY(0).normalize();
+  const left = new THREE.Vector3().crossVectors(UP, ahead);
+  const place = (x: number, y: number, z: number) =>
+    new THREE.Vector3().addScaledVector(left, x).addScaledVector(UP, y).addScaledVector(ahead, z);
   const out = new Map<string, THREE.Vector3>();
   let slot = 0;
   for (const m of markers) {
     if (m.point) {
-      out.set(m.id, new THREE.Vector3(m.point[0], m.point[1], m.point[2]));
+      out.set(m.id, place(m.point[0], m.point[1], m.point[2]));
       continue;
     }
     if (m.kind !== 'prop') continue;
     const side = slot % 2 === 0 ? -1 : 1;
     const row = Math.floor(slot / 2);
-    out.set(
-      m.id,
-      new THREE.Vector3(side * 0.22 * height, 0.65 * height, (0.18 + 0.1 * row) * height)
-    );
+    out.set(m.id, place(side * 0.22 * height, 0.65 * height, (0.18 + 0.1 * row) * height));
     slot += 1;
   }
   return out;

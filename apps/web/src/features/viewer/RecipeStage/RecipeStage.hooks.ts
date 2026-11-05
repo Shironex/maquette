@@ -5,7 +5,13 @@ import type { RecipeLayer } from '@/ipc/client';
 import { LOOK_BONES, limbOf, mixamoName } from '@/state/recipe-bones';
 import type { ReachCheck } from '@/state/recipe-review';
 import { checkReaches } from '../check-reaches';
-import { poseRecipe, targetsOf, type RecipeMarker, type RecipeRig } from '../recipe-pose';
+import {
+  poseRecipe,
+  rigForward,
+  targetsOf,
+  type RecipeMarker,
+  type RecipeRig,
+} from '../recipe-pose';
 import { roughRetarget, type RoughPair } from '../rough-retarget';
 import type { LoadedMotion } from '../MotionStage/Scene/Scene.types';
 
@@ -14,9 +20,40 @@ export interface RecipeSetup {
   rig: RecipeRig;
   /** Puts the clip's pose at `share` back on the model, with no change laid over. */
   frameAt: (share: number) => void;
+  /** Stops the clip's mixer and puts the model and skeleton back as they came. */
+  stop: () => void;
 }
 
 const rotationOf = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());
+
+type Snapshot = (readonly [THREE.Object3D, THREE.Vector3, THREE.Quaternion])[];
+
+/** Each loaded scene's bones as they came, taken the first time it is set up, before any pose. */
+const asLoaded = new WeakMap<THREE.Object3D, Snapshot>();
+
+/** The bones under `root` as they stand; the scene itself is left to the framing. */
+function take(root: THREE.Object3D): Snapshot {
+  const out: Snapshot = [];
+  root.traverse(o => {
+    if (o instanceof THREE.Bone) out.push([o, o.position.clone(), o.quaternion.clone()] as const);
+  });
+  return out;
+}
+
+function put(snapshot: Snapshot) {
+  for (const [o, position, quaternion] of snapshot) {
+    o.position.copy(position);
+    o.quaternion.copy(quaternion);
+  }
+}
+
+/** Puts `root` back as it came, remembering that the first time it is seen. */
+function unposed(root: THREE.Object3D) {
+  const known = asLoaded.get(root);
+  if (known) put(known);
+  else asLoaded.set(root, take(root));
+  root.updateWorldMatrix(true, true);
+}
 
 function setUp(
   model: LoadedMotion,
@@ -25,10 +62,9 @@ function setUp(
 ): RecipeSetup | null {
   const clip = skeleton.clips[0];
   if (!clip) return null;
-  const pose = roughRetarget(skeleton.scene, model.scene, clip, pairs);
-  if (!pose) return null;
-  // Every frame starts from the lined up rest, so a nudge's move never adds up.
-  const rest = model.bones.map(b => [b, b.position.clone(), b.quaternion.clone()] as const);
+  // A model or clip set up before (another clip, the same model) starts again as it came.
+  unposed(model.scene);
+  unposed(skeleton.scene);
   const bone = (vrm: string) => {
     const name = mixamoName(vrm);
     const target = pairs.find(p => p.bone === name)?.target;
@@ -36,7 +72,12 @@ function setUp(
       ? model.scene.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(target))
       : undefined;
   };
-  const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(rotationOf(model.scene)).normalize();
+  // Read from the rig as it came, before the retarget lines its limbs up.
+  const forward = rigForward(bone);
+  const pose = roughRetarget(skeleton.scene, model.scene, clip, pairs);
+  if (!pose) return null;
+  // Every frame starts from the lined up rest, so a nudge's move never adds up.
+  const rest = take(model.scene);
   const facings = new Map<THREE.Object3D, THREE.Vector3>();
   for (const vrm of LOOK_BONES) {
     const b = bone(vrm);
@@ -56,12 +97,14 @@ function setUp(
   return {
     rig,
     frameAt: share => {
-      for (const [b, position, quaternion] of rest) {
-        b.position.copy(position);
-        b.quaternion.copy(quaternion);
-      }
+      put(rest);
       model.scene.updateWorldMatrix(true, true);
       pose(share * clip.duration);
+    },
+    stop: () => {
+      pose.stop();
+      unposed(model.scene);
+      unposed(skeleton.scene);
     },
   };
 }
@@ -74,16 +117,29 @@ export function useRecipeSetup(
 ): RecipeSetup | null {
   const [setup, setSetup] = useState<RecipeSetup | null>(null);
   useEffect(() => {
-    setSetup(model && skeleton ? setUp(model, skeleton, pairs) : null);
+    const next = model && skeleton ? setUp(model, skeleton, pairs) : null;
+    setSetup(next);
+    return () => next?.stop();
   }, [model, skeleton, pairs]);
   return setup;
 }
 
-/** Where each blank's target sits, from the model's height once it is framed. */
-export function useTargets(markers: readonly RecipeMarker[], box: THREE.Box3 | null) {
+/**
+ * Where each blank's target sits, from the model's height once it is framed
+ * and the way its rig faces (+Z until it is set up).
+ */
+export function useTargets(
+  markers: readonly RecipeMarker[],
+  box: THREE.Box3 | null,
+  forward: THREE.Vector3 | null
+) {
   const key = JSON.stringify(markers);
   const height = box ? box.max.y - box.min.y : 0;
-  return useMemo(() => targetsOf(JSON.parse(key) as RecipeMarker[], height || 1.7), [key, height]);
+  const [x, z] = forward ? [forward.x, forward.z] : [0, 1];
+  return useMemo(
+    () => targetsOf(JSON.parse(key) as RecipeMarker[], height || 1.7, new THREE.Vector3(x, 0, z)),
+    [key, height, x, z]
+  );
 }
 
 /**

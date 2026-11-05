@@ -63,7 +63,7 @@ function Scene(props: SceneProps) {
   const framing = useFraming(model, undefined);
   const rig = useStudioRig(framing);
   const setup = useRecipeSetup(model, skeleton, pairs);
-  const targets = useTargets(markers, framing?.box ?? null);
+  const targets = useTargets(markers, framing?.box ?? null, setup?.rig.forward ?? null);
   useRecipeFrame(setup, layers, targets, props, onChecks);
   return (
     <>
