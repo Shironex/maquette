@@ -1170,7 +1170,7 @@ A model's last retarget review: each library clip baked onto it with its status,
 
 `read only`
 
-Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, and when it last changed. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
+Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, and when it last changed. A prop blank whose asset the project no longer has counts as open, with a line in `warnings`. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
 
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |
@@ -1180,7 +1180,7 @@ Lists a project's [animation recipes](/docs/views/motion/#recipes), one file eac
 
 `read only`
 
-Reads one recipe: its name, `revision`, and `base` with the clip's name, frames, seconds and hash, plus `library`: `found`, `hash-differs` or `missing`, as matched in this computer's animation library by name and frame count, with the matching `clip` id and a `warning` when the match is not exact. A different hash is only a warning: the clip may have been imported again. `mixamo` says a bake will count as Mixamo's (kept out of export packs and never saved to the clip library); the recipe file itself stays shareable. Then its `blanks` (targets filled per project) and its `changes` in the order they are laid over the clip.
+Reads one recipe: its name, `revision`, and `base` with the clip's name, frames, seconds and hash, plus `library`: `found`, `hash-differs` or `missing`, as matched in this computer's animation library by name and frame count, with the matching `clip` id and a `warning` when the match is not exact. A different hash is only a warning: the clip may have been imported again. `mixamo` says a bake will count as Mixamo's (kept out of export packs and never saved to the clip library); the recipe file itself stays shareable. Then its `blanks` (targets filled per project) and its `changes` in the order they are laid over the clip. A prop blank whose asset the project no longer has (removed, or a recipe synced in from another computer) reads as open, with a line in `warnings`.
 
 | Parameter | Type   | Required | Notes                                      |
 | --------- | ------ | -------- | ------------------------------------------ |
@@ -1203,7 +1203,7 @@ Makes a recipe on a clip of the animation library, as the Recipes tab in the Mot
 
 `changes the project`
 
-Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked before anything is written, and the revision does not move. Answers with the recipe as `get_recipe` reads it.
+Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, a prop blank whose asset is gone is opened in the same write instead of refusing the change, and `warnings` says which. Answers with the recipe as `get_recipe` reads it.
 
 A change is `{ id?, kind, bone, weight?, start?, end?, target?, rotation?, offset?, cycles?, amount? }`. Bones are VRM humanoid names. `start` and `end` are shares of the clip from 0 to 1, and `weight` is 0 to 1 (1 by default).
 
