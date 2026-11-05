@@ -128,6 +128,26 @@ pub fn record(project_dir: &Path, asset: &str, bake: RecipeBakeUse) -> CoreResul
     write_json(&project_dir.join(BAKES_FILE), &file)
 }
 
+/// Records every bake in `bakes` on `asset`, oldest first, after the ones
+/// it has. Nothing to record writes nothing.
+///
+/// # Errors
+///
+/// Fails when the record cannot be read or written.
+pub fn record_all(project_dir: &Path, asset: &str, bakes: Vec<RecipeBakeUse>) -> CoreResult<()> {
+    if bakes.is_empty() {
+        return Ok(());
+    }
+    let _turn = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut file = load(project_dir)?;
+    file.version = BAKES_VERSION;
+    file.assets
+        .entry(asset.to_string())
+        .or_default()
+        .extend(bakes);
+    write_json(&project_dir.join(BAKES_FILE), &file)
+}
+
 /// Records the bake the model at `file` carries, when it carries one, as
 /// `version` of `asset`. Every route that brings a model file in as a
 /// version calls this, so the bake outlives a later step that drops the

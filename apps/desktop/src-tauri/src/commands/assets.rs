@@ -1,6 +1,6 @@
 //! The asset registry on the Board: add an asset, move it between stages.
 
-use maquette_core::assets::copy::{self, CopiedAsset};
+use maquette_core::assets::copy::CopiedAsset;
 use maquette_core::providers::ProviderJobs;
 use maquette_core::{NewAsset, ProjectManifest, Stage, assets, project};
 use tauri::State;
@@ -106,7 +106,14 @@ pub(crate) fn copy_to(
         .flat_map(|j| j.images)
         .collect();
     sent.dedup();
-    let copied = copy::copy_to_project(&root, &config.layout, project_id, id, to, &sent)?;
+    let copied = maquette_core::animations::copy::copy_to_project(
+        &root,
+        &config.layout,
+        project_id,
+        id,
+        to,
+        &sent,
+    )?;
     jobs.copy_records(project_id, id, to, &copied.asset, &copied.refs);
     Ok(copied)
 }
