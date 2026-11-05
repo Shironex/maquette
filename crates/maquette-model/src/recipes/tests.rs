@@ -609,3 +609,81 @@ fn a_long_name_still_leaves_room_for_a_number() {
     let (second, _) = create(dir.path(), &name, base()).expect("second");
     assert_eq!(second, format!("{first}-2"));
 }
+
+#[test]
+fn a_rename_answers_with_the_version_of_the_file_it_wrote() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let renamed = rename(dir.path(), &id, "Reach high").expect("rename");
+    assert!(!renamed.version.is_empty());
+    assert_eq!(renamed.version, version(dir.path(), &id).expect("version"));
+    let same = rename(dir.path(), &id, "Reach high").expect("same name");
+    assert_eq!(
+        same.version, renamed.version,
+        "nothing written, same version"
+    );
+}
+
+#[test]
+fn a_whole_recipe_lands_under_a_free_id_and_keeps_its_library_link() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let mut recipe = RecipeFile::new("Reach for the lantern", base());
+    recipe.from = Some(RecipeFrom {
+        entry: "reach".into(),
+        uid: "0123456789abcdef".into(),
+        revision: 2,
+    });
+    recipe.revision = 2;
+    let (copy, written, version_now) =
+        create_whole(dir.path(), &recipe, Some("../Reach for the lantern")).expect("copy");
+    assert_ne!(copy, id, "a clash takes a fresh id");
+    assert!(copy.starts_with("reach-for-the-lantern-"), "{copy}");
+    assert_eq!(written.from.as_ref().map(|f| f.revision), Some(2));
+    assert_eq!(version_now, version(dir.path(), &copy).expect("version"));
+    let listed = list(dir.path(), &lantern_project()).expect("list");
+    let line = listed.iter().find(|r| r.id == copy).expect("listed");
+    assert_eq!(line.from.as_ref().map(|f| f.entry.as_str()), Some("reach"));
+}
+
+#[test]
+fn a_link_moves_the_revision_and_refuses_a_recipe_that_moved() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let read = version(dir.path(), &id).expect("version");
+    let from = RecipeFrom {
+        entry: "reach".into(),
+        uid: "0123456789abcdef".into(),
+        revision: 3,
+    };
+    let after = link(dir.path(), &id, from.clone(), Some(&read)).expect("link");
+    let recipe = load_file(&path(dir.path(), &id).expect("path")).expect("load");
+    assert_eq!(recipe.revision, 3);
+    assert_eq!(recipe.from, Some(from.clone()));
+    let refused = link(dir.path(), &id, from, Some(&read)).expect_err("moved");
+    assert!(matches!(refused, CoreError::Moved(_)), "{refused:?}");
+    assert_eq!(version(dir.path(), &id).expect("version"), after);
+}
+
+#[test]
+fn a_library_link_that_cannot_be_one_is_refused() {
+    let mut recipe = RecipeFile::new("Reach", base());
+    recipe.from = Some(RecipeFrom {
+        entry: "../up".into(),
+        uid: "0123456789abcdef".into(),
+        revision: 1,
+    });
+    assert!(validate(&recipe).is_err());
+    recipe.from = Some(RecipeFrom {
+        entry: "reach".into(),
+        uid: "0123456789abcdef".into(),
+        revision: 0,
+    });
+    assert!(validate(&recipe).is_err());
+    recipe.from = Some(RecipeFrom {
+        entry: "reach".into(),
+        uid: "../NOT-HEX".into(),
+        revision: 1,
+    });
+    assert!(validate(&recipe).is_err(), "a uid that cannot be one");
+}

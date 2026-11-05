@@ -85,6 +85,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   if (approval.kind === 'recipe-bake') {
     return `Add ${approval.assetName ?? 'the recipe bake'}?`;
   }
+  if (approval.kind === 'recipe-save') {
+    return `Save ${approval.assetName ?? 'the recipe'} to the recipe library?`;
+  }
   if (approval.kind === 'reweight') {
     return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
   }
@@ -120,7 +123,9 @@ export function approvalsLabel(approvals: Approval[]): string {
                   ? 'dev server'
                   : kinds.has('recipe-bake')
                     ? 'recipe bake'
-                    : 'send';
+                    : kinds.has('recipe-save')
+                      ? 'recipe save'
+                      : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

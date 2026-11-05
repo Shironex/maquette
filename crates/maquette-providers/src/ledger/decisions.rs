@@ -60,6 +60,9 @@ pub enum DecisionSource {
     /// A recipe bake's review in the Motion view: the bake was added, or a
     /// new bake of the recipe replaced it.
     RecipeReview,
+    /// The save to library sheet: the person saved the recipe there, or an
+    /// agent's later proposal replaced it.
+    RecipeSave,
     /// The jobs it held left the approval state first: cancelled in Sends
     /// or the Lab, or by an agent's cancel of its own Lab jobs.
     JobsCancelled,

@@ -399,7 +399,7 @@ export default defineConfig({
           // whole width, with no empty column beside it.
           await page.setViewportSize({ width: 1200, height: 1000 });
           await page.getByRole('switch', { name: 'Avatar and rig tools' }).uncheck({ force: true });
-          await page.getByText('134 of 141 tools offered').waitFor();
+          await page.getByText('140 of 147 tools offered').waitFor();
           await page
             .getByText('Tool groups', { exact: true })
             .first()

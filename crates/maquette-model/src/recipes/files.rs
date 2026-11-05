@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     BlankKind, GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank,
-    RecipeFile, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id, load_file,
+    RecipeFile, RecipeFrom, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id,
     load_versioned, normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
@@ -48,6 +48,8 @@ pub struct RecipeSummary {
     pub version: String,
     /// Why the file could not be read, for a recipe that only lists.
     pub problem: Option<String>,
+    /// The library recipe and revision it came from or was last saved as.
+    pub from: Option<RecipeFrom>,
 }
 
 /// What a change to a recipe replaces: its name, the changes, the blanks,
@@ -104,7 +106,7 @@ const SLUG_MAX_CHARS: usize = ID_MAX_CHARS - 5;
 
 static WRITES: Mutex<()> = Mutex::new(());
 
-fn writing() -> MutexGuard<'static, ()> {
+pub(super) fn writing() -> MutexGuard<'static, ()> {
     WRITES.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
@@ -132,6 +134,7 @@ fn summary(id: &str, read: &RecipeRead) -> RecipeSummary {
         version: read.version.clone(),
         warnings: read.warnings.clone(),
         problem: None,
+        from: recipe.from.clone(),
     }
 }
 
@@ -150,6 +153,7 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         version: String::new(),
         warnings: Vec::new(),
         problem: Some(problem),
+        from: None,
     }
 }
 
@@ -189,7 +193,7 @@ pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<Re
 ///
 /// # Errors
 ///
-/// Fails when it is missing or [`load_file`] refuses it.
+/// Fails when it is missing or [`super::load_file`] refuses it.
 pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResult<RecipeRead> {
     let (recipe, version) = load_versioned(&path(project_dir, id)?)?;
     Ok(settled(recipe, version, manifest))
@@ -199,13 +203,13 @@ pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResu
 ///
 /// # Errors
 ///
-/// Fails when it is missing or [`load_file`] refuses it.
+/// Fails when it is missing or [`super::load_file`] refuses it.
 pub fn version(project_dir: &Path, id: &str) -> CoreResult<String> {
     Ok(load_versioned(&path(project_dir, id)?)?.1)
 }
 
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
-fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
+pub(super) fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
     let base = latin_slug(name).map_or_else(
         || "recipe".to_string(),
         |slug| {
@@ -251,7 +255,8 @@ pub fn create(
     Ok((id, recipe))
 }
 
-/// Renames the recipe `id`. The file and its id stay.
+/// Renames the recipe `id`. The file and its id stay. Answers with the
+/// recipe as it lists, its version that of the file as written.
 ///
 /// # Errors
 ///
@@ -261,18 +266,19 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<RecipeSumm
     check_name(name)?;
     let _lock = writing();
     let file = path(project_dir, id)?;
-    let mut recipe = load_file(&file)?;
+    let (mut recipe, mut version) = load_versioned(&file)?;
     let name = trimmed(name);
     if recipe.name != name {
         recipe.name = name.to_string();
         recipe.edited = now_rfc3339();
         write_json(&file, &recipe)?;
+        version = load_versioned(&file)?.1;
     }
     let read = RecipeRead {
         recipe,
         warnings: Vec::new(),
         gone: Vec::new(),
-        version: String::new(),
+        version,
     };
     Ok(summary(id, &read))
 }

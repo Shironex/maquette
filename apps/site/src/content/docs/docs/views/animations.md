@@ -57,6 +57,14 @@ Each clip bakes at its own frame rate, so a 30 fps clip lasts as long on the mod
 
 The side panel lists **Where it is used**: each model that baked the clip, with its project, version and name there. When an import replaces a clip with a newer take, those models show **Update**, which opens Use on model at Clip settings with the settings it was baked with; the new bake replaces the old clip in the model's next version.
 
+## Recipes
+
+Picking **Recipes** under **Show** in the top bar switches the view to the recipe library: recipes kept outside any project, saved from the [Motion view's Recipes tab](/docs/views/motion/#save-to-the-library) or imported from a `.recipe.json`. Each line shows the recipe's name, its base clip and frame count, its changes and blanks, its newest revision and **Mixamo** when its base clip is a Mixamo clip. A recipe that cannot be read lists with its problem, so it can be removed.
+
+The side panel lists every revision, newest first, with where it came from (the project and recipe it was saved from, or the file it was imported from) and when. Pick one to see its changes and blanks. **Use in project** copies the picked revision into a project you choose as a new recipe that remembers it; point blanks keep their points, a prop blank whose asset that project lacks opens, and what to know shows after it. **Export** saves the picked revision as a `.recipe.json`. **Import recipe** adds a `.recipe.json` as a new library recipe at r1, checked whole first as in the Motion view. **Remove rN** and **Remove recipe** ask first; removed files move to `library/recipes/.removed/` and a revision number is never handed out again. The last revision goes only with the whole recipe.
+
+Revisions never change once saved: saving a project's recipe back always adds the next one. The library is `library/recipes/<id>/` in the workspace root: `entry.json` (the name, a uid made once with the recipe, and every revision with where it came from) and one `rN.recipe.json` per revision. Agents read it through [`list_library_recipes`](/docs/agents/mcp-tools/#list_library_recipes) and [`get_library_recipe`](/docs/agents/mcp-tools/#get_library_recipe), and copy a revision into a project with [`use_recipe`](/docs/agents/mcp-tools/#use_recipe).
+
 ## Mixamo clips
 
 Mixamo clips may be used in your own games and sites, but not handed out as raw files. The library lives on this machine and is never shipped: Ship and Export never copy a raw clip, and a clip leaves the library only baked into a model.

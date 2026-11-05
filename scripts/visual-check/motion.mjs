@@ -6,11 +6,13 @@
  * recipes and a finished bake, its New recipe base clip picker, Apply
  * baking a recipe then showing its numbers, and the review of a finished
  * bake with pass and warn numbers, also with an agent's approval card
- * floating clear of its bar). Mock mode's `?motion=`
+ * floating clear of its bar, and the recipe library's sheets, see
+ * recipe-library.mjs). Mock mode's `?motion=`
  * demo models, generated headless in Blender, load in the viewport.
  */
 
 import { assertClear } from './floating.mjs';
+import { recipeLibraryShots } from './recipe-library.mjs';
 
 const DEMO = '&scenario=configured&motion=';
 
@@ -196,6 +198,7 @@ export async function motionShots({ open, shot }) {
 
   await recipeReviewShots(open, shot);
   await recipeEditorShots(open, shot);
+  await recipeLibraryShots({ open, shot });
 
   const rest = await motion(open, 'rest');
   await rest.getByText('No clips on Clay figure yet').waitFor();

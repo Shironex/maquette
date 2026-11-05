@@ -563,7 +563,7 @@ export const cases = [
         .getByRole('switch', { name: 'Avatar and rig tools' })
         .locator('xpath=..')
         .click();
-      await groups.getByText('134 of 141 tools offered').waitFor();
+      await groups.getByText('140 of 147 tools offered').waitFor();
     },
   },
   {

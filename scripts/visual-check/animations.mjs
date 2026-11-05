@@ -4,9 +4,11 @@
  * picked in the list layout, the empty library, Import clips with packs, a
  * duplicate and files left out, Save clips to library from a model in
  * Motion, the four Use on model steps from Motion's Add from library, and
- * the review after Pin the feet. Mock mode's `?library=demo` clips serve them; every clip plays
+ * the review after Pin the feet, and the library's recipes. Mock mode's `?library=demo` clips serve them; every clip plays
  * the bundled skeleton the core's reader wrote headless.
  */
+
+import { libraryRecipesShot } from './recipe-library.mjs';
 
 const DEMO = '&scenario=configured&library=demo';
 
@@ -124,4 +126,6 @@ export async function animationsShots({ open, shot }) {
   await tryOn.waitForTimeout(2500);
   await shot(tryOn, 'animations-try-on');
   await tryOn.context().close();
+
+  await libraryRecipesShot({ open, shot });
 }

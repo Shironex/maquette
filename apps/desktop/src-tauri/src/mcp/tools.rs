@@ -42,6 +42,7 @@ pub mod plans;
 pub mod prepare;
 pub mod projects;
 pub mod recipe_bake;
+pub mod recipe_library;
 pub mod recipes;
 pub mod refs;
 pub mod renders;

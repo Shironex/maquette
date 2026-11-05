@@ -1,5 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import type { RecipeSummary } from '@/ipc/client';
+import { libraryNote } from '@/state/recipe-library';
 import { useAppStore } from '@/state/use-app-store';
+import { useRecipeCompareStore } from '@/state/use-recipe-compare-store';
+import { useRecipeLibraryStore } from '@/state/use-recipe-library-store';
+import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
@@ -20,9 +25,17 @@ export function useRecipesStage() {
   const opening = useRecipeEditorStore(s => s.opening);
   const openError = useRecipeEditorStore(s => s.openError);
   const reviewed = useRecipeBakesStore(s => s.reviewing?.project ?? null);
+  const library = useRecipeLibraryStore(s => s.list);
+  const loadLibrary = useRecipeLibraryStore(s => s.load);
+  const imported = useRecipesStore(s => s.imported);
+  const importing = useRecipesStore(s => s.importing);
   useEffect(() => {
     if (project) void load(project);
   }, [project, load]);
+  // The "Library has rN" notes read the recipe library.
+  useEffect(() => {
+    void loadLibrary();
+  }, [loadLibrary]);
   const editingProject = editing?.project ?? null;
   useEffect(() => {
     if (project && editingProject && editingProject !== project)
@@ -42,5 +55,25 @@ export function useRecipesStage() {
     newRecipe: () => (project ? openPicker(project) : undefined),
     edit: (id: string) =>
       project ? void useRecipeEditorStore.getState().open(project, id) : undefined,
+    /** The import warning: what the last import into this project should know. */
+    imported: imported && imported.project === project ? imported : null,
+    importing,
+    importFile: () => (project ? void useRecipesStore.getState().importFile(project) : undefined),
+    dismissImported: useRecipesStore.getState().dismissImported,
+    noteOf: (r: RecipeSummary) => libraryNote(r.from, library),
+    saveToLibrary: (id: string) =>
+      project ? void useRecipeSaveStore.getState().open(project, id) : undefined,
+    exportFile: (r: RecipeSummary) =>
+      void useRecipeLibraryStore
+        .getState()
+        .exportRecipe({ project, recipe: r.id, entry: null, revision: null }, r.name),
+    compare: (id: string) =>
+      project ? void useRecipeCompareStore.getState().open(project, id) : undefined,
   };
+}
+
+/** Whether a recipe row's More menu is open. */
+export function useRowMenu() {
+  const [open, setOpen] = useState(false);
+  return { open, toggle: () => setOpen(o => !o), close: () => setOpen(false) };
 }

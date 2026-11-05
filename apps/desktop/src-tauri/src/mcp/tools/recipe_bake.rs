@@ -119,9 +119,10 @@ fn refused_add(err: maquette_core::CoreError) -> ToolError {
 }
 
 impl McpTools {
-    /// Every recipe tool: making and changing recipes, and baking them.
+    /// Every recipe tool: making and changing recipes, baking them, and the
+    /// recipe library.
     pub(super) fn recipe_routers() -> ToolRouter<Self> {
-        Self::recipes_router() + Self::recipe_bake_router()
+        Self::recipes_router() + Self::recipe_bake_router() + Self::recipe_library_router()
     }
 }
 

@@ -80,6 +80,9 @@ pub enum ApprovalKind {
     /// A recipe bake an agent asked to add waits for a person to review it
     /// in the Motion view and add it as the model's next version.
     RecipeBake,
+    /// An agent proposed saving a project's recipe to the recipe library;
+    /// the person confirms it in the save to library sheet.
+    RecipeSave,
     /// The first start of the dev server of a repo an agent set waits for a
     /// person to read the folder and the command.
     PagePreview,
@@ -137,6 +140,9 @@ pub struct Approval {
     /// Page preview: the folder and the command that will run.
     #[serde(default)]
     pub preview: Option<PreviewAsk>,
+    /// Recipe save: where the agent proposed saving the recipe.
+    #[serde(default)]
+    pub recipe_save: Option<RecipeSaveAsk>,
 }
 
 impl Approval {
@@ -375,6 +381,7 @@ impl Hub {
             version: None,
             sheets: None,
             preview: None,
+            recipe_save: None,
         })
     }
 
@@ -400,6 +407,7 @@ impl Hub {
             version: None,
             sheets: None,
             preview: None,
+            recipe_save: None,
         })
     }
 
@@ -427,6 +435,7 @@ impl Hub {
             version: None,
             sheets: None,
             preview: None,
+            recipe_save: None,
         })
     }
 
@@ -481,6 +490,7 @@ impl Hub {
                 version: None,
                 sheets: None,
                 preview: None,
+                recipe_save: None,
             }
         }))
     }
@@ -491,6 +501,8 @@ mod decisions;
 pub use decisions::{DecisionLog, Refused};
 mod preview;
 mod recipe_bake;
+mod recipe_save;
+pub use recipe_save::RecipeSaveAsk;
 mod rest_pose;
 mod rig;
 

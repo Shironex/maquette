@@ -455,6 +455,65 @@ export const commands = {
 	 *  and an agent's approval for it ends as approved.
 	 */
 	recipeBakeAdd: (project: string, recipe: string, finishedMs: number | null) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_add", { project, recipe, finishedMs }),
+	recipeLibraryList: () => __TAURI_INVOKE<LibraryRecipeSummary[]>("recipe_library_list"),
+	/**  A library recipe's revision, the newest when none is given. */
+	recipeLibraryGet: (entry: string, revision: number | null) => __TAURI_INVOKE<LibraryRecipeDoc>("recipe_library_get", { entry, revision }),
+	/**  Copies a library recipe's revision into a project as a new recipe. */
+	recipeLibraryUse: (request: UseRecipe) => __TAURI_INVOKE<RecipeUsed>("recipe_library_use", { request }),
+	/**
+	 *  What saving a project's recipe to the library would do, for the
+	 *  confirm sheet: a new library recipe, or the next revision of `entry`.
+	 */
+	recipeLibraryPlanSave: (project: string, recipe: string, entry: string | null) => __TAURI_INVOKE<RecipeSavePlan>("recipe_library_plan_save", { project, recipe, entry }),
+	/**
+	 *  What the library's newest revision changes against a project's recipe
+	 *  that came from an older one.
+	 */
+	recipeLibraryCompare: (project: string, recipe: string) => __TAURI_INVOKE<RecipeCompare>("recipe_library_compare", { project, recipe }),
+	/**
+	 *  Saves a project's recipe to the library as the person confirmed it in
+	 *  the sheet: always a new revision, never an overwrite. An entry that
+	 *  moved since the sheet read it is refused (`moved`). An agent's proposal
+	 *  for this recipe ends as approved when it went where the agent asked,
+	 *  and as cancelled when the person saved it elsewhere.
+	 */
+	recipeLibrarySave: (save: RecipeSave) => __TAURI_INVOKE<RecipeSaved>("recipe_library_save", { save }),
+	/**  Removes one revision of a library recipe (moved aside, never deleted). */
+	recipeLibraryRemoveRevision: (entry: string, revision: number, expected: string | null) => __TAURI_INVOKE<LibraryRecipeEntry>("recipe_library_remove_revision", { entry, revision, expected }),
+	/**  Removes a library recipe with every revision (moved aside, never deleted). */
+	recipeLibraryRemove: (entry: string, expected: string | null) => __TAURI_INVOKE<string>("recipe_library_remove", { entry, expected }),
+	/**
+	 *  Asks where to save a recipe file and writes it there: a project's recipe
+	 *  or a library revision, as `source` says. Null when cancelled.
+	 */
+	recipeExport: (source: ExportSource, name: string) => __TAURI_INVOKE<{
+	/**  The file written, absolute. */
+	path: string,
+	/**  Its name. */
+	file: string,
+} | null>("recipe_export", { source, name }),
+	/**
+	 *  Asks for a `.recipe.json` and imports it into the project as a new
+	 *  recipe. Null when cancelled.
+	 */
+	recipeImportToProject: (project: string) => __TAURI_INVOKE<{
+	doc: RecipeDoc,
+	/**
+	 *  Plain lines: blanks that opened, the base clip missing or with other
+	 *  keys, an id that was taken.
+	 */
+	notes: string[],
+} | null>("recipe_import_to_project", { project }),
+	/**
+	 *  Asks for a `.recipe.json` and imports it into the library as a new
+	 *  recipe at r1. Null when cancelled.
+	 */
+	recipeImportToLibrary: () => __TAURI_INVOKE<{
+	entry: string,
+	name: string,
+	/**  The base clip missing or with other keys, an id that was taken. */
+	notes: string[],
+} | null>("recipe_import_to_library"),
 	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
@@ -996,6 +1055,7 @@ export const events = {
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
 	recipeBakeChanged: makeEvent<RecipeBakeChanged>("recipe-bake-changed"),
 	recipeChanged: makeEvent<RecipeChanged>("recipe-changed"),
+	recipeLibraryChanged: makeEvent<RecipeLibraryChanged>("recipe-library-changed"),
 	renderChanged: makeEvent<RenderChanged>("render-changed"),
 	rigChanged: makeEvent<RigChanged>("rig-changed"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
@@ -1224,6 +1284,8 @@ export type Approval = {
 	sheets?: NormalizeSheets | null,
 	/**  Page preview: the folder and the command that will run. */
 	preview?: PreviewAsk | null,
+	/**  Recipe save: where the agent proposed saving the recipe. */
+	recipeSave?: RecipeSaveAsk | null,
 };
 
 /**  One send of a batch approval. */
@@ -1272,6 +1334,11 @@ export type ApprovalKind =
  *  in the Motion view and add it as the model's next version.
  */
 "recipe-bake" | 
+/**
+ *  An agent proposed saving a project's recipe to the recipe library;
+ *  the person confirms it in the save to library sheet.
+ */
+"recipe-save" | 
 /**
  *  The first start of the dev server of a repo an agent set waits for a
  *  person to read the folder and the command.
@@ -2988,6 +3055,11 @@ export type DecisionSource =
  */
 "recipe-review" | 
 /**
+ *  The save to library sheet: the person saved the recipe there, or an
+ *  agent's later proposal replaced it.
+ */
+"recipe-save" | 
+/**
  *  The jobs it held left the approval state first: cancelled in Sends
  *  or the Lab, or by an agent's cancel of its own Lab jobs.
  */
@@ -3227,6 +3299,18 @@ export type ExplodeTrack = {
 	easing: Easing,
 	/**  At most one per stop, in any order; the page sorts them by stop. */
 	keys: ExplodeKey[],
+};
+
+/**
+ *  What to export: a project's recipe (`project` and `recipe`) or a
+ *  library recipe's revision (`entry`, and `revision`, the newest when
+ *  left out).
+ */
+export type ExportSource = {
+	project: string | null,
+	recipe: string | null,
+	entry: string | null,
+	revision: number | null,
 };
 
 /**  What Export GLB made. */
@@ -4354,6 +4438,77 @@ export type LibraryMerged = {
 	merge: LibraryMerge,
 	/**  Projects whose assets now point at the kept entry. */
 	projects: ProjectManifest[],
+};
+
+/**  A library recipe's revision as the view and agents read it. */
+export type LibraryRecipeDoc = {
+	entry: LibraryRecipeEntry,
+	/**  A hash of `entry.json`, sent back as `expected` by a write. */
+	version: string,
+	/**  The revision read. */
+	revision: number,
+	recipe: RecipeFile,
+	/**  Its base clip in this computer's clip library. */
+	base: BaseMatch,
+	/**  A bake of it counts as Mixamo's. */
+	mixamo: boolean,
+};
+
+/**  `entry.json`. */
+export type LibraryRecipeEntry = {
+	version: number,
+	/**  The folder name. */
+	id: string,
+	/**
+	 *  Made once with the entry and never changed: a project recipe's link
+	 *  names it, so an id taken again after a removal is not mistaken for
+	 *  the recipe it came from.
+	 */
+	uid: string,
+	name: string,
+	createdAt: string,
+	updatedAt: string,
+	/**  The highest revision ever saved, so a removed one is never reused. */
+	lastRevision: number,
+	/**  Oldest first. */
+	revisions: LibraryRecipeRevision[],
+};
+
+/**  One revision of a library recipe, with where it came from. */
+export type LibraryRecipeRevision = {
+	revision: number,
+	/**  `r<revision>.recipe.json`, in the entry's folder. */
+	file: string,
+	/**  RFC 3339, when it was saved or imported. */
+	savedAt: string,
+	/**  The project and recipe it was saved back from. */
+	project: string | null,
+	recipe: string | null,
+	/**  The file name it was imported from, without its folder. */
+	imported: string | null,
+};
+
+/**  A line in the list of library recipes. */
+export type LibraryRecipeSummary = {
+	id: string,
+	/**  The entry's uid; empty when it could not be read. */
+	uid: string,
+	/**  The entry's name, or its id when it could not be read. */
+	name: string,
+	/**  A hash of `entry.json`, sent back as `expected` by a write. */
+	version: string,
+	/**  The newest revision; 0 when none could be read. */
+	latest: number,
+	revisions: LibraryRecipeRevision[],
+	/**  The newest revision's base clip, frames and Mixamo flag. */
+	base: string,
+	frames: number,
+	mixamo: boolean,
+	layers: number,
+	blanks: number,
+	updatedAt: string,
+	/**  Why the entry or its newest revision could not be read. */
+	problem: string | null,
 };
 
 /**  What a restore did. */
@@ -6761,6 +6916,21 @@ export type RecipeChanged = {
 	project: string,
 };
 
+/**
+ *  What a library recipe's newest revision changes against a project's
+ *  recipe that came from it, for the "library has a newer revision" note.
+ */
+export type RecipeCompare = {
+	entry: string,
+	entryName: string,
+	/**  The revision the project's recipe came from or was saved as. */
+	revision: number,
+	/**  The library's newest revision. */
+	latest: number,
+	/**  What the newest revision changes against the project's recipe. */
+	changes: string[],
+};
+
 /**  One recipe as the view and agents get it. */
 export type RecipeDoc = {
 	id: string,
@@ -6784,6 +6954,14 @@ export type RecipeDoc = {
 	version: string,
 };
 
+/**  Where an export went. */
+export type RecipeExported = {
+	/**  The file written, absolute. */
+	path: string,
+	/**  Its name. */
+	file: string,
+};
+
 /**  `recipes/<id>.recipe.json`. */
 export type RecipeFile = {
 	version: number,
@@ -6797,6 +6975,33 @@ export type RecipeFile = {
 	blanks: RecipeBlank[],
 	/**  In the order they are laid over the clip. */
 	layers: RecipeLayer[],
+	/**
+	 *  The library recipe and revision it was copied from or last saved
+	 *  as; none for a recipe made here or imported. Never exported.
+	 */
+	from?: RecipeFrom | null,
+};
+
+/**  The library recipe and revision a project's recipe came from. */
+export type RecipeFrom = {
+	/**  The library recipe's id. */
+	entry: string,
+	/**
+	 *  The library recipe's uid, made once when it was made. An entry of
+	 *  the same id with another uid is another recipe (the first was
+	 *  removed and its id taken again), so the link reads as gone.
+	 */
+	uid: string,
+	/**  Its revision, from 1. */
+	revision: number,
+};
+
+/**  A recipe file imported into the library. */
+export type RecipeImported = {
+	entry: string,
+	name: string,
+	/**  The base clip missing or with other keys, an id that was taken. */
+	notes: string[],
 };
 
 /**  One change laid over the base clip, on one humanoid bone. */
@@ -6807,6 +7012,13 @@ export type RecipeLayer = {
 	bone: string,
 	settings: LayerSettings,
 };
+
+/**
+ *  The recipe library changed: a recipe was saved back, imported, or a
+ *  revision or entry removed, so the Animations library and the Recipes
+ *  tab's "library has a newer revision" notes reload.
+ */
+export type RecipeLibraryChanged = null;
 
 /**  One reach as the bake measured it. */
 export type RecipeReachResult = {
@@ -6856,6 +7068,64 @@ export type RecipeReviewStatus = "pass" |
 /**  The bake could not measure it (`note` says why). */
 "not-measured";
 
+/**  A confirmed save back. */
+export type RecipeSave = {
+	project: string,
+	recipe: string,
+	/**  The library recipe to add a revision to; none makes a new one. */
+	entry: string | null,
+	/**  The entry version the plan read. Needed with `entry`. */
+	expected: string | null,
+	/**  The recipe version the plan read. */
+	recipeExpected: string | null,
+};
+
+/**  Where an agent proposed saving a project's recipe in the recipe library. */
+export type RecipeSaveAsk = {
+	/**  The project's recipe id. */
+	recipe: string,
+	/**  The library recipe it would get a revision of; none for a new one. */
+	entry: string | null,
+	/**  The revision it would be. */
+	revision: number,
+};
+
+/**  What a save back would do, for the confirm sheet. */
+export type RecipeSavePlan = {
+	project: string,
+	recipe: string,
+	recipeName: string,
+	/**  The project recipe's version as read; the save sends it back. */
+	recipeVersion: string,
+	/**  The library recipe it goes to; none for a new one. */
+	entry: string | null,
+	/**  The library recipe's name, or the name a new one gets. */
+	entryName: string,
+	/**  The library recipe's version as read; the save sends it back. */
+	entryVersion: string | null,
+	/**  Its newest revision now; none for a new one. */
+	latest: number | null,
+	/**  The revision the save writes. */
+	revision: number,
+	/**  What changes against the newest revision, a plain line each. */
+	changes: string[],
+	/**  The recipe holds what the newest revision holds: nothing to save. */
+	same: boolean,
+};
+
+/**  What a save back wrote. */
+export type RecipeSaved = {
+	entry: string,
+	revision: number,
+	/**  The library recipe's version after the save. */
+	entryVersion: string,
+	/**
+	 *  The project recipe now names the revision it was saved as. False when
+	 *  it changed between the save and that note (the revision is saved).
+	 */
+	linked: boolean,
+};
+
 /**  A line in the list of a project's recipes. */
 export type RecipeSummary = {
 	id: string,
@@ -6883,6 +7153,18 @@ export type RecipeSummary = {
 	version: string,
 	/**  Why the file could not be read, for a recipe that only lists. */
 	problem: string | null,
+	/**  The library recipe and revision it came from or was last saved as. */
+	from: RecipeFrom | null,
+};
+
+/**  A recipe brought into a project, with what to know about it. */
+export type RecipeUsed = {
+	doc: RecipeDoc,
+	/**
+	 *  Plain lines: blanks that opened, the base clip missing or with other
+	 *  keys, an id that was taken.
+	 */
+	notes: string[],
 };
 
 /**  A one click fix the panel offers next to a warning. */
@@ -9405,6 +9687,18 @@ export type UseClips = {
 	saveMap: boolean,
 	/**  What the bones only on the model follow, over the saved choices. */
 	follow?: FollowChoice[],
+};
+
+/**  What use_recipe copies. */
+export type UseRecipe = {
+	/**  The project it lands in. */
+	project: string,
+	/**  The library recipe. */
+	entry: string,
+	/**  Its revision; the newest when left out. */
+	revision: number | null,
+	/**  The project recipe's name; the library recipe's when left out. */
+	name: string | null,
 };
 
 /**  The project asset version a library version was copied from. */

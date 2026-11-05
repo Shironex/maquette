@@ -33,7 +33,9 @@
 //! rig: a bake of the recipe counts as Mixamo's (left out of export packs,
 //! never saved to the clip library), while the recipe itself stays
 //! shareable. `revision` starts at 1 and goes up only when a recipe is
-//! saved back to a library of recipes, never on an edit in the project.
+//! saved back to the workspace's recipe library, never on an edit in the
+//! project. `from` names the library recipe and revision a project's recipe
+//! was copied from or last saved as; it is left out of every exported file.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -45,9 +47,11 @@ use crate::plans::trimmed;
 
 pub mod baked;
 mod check;
+mod copies;
 mod files;
 
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
+pub use copies::{create_whole, link};
 pub use files::{
     RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update, version,
 };
@@ -195,6 +199,20 @@ pub struct GoneProp {
     pub prop: String,
 }
 
+/// The library recipe and revision a project's recipe came from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeFrom {
+    /// The library recipe's id.
+    pub entry: String,
+    /// The library recipe's uid, made once when it was made. An entry of
+    /// the same id with another uid is another recipe (the first was
+    /// removed and its id taken again), so the link reads as gone.
+    pub uid: String,
+    /// Its revision, from 1.
+    pub revision: u32,
+}
+
 /// `recipes/<id>.recipe.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -210,6 +228,10 @@ pub struct RecipeFile {
     pub blanks: Vec<RecipeBlank>,
     /// In the order they are laid over the clip.
     pub layers: Vec<RecipeLayer>,
+    /// The library recipe and revision it was copied from or last saved
+    /// as; none for a recipe made here or imported. Never exported.
+    #[serde(default)]
+    pub from: Option<RecipeFrom>,
 }
 
 impl RecipeFile {
@@ -225,6 +247,7 @@ impl RecipeFile {
             base,
             blanks: Vec::new(),
             layers: Vec::new(),
+            from: None,
         }
     }
 }
@@ -260,6 +283,11 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
 /// comes from a newer Maquette or holds values [`validate`] refuses.
 pub fn load_file(file: &Path) -> CoreResult<RecipeFile> {
     Ok(load_versioned(file)?.0)
+}
+
+/// True for a library recipe uid: 8 to 64 lowercase hex digits.
+pub fn is_entry_uid(uid: &str) -> bool {
+    (8..=64).contains(&uid.len()) && uid.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// A recipe file's version: the first 16 hex digits of the SHA-256 of its
@@ -383,6 +411,7 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<RecipeFile>()
         .register::<RecipeSummary>()
         .register::<RecipeChange>()
+        .register::<RecipeFrom>()
 }
 
 #[cfg(test)]

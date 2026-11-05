@@ -409,6 +409,7 @@ fn no_mcp_tool_can_answer_an_approval() {
         "hub/decisions.rs",
         "hub/rig.rs",
         "hub/recipe_bake.rs",
+        "hub/recipe_save.rs",
         "hub/tests.rs",
     ];
     files.retain(|f| !own.iter().any(|o| f.ends_with(o)));
@@ -424,6 +425,12 @@ fn no_mcp_tool_can_answer_an_approval() {
         "claim_add",
         "add_as_next_version",
         "add_staged_bake",
+        "close_recipe_save",
+        "save_back",
+        "recipe_library_save",
+        // Only the person adds a recipe file to the library.
+        "import_to_library",
+        "recipe_import_to_library",
         "from_card",
         "mcp_decide",
         "avatar_decide",

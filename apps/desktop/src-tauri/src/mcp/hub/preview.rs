@@ -64,6 +64,7 @@ impl Hub {
                 version: None,
                 sheets: None,
                 preview: Some(ask.clone()),
+                recipe_save: None,
             });
             id
         };

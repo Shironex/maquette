@@ -5,6 +5,7 @@ import { AnimationFilters } from '../AnimationFilters';
 import { ClipCard } from '../ClipCard';
 import { ClipDetail } from '../ClipDetail';
 import { ClipRow } from '../ClipRow';
+import { LibraryRecipes } from '../LibraryRecipes';
 import { PressToggle } from '@/features/common/PressToggle';
 import { useAnimationsView, useClipsWindow } from './AnimationsView.hooks';
 
@@ -13,11 +14,12 @@ const IMPORT_TIP = 'Add Mixamo FBX files or a pack zip; Blender reads them headl
 /**
  * The workspace's animation library: clips kept once outside any project,
  * skeleton only, that rigged models take by baking. Each preview is the
- * clip on its own skeleton, so no model is needed to look at one.
+ * clip on its own skeleton, so no model is needed to look at one. Show
+ * switches to the library's recipes.
  */
 export default function AnimationsView() {
   const v = useAnimationsView();
-  const { filters, setFilters, layout, setLayout, item, select, stats } = v;
+  const { filters, setFilters, layout, setLayout, item, select, stats, show, setShow } = v;
   const count = (n: number) => `${n} ${n === 1 ? 'clip' : 'clips'}`;
   const filtered = v.shown.length !== v.items.length;
   const { scrollRef, listRef, shown } = useClipsWindow(v.shown.length, layout);
@@ -63,30 +65,45 @@ export default function AnimationsView() {
         }
         right={
           <div className="flex items-center gap-2">
-            <TextField
-              type="search"
-              icon="magnifying-glass"
-              aria-label="Find a clip"
-              placeholder="Find a clip, pack or tag"
-              value={filters.query}
-              maxLength={120}
-              onChange={e => setFilters({ query: e.target.value })}
-              fieldClassName="w-[260px]"
-            />
             <SegmentedControl
-              label="Layout"
+              label="Show"
               options={[
-                { value: 'grid', label: 'Grid', icon: 'squares-four' },
-                { value: 'list', label: 'List', icon: 'list' },
+                { value: 'clips', label: 'Clips', icon: 'person-simple' },
+                { value: 'recipes', label: 'Recipes', icon: 'flask' },
               ]}
-              value={layout}
-              onChange={setLayout}
+              value={show}
+              onChange={setShow}
             />
-            {importButton(false)}
+            {show === 'clips' ? (
+              <>
+                <TextField
+                  type="search"
+                  icon="magnifying-glass"
+                  aria-label="Find a clip"
+                  placeholder="Find a clip, pack or tag"
+                  value={filters.query}
+                  maxLength={120}
+                  onChange={e => setFilters({ query: e.target.value })}
+                  fieldClassName="w-[260px]"
+                />
+                <SegmentedControl
+                  label="Layout"
+                  options={[
+                    { value: 'grid', label: 'Grid', icon: 'squares-four' },
+                    { value: 'list', label: 'List', icon: 'list' },
+                  ]}
+                  value={layout}
+                  onChange={setLayout}
+                />
+                {importButton(false)}
+              </>
+            ) : null}
           </div>
         }
       />
-      {v.loaded && v.items.length === 0 ? (
+      {show === 'recipes' ? (
+        <LibraryRecipes />
+      ) : v.loaded && v.items.length === 0 ? (
         <main className="flex min-h-0 flex-1 items-center justify-center p-6">
           <EmptyState
             icon="person-simple"

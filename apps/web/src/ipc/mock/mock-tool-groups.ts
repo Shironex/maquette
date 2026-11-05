@@ -71,7 +71,7 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
   row(
     'animation',
     'Animation',
-    12,
+    18,
     'The clip library, baking clips onto a rigged model and animation recipes'
   ),
   row('export', 'Export packs', 8, 'Export packs for other engines and render styles'),

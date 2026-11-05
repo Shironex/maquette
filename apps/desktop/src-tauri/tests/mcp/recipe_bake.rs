@@ -20,7 +20,7 @@ fn done_record(recipe: &str) -> Value {
         "startedMs": 1.0, "updatedMs": 2.0, "finishedMs": 2.0,
         "result": {
             "recipe": recipe, "recipeName": "Dodge", "recipeVersion": "v1",
-            "baseClip": "standing-dodge-left", "baseHash": "h1", "recipeBaseHash": null,
+            "baseClip": "standing-dodge-left", "baseHash": "abc", "recipeBaseHash": null,
             "mixamo": true, "asset": "dummy", "assetName": "Dummy", "fromVersion": 1,
             "clip": "reach_out", "frames": 31, "file": "/ws/cache/recipes/frostveil/x/staged.glb",
             "facing": [0.0, 0.0, 1.0], "slideCm": 0.5, "slideFrames": null, "slideFoot": null,

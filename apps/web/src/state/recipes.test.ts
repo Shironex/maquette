@@ -16,6 +16,7 @@ const summary = (over: Partial<RecipeSummary> = {}): RecipeSummary => ({
   version: 'v1',
   warnings: [],
   problem: null,
+  from: null,
   ...over,
 });
 

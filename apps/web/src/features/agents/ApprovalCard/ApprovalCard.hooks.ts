@@ -10,6 +10,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { useRigStore } from '@/state/use-rig-store';
 
 /**
@@ -188,7 +189,8 @@ async function denyStep(approval: Approval, asset: string) {
 /**
  * A rest pose, or the weights that free cloth and hair from the arms, is
  * judged on its sheets, so the card only opens them in the Avatar view or
- * turns them down; approving happens there.
+ * turns them down; approving happens there. The same holds for a rig doctor
+ * draft, a recipe bake and a recipe save: only their own view writes.
  */
 function useRestPose(approval: Approval) {
   const [denying, setDenying] = useState(false);
@@ -206,10 +208,19 @@ function useRestPose(approval: Approval) {
         if (approval.job) void useRecipeBakesStore.getState().showReview(project, approval.job);
         return;
       }
+      if (approval.kind === 'recipe-save') {
+        const ask = approval.recipeSave;
+        if (ask) void useRecipeSaveStore.getState().show(project, ask.recipe, ask.entry);
+        return;
+      }
       if (asset) useAvatarStore.getState().open(project, asset, version ?? null);
     },
     deny: async (by: DecidedBy) => {
-      if (approval.kind === 'rig-doctor' || approval.kind === 'recipe-bake') {
+      if (
+        approval.kind === 'rig-doctor' ||
+        approval.kind === 'recipe-bake' ||
+        approval.kind === 'recipe-save'
+      ) {
         await useAgentsStore.getState().decide(approval.id, false, by);
         return;
       }

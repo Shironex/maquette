@@ -7,10 +7,10 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type RecipeBakeRecord } from '@/ipc/client';
+import { openRecipesTab } from './open-recipes-tab';
 import { addedLine, bakeKey } from './recipe-bake';
 import { useAppStore } from './use-app-store';
 import { useMotionStore } from './use-motion-store';
-import { useProjectsStore } from './use-projects-store';
 
 /** The bake open in the review. */
 export interface ReviewedBake {
@@ -131,14 +131,7 @@ export const useRecipeBakesStore = create<RecipeBakesStore>((set, get) => {
     closeReview: () => set({ reviewing: null }),
 
     showReview: async (project, recipe) => {
-      const app = useAppStore.getState();
-      if (app.workspace?.project?.id !== project) {
-        const switched = await useProjectsStore.getState().switchTo(project);
-        if (!switched) return;
-      }
-      useMotionStore.getState().setTab('recipes');
-      get().openReview(project, recipe);
-      useAppStore.getState().setView('motion');
+      if (await openRecipesTab(project)) get().openReview(project, recipe);
     },
 
     add: async (project, recipe, finishedMs) => {

@@ -48,6 +48,7 @@ impl Hub {
             version: Some(from),
             sheets: None,
             preview: None,
+            recipe_save: None,
         })
     }
 

@@ -11,7 +11,7 @@ START HERE
 3. Follow the next list in an answer. An error carries code, and fix and tryTool when they help.
 Every tool's description starts with its group in brackets, and tools that work on a project take its id as project.
 
-TOOL GROUPS (Settings > Agents may turn off any but start and project, so a tool named here may be missing: toolGroupsOff in get_started names them; ask the person.)
+TOOL GROUPS (Settings > Agents may turn off any but start and project: toolGroupsOff in get_started names them; ask the person.)
 [start] get_started, create_project.
 [project] Projects, assets, the scene layout, copying assets, the asset trash.
 [lab] Concept images, their jobs, the style board, picks to the Board, the image backends, Codex usage.
@@ -34,11 +34,12 @@ WAITS FOR A PERSON (in the Maquette app, no tool can answer; poll, and never sta
 - Shipping: run_pipeline at its Ship step while Ask before shipping is on, and always in a game project (follow with get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview, the first time for a repo an agent set, and again when its path or command changes (follow with get_page_preview).
 - Avatars: new weights, rest pose and spring chains (follow with get_avatar). Rig doctor: a joint move, and adding its draft as a version.
-- Camera plan: Apply writes it to layout.json after the person reviews it; agents propose with propose_camera_plan.
+- Recipes: add_recipe_bake, propose_recipe_save (follow get_recipe_bake, get_recipe).
+- Camera plan: agents propose with propose_camera_plan; the person's Apply writes layout.json.
 - Canvases: removal proposals (Keep it or Remove), Mark as fine on a mechanics overlap and the Auto layout after agents switch.
-- Only a person can: save API keys, set the monthly OpenAI image cap, sign in to Codex, install Blender and the other tools, open a workspace.
+- Only a person can: save API keys, set the monthly OpenAI image cap, sign in to Codex, install Blender and the tools, open a workspace.
 A waiting answer gives status \"waiting for approval\", pollEverySeconds and whereToApprove.
-Nothing is lost without them: send_to_3d with provider by-hand and add_built_asset spend nothing.
+Free routes: send_to_3d with provider by-hand and add_built_asset spend nothing.
 
 ALWAYS
 start_page_preview runs the site repo's dev command on this computer; only a repo a person set runs it unasked. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
