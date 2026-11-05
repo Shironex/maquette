@@ -27,6 +27,7 @@ import { HOME } from './fixtures';
 import { PACK_CLIPS, animationClips, mockClip } from './animation-fixtures';
 import { MOTION_FIXTURES } from './motion-fixtures';
 import { createRetargetHandlers } from './create-retarget-handlers';
+import { createRecipeHandlers } from './create-recipe-handlers';
 
 interface AnimationContext {
   project: (id: string) => ProjectManifest;
@@ -337,6 +338,7 @@ export function createAnimationHandlers(ctx: AnimationContext) {
     bakedClips: retarget.bakedClips,
     handlers: {
       ...retarget.handlers,
+      ...createRecipeHandlers({ clips: () => clips, state: ctx.state }),
       animations_get: () => view(),
       dialog_pick_clips: () => PICKED,
       animations_read_import: (args: Args) => readImport(args.paths as string[]),
