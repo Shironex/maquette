@@ -174,6 +174,8 @@ describe('the quit dialog', () => {
           layers: [],
           blanks: [{ id: 'b', label: 'b', kind: 'point', prop: null, point: null }],
         },
+        cleared: [],
+        assets: [],
       },
     });
     const save = vi.spyOn(useRecipeEditorStore.getState(), 'saveForQuit').mockResolvedValue(null);

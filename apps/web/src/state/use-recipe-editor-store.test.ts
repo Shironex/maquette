@@ -7,6 +7,7 @@ import {
   CHANGED_OUTSIDE,
   FIX_FIRST,
   MERGED_OUTSIDE,
+  MOVED,
   isDirty,
   useRecipeEditorStore,
 } from './use-recipe-editor-store';
@@ -51,18 +52,17 @@ describe('the recipe editor store', () => {
     expect(isDirty(store().editing)).toBe(true);
     const update = vi.spyOn(commands, 'recipeUpdate');
     expect(await store().save()).toBe(true);
-    expect(update.mock.calls[0]?.[2]).toMatchObject({ blanks: null });
+    expect(update.mock.calls[0]?.[2]).toMatchObject({ blanks: null, clear: [] });
     expect(update.mock.calls[0]?.[2].layers?.[0]?.settings.weight).toBe(0.5);
+    expect(update.mock.calls[0]?.[2].expected).toBeTruthy();
     expect(isDirty(store().editing)).toBe(false);
   });
 
   it('refuses to save what the core would refuse, and says to fix it first', async () => {
-    store().edit(d => ({ ...d, layers: [...d.layers, newLayer('reach', d.layers, [])] }));
+    const added = { ...newLayer('reach', layers(), []), settings: { ...layers()[0]!.settings } };
     store().edit(d => ({
       ...d,
-      layers: d.layers.map(l =>
-        l.id === 'l-4' ? { ...l, settings: { ...l.settings, target: null } } : l
-      ),
+      layers: [...d.layers, { ...added, settings: { ...added.settings, target: null } }],
     }));
     const update = vi.spyOn(commands, 'recipeUpdate');
     expect(await store().save()).toBe(false);
@@ -149,6 +149,91 @@ describe('the recipe editor store', () => {
     store().edit(d => ({ ...d, blanks: d.blanks.map(b => ({ ...b, label: 'The wall torch' })) }));
     expect(await store().save()).toBe(true);
     expect(store().editing?.doc.warnings[0]).toMatch(/old-torch/);
+  });
+
+  it('sends only the blanks when only the blanks changed', async () => {
+    store().edit(d => ({ ...d, blanks: d.blanks.map(b => ({ ...b, label: `${b.label}!` })) }));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(true);
+    expect(update.mock.calls[0]?.[2]).toMatchObject({ layers: null });
+    expect(update.mock.calls[0]?.[2].blanks).toHaveLength(2);
+  });
+
+  it('never overwrites a write that lands after the reread: it merges it, then saves again', async () => {
+    editLayers(weigh('l-1', 0.4));
+    const realGet = commands.recipeGet.bind(commands);
+    let first = true;
+    vi.spyOn(commands, 'recipeGet').mockImplementation(async (project, id) => {
+      const doc = await realGet(project, id);
+      if (first) {
+        first = false;
+        // The agent writes just after Save read the file.
+        await agentWrites(weigh('l-3', 0.2), false);
+      }
+      return doc;
+    });
+    expect(await store().save()).toBe(false);
+    expect(store().saveError).toBe(MOVED);
+    let saved = (await realGet('frostveil', REACH)).recipe.layers;
+    expect(saved.map(l => l.settings.weight)).toEqual([1, 0.8, 0.2]);
+    expect(layers().map(l => l.settings.weight)).toEqual([0.4, 0.8, 0.2]);
+    expect(await store().save()).toBe(true);
+    saved = (await realGet('frostveil', REACH)).recipe.layers;
+    expect(saved.map(l => l.settings.weight)).toEqual([0.4, 0.8, 0.2]);
+  });
+
+  it('asks only on a real clash when a write lands after the reread', async () => {
+    editLayers(weigh('l-1', 0.4));
+    const realGet = commands.recipeGet.bind(commands);
+    let first = true;
+    vi.spyOn(commands, 'recipeGet').mockImplementation(async (project, id) => {
+      const doc = await realGet(project, id);
+      if (first) {
+        first = false;
+        await agentWrites(weigh('l-1', 0.9), false);
+      }
+      return doc;
+    });
+    expect(await store().save()).toBe(false);
+    expect(store().outside?.merge.clashes).toEqual(['change l-1']);
+    expect((await realGet('frostveil', REACH)).recipe.layers[0]?.settings.weight).toBe(0.9);
+  });
+
+  it('drops a pending clash once a later outside change merges cleanly', async () => {
+    editLayers(weigh('l-1', 0.4));
+    await agentWrites(weigh('l-1', 0.9));
+    expect(store().outside).not.toBeNull();
+    // The agent puts l-1 back and changes l-3 instead.
+    await agentWrites(l => weigh('l-3', 0.2)(weigh('l-1', 1)(l)));
+    expect(store().outside).toBeNull();
+    expect(store().merged).toBe(MERGED_OUTSIDE);
+    store().keepMine();
+    expect(layers().map(l => l.settings.weight)).toEqual([0.4, 0.8, 0.2]);
+  });
+
+  it('empties a gone prop for good only when told to', async () => {
+    await store().open('frostveil', 'look-around');
+    expect(store().editing?.doc.gone).toEqual([{ blank: 'torch', prop: 'old-torch' }]);
+    store().clearGone('torch', true);
+    expect(isDirty(store().editing)).toBe(true);
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(true);
+    expect(update.mock.calls[0]?.[2]).toMatchObject({ clear: ['torch'] });
+    expect(update.mock.calls[0]?.[2].blanks).toHaveLength(1);
+    expect(store().editing?.doc.gone).toEqual([]);
+    expect(store().editing?.cleared).toEqual([]);
+    expect(isDirty(store().editing)).toBe(false);
+  });
+
+  it('waits for a Save already running when the window closes', async () => {
+    editLayers(weigh('l-1', 0.6));
+    const saving = store().save();
+    const quitting = store().saveForQuit();
+    expect(await quitting).toBeNull();
+    expect(await saving).toBe(true);
+    expect((await commands.recipeGet('frostveil', REACH)).recipe.layers[0]?.settings.weight).toBe(
+      0.6
+    );
   });
 
   it('saves for quitting, or says why it could not', async () => {

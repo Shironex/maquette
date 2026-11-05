@@ -1,4 +1,4 @@
-import type { RecipeDoc } from '@/ipc/client';
+import type { Asset, RecipeDoc } from '@/ipc/client';
 import type { RecipeDraft } from './recipe-draft';
 import type { DraftMerge } from './recipe-merge';
 
@@ -12,6 +12,10 @@ export interface RecipeEditing {
   id: string;
   doc: RecipeDoc;
   draft: RecipeDraft;
+  /** Prop blanks whose gone asset the person chose to empty for good on the next save. */
+  cleared: string[];
+  /** The project's assets when it opened, for when another project is open meanwhile. */
+  assets: Asset[];
 }
 
 /** An outside change that clashes with unsaved edits, waiting for its answer. */
@@ -46,6 +50,8 @@ export interface RecipeEditorStore {
   pick: (pick: RecipePick) => void;
   /** Drops the unsaved edits. */
   discard: () => void;
+  /** Empties the gone prop of blank `id` for good on the next save, or keeps it (`clear` false). */
+  clearGone: (id: string, clear: boolean) => void;
   /** Saves the edits; false, with `saveError` or `outside` set, when it did not. */
   save: () => Promise<boolean>;
   /** After a stopped leave: save, then go on when it worked. */

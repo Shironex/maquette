@@ -61,6 +61,13 @@ export default function RecipeBlankForm({ id }: { id: string }) {
           </p>
         </>
       )}
+      {f.gone ? (
+        <p className="text-meta text-fg-mute">
+          {f.cleared
+            ? `Saving empties it for good: ${f.gone} will no longer fill it.`
+            : `The file still names ${f.gone}, which is no longer an asset: restoring it fills this blank again. Leave open empties it for good.`}
+        </p>
+      ) : null}
       {f.problem ? (
         <p role="alert" className="flex items-start gap-1.5 text-meta text-danger">
           <Icon name="warning-circle" size={14} className="mt-0.5 flex-none" />
@@ -68,9 +75,15 @@ export default function RecipeBlankForm({ id }: { id: string }) {
         </p>
       ) : null}
       <div className="flex gap-2">
-        <Button size="sm" variant="ghost" icon="x" onClick={f.clear}>
-          Leave open
-        </Button>
+        {f.cleared ? (
+          <Button size="sm" variant="ghost" icon="arrow-counter-clockwise" onClick={f.keepGone}>
+            Keep {f.gone}
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" icon="x" onClick={f.clear}>
+            Leave open
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"

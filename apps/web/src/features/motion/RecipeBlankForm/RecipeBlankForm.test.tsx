@@ -30,6 +30,31 @@ describe('the recipe blank form', () => {
     expect(blank('lantern')?.point).toEqual([0, 1.2, 0]);
   });
 
+  it('says the file keeps a gone prop, and Leave open empties it for good until kept again', async () => {
+    await openRecipe('look-around');
+    render(<RecipeBlankForm id="torch" />);
+    expect(screen.getByText(/The file still names old-torch/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    expect(useRecipeEditorStore.getState().editing?.cleared).toEqual(['torch']);
+    expect(screen.getByText(/Saving empties it for good/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep old-torch' }));
+    expect(useRecipeEditorStore.getState().editing?.cleared).toEqual([]);
+  });
+
+  it("keeps picking from the recipe's own project after another project opens", async () => {
+    await openRecipe();
+    const { useAppStore } = await import('@/state/use-app-store');
+    const kept = useRecipeEditorStore.getState().editing?.assets.length ?? 0;
+    expect(kept).toBeGreaterThan(0);
+    const workspace = useAppStore.getState().workspace!;
+    useAppStore.setState({
+      workspace: { ...workspace, project: { ...workspace.project!, id: 'other', assets: [] } },
+    });
+    render(<RecipeBlankForm id="lantern" />);
+    const picker = screen.getByLabelText('Prop') as HTMLSelectElement;
+    expect(picker.options).toHaveLength(kept + 1);
+  });
+
   it('removes the blank and leaves what aimed at it without a target', async () => {
     await openRecipe();
     render(<RecipeBlankForm id="lantern" />);
