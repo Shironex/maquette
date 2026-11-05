@@ -64,6 +64,11 @@ async function recipeReviewShots(open, shot) {
   await asked.waitForTimeout(400);
   await assertClear(asked, asked.getByRole('button', { name: 'Add as v3' }), 'Add as v3');
   await assertClear(asked, asked.getByRole('button', { name: 'Close', exact: true }), 'Close');
+  await assertClear(
+    asked,
+    asked.getByText('A warn asks for a look', { exact: false }),
+    'the warn note'
+  );
   await shot(asked, 'motion-recipe-review-approval');
   await asked.context().close();
 }
