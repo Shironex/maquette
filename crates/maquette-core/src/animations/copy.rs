@@ -25,8 +25,7 @@ fn unreadable(file: &str, name: &str, err: &CoreError) -> CoreError {
 /// [`copy::copy_to_project`] does, with its animation records. Both records
 /// are read before anything is copied, so one that cannot be read refuses
 /// the copy and writes nothing, and written before the copy is listed, so
-/// one that cannot be written leaves it out (and a copy that cannot be
-/// listed takes its records back out).
+/// one that cannot be written leaves it out.
 ///
 /// # Errors
 ///
@@ -50,31 +49,35 @@ pub fn copy_to_project(
         .assets
         .remove(&asset.id);
     let to_dir = project::dir(workspace_root, layout, to_id)?;
-    let mut wrote = None;
-    // Written before the copy is listed, so it never shows without them.
-    let copied = copy::copy_to_project_then(
+    // Written before the copy is listed, so it never shows without them,
+    // and under the manifest's lock with the id checked free: entries for
+    // that id are left over from a copy that was never listed, so they go
+    // first, and go again when a write fails.
+    copy::copy_to_project_then(
         workspace_root,
         layout,
         (from_id, asset_id, to_id),
         sent,
         |id| {
-            wrote = Some(id.to_string());
-            baked::record_all(&to_dir, id, bakes)?;
-            if let Some(entry) = taken {
-                uses::update(&to_dir, id, |slot| *slot = entry)?;
+            let wrote = forget_records(&to_dir, id).and_then(|()| {
+                baked::record_all(&to_dir, id, bakes)?;
+                match taken {
+                    Some(entry) => uses::update(&to_dir, id, |slot| *slot = entry),
+                    None => Ok(()),
+                }
+            });
+            if wrote.is_err() {
+                let _ = forget_records(&to_dir, id);
             }
-            Ok(())
+            wrote
         },
-    );
-    if copied.is_err()
-        && let Some(id) = wrote
-    {
-        // The copy was not listed: a later asset of that id must not
-        // inherit its records.
-        let _ = baked::forget(&to_dir, &id);
-        let _ = uses::forget(&to_dir, &id);
-    }
-    copied
+    )
+}
+
+/// Drops whatever the records hold for `id` in the project at `dir`.
+fn forget_records(dir: &Path, id: &str) -> CoreResult<()> {
+    baked::forget(dir, id)?;
+    uses::forget(dir, id)
 }
 
 #[cfg(test)]
@@ -252,25 +255,35 @@ mod tests {
     }
 
     #[test]
-    fn the_records_of_an_undone_copy_are_forgotten() {
+    fn records_left_for_an_unlisted_id_give_way_to_the_copy() {
         let t = two();
+        let from_dir = project::dir(&t.root, &t.layout, &t.from).expect("dir");
         let to_dir = project::dir(&t.root, &t.layout, &t.to).expect("dir");
-        baked::record(&to_dir, "elsheria", bake(true)).expect("bake");
-        baked::record(&to_dir, "lantern", bake(false)).expect("bake");
-        uses::update(&to_dir, "elsheria", |e| e.review_version = Some(1)).expect("uses");
-        baked::forget(&to_dir, "elsheria").expect("forget");
-        uses::forget(&to_dir, "elsheria").expect("forget");
-        assert!(
-            baked::of_asset(&to_dir, "elsheria")
-                .expect("read")
-                .is_empty()
+        baked::record(&from_dir, "elsheria", bake(true)).expect("bake");
+        // Left by a copy that was never listed, and a listed asset's own.
+        let stale = RecipeBakeUse {
+            recipe: "stale".into(),
+            ..bake(false)
+        };
+        baked::record(&to_dir, "elsheria", stale).expect("stale");
+        uses::update(&to_dir, "elsheria", |e| e.review_version = Some(7)).expect("uses");
+        baked::record(&to_dir, "lantern", bake(false)).expect("other");
+        let copied =
+            copy_to_project(&t.root, &t.layout, &t.from, "elsheria", &t.to, &[]).expect("copy");
+        assert_eq!(copied.asset.id, "elsheria");
+        assert_eq!(
+            baked::of_asset(&to_dir, "elsheria").expect("read"),
+            vec![bake(true)],
+            "only the copy's own"
         );
-        assert_eq!(baked::of_asset(&to_dir, "lantern").expect("read").len(), 1);
         assert_eq!(
             uses::of_asset(&to_dir, "elsheria").expect("uses"),
             AssetAnimations::default()
         );
-        // Forgetting what is not there writes nothing.
-        baked::forget(&to_dir, "nobody").expect("nothing");
+        assert_eq!(
+            baked::of_asset(&to_dir, "lantern").expect("read").len(),
+            1,
+            "another asset's records stay"
+        );
     }
 }

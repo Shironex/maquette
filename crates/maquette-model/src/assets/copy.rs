@@ -147,7 +147,8 @@ pub fn copy_to_project(
 /// As [`copy_to_project`], calling `before` with the copy's id once its
 /// files are in and before the target's manifest lists it, so records kept
 /// beside the manifest are written first: when `before` fails, the copy is
-/// never listed.
+/// never listed. It runs under the manifest's write lock, after the id is
+/// checked free, so no other copy to that id runs it meanwhile.
 ///
 /// # Errors
 ///
@@ -237,7 +238,6 @@ pub fn copy_to_project_then(
             .collect(),
         ..asset
     };
-    before(&copy.id)?;
     let to = project::modify(workspace_root, layout, to_id, |m| {
         if m.assets.iter().any(|a| a.id == copy.id) {
             return Err(CoreError::Invalid(format!(
@@ -245,6 +245,9 @@ pub fn copy_to_project_then(
                 m.name, copy.name
             )));
         }
+        // Under the manifest's lock, once the id is known to be free, so a
+        // copy racing to the same id never runs it at the same time.
+        before(&copy.id)?;
         m.assets.push(copy.clone());
         Ok(())
     })?;
