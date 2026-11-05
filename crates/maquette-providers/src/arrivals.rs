@@ -395,11 +395,11 @@ impl Arrivals {
             self.mark_seen(hash, None);
             return arrival;
         }
-        match self
-            .inner
-            .studio
-            .hand_back(&job.id, Path::new(&arrival.path))
-        {
+        // A recipe bake's mark fails it: it becomes a version only by review.
+        let path = Path::new(&arrival.path);
+        let handed = crate::own_file::not_a_bake(path)
+            .and_then(|()| self.inner.studio.hand_back(&job.id, path));
+        match handed {
             Ok(done) => {
                 arrival.state = ArrivalState::Imported;
                 arrival.inbox_file = done.inbox_file;

@@ -24,7 +24,8 @@ const SCRIPT_FILE: &str = "to_glb.py";
 /// The workspace cache folder an own file is turned into a GLB in.
 pub const WORK_DIR: &str = "own-files";
 const OUT_FILE: &str = "model.glb";
-/// Why a staged recipe bake is refused as a model file.
+/// Why a staged recipe bake, or any file carrying a recipe bake's mark, is
+/// refused as a model file.
 pub const STAGED_BAKE: &str = "That file is a staged recipe bake. It becomes a version through the recipe's review in the Motion view, which keeps whether it counts as Mixamo's, not as a model file.";
 
 fn ext_of(file: &Path) -> Option<String> {
@@ -37,8 +38,9 @@ fn ext_of(file: &Path) -> Option<String> {
 /// Checks `file` can become a version: an absolute path to a `.glb`,
 /// `.gltf`, `.fbx` or `.obj` that exists, outside the workspace's inbox,
 /// every project's `models` folder (a version already there is no new
-/// file) and the staged recipe bakes in the cache. Returns its real path
-/// and its type.
+/// file) and the staged recipe bakes in the cache, and not carrying a
+/// recipe bake's mark wherever it is (a staged bake copied out of the
+/// cache). Returns its real path and its type.
 ///
 /// # Errors
 ///
@@ -48,7 +50,22 @@ pub fn check(root: &Path, config: &WorkspaceConfig, file: &Path) -> CoreResult<(
     if bake {
         return Err(CoreError::Invalid(STAGED_BAKE.to_string()));
     }
+    not_a_bake(&real)?;
     Ok((real, ext))
+}
+
+/// Refuses the model at `file` as [`STAGED_BAKE`] when it carries a recipe
+/// bake's mark in its GLB extras: it becomes a version only through the
+/// recipe's review.
+///
+/// # Errors
+///
+/// [`STAGED_BAKE`] for a marked file.
+pub fn not_a_bake(file: &Path) -> CoreResult<()> {
+    match maquette_model::recipes::baked::mark_of(file) {
+        Some(_) => Err(CoreError::Invalid(STAGED_BAKE.to_string())),
+        None => Ok(()),
+    }
 }
 
 /// As [`check`], with whether the file is a staged recipe bake instead of

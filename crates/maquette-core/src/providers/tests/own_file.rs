@@ -224,6 +224,29 @@ fn only_the_reviewed_route_takes_a_staged_bake_and_it_keeps_its_mark() {
 }
 
 #[test]
+fn a_marked_bake_copied_out_of_the_cache_is_refused_too() {
+    let world = World::new();
+    let jobs = studio(&world);
+    let outside = tempfile::tempdir().expect("tempdir");
+    let copied = outside.path().join("wave.glb");
+    fs::write(&copied, fixture::clean_prop()).expect("write");
+    crate::recipes::baked::write_mark(&copied, &mark()).expect("mark");
+    let err = add(&jobs, &NoBlender, &tools(), &own(&world, &copied)).expect_err("refused");
+    assert_eq!(err.to_string(), STAGED_BAKE);
+    assert!(check(&world.root, &world.config, &copied).is_err());
+}
+
+pub(super) fn mark() -> crate::recipes::baked::RecipeBakeMark {
+    crate::recipes::baked::RecipeBakeMark {
+        recipe: "wave".into(),
+        recipe_version: "v".into(),
+        base_clip: "idle".into(),
+        clip: "wave".into(),
+        mixamo: true,
+    }
+}
+
+#[test]
 fn a_waiting_by_hand_send_takes_the_file_as_its_model() {
     let world = World::new();
     let jobs = studio(&world);

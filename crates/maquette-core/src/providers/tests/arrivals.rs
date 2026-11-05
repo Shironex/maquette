@@ -369,6 +369,29 @@ fn fbx_exports_are_matched_but_left_for_a_glb() {
 }
 
 #[test]
+fn a_download_carrying_a_recipe_bake_mark_is_never_placed_or_attached() {
+    let rig = rig();
+    let job = rig.by_hand(&rig.world.asset.clone());
+    let named = rig.download("maq_stone-lantern_v1_tripo.glb", &fixture::character(false));
+    crate::recipes::baked::write_mark(&named, &super::own_file::mark()).expect("mark");
+    let arrival = rig.arrivals.take(&named).expect("seen");
+    assert_eq!(arrival.state, ArrivalState::Failed);
+    assert_eq!(arrival.reason, crate::providers::own_file::STAGED_BAKE);
+    assert_eq!(rig.jobs.get(&job.id).expect("job").state, JobState::Waiting);
+
+    let ids = add_objects(&rig.world, &["Desk lamp"]);
+    rig.by_hand(&ids[0]);
+    let loose = rig.download("model (4).glb", &fixture::character(true));
+    crate::recipes::baked::write_mark(&loose, &super::own_file::mark()).expect("mark");
+    let asked = rig.arrivals.take(&loose).expect("asked");
+    let err = rig
+        .arrivals
+        .attach(&asked.id, &rig.world.project, &ids[0])
+        .expect_err("refused");
+    assert_eq!(err.to_string(), crate::providers::own_file::STAGED_BAKE);
+}
+
+#[test]
 fn nothing_is_read_while_no_send_waits() {
     let rig = rig();
     let file = rig.download("maq_stone-lantern_v1_tripo.glb", &fixture::character(false));
