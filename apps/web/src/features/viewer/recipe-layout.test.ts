@@ -14,7 +14,7 @@ function view(placeModel = true): LayoutView {
     saved: true,
     layout: { models, stops: [], desk: null } as unknown as LayoutView['layout'],
     models: [
-      { asset: 'lantern', min: [-0.1, 0, -0.1], max: [0.1, 0.4, 0.1] },
+      { asset: 'lantern', present: true, min: [-0.1, 0, -0.1], max: [0.1, 0.4, 0.1] },
     ] as unknown as LayoutView['models'],
     firstView: {} as LayoutView['firstView'],
   };

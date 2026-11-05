@@ -4189,6 +4189,11 @@ export type LayoutModel = {
 	version: number,
 	/**  Absolute path of the model file. */
 	file: string,
+	/**
+	 *  Whether that file is there: a recipe bake aims at a prop's spot in
+	 *  the layout only then, and so does its preview.
+	 */
+	present: boolean,
 	/**  Relative to the project. */
 	path: string,
 	/**

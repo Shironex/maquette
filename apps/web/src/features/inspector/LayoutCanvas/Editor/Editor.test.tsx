@@ -39,6 +39,7 @@ function model(asset: string): LayoutModel {
     max: [0.2, 0.4, 0.2],
     prep: { scale: 1, offset: [0, 0, 0] },
     fallback: [0, 0, 0],
+    present: true,
     bytes: 1000,
     measured: 'shipped',
   } as LayoutModel;

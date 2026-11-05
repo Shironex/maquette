@@ -36,6 +36,9 @@ pub struct LayoutModel {
     pub version: u32,
     /// Absolute path of the model file.
     pub file: String,
+    /// Whether that file is there: a recipe bake aims at a prop's spot in
+    /// the layout only then, and so does its preview.
+    pub present: bool,
     /// Relative to the project.
     pub path: String,
     /// Its bounds in its own frame once prepared (fix-ups and real size),
@@ -176,6 +179,7 @@ pub fn models(
                 kind: asset.kind,
                 version: version.version,
                 file: file.display().to_string(),
+                present: file.is_file(),
                 path: version.file.clone(),
                 min: bounds.map(|b| b.0),
                 max: bounds.map(|b| b.1),
