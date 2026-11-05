@@ -106,6 +106,7 @@ describe('the recipes stage', () => {
     const reach = within(list).getByText('Reach for the lantern').closest('li')!;
     // The demo opens with a finished bake of this recipe.
     expect(await within(reach).findByText('Review and add as a version comes next')).toBeVisible();
+    expect(within(reach).queryByText('Out of date')).not.toBeInTheDocument();
     await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
     expect(await within(reach).findByRole('progressbar')).toBeVisible();
     expect(start.mock.calls[0]?.[0]).toMatchObject({
@@ -127,6 +128,8 @@ describe('the recipes stage', () => {
     render(<RecipesStage />);
     const list = await screen.findByRole('list', { name: 'Project recipes' });
     const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    // Its finished bake reads as out of date against the version listed.
+    expect(await within(reach).findByText('Out of date')).toBeVisible();
     await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
     expect(await within(reach).findByText(/changed since it was read/)).toBeVisible();
     expect(within(reach).queryByRole('progressbar')).not.toBeInTheDocument();

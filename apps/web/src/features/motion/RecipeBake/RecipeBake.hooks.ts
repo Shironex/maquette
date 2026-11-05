@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { applyBlocked, bakeKey } from '@/state/recipe-bake';
+import { applyBlocked, bakeKey, staleOf } from '@/state/recipe-bake';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 
@@ -22,14 +22,16 @@ export function useBakeModel(): { asset: string; name: string } | null {
 export function useRecipeBake(
   project: string,
   recipe: string,
-  counts: { open: number; layers: number }
+  counts: { open: number; layers: number },
+  /** The recipe's version as the view read it, to tell a bake out of date. */
+  version?: string | null
 ) {
   const key = bakeKey(project, recipe);
   const record = useRecipeBakesStore(s => s.bakes[key]);
   const busy = useRecipeBakesStore(s => Boolean(s.busy[key]));
   const error = useRecipeBakesStore(s => s.errors[key] ?? null);
   const model = useBakeModel();
-  const named = useMotionStore(s => s.view?.models.find(m => m.asset === record?.asset)?.name);
+  const baked = useMotionStore(s => s.view?.models.find(m => m.asset === record?.asset));
   useEffect(() => {
     if (useRecipeBakesStore.getState().bakes[key] === undefined)
       void useRecipeBakesStore.getState().load(project, recipe);
@@ -39,7 +41,9 @@ export function useRecipeBake(
   return {
     record: record ?? null,
     /** The baked model's name as the Motion view lists it. */
-    assetName: named ?? record?.asset ?? null,
+    assetName: baked?.name ?? record?.asset ?? null,
+    /** Why the last bake is out of date, or null. */
+    stale: staleOf(record ?? null, { recipeVersion: version, model: baked ?? null }),
     busy,
     error,
     model,

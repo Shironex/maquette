@@ -15,8 +15,8 @@ import { fail, type Args } from './backend-options';
 interface BakeContext {
   /** The recipe as `recipe_get` reads it; fails for one that is gone. */
   doc: (project: string, id: string) => RecipeDoc;
-  /** The asset's name, or null when the project has no such asset. */
-  assetName: (project: string, asset: string) => string | null;
+  /** The asset's name and newest version, or null when the project has no such asset. */
+  asset: (project: string, asset: string) => { name: string; version: number } | null;
   state: string | null;
 }
 
@@ -31,7 +31,11 @@ const snake = (name: string) =>
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_|_$/g, '') || 'recipe';
 
-function resultOf(doc: RecipeDoc, asset: string, assetName: string): RecipeBakeResult {
+function resultOf(
+  doc: RecipeDoc,
+  asset: string,
+  onto: { name: string; version: number }
+): RecipeBakeResult {
   const reaches = doc.recipe.layers.filter(l => l.kind === 'reach');
   return {
     recipe: doc.id,
@@ -42,8 +46,8 @@ function resultOf(doc: RecipeDoc, asset: string, assetName: string): RecipeBakeR
     recipeBaseHash: null,
     mixamo: doc.mixamo,
     asset,
-    assetName,
-    fromVersion: 1,
+    assetName: onto.name,
+    fromVersion: onto.version,
     clip: snake(doc.recipe.name),
     frames: doc.recipe.base.frames,
     file: `/cache/recipes/${doc.id}/staged.glb`,
@@ -100,7 +104,11 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
         startedMs: now - 4000,
         updatedMs: now - 1400,
         finishedMs: now - 1400,
-        result: resultOf(doc, 'elsheria', 'Elsheria'),
+        result: resultOf(
+          doc,
+          'elsheria',
+          ctx.asset('frostveil', 'elsheria') ?? { name: 'Elsheria', version: 1 }
+        ),
       });
     } catch {
       // No demo recipe to show a bake for.
@@ -112,13 +120,13 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
     if (done >= STEPS) {
       timers.delete(key);
       const doc = ctx.doc(record.project, record.recipe);
-      const name = ctx.assetName(record.project, record.asset) ?? record.asset;
+      const onto = ctx.asset(record.project, record.asset) ?? { name: record.asset, version: 1 };
       put({
         ...record,
         state: 'done',
         progress: null,
         finishedMs: clock.nowMs(),
-        result: resultOf(doc, record.asset, name),
+        result: resultOf(doc, record.asset, onto),
       });
       return;
     }

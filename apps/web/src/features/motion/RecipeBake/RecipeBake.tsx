@@ -42,7 +42,7 @@ function Running({
 }
 
 /** A finished bake's numbers and what comes next. */
-function Done({ record }: { record: RecipeBakeRecord }) {
+function Done({ record, stale }: { record: RecipeBakeRecord; stale: string | null }) {
   const result = record.result;
   if (!result) return null;
   const lines = resultLines(result).map(line => (
@@ -79,7 +79,13 @@ function Done({ record }: { record: RecipeBakeRecord }) {
             Mixamo
           </span>
         ) : null}
+        {stale ? (
+          <span className="rounded-pill border border-amber px-2 text-[11.5px] leading-5 text-amber">
+            Out of date
+          </span>
+        ) : null}
       </div>
+      {stale ? <p className="text-meta text-amber">{stale}</p> : null}
       <ul aria-label="Bake result" className="flex list-none flex-col gap-1">
         {lines}
       </ul>
@@ -98,6 +104,7 @@ export default function RecipeBake({
   assetName,
   busy,
   error,
+  stale = null,
   onCancel,
 }: {
   record: RecipeBakeRecord | null;
@@ -105,6 +112,8 @@ export default function RecipeBake({
   assetName?: string | null;
   busy: boolean;
   error: string | null;
+  /** Why the bake is out of date: the recipe or the model moved on. */
+  stale?: string | null;
   onCancel: () => void;
 }) {
   const refused = error ? (
@@ -120,7 +129,7 @@ export default function RecipeBake({
         onCancel={onCancel}
       />
     ) : record.state === 'done' ? (
-      <Done record={record} />
+      <Done record={record} stale={stale} />
     ) : record.state === 'cancelled' ? (
       <p className="text-meta text-fg-mute">The last bake was cancelled. Nothing was staged.</p>
     ) : (

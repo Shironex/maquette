@@ -27,6 +27,7 @@ export function EditorBake({ v }: { v: ReturnType<typeof useEditorApply> }) {
       assetName={v.bake.assetName}
       busy={v.bake.busy}
       error={v.bake.error}
+      stale={v.bake.stale}
       onCancel={v.bake.cancel}
     />
   );

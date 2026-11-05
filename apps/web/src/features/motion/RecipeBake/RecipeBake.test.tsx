@@ -32,6 +32,20 @@ describe('a recipe bake panel', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 
+  it('marks a bake out of date with the reason', () => {
+    render(
+      <RecipeBake
+        record={record()}
+        busy={false}
+        error={null}
+        stale="The recipe changed since this bake. Bake it again."
+        onCancel={() => {}}
+      />
+    );
+    expect(screen.getByText('Out of date')).toBeVisible();
+    expect(screen.getByText('The recipe changed since this bake. Bake it again.')).toBeVisible();
+  });
+
   it('says why a bake failed or did not start, and nothing before a first bake', () => {
     const failed = record({ state: 'failed', result: null, error: 'Blender stopped.' });
     const { rerender } = render(

@@ -78,10 +78,15 @@ export function useEditorApply(saveBlocked: string | undefined) {
   const editing = useRecipeEditorStore(s => s.editing);
   const saving = useRecipeEditorStore(s => s.saving);
   const draft = editing?.draft;
-  const bake = useRecipeBake(editing?.project ?? '', editing?.id ?? '', {
-    open: draft?.blanks.filter(b => !blankFilled(b)).length ?? 0,
-    layers: draft?.layers.length ?? 0,
-  });
+  const bake = useRecipeBake(
+    editing?.project ?? '',
+    editing?.id ?? '',
+    {
+      open: draft?.blanks.filter(b => !blankFilled(b)).length ?? 0,
+      layers: draft?.layers.length ?? 0,
+    },
+    editing?.doc.version ?? null
+  );
   const dirty = isDirty(editing);
   const apply = async () => {
     const store = useRecipeEditorStore.getState();

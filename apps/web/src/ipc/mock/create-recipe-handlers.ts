@@ -257,8 +257,12 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   return {
     ...createRecipeBakeHandlers({
       doc: (project, id) => doc(project, id, existing(project, id)),
-      assetName: (project, asset) =>
-        (ctx.project(project).assets ?? []).find(a => a.id === asset)?.name ?? null,
+      asset: (project, id) => {
+        const found = (ctx.project(project).assets ?? []).find(a => a.id === id);
+        if (!found) return null;
+        const version = Math.max(1, ...(found.versions ?? []).map(v => v.version));
+        return { name: found.name, version };
+      },
       state: ctx.state,
     }),
     recipe_list: ({ project }: Args) =>

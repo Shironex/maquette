@@ -20,7 +20,12 @@ function Row({
   onEdit: () => void;
   opening: boolean;
 }) {
-  const bake = useRecipeBake(project, recipe.id, { open: recipe.open, layers: recipe.layers });
+  const bake = useRecipeBake(
+    project,
+    recipe.id,
+    { open: recipe.open, layers: recipe.layers },
+    recipe.version || null
+  );
   if (recipe.problem) {
     return (
       <li className="flex items-start gap-3 rounded-card border border-line bg-danger-soft px-3 py-2.5">
@@ -75,6 +80,7 @@ function Row({
         assetName={bake.assetName}
         busy={bake.busy}
         error={bake.error}
+        stale={bake.stale}
         onCancel={bake.cancel}
       />
     </li>
