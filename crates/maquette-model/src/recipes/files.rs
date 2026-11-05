@@ -1,5 +1,6 @@
 //! A project's recipe files: listing, making, reading, renaming, changing
-//! and removing them. Writes in this process go one at a time, and each
+//! and removing them. Reading checks prop blanks against the project, so a
+//! prop that is no longer an asset reads as an open blank with a warning. Writes in this process go one at a time, and each
 //! reads the file on disk under the same lock first, so a recipe removed
 //! meanwhile (here or by a sync from another computer) is not written back.
 
@@ -12,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, check_name,
-    check_props, dir, is_recipe_id, load_file, normalized, path, validate,
+    check_props, dir, is_recipe_id, load_file, normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -35,21 +36,41 @@ pub struct RecipeSummary {
     pub mixamo: bool,
     pub layers: u32,
     pub blanks: u32,
-    /// Blanks nothing fills yet.
+    /// Blanks nothing fills yet, a prop the project no longer has included.
     pub open: u32,
+    /// What to know before baking: a prop blank that opened again.
+    pub warnings: Vec<String>,
     /// RFC 3339; empty when the file could not be read.
     pub edited: String,
     /// Why the file could not be read, for a recipe that only lists.
     pub problem: Option<String>,
 }
 
-/// What a change to a recipe replaces: the changes, the blanks or both,
-/// each whole. A change with an empty id gets a free one (`l-1`, `l-2`).
+/// What a change to a recipe replaces: its name, the changes, the blanks,
+/// or any of them, each whole. A change with an empty id gets a free one
+/// (`l-1`, `l-2`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeChange {
+    /// A new name; the file and id stay.
+    #[serde(default)]
+    pub name: Option<String>,
     pub layers: Option<Vec<RecipeLayer>>,
     pub blanks: Option<Vec<RecipeBlank>>,
+}
+
+/// A recipe as read for its project, prop blanks the project no longer
+/// has opened, with a warning for each.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecipeRead {
+    pub recipe: RecipeFile,
+    pub warnings: Vec<String>,
+}
+
+/// Opens the prop blanks `manifest`'s project no longer has.
+fn settled(mut recipe: RecipeFile, manifest: &ProjectManifest) -> RecipeRead {
+    let warnings = settle_props(&mut recipe, manifest);
+    RecipeRead { recipe, warnings }
 }
 
 static WRITES: Mutex<()> = Mutex::new(());
@@ -66,7 +87,8 @@ fn file_of(id: &str) -> String {
     format!("{RECIPES_DIR}/{id}{RECIPE_SUFFIX}")
 }
 
-fn summary(id: &str, recipe: &RecipeFile) -> RecipeSummary {
+fn summary(id: &str, read: &RecipeRead) -> RecipeSummary {
+    let recipe = &read.recipe;
     RecipeSummary {
         id: id.to_string(),
         file: file_of(id),
@@ -78,6 +100,7 @@ fn summary(id: &str, recipe: &RecipeFile) -> RecipeSummary {
         blanks: count(recipe.blanks.len()),
         open: count(recipe.blanks.iter().filter(|b| !b.filled()).count()),
         edited: recipe.edited.clone(),
+        warnings: read.warnings.clone(),
         problem: None,
     }
 }
@@ -94,17 +117,19 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         blanks: 0,
         open: 0,
         edited: String::new(),
+        warnings: Vec::new(),
         problem: Some(problem),
     }
 }
 
-/// Every recipe in the project, sorted by id. A file that cannot be read
-/// still lists, with its problem, so it can be removed.
+/// Every recipe in the project of `manifest` at `project_dir`, sorted by
+/// id. A file that cannot be read still lists, with its problem, so it can
+/// be removed.
 ///
 /// # Errors
 ///
 /// Fails only when the `recipes` folder exists but cannot be read.
-pub fn list(project_dir: &Path) -> CoreResult<Vec<RecipeSummary>> {
+pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<RecipeSummary>> {
     let folder = dir(project_dir);
     let entries = match fs::read_dir(&folder) {
         Ok(entries) => entries,
@@ -121,7 +146,7 @@ pub fn list(project_dir: &Path) -> CoreResult<Vec<RecipeSummary>> {
             continue;
         }
         found.push(match load_file(&entry.path()) {
-            Ok(recipe) => summary(id, &recipe),
+            Ok(recipe) => summary(id, &settled(recipe, manifest)),
             Err(err) => broken(id, err.to_string()),
         });
     }
@@ -129,13 +154,13 @@ pub fn list(project_dir: &Path) -> CoreResult<Vec<RecipeSummary>> {
     Ok(found)
 }
 
-/// The recipe `id`.
+/// The recipe `id` of the project of `manifest` at `project_dir`.
 ///
 /// # Errors
 ///
 /// Fails when it is missing or [`load_file`] refuses it.
-pub fn get(project_dir: &Path, id: &str) -> CoreResult<RecipeFile> {
-    load_file(&path(project_dir, id)?)
+pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResult<RecipeRead> {
+    Ok(settled(load_file(&path(project_dir, id)?)?, manifest))
 }
 
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
@@ -196,7 +221,11 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<RecipeSumm
         recipe.edited = now_rfc3339();
         write_json(&file, &recipe)?;
     }
-    Ok(summary(id, &recipe))
+    let read = RecipeRead {
+        recipe,
+        warnings: Vec::new(),
+    };
+    Ok(summary(id, &read))
 }
 
 /// Free ids for the changes that came without one.
@@ -222,30 +251,40 @@ fn with_ids(layers: Vec<RecipeLayer>) -> Vec<RecipeLayer> {
         .collect()
 }
 
-/// Replaces the changes, the blanks or both of the recipe `id`, as the
-/// file holds it now, after checking the whole result and that each filled
-/// prop blank names an asset of `manifest`'s project. `edited` moves only
-/// when something changed; the revision never does.
+/// Replaces the name, the changes, the blanks or any of them of the recipe
+/// `id`, as the file holds it now, in one write after checking the whole
+/// result. Blanks sent must name assets of `manifest`'s project. When the
+/// blanks are kept, a prop blank naming an asset the project no longer has
+/// is opened instead of refusing the change, with a warning in the answer.
+/// `edited` moves only when something changed; the revision never does.
 ///
 /// # Errors
 ///
-/// Fails when the recipe is gone, the result does not validate or the
-/// file cannot be written.
+/// Fails on a name [`check_name`] refuses, when the recipe is gone, the
+/// result does not validate or the file cannot be written.
 pub fn update(
     project_dir: &Path,
     manifest: &ProjectManifest,
     id: &str,
     change: RecipeChange,
-) -> CoreResult<RecipeFile> {
+) -> CoreResult<RecipeRead> {
+    if let Some(name) = &change.name {
+        check_name(name)?;
+    }
     let _lock = writing();
     let file = path(project_dir, id)?;
     let current = load_file(&file)?;
     let mut next = current.clone();
+    let mut warnings = Vec::new();
+    if let Some(name) = change.name {
+        next.name = trimmed(&name).to_string();
+    }
     if let Some(layers) = change.layers {
         next.layers = with_ids(layers);
     }
-    if let Some(blanks) = change.blanks {
-        next.blanks = blanks;
+    match change.blanks {
+        Some(blanks) => next.blanks = blanks,
+        None => warnings = settle_props(&mut next, manifest),
     }
     let mut next = normalized(&next);
     validate(&next)?;
@@ -254,7 +293,10 @@ pub fn update(
         next.edited = now_rfc3339();
         write_json(&file, &next)?;
     }
-    Ok(next)
+    Ok(RecipeRead {
+        recipe: next,
+        warnings,
+    })
 }
 
 /// Moves the recipe file into `trash_dir` (the workspace's trash for this

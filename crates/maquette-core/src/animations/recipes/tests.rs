@@ -55,7 +55,11 @@ fn a_mixamo_clip_in_the_library_marks_the_recipe_as_mixamo() {
     let mut base = base_of(&clip);
     base.mixamo = false;
     let recipe = crate::recipes::RecipeFile::new("Idle", base);
-    let doc = doc_of("idle", recipe, std::slice::from_ref(&clip));
+    let read = crate::recipes::RecipeRead {
+        recipe,
+        warnings: Vec::new(),
+    };
+    let doc = doc_of("idle", read, std::slice::from_ref(&clip));
     assert!(doc.mixamo, "the library clip came from a Mixamo rig");
     assert!(!doc.recipe.base.mixamo);
 }

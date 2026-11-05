@@ -401,7 +401,10 @@ export const commands = {
 	recipeCreate: (project: string, clip: string, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
 	/**  Renames a recipe; its file and id stay. */
 	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
-	/**  Replaces a recipe's changes, blanks or both, checked whole first. */
+	/**
+	 *  Replaces a recipe's name, changes, blanks or any of them in one write,
+	 *  checked whole first.
+	 */
 	recipeUpdate: (project: string, id: string, change: RecipeChange) => __TAURI_INVOKE<RecipeDoc>("recipe_update", { project, id, change }),
 	/**  Moves the recipe file into the workspace trash; returns where it went. */
 	recipeRemove: (project: string, id: string) => __TAURI_INVOKE<string>("recipe_remove", { project, id }),
@@ -6492,10 +6495,13 @@ export type RecipeBlank = {
 };
 
 /**
- *  What a change to a recipe replaces: the changes, the blanks or both,
- *  each whole. A change with an empty id gets a free one (`l-1`, `l-2`).
+ *  What a change to a recipe replaces: its name, the changes, the blanks,
+ *  or any of them, each whole. A change with an empty id gets a free one
+ *  (`l-1`, `l-2`).
  */
 export type RecipeChange = {
+	/**  A new name; the file and id stay. */
+	name?: string | null,
 	layers: RecipeLayer[] | null,
 	blanks: RecipeBlank[] | null,
 };
@@ -6520,6 +6526,11 @@ export type RecipeDoc = {
 	 *  the library came from a Mixamo rig.
 	 */
 	mixamo: boolean,
+	/**
+	 *  Prop blanks that opened again because the project no longer has
+	 *  their asset, a line each.
+	 */
+	warnings: string[],
 };
 
 /**  `recipes/<id>.recipe.json`. */
@@ -6560,8 +6571,10 @@ export type RecipeSummary = {
 	mixamo: boolean,
 	layers: number,
 	blanks: number,
-	/**  Blanks nothing fills yet. */
+	/**  Blanks nothing fills yet, a prop the project no longer has included. */
 	open: number,
+	/**  What to know before baking: a prop blank that opened again. */
+	warnings: string[],
 	/**  RFC 3339; empty when the file could not be read. */
 	edited: string,
 	/**  Why the file could not be read, for a recipe that only lists. */

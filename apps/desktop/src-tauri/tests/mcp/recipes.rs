@@ -1,9 +1,12 @@
 //! A real MCP client makes an animation recipe on a library clip, fills its
 //! blanks and changes, is refused a change that does not check out with the
 //! file left as it was, renames it, sees a base clip whose keys changed as
-//! a warning, and is refused every recipe tool while the animation group is
-//! off. Everything happens in a temp workspace; no Blender runs.
+//! a warning, sees a prop blank open again once its asset is gone and can
+//! still change the recipe, and is refused every recipe tool while the
+//! animation group is off. Everything happens in a temp workspace; no
+//! Blender runs.
 
+use maquette_core::project;
 use serde_json::{Value, json};
 
 use super::animations::fixture;
@@ -148,6 +151,41 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
         (Some(3), Some(0))
     );
     assert!(listed.get("next").is_none());
+
+    let layout = host.session.workspace().expect("ws").1.layout;
+    project::modify(&root, &layout, PROJECT, |m| {
+        m.assets.clear();
+        Ok(())
+    })
+    .expect("remove the dummy");
+    let stale = call(
+        &client,
+        "get_recipe",
+        json!({ "project": PROJECT, "recipe": id }),
+    )
+    .await;
+    assert_eq!(stale["blanks"][0]["filled"], false, "{stale}");
+    let warning = stale["warnings"][0].as_str().expect("warning");
+    assert!(warning.contains("dummy"), "{warning}");
+    assert!(steps(&stale).contains(&"update_recipe".to_string()));
+    let listed = call(&client, "list_recipes", json!({ "project": PROJECT })).await;
+    assert_eq!(listed["recipes"][0]["open"], 1, "{listed}");
+    let still = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id,
+                "changes": [{ "kind": "nudge", "bone": "spine", "rotation": [0.0, 5.0, 0.0] }] }),
+    )
+    .await;
+    assert_eq!(
+        still["changes"].as_array().map(Vec::len),
+        Some(1),
+        "{still}"
+    );
+    assert!(
+        still["warnings"][0].as_str().is_some(),
+        "it says which blank opened"
+    );
 
     let gone = call_error(
         &client,

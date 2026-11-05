@@ -280,3 +280,22 @@ pub fn check_props(recipe: &RecipeFile, manifest: &ProjectManifest) -> CoreResul
     }
     Ok(())
 }
+
+/// Opens each prop blank whose prop is no longer an asset of `manifest`'s
+/// project (removed, or a recipe synced in from another computer), so it
+/// reads as open. Answers with a line per blank it opened.
+pub fn settle_props(recipe: &mut RecipeFile, manifest: &ProjectManifest) -> Vec<String> {
+    let mut warnings = Vec::new();
+    for blank in &mut recipe.blanks {
+        if let Some(prop) = &blank.prop
+            && !manifest.assets.iter().any(|a| &a.id == prop)
+        {
+            warnings.push(format!(
+                "The blank {} named {prop}, which is no longer an asset of {}, so it is open again.",
+                blank.id, manifest.name
+            ));
+            blank.prop = None;
+        }
+    }
+    warnings
+}

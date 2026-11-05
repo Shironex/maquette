@@ -192,11 +192,15 @@ fn recipe_view(doc: &RecipeDoc) -> Value {
             })
         })
         .collect();
-    json!({
+    let mut out = json!({
         "id": doc.id, "file": doc.file, "name": recipe.name, "revision": recipe.revision,
         "edited": recipe.edited, "mixamo": doc.mixamo, "base": base,
         "blanks": blanks, "changes": recipe.layers.iter().map(change_view).collect::<Vec<_>>(),
-    })
+    });
+    if !doc.warnings.is_empty() {
+        out["warnings"] = json!(doc.warnings);
+    }
+    out
 }
 
 /// What to do next with a recipe: fill its blanks, add changes, or import
@@ -226,7 +230,7 @@ fn after(doc: &RecipeDoc) -> Vec<Value> {
 #[tool_router(router = recipes_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List a project's animation recipes: each id (for the other recipe tools), name, base clip name and frame count, whether the base clip is Mixamo's, and its change and blank counts with how many blanks are still open. A recipe file that cannot be read lists with its problem. Reads only.",
+        description = "List a project's animation recipes: each id (for the other recipe tools), name, base clip name and frame count, whether the base clip is Mixamo's, and its change and blank counts with how many blanks are still open (a prop blank whose asset the project no longer has counts as open, with a warning). A recipe file that cannot be read lists with its problem. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn list_recipes(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
@@ -237,11 +241,17 @@ impl McpTools {
                     .iter()
                     .map(|r| match &r.problem {
                         Some(problem) => json!({ "id": r.id, "problem": problem }),
-                        None => json!({
-                            "id": r.id, "name": r.name, "base": r.base, "frames": r.frames,
-                            "mixamo": r.mixamo, "changes": r.layers, "blanks": r.blanks,
-                            "open": r.open, "edited": r.edited,
-                        }),
+                        None => {
+                            let mut line = json!({
+                                "id": r.id, "name": r.name, "base": r.base, "frames": r.frames,
+                                "mixamo": r.mixamo, "changes": r.layers, "blanks": r.blanks,
+                                "open": r.open, "edited": r.edited,
+                            });
+                            if !r.warnings.is_empty() {
+                                line["warnings"] = json!(r.warnings);
+                            }
+                            line
+                        }
                     })
                     .collect();
                 let out = json!({ "recipes": recipes });
@@ -262,7 +272,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, and library: found, hash-differs or missing, as matched in this computer's animation library by name and frame count, with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clip, and the settings its kind uses). Reads only.",
+        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, and library: found, hash-differs or missing, as matched in this computer's animation library by name and frame count, with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project no longer has reads as an open blank, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clip, and the settings its kind uses). Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {
@@ -302,12 +312,13 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an animation recipe: a new name (the file and id stay), its changes, its blanks, or any of them. changes and blanks each replace the list whole, so read get_recipe first and send every entry you keep. A change without an id gets a free one. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, a reach or look-at aiming at a blank the recipe has, a nudge with a rotation or offset, a wave with cycles and amount, and a prop blank naming an asset of the project. The revision does not move. Answers with the recipe as get_recipe reads it. Nothing is baked."
+        description = "Change an animation recipe: a new name (the file and id stay), its changes, its blanks, or any of them. changes and blanks each replace the list whole, so read get_recipe first and send every entry you keep. A change without an id gets a free one. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, a reach or look-at aiming at a blank the recipe has, a nudge with a rotation or offset, a wave with cycles and amount, and a prop blank naming an asset of the project. When blanks is left out, a prop blank whose asset the project no longer has is opened in the same write, and warnings says which. A name, changes and blanks land in one write. The revision does not move. Answers with the recipe as get_recipe reads it. Nothing is baked."
     )]
     async fn update_recipe(&self, Parameters(args): Parameters<UpdateRecipeArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let change = RecipeChange {
+                    name: args.name,
                     layers: args
                         .changes
                         .map(|c| c.into_iter().map(layer_of).collect::<Result<Vec<_>, _>>())
@@ -317,18 +328,7 @@ impl McpTools {
                         .map(|b| b.into_iter().map(blank_of).collect::<Result<Vec<_>, _>>())
                         .transpose()?,
                 };
-                // The name is checked first, so a refused name writes nothing.
-                if let Some(name) = &args.name {
-                    maquette_core::recipes::check_name(name)?;
-                }
-                let session = host.session();
-                let mut doc = commands::update(session, &args.project, &args.recipe, change)?;
-                if let Some(name) = &args.name {
-                    let (dir, _) = super::plans::project_dir(host, &args.project)?;
-                    let renamed = maquette_core::recipes::rename(&dir, &args.recipe, name)?;
-                    doc.recipe.name = renamed.name;
-                    doc.recipe.edited = renamed.edited;
-                }
+                let doc = commands::update(host.session(), &args.project, &args.recipe, change)?;
                 host.recipe_changed(&args.project);
                 Ok(with_next(recipe_view(&doc), after(&doc)))
             })

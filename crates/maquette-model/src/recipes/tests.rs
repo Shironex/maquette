@@ -56,6 +56,10 @@ fn manifest_with(asset: &str) -> ProjectManifest {
     manifest
 }
 
+fn lantern_project() -> ProjectManifest {
+    manifest_with("Lantern")
+}
+
 fn made(dir: &Path) -> String {
     create(dir, "Reach for the lantern", base())
         .expect("create")
@@ -76,7 +80,12 @@ fn a_new_recipe_writes_one_file_with_its_base_and_nothing_baked() {
     for word in ["keys", "mesh", "skeleton", "fbx"] {
         assert!(!text.to_lowercase().contains(word), "{word} in {text}");
     }
-    assert_eq!(get(dir.path(), &id).expect("get"), recipe);
+    assert_eq!(
+        get(dir.path(), &lantern_project(), &id)
+            .expect("get")
+            .recipe,
+        recipe
+    );
     let again = create(dir.path(), "Reach for the lantern", base()).expect("again");
     assert_eq!(again.0, "reach-for-the-lantern-2");
 }
@@ -89,7 +98,7 @@ fn rename_keeps_the_file_and_id() {
     assert_eq!(renamed.id, id);
     assert_eq!(renamed.name, "Grab the lantern");
     assert!(rename(dir.path(), &id, "  ").is_err());
-    assert_eq!(list(dir.path()).expect("list").len(), 1);
+    assert_eq!(list(dir.path(), &lantern_project()).expect("list").len(), 1);
 }
 
 #[test]
@@ -100,7 +109,11 @@ fn remove_moves_the_file_to_the_trash() {
     let to = remove(dir.path(), &trash, &id).expect("remove");
     assert!(Path::new(&to).is_file());
     assert!(to.contains("recipes"));
-    assert!(list(dir.path()).expect("list").is_empty());
+    assert!(
+        list(dir.path(), &lantern_project())
+            .expect("list")
+            .is_empty()
+    );
     assert!(matches!(
         remove(dir.path(), &trash, &id),
         Err(CoreError::NotFound(_))
@@ -118,7 +131,7 @@ fn update_checks_the_whole_recipe_and_gives_changes_free_ids() {
         &id,
         RecipeChange {
             layers: Some(vec![reach("lantern")]),
-            blanks: None,
+            ..RecipeChange::default()
         },
     );
     assert!(refused.is_err(), "a reach at a blank the recipe lacks");
@@ -131,12 +144,14 @@ fn update_checks_the_whole_recipe_and_gives_changes_free_ids() {
         RecipeChange {
             layers: Some(vec![reach("lantern"), reach("lantern")]),
             blanks: Some(vec![filled]),
+            name: None,
         },
     )
-    .expect("update");
+    .expect("update")
+    .recipe;
     let ids: Vec<&str> = done.layers.iter().map(|l| l.id.as_str()).collect();
     assert_eq!(ids, ["l-1", "l-2"]);
-    let listed = &list(dir.path()).expect("list")[0];
+    let listed = &list(dir.path(), &lantern_project()).expect("list")[0];
     assert_eq!((listed.layers, listed.blanks, listed.open), (2, 1, 0));
     assert_eq!(done.revision, 1, "an edit never moves the revision");
 
@@ -147,8 +162,8 @@ fn update_checks_the_whole_recipe_and_gives_changes_free_ids() {
         &manifest,
         &id,
         RecipeChange {
-            layers: None,
             blanks: Some(vec![stranger]),
+            ..RecipeChange::default()
         },
     );
     assert!(wrong.is_err(), "a prop that is no asset of the project");
@@ -210,15 +225,15 @@ fn a_broken_or_newer_file_lists_with_its_problem() {
     newer["version"] = serde_json::json!(RECIPE_VERSION + 1);
     std::fs::write(folder.join("later.recipe.json"), newer.to_string()).expect("later");
     std::fs::write(folder.join("notes.txt"), "not a recipe").expect("notes");
-    let found = list(dir.path()).expect("list");
+    let found = list(dir.path(), &lantern_project()).expect("list");
     assert_eq!(found.len(), 2);
     assert!(found.iter().all(|r| r.problem.is_some()), "{found:?}");
     assert!(matches!(
-        get(dir.path(), "later"),
+        get(dir.path(), &lantern_project(), "later"),
         Err(CoreError::UnsupportedVersion { .. })
     ));
     assert!(matches!(
-        get(dir.path(), "../x"),
+        get(dir.path(), &lantern_project(), "../x"),
         Err(CoreError::NotFound(_))
     ));
 }
@@ -230,7 +245,7 @@ fn a_file_over_the_cap_is_refused_unread() {
     std::fs::create_dir_all(&folder).expect("dir");
     let big = " ".repeat(usize::try_from(MAX_FILE_BYTES).expect("cap") + 1);
     std::fs::write(folder.join("big.recipe.json"), big).expect("big");
-    let err = get(dir.path(), "big").expect_err("too big");
+    let err = get(dir.path(), &lantern_project(), "big").expect_err("too big");
     assert!(err.to_string().contains("too big"), "{err}");
 }
 
@@ -247,8 +262,105 @@ fn reading_normalises_what_a_kind_does_not_use() {
         "prop": "lantern", "point": [0.0, 1.5, 2.0]
     }]);
     std::fs::write(&file, value.to_string()).expect("write");
-    let recipe = get(dir.path(), &id).expect("get");
+    let recipe = get(dir.path(), &lantern_project(), &id)
+        .expect("get")
+        .recipe;
     assert_eq!(recipe.name, "Padded");
     assert_eq!(recipe.blanks[0].prop, None, "a point blank holds no prop");
     assert!(recipe.blanks[0].filled());
+}
+
+#[test]
+fn a_prop_removed_after_the_fill_reads_open_and_never_blocks_a_change() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let mut filled = lantern();
+    filled.prop = Some("lantern".into());
+    update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            layers: Some(vec![reach("lantern")]),
+            blanks: Some(vec![filled.clone()]),
+            name: None,
+        },
+    )
+    .expect("fill");
+
+    let gone = manifest_with("Barrel");
+    let read = get(dir.path(), &gone, &id).expect("get");
+    assert!(!read.recipe.blanks[0].filled(), "the lantern is gone");
+    assert_eq!(read.warnings.len(), 1);
+    assert!(read.warnings[0].contains("lantern"), "{:?}", read.warnings);
+    let listed = &list(dir.path(), &gone).expect("list")[0];
+    assert_eq!((listed.open, listed.warnings.len()), (1, 1));
+    let on_disk = get(dir.path(), &lantern_project(), &id).expect("still");
+    assert!(on_disk.recipe.blanks[0].filled(), "reading writes nothing");
+
+    let mut nudge = reach("lantern");
+    nudge.kind = LayerKind::Nudge;
+    nudge.bone = "spine".into();
+    nudge.settings.target = None;
+    nudge.settings.rotation = Some([0.0, 10.0, 0.0]);
+    let changed = update(
+        dir.path(),
+        &gone,
+        &id,
+        RecipeChange {
+            layers: Some(vec![reach("lantern"), nudge]),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("a changes only update goes through");
+    assert_eq!(changed.warnings.len(), 1, "it says which blank it opened");
+    assert!(!changed.recipe.blanks[0].filled());
+    assert_eq!(changed.recipe.layers.len(), 2);
+
+    let refused = update(
+        dir.path(),
+        &gone,
+        &id,
+        RecipeChange {
+            blanks: Some(vec![filled]),
+            ..RecipeChange::default()
+        },
+    );
+    assert!(
+        refused.is_err(),
+        "sending the missing prop again is refused"
+    );
+}
+
+#[test]
+fn a_name_and_changes_land_in_one_write() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let done = update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            name: Some("  Grab the lantern ".into()),
+            blanks: Some(vec![lantern()]),
+            layers: None,
+        },
+    )
+    .expect("update");
+    assert_eq!(done.recipe.name, "Grab the lantern");
+    let refused = update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            name: Some(" ".into()),
+            blanks: Some(Vec::new()),
+            layers: None,
+        },
+    );
+    assert!(refused.is_err());
+    let kept = get(dir.path(), &lantern_project(), &id)
+        .expect("get")
+        .recipe;
+    assert_eq!(kept.blanks.len(), 1, "a refused name writes nothing");
 }

@@ -46,8 +46,10 @@ use crate::plans::trimmed;
 mod check;
 mod files;
 
-pub use check::{check_name, check_props, validate};
-pub use files::{RecipeChange, RecipeSummary, create, get, list, remove, rename, update};
+pub use check::{check_name, check_props, settle_props, validate};
+pub use files::{
+    RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update,
+};
 
 pub const RECIPES_DIR: &str = "recipes";
 pub const RECIPE_SUFFIX: &str = ".recipe.json";

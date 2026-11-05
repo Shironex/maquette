@@ -6,7 +6,7 @@
 
 use maquette_core::animations::recipes::{self as library_recipes, RecipeDoc};
 use maquette_core::assets::remove::project_trash;
-use maquette_core::project;
+use maquette_core::project::{self, ProjectManifest};
 use maquette_core::recipes::{self, RecipeChange, RecipeSummary};
 use tauri::State;
 
@@ -14,14 +14,26 @@ use super::CommandResult;
 use super::plans::project_dir;
 use crate::session::Session;
 
+/// The workspace root, the project's folder and its manifest, which prop
+/// blanks are read against.
+fn opened(
+    session: &Session,
+    project: &str,
+) -> CommandResult<(std::path::PathBuf, std::path::PathBuf, ProjectManifest)> {
+    let (root, config) = session.workspace()?;
+    let manifest = project::load(&root, &config.layout, project)?;
+    let dir = project::dir(&root, &config.layout, project)?;
+    Ok((root, dir, manifest))
+}
+
 pub(crate) fn list(session: &Session, project: &str) -> CommandResult<Vec<RecipeSummary>> {
-    Ok(recipes::list(&project_dir(session, project)?)?)
+    let (_, dir, manifest) = opened(session, project)?;
+    Ok(recipes::list(&dir, &manifest)?)
 }
 
 pub(crate) fn get(session: &Session, project: &str, id: &str) -> CommandResult<RecipeDoc> {
-    let (root, _) = session.workspace()?;
-    let dir = project_dir(session, project)?;
-    Ok(library_recipes::get(&root, &dir, id)?)
+    let (root, dir, manifest) = opened(session, project)?;
+    Ok(library_recipes::get(&root, &dir, &manifest, id)?)
 }
 
 pub(crate) fn create(
@@ -41,11 +53,8 @@ pub(crate) fn update(
     id: &str,
     change: RecipeChange,
 ) -> CommandResult<RecipeDoc> {
-    let (root, config) = session.workspace()?;
-    let manifest = project::load(&root, &config.layout, project)?;
-    let dir = project::dir(&root, &config.layout, project)?;
-    recipes::update(&dir, &manifest, id, change)?;
-    Ok(library_recipes::get(&root, &dir, id)?)
+    let (root, dir, manifest) = opened(session, project)?;
+    Ok(library_recipes::update(&root, &dir, &manifest, id, change)?)
 }
 
 pub(crate) fn remove(session: &Session, project: &str, id: &str) -> CommandResult<String> {
@@ -102,7 +111,8 @@ pub fn recipe_rename(
     )?)
 }
 
-/// Replaces a recipe's changes, blanks or both, checked whole first.
+/// Replaces a recipe's name, changes, blanks or any of them in one write,
+/// checked whole first.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn recipe_update(

@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{AnimationClip, SourceRig, list, load};
 use crate::error::CoreResult;
-use crate::recipes::{self, RecipeBase, RecipeFile};
+use crate::project::ProjectManifest;
+use crate::recipes::{self, RecipeBase, RecipeChange, RecipeFile, RecipeRead};
 
 /// How a recipe's base clip stands in this computer's library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -47,6 +48,9 @@ pub struct RecipeDoc {
     /// A bake counts as Mixamo's: the recipe says so, or its base clip in
     /// the library came from a Mixamo rig.
     pub mixamo: bool,
+    /// Prop blanks that opened again because the project no longer has
+    /// their asset, a line each.
+    pub warnings: Vec<String>,
 }
 
 /// The base a recipe on `clip` stores: its name, frame count, length and
@@ -102,8 +106,9 @@ pub fn match_base<'a>(
     (missing, None)
 }
 
-/// `recipe` as the view gets it, its base matched against `clips`.
-pub fn doc_of(id: &str, recipe: RecipeFile, clips: &[AnimationClip]) -> RecipeDoc {
+/// `read` as the view gets it, its base matched against `clips`.
+pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc {
+    let RecipeRead { recipe, warnings } = read;
     let (base, clip) = match_base(clips, &recipe.base);
     let mixamo = recipe.base.mixamo || clip.is_some_and(|c| c.rig.kind == SourceRig::Mixamo);
     RecipeDoc {
@@ -112,19 +117,43 @@ pub fn doc_of(id: &str, recipe: RecipeFile, clips: &[AnimationClip]) -> RecipeDo
         recipe,
         base,
         mixamo,
+        warnings,
     }
 }
 
-/// The recipe `id` of the project at `project_dir`, its base matched
-/// against the library of the workspace at `root`.
+/// The recipe `id` of the project of `manifest` at `project_dir`, its base
+/// matched against the library of the workspace at `root`.
 ///
 /// # Errors
 ///
 /// Fails when the recipe is missing or unreadable, or the library cannot
 /// be read.
-pub fn get(root: &Path, project_dir: &Path, id: &str) -> CoreResult<RecipeDoc> {
-    let recipe = recipes::get(project_dir, id)?;
-    Ok(doc_of(id, recipe, &list(root)?))
+pub fn get(
+    root: &Path,
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    id: &str,
+) -> CoreResult<RecipeDoc> {
+    let read = recipes::get(project_dir, manifest, id)?;
+    Ok(doc_of(id, read, &list(root)?))
+}
+
+/// Changes the recipe `id` as [`recipes::update`] does and answers with it
+/// as [`get`] reads it, with the warnings of the change.
+///
+/// # Errors
+///
+/// Fails when [`recipes::update`] refuses the change or the library cannot
+/// be read.
+pub fn update(
+    root: &Path,
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    id: &str,
+    change: RecipeChange,
+) -> CoreResult<RecipeDoc> {
+    let read = recipes::update(project_dir, manifest, id, change)?;
+    Ok(doc_of(id, read, &list(root)?))
 }
 
 /// Makes a recipe in the project at `project_dir` on the library clip
@@ -146,7 +175,11 @@ pub fn create(
         .filter(|n| !n.is_empty())
         .unwrap_or(&clip.name);
     let (id, recipe) = recipes::create(project_dir, name, base_of(&clip))?;
-    Ok(doc_of(&id, recipe, std::slice::from_ref(&clip)))
+    let read = RecipeRead {
+        recipe,
+        warnings: Vec::new(),
+    };
+    Ok(doc_of(&id, read, std::slice::from_ref(&clip)))
 }
 
 #[cfg(test)]

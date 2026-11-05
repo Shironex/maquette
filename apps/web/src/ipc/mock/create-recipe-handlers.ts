@@ -129,6 +129,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       recipe,
       base,
       mixamo: recipe.base.mixamo || clip?.rig.kind === 'mixamo',
+      warnings: [],
     };
   };
   const summary = (id: string, recipe: RecipeFile): RecipeSummary => ({
@@ -142,6 +143,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
     blanks: recipe.blanks.length,
     open: recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point)).length,
     edited: recipe.edited,
+    warnings: [],
     problem: null,
   });
   const freeId = (project: unknown, name: string) => {
@@ -175,10 +177,12 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       return summary(String(id), recipe);
     },
     recipe_update: ({ project, id, change }: Args) => {
-      const { layers, blanks } = change as RecipeChange;
+      const { name, layers, blanks } = change as RecipeChange;
+      if (name != null) checkName(name);
       const current = existing(project, id);
       const recipe: RecipeFile = {
         ...current,
+        name: name?.trim() ?? current.name,
         layers: layers ?? current.layers,
         blanks: blanks ?? current.blanks,
         edited: clock.now().toISOString(),
