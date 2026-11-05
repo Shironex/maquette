@@ -145,6 +145,7 @@ fn update_checks_the_whole_recipe_and_gives_changes_free_ids() {
             layers: Some(vec![reach("lantern"), reach("lantern")]),
             blanks: Some(vec![filled]),
             name: None,
+            ..RecipeChange::default()
         },
     )
     .expect("update")
@@ -284,6 +285,7 @@ fn a_prop_removed_after_the_fill_reads_open_and_never_blocks_a_change() {
             layers: Some(vec![reach("lantern")]),
             blanks: Some(vec![filled.clone()]),
             name: None,
+            ..RecipeChange::default()
         },
     )
     .expect("fill");
@@ -377,6 +379,147 @@ fn a_prop_removed_after_the_fill_reads_open_and_never_blocks_a_change() {
     );
 }
 
+/// A recipe whose lantern blank is filled, read where the lantern is gone.
+fn with_gone_lantern(dir: &Path) -> (String, ProjectManifest) {
+    let id = made(dir);
+    let mut filled = lantern();
+    filled.prop = Some("lantern".into());
+    update(
+        dir,
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            layers: Some(vec![reach("lantern")]),
+            blanks: Some(vec![filled]),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("fill");
+    (id, manifest_with("Barrel"))
+}
+
+#[test]
+fn a_read_names_each_gone_prop_and_the_file_keeps_it() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, gone) = with_gone_lantern(dir.path());
+    let read = get(dir.path(), &gone, &id).expect("get");
+    assert_eq!(
+        read.gone,
+        [GoneProp {
+            blank: "lantern".into(),
+            prop: "lantern".into()
+        }]
+    );
+    assert!(
+        read.warnings[0].contains("reads as open") && read.warnings[0].contains("file keeps"),
+        "{:?}",
+        read.warnings
+    );
+    assert!(
+        get(dir.path(), &lantern_project(), &id)
+            .expect("here")
+            .gone
+            .is_empty()
+    );
+}
+
+#[test]
+fn clearing_a_gone_prop_empties_it_for_good() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, gone) = with_gone_lantern(dir.path());
+    let mut open = lantern();
+    open.prop = None;
+    let cleared = update(
+        dir.path(),
+        &gone,
+        &id,
+        RecipeChange {
+            blanks: Some(vec![open]),
+            clear: vec!["lantern".into()],
+            ..RecipeChange::default()
+        },
+    )
+    .expect("clear with the blanks sent");
+    assert!(cleared.gone.is_empty() && cleared.warnings.is_empty());
+    let back = get(dir.path(), &lantern_project(), &id).expect("back");
+    assert_eq!(
+        back.recipe.blanks[0].prop, None,
+        "restoring the asset no longer fills it"
+    );
+
+    let (other, gone) = with_gone_lantern(&dir.path().join("other"));
+    let cleared = update(
+        &dir.path().join("other"),
+        &gone,
+        &other,
+        RecipeChange {
+            clear: vec!["lantern".into()],
+            ..RecipeChange::default()
+        },
+    )
+    .expect("clear with the blanks kept");
+    assert_eq!(cleared.recipe.blanks[0].prop, None);
+    let back = get(&dir.path().join("other"), &lantern_project(), &other).expect("back");
+    assert_eq!(back.recipe.blanks[0].prop, None);
+
+    let unknown = update(
+        dir.path(),
+        &gone,
+        &id,
+        RecipeChange {
+            clear: vec!["nothing".into()],
+            ..RecipeChange::default()
+        },
+    );
+    assert!(unknown.is_err(), "a clear naming no prop blank");
+}
+
+#[test]
+fn a_write_that_read_an_older_version_is_refused_and_writes_nothing() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let read = get(dir.path(), &lantern_project(), &id).expect("read");
+    let agent = update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            blanks: Some(vec![lantern()]),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("an agent writes meanwhile");
+    let stale = update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            name: Some("Mine".into()),
+            blanks: Some(Vec::new()),
+            expected: Some(read.recipe.edited.clone()),
+            ..RecipeChange::default()
+        },
+    );
+    let err = stale.expect_err("the file moved since it was read");
+    assert_eq!(err.code(), "moved");
+    let now = get(dir.path(), &lantern_project(), &id).expect("now");
+    assert_eq!(now.recipe, agent.recipe, "nothing was written");
+
+    let fresh = update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            name: Some("Mine".into()),
+            expected: Some(now.recipe.edited.clone()),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("the version it read is the one on disk");
+    assert_eq!(fresh.recipe.name, "Mine");
+    assert_eq!(fresh.recipe.blanks.len(), 1);
+}
+
 #[test]
 fn a_name_and_changes_land_in_one_write() {
     let dir = tempfile::tempdir().expect("temp");
@@ -389,6 +532,7 @@ fn a_name_and_changes_land_in_one_write() {
             name: Some("  Grab the lantern ".into()),
             blanks: Some(vec![lantern()]),
             layers: None,
+            ..RecipeChange::default()
         },
     )
     .expect("update");
@@ -401,6 +545,7 @@ fn a_name_and_changes_land_in_one_write() {
             name: Some(" ".into()),
             blanks: Some(Vec::new()),
             layers: None,
+            ..RecipeChange::default()
         },
     );
     assert!(refused.is_err());

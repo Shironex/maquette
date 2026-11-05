@@ -46,7 +46,7 @@ use crate::plans::trimmed;
 mod check;
 mod files;
 
-pub use check::{check_name, check_props, settle_props, validate};
+pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use files::{
     RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update,
 };
@@ -181,6 +181,17 @@ pub struct RecipeLayer {
     /// A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`.
     pub bone: String,
     pub settings: LayerSettings,
+}
+
+/// A prop blank whose asset the project no longer has: it reads as open,
+/// and the file keeps the prop until the blank is cleared.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GoneProp {
+    /// The blank's id.
+    pub blank: String,
+    /// The asset id it still names.
+    pub prop: String,
 }
 
 /// `recipes/<id>.recipe.json`.

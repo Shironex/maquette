@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::{AnimationClip, SourceRig, list, load};
 use crate::error::CoreResult;
 use crate::project::ProjectManifest;
-use crate::recipes::{self, RecipeBase, RecipeChange, RecipeFile, RecipeRead};
+use crate::recipes::{self, GoneProp, RecipeBase, RecipeChange, RecipeFile, RecipeRead};
 
 /// How a recipe's base clip stands in this computer's library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -48,9 +48,11 @@ pub struct RecipeDoc {
     /// A bake counts as Mixamo's: the recipe says so, or its base clip in
     /// the library came from a Mixamo rig.
     pub mixamo: bool,
-    /// Prop blanks that opened again because the project no longer has
-    /// their asset, a line each.
+    /// Prop blanks that read open because the project no longer has their
+    /// asset, a line each.
     pub warnings: Vec<String>,
+    /// The same blanks, each with the asset id the file still holds.
+    pub gone: Vec<GoneProp>,
 }
 
 /// The base a recipe on `clip` stores: its name, frame count, length and
@@ -108,7 +110,11 @@ pub fn match_base<'a>(
 
 /// `read` as the view gets it, its base matched against `clips`.
 pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc {
-    let RecipeRead { recipe, warnings } = read;
+    let RecipeRead {
+        recipe,
+        warnings,
+        gone,
+    } = read;
     let (base, clip) = match_base(clips, &recipe.base);
     let mixamo = recipe.base.mixamo || clip.is_some_and(|c| c.rig.kind == SourceRig::Mixamo);
     RecipeDoc {
@@ -118,6 +124,7 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         base,
         mixamo,
         warnings,
+        gone,
     }
 }
 
@@ -178,6 +185,7 @@ pub fn create(
     let read = RecipeRead {
         recipe,
         warnings: Vec::new(),
+        gone: Vec::new(),
     };
     Ok(doc_of(&id, read, std::slice::from_ref(&clip)))
 }
