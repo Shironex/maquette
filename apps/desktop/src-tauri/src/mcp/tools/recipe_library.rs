@@ -279,8 +279,7 @@ impl McpTools {
                 let (_, config) = workspace(host)?;
                 let recipe = library::source_recipe(&root, &config.layout, &source)?;
                 let name = args.file.unwrap_or_else(|| recipe.name.clone());
-                let to = library::agent_export_path(&root, &name)?;
-                let done = commands::export_to(host.session(), &source, &to)?;
+                let done = library::agent_export(&root, &config.layout, &source, &name)?;
                 Ok(json!({
                     "path": format!("{}/{}", AGENT_EXPORTS.join("/"), done.file),
                     "file": done.file,

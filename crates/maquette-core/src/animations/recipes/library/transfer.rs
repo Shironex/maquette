@@ -132,14 +132,57 @@ pub fn export(
     })
 }
 
-/// A free path for an agent's export called `name` in the workspace's
-/// `exports/recipes` folder: its slug with `.recipe.json`, then `-2`, `-3`.
-/// Never a file that is there already.
+/// Writes an agent's export of the recipe `source` names as a new file
+/// called `name` in the workspace's `exports/recipes` folder: its slug with
+/// `.recipe.json`, then `-2`, `-3`. Each name is claimed by creating the
+/// file only when it is not there (`create_new`), so two exports at once
+/// never replace each other or a file already there.
 ///
 /// # Errors
 ///
-/// Fails when the folder cannot be made.
-pub fn agent_export_path(root: &Path, name: &str) -> CoreResult<PathBuf> {
+/// Fails when the source cannot be read or the file cannot be written.
+pub fn agent_export(
+    root: &Path,
+    layout: &FolderLayout,
+    source: &ExportSource,
+    name: &str,
+) -> CoreResult<RecipeExported> {
+    use std::io::Write as _;
+    let text = export_text(&source_recipe(root, layout, source)?)?;
+    for path in agent_export_names(root, name)? {
+        let mut file = match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(CoreError::io(&path, e)),
+        };
+        if let Err(e) = file
+            .write_all(text.as_bytes())
+            .and_then(|()| file.sync_all())
+        {
+            drop(file);
+            let _ = std::fs::remove_file(&path);
+            return Err(CoreError::io(&path, e));
+        }
+        return Ok(RecipeExported {
+            file: path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            path: path.display().to_string(),
+        });
+    }
+    Err(CoreError::Invalid(format!(
+        "There are too many exports called {name}."
+    )))
+}
+
+/// The names an agent's export called `name` may take, in order, in the
+/// workspace's `exports/recipes` folder (made when missing).
+fn agent_export_names(root: &Path, name: &str) -> CoreResult<impl Iterator<Item = PathBuf>> {
     let folder = AGENT_EXPORTS
         .iter()
         .fold(root.to_path_buf(), |p, s| p.join(s));
@@ -150,17 +193,14 @@ pub fn agent_export_path(root: &Path, name: &str) -> CoreResult<PathBuf> {
         .trim_end_matches(".json");
     let base = latin_slug(stem).unwrap_or_else(|| "recipe".to_string());
     let base: String = base.chars().take(recipes::ID_MAX_CHARS).collect();
-    (1..10_000)
-        .map(|n| {
-            let stem = if n == 1 {
-                base.clone()
-            } else {
-                format!("{base}-{n}")
-            };
-            folder.join(format!("{stem}{RECIPE_SUFFIX}"))
-        })
-        .find(|p| !p.exists())
-        .ok_or_else(|| CoreError::Invalid(format!("There are too many exports called {name}.")))
+    Ok((1..10_000).map(move |n| {
+        let stem = if n == 1 {
+            base.clone()
+        } else {
+            format!("{base}-{n}")
+        };
+        folder.join(format!("{stem}{RECIPE_SUFFIX}"))
+    }))
 }
 
 /// The file an agent names for an import, which has to stay inside the

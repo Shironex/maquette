@@ -575,19 +575,53 @@ fn agents_import_only_inside_the_workspace_and_export_only_to_a_fresh_file() {
     assert!(agent_import_path(&w.root, "../x.recipe.json").is_err());
     assert!(agent_import_path(&w.root, "out").is_err(), "a folder");
 
-    let first = agent_export_path(&w.root, "Reach out").expect("path");
-    assert!(
-        first.ends_with("exports/recipes/reach-out.recipe.json"),
-        "{}",
-        first.display()
+    let source = ExportSource {
+        project: Some(w.frost.clone()),
+        recipe: Some("reach-out".into()),
+        ..ExportSource::default()
+    };
+    let first = agent_export(&w.root, &w.config.layout, &source, "Reach out").expect("first");
+    assert_eq!(first.file, "reach-out.recipe.json");
+    let taken = w.root.join("exports/recipes/reach-out-2.recipe.json");
+    fs::write(&taken, "taken").expect("write");
+    let third = agent_export(
+        &w.root,
+        &w.config.layout,
+        &source,
+        "../../Reach out.recipe.json",
+    )
+    .expect("third");
+    assert_eq!(
+        third.file, "reach-out-3.recipe.json",
+        "a taken name is skipped"
     );
-    fs::write(&first, "taken").expect("write");
-    let second = agent_export_path(&w.root, "../../Reach out.recipe.json").expect("path");
-    assert!(
-        second.ends_with("exports/recipes/reach-out-2.recipe.json"),
-        "{}",
-        second.display()
-    );
+    assert_eq!(fs::read_to_string(&taken).expect("kept"), "taken");
+}
+
+#[test]
+fn agent_exports_at_once_never_replace_each_other() {
+    let w = ws();
+    let source = ExportSource {
+        project: Some(w.frost.clone()),
+        recipe: Some("reach-out".into()),
+        ..ExportSource::default()
+    };
+    let files: Vec<String> = std::thread::scope(|s| {
+        let runs: Vec<_> = (0..8)
+            .map(|_| s.spawn(|| agent_export(&w.root, &w.config.layout, &source, "Wave")))
+            .collect();
+        runs.into_iter()
+            .map(|r| r.join().expect("thread").expect("export").file)
+            .collect()
+    });
+    let mut unique = files.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(unique.len(), 8, "{files:?}");
+    let on_disk = fs::read_dir(w.root.join("exports/recipes"))
+        .expect("folder")
+        .count();
+    assert_eq!(on_disk, 8);
 }
 
 #[test]
