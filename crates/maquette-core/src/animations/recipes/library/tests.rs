@@ -574,6 +574,12 @@ fn agents_import_only_inside_the_workspace_and_export_only_to_a_fresh_file() {
     assert!(agent_import_path(&w.root, &elsewhere.display().to_string()).is_err());
     assert!(agent_import_path(&w.root, "../x.recipe.json").is_err());
     assert!(agent_import_path(&w.root, "out").is_err(), "a folder");
+    let plain = w.root.join("out/plain.json");
+    fs::copy(&to, &plain).expect("copy");
+    assert!(
+        agent_import_path(&w.root, "out/plain.json").is_err(),
+        "only .recipe.json"
+    );
 
     let source = ExportSource {
         project: Some(w.frost.clone()),

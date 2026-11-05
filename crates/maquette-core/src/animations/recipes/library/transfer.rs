@@ -210,7 +210,7 @@ fn agent_export_names(root: &Path, name: &str) -> CoreResult<impl Iterator<Item 
 
 /// The file an agent names for an import, which has to stay inside the
 /// workspace at `root` (relative to it, or absolute under it, links
-/// followed) and end in `.json`.
+/// followed) and end in `.recipe.json`.
 ///
 /// # Errors
 ///
@@ -233,7 +233,10 @@ pub fn agent_import_path(root: &Path, given: &str) -> CoreResult<PathBuf> {
     if !real.starts_with(&real_root) {
         return Err(outside());
     }
-    if !real.is_file() || real.extension().is_none_or(|e| e != "json") {
+    let recipe_file = real
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().ends_with(RECIPE_SUFFIX));
+    if !real.is_file() || !recipe_file {
         return Err(CoreError::Invalid("Import a .recipe.json file.".into()));
     }
     Ok(real)
