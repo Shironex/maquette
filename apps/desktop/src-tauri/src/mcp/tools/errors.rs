@@ -175,6 +175,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Call get_recipe, then send the change with its version as expected.",
             "get_recipe",
         )),
+        super::recipe_library::LIBRARY_IMPORT => Some(agent(
+            "Import the file into a project (project), then call propose_recipe_save: the person saves it to the library from the approval card.",
+            "propose_recipe_save",
+        )),
         super::groups::GROUP_OFF => Some(person(
             "Ask the person to turn the group on in Settings > Agents in the Maquette app. No tool can. get_started names the groups that are off.",
             Some("get_started"),

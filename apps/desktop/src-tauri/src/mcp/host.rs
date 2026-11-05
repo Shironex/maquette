@@ -93,9 +93,6 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool made, changed or removed a recipe, so
     /// the Motion view's Recipes tab reloads them.
     fn recipe_changed(&self, _project: &str) {}
-    /// Tells the windows that a tool imported a recipe into the recipe
-    /// library, so the Animations library reloads it.
-    fn recipe_library_changed(&self) {}
     /// Tells the windows that a tool changed a project's material tweaks,
     /// so the Inspector reloads them.
     fn materials_changed(&self, _project: &str) {}
@@ -283,12 +280,6 @@ impl Host for AppHost {
     fn image_settings_changed(&self, settings: &ImageSettings) {
         if let Err(err) = crate::events::ImageSettingsChanged(*settings).emit(&self.0) {
             tracing::warn!(error = %err, "could not emit the image settings");
-        }
-    }
-
-    fn recipe_library_changed(&self) {
-        if let Err(err) = crate::events::RecipeLibraryChanged.emit(&self.0) {
-            tracing::warn!(error = %err, "could not emit a recipe library event");
         }
     }
 

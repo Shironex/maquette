@@ -58,14 +58,19 @@ pub struct ProposeSaveArgs {
     pub new_entry: bool,
 }
 
+/// An agent asked to import a recipe file into the library, which only a
+/// person does.
+pub(super) const LIBRARY_IMPORT: &str = "library-import";
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportRecipeArgs {
     /// The .recipe.json to import: a path relative to the workspace root, or
     /// an absolute path inside the workspace. Files elsewhere are refused.
     pub path: String,
-    /// The project to import it into as a new recipe. Left out, it goes to
-    /// the recipe library as a new library recipe at r1.
+    /// The project to import it into as a new recipe. Agents never import
+    /// into the recipe library: import into a project, then
+    /// propose_recipe_save, and the person saves it there.
     pub project: Option<String>,
 }
 
@@ -237,24 +242,22 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Import a .recipe.json into a project as a new recipe (project), or into the recipe library as a new library recipe at r1 (no project). path is relative to the workspace root or absolute inside it; files outside the workspace are refused (the person imports those from the app's file picker). The file is checked whole before anything is written: at most 256 KB (checked before it is read), version 1, at most 32 changes and 16 blanks, and every change and blank check. A taken id gets a fresh one; nothing in the file becomes a path. The base clip is matched by name and frame count; another hash warns, a missing one is noted. In a project, prop blanks whose asset it lacks open. Answers with notes. Spends nothing."
+        description = "Import a .recipe.json into a project as a new recipe. Agents never import into the recipe library: import into a project, then propose_recipe_save, and the person saves it. path is relative to the workspace root or absolute inside it; files outside the workspace are refused (the person imports those from the app's file picker). The file is checked whole before anything is written: at most 256 KB (checked before it is read), version 1, at most 32 changes and 16 blanks, and every change and blank check. A taken id gets a fresh one; nothing in the file becomes a path. The base clip is matched by name and frame count; another hash warns, a missing one is noted. Prop blanks whose asset the project lacks open. Answers with notes. Spends nothing."
     )]
     async fn import_recipe(&self, Parameters(args): Parameters<ImportRecipeArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
+                let Some(project) = args.project else {
+                    return Err(ToolError {
+                        message: "Agents import a recipe file into a project only. To add it to the recipe library, import it into a project, then propose_recipe_save: the person saves it there.".into(),
+                        code: LIBRARY_IMPORT.into(),
+                    });
+                };
                 let (root, _) = workspace(host)?;
                 let file = library::agent_import_path(&root, &args.path)?;
-                if let Some(project) = args.project {
-                    let used = commands::import_to_project(host.session(), &project, &file)?;
-                    host.recipe_changed(&project);
-                    return Ok(used_view(&used));
-                }
-                let imported = commands::import_to_library(host.session(), &file)?;
-                host.recipe_library_changed();
-                Ok(with_next(
-                    to_value(&imported),
-                    vec![step("get_library_recipe", "Read it back.")],
-                ))
+                let used = commands::import_to_project(host.session(), &project, &file)?;
+                host.recipe_changed(&project);
+                Ok(used_view(&used))
             })
             .await;
         respond(found)

@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use super::animations::fixture;
 use super::start::serve;
-use super::support::{call, call_error};
+use super::support::{call, call_error, raw_call, text};
 
 const PROJECT: &str = "frostveil";
 
@@ -139,13 +139,27 @@ async fn agents_propose_a_save_use_export_and_import_library_recipes() {
         "never over a file"
     );
 
-    let into_library = call(
+    let entries_before = std::fs::read_dir(root.join("library/recipes"))
+        .expect("library")
+        .count();
+    let into_library = call_error_body(
         &client,
         "import_recipe",
         json!({ "path": "exports/recipes/reach-out.recipe.json" }),
     )
     .await;
-    assert_eq!(into_library["entry"], "reach-out-2", "{into_library}");
+    assert_eq!(into_library["code"], "library-import", "{into_library}");
+    assert_eq!(
+        into_library["tryTool"], "propose_recipe_save",
+        "{into_library}"
+    );
+    assert_eq!(
+        std::fs::read_dir(root.join("library/recipes"))
+            .expect("library")
+            .count(),
+        entries_before,
+        "an agent never adds to the library"
+    );
     let into_project = call(
         &client,
         "import_recipe",
@@ -160,11 +174,18 @@ async fn agents_propose_a_save_use_export_and_import_library_recipes() {
     let refused = call_error(
         &client,
         "import_recipe",
-        json!({ "path": elsewhere.display().to_string() }),
+        json!({ "project": PROJECT, "path": elsewhere.display().to_string() }),
     )
     .await;
     assert!(refused.contains("inside the workspace"), "{refused}");
 
     client.cancel().await.expect("close");
     server.stop();
+}
+
+/// A refusal as the agent reads it, with its code and advice.
+async fn call_error_body(client: &super::support::Client, tool: &str, args: Value) -> Value {
+    let result = raw_call(client, tool, args).await;
+    assert_eq!(result.is_error, Some(true), "{tool} should fail");
+    serde_json::from_str(&text(&result)).expect("error body")
 }
