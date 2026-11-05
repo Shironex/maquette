@@ -191,7 +191,7 @@ pub(super) fn point(id: &str, at: Option<[f32; 3]>) -> RecipeBlank {
     }
 }
 
-fn reaching() -> Project {
+pub(super) fn reaching() -> Project {
     let mut p = project_with(humanoid());
     p.change(
         vec![reach("l-1", "rightHand", "b-1")],
@@ -280,6 +280,100 @@ fn a_bake_gathers_the_bones_targets_and_clip_name_it_needs() {
 }
 
 #[test]
+fn a_same_named_clip_is_replaced_only_when_this_recipe_made_it() {
+    use crate::recipes::baked::RecipeBakeUse;
+    let bake = |recipe: &str, clip: &str| RecipeBakeUse {
+        recipe: recipe.into(),
+        recipe_version: "v".into(),
+        base_clip: "idle".into(),
+        clip: clip.into(),
+        mixamo: false,
+        version: 2,
+    };
+    let clips = vec!["Idle".to_string(), "wave".to_string()];
+    // No clash: the model's clips stay as they are.
+    let free = job::clip_name("reach_out", &clips, &[], "reach-out");
+    assert_eq!((free.taken.clone(), free.replace), (clips.clone(), None));
+    // This recipe made wave before: replaced, and the name is free again.
+    let ours = job::clip_name("wave", &clips, &[bake("wave", "wave")], "wave");
+    assert_eq!(ours.replace.as_deref(), Some("wave"));
+    assert_eq!(ours.taken, ["Idle"]);
+    // Another recipe, or the model's own clip: kept, so the new one is wave_2.
+    for bakes in [
+        vec![bake("other", "wave")],
+        vec![bake("wave", "wave_2")],
+        vec![],
+    ] {
+        let kept = job::clip_name("wave", &clips, &bakes, "wave");
+        assert_eq!(kept.replace, None);
+        assert_eq!(kept.taken, clips);
+    }
+}
+
+#[test]
+fn a_rebake_onto_its_own_clip_replaces_it_and_another_clip_of_that_name_stays() {
+    // The fixture's clip, lower case, so a recipe called Idle clashes with it.
+    let mut model = humanoid();
+    let at = model
+        .windows(6)
+        .position(|w| w == b"\"Idle\"")
+        .expect("clip name");
+    model[at + 1] = b'i';
+    let mut p = project_with(model);
+    let manifest = crate::project::load(p.root(), &p.config.layout, &p.id).expect("manifest");
+    library_recipes::update(
+        p.root(),
+        &p.dir,
+        &manifest,
+        &p.recipe.id,
+        RecipeChange {
+            name: Some("Idle".into()),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("rename");
+    p.change(
+        vec![reach("l-1", "rightHand", "b-1")],
+        vec![point("b-1", Some([-0.3, 1.2, 0.35]))],
+    );
+
+    // The model's own idle stays; the bake takes idle_2 and says why.
+    let kept = prepare(p.root(), &p.config, &p.request()).expect("prepared");
+    assert_eq!(kept.setting.name, "idle_2");
+    assert_eq!(kept.replace, None);
+    let note = kept.clip_note.clone().expect("note");
+    assert!(note.contains("already has a clip named idle"), "{note}");
+
+    // Once an earlier bake of this recipe made idle, a new bake replaces it.
+    crate::recipes::baked::record(
+        &p.dir,
+        "elsheria",
+        crate::recipes::baked::RecipeBakeUse {
+            recipe: p.recipe.id.clone(),
+            recipe_version: "older".into(),
+            base_clip: "still".into(),
+            clip: "idle".into(),
+            mixamo: true,
+            version: 1,
+        },
+    )
+    .expect("record");
+    let ours = prepare(p.root(), &p.config, &p.request()).expect("prepared");
+    assert_eq!(ours.setting.name, "idle");
+    assert_eq!(ours.replace.as_deref(), Some("idle"));
+    assert!(
+        ours.clip_note
+            .as_deref()
+            .is_some_and(|n| n.starts_with("Replaces idle"))
+    );
+    let work = p.root().join("work");
+    job::stage(p.root(), &ours, &work).expect("stage");
+    let job: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(work.join(JOB_FILE)).expect("job")).expect("json");
+    assert_eq!(job["retarget"]["replace"], serde_json::json!(["idle"]));
+}
+
+#[test]
 fn a_prop_with_no_place_in_the_layout_takes_the_preview_slot() {
     let mut p = project_with(humanoid());
     crate::project::modify(p.root(), &p.config.layout, &p.id, |m| {
@@ -346,7 +440,7 @@ fn staging_writes_the_job_the_scripts_and_the_inputs() {
     assert_eq!(job["recipe"]["stretchFrames"], 10);
 }
 
-const REPORT: &str = r#"{
+pub(super) const REPORT: &str = r#"{
   "clip": "reach_out", "frames": 31, "facing": [0, 0, 1],
   "feet": {}, "baseFeet": {},
   "stretch": {"mm": 3.24, "frame": 12, "base": 1.04},
@@ -471,7 +565,7 @@ impl ScriptRunner for Fake {
     }
 }
 
-fn bakes(hold: bool) -> (RecipeBakes, Arc<Mutex<Vec<RecipeBakeRecord>>>) {
+pub(super) fn bakes(hold: bool) -> (RecipeBakes, Arc<Mutex<Vec<RecipeBakeRecord>>>) {
     bakes_on(Fake {
         hold,
         panics: false,
@@ -487,7 +581,7 @@ fn bakes_on(fake: Fake) -> (RecipeBakes, Arc<Mutex<Vec<RecipeBakeRecord>>>) {
     (bakes, told)
 }
 
-fn settled(bakes: &RecipeBakes, p: &Project) -> RecipeBakeRecord {
+pub(super) fn settled(bakes: &RecipeBakes, p: &Project) -> RecipeBakeRecord {
     let started = Instant::now();
     loop {
         let record = bakes

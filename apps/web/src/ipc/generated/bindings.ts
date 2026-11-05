@@ -6600,6 +6600,14 @@ export type RecipeBakeResult = {
 	fromVersion: number,
 	/**  The new clip's name in the model. */
 	clip: string,
+	/**
+	 *  The model's clip of that name an earlier bake of this recipe added,
+	 *  which this one replaces. A same named clip from anywhere else stays,
+	 *  and the new clip takes `name_2` and on.
+	 */
+	replaces?: string | null,
+	/**  What a name clash with the model's clips came to, in a sentence. */
+	clipNote?: string | null,
 	frames: number,
 	/**  The staged model, absolute. */
 	file: string,
