@@ -3,10 +3,14 @@
  * rigged figure playing a clip, a prop's states, a rig without clips, a
  * project where nothing moves, the scene over its budget with the clips in
  * it, the bone map, and the Recipes tab (empty, with the library's demo
- * recipes and a finished bake, its New recipe base clip picker, and Apply
- * baking a recipe then showing its numbers). Mock mode's `?motion=`
+ * recipes and a finished bake, its New recipe base clip picker, Apply
+ * baking a recipe then showing its numbers, and the review of a finished
+ * bake with pass and warn numbers, also with an agent's approval card
+ * floating clear of its bar). Mock mode's `?motion=`
  * demo models, generated headless in Blender, load in the viewport.
  */
+
+import { assertClear } from './floating.mjs';
 
 const DEMO = '&scenario=configured&motion=';
 
@@ -27,6 +31,41 @@ async function holdAt(page, frame) {
   for (let i = 0; i < frame; i += 1) await page.keyboard.press('.');
   await page.evaluate(() => document.activeElement?.blur());
   await page.waitForTimeout(400);
+}
+
+/** Opens the lantern recipe's finished bake in the review, both pictures playing. */
+async function openReview(open, demo) {
+  const page = await motion(open, demo);
+  await page.getByRole('tab', { name: 'Recipes' }).click();
+  await page
+    .getByRole('list', { name: 'Project recipes' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Reach for the lantern' })
+    .getByRole('button', { name: 'Review' })
+    .click();
+  await page.getByRole('list', { name: 'Review numbers' }).waitFor();
+  await page.getByText('Foot slide').first().waitFor();
+  // Both canvases load their models and the base clip's bone map.
+  await page.waitForTimeout(3000);
+  return page;
+}
+
+/** The review of a finished bake: pass and warn numbers, then an agent's card clear of the bar. */
+async function recipeReviewShots(open, shot) {
+  const review = await openReview(open, 'demo&library=demo');
+  await review.getByRole('button', { name: 'Pause' }).click();
+  await shot(review, 'motion-recipe-review');
+  await review.context().close();
+
+  const asked = await openReview(open, 'demo&library=demo&agents=recipe');
+  const card = asked.getByRole('alertdialog', { name: 'Add Clay figure v3?' });
+  await card.waitFor();
+  await asked.getByRole('button', { name: 'Pause' }).click();
+  await asked.waitForTimeout(400);
+  await assertClear(asked, asked.getByRole('button', { name: 'Add as v3' }), 'Add as v3');
+  await assertClear(asked, asked.getByRole('button', { name: 'Close', exact: true }), 'Close');
+  await shot(asked, 'motion-recipe-review-approval');
+  await asked.context().close();
 }
 
 /** The recipe editor: changes, the preview held at the reach's end, a blank, an error, leaving, a gone prop. */
@@ -145,11 +184,12 @@ export async function motionShots({ open, shot }) {
   await lantern.getByRole('progressbar').waitFor();
   await baking.waitForTimeout(600);
   await shot(baking, 'motion-recipe-baking');
-  await lantern.getByText('Review and add as a version comes next').waitFor({ timeout: 15000 });
+  await lantern.getByRole('button', { name: 'Review' }).waitFor({ timeout: 15000 });
   await baking.waitForTimeout(300);
   await shot(baking, 'motion-recipe-baked');
   await baking.context().close();
 
+  await recipeReviewShots(open, shot);
   await recipeEditorShots(open, shot);
 
   const rest = await motion(open, 'rest');
