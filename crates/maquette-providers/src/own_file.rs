@@ -70,10 +70,13 @@ pub fn check(root: &Path, config: &WorkspaceConfig, file: &Path) -> CoreResult<(
             "That file is in the inbox already. Accept it there.".to_string(),
         ));
     }
+    // Its real path when it exists, so a cache folder reached through a
+    // link is still seen.
     let bakes = real_root
         .join(&config.layout.cache)
         .join(workspace::RECIPE_BAKES_DIR);
-    if real.starts_with(&bakes) {
+    let real_bakes = fs::canonicalize(&bakes).unwrap_or_else(|_| bakes.clone());
+    if real.starts_with(&bakes) || real.starts_with(&real_bakes) {
         return Err(CoreError::Invalid(STAGED_BAKE.to_string()));
     }
     let projects = real_root.join(&config.layout.projects);
