@@ -1294,7 +1294,7 @@ Asks a person to add a recipe's finished bake as its model's next version, as th
 
 `read only`
 
-Lists the [recipe library](/docs/views/animations/#where-the-files-live): recipes kept outside any project in `library/recipes` at the workspace root. Each entry has its `id`, `name`, `latest` revision, every revision with where it came from (`project` and `recipe` it was saved from, or the file it was `imported` from, and `savedAt`), the newest revision's `base` clip, `frames`, `mixamo`, `layers` and `blanks` counts, and its `version`. An entry that cannot be read lists with its `problem`.
+Lists the [recipe library](/docs/views/motion/#the-recipe-library): recipes kept outside any project in `library/recipes` at the workspace root. Each entry has its `id`, `name`, `latest` revision, every revision with where it came from (`project` and `recipe` it was saved from, or the file it was `imported` from, and `savedAt`), the newest revision's `base` clip, `frames`, `mixamo`, `layers` and `blanks` counts, and its `version`. An entry that cannot be read lists with its `problem`.
 
 ### get_library_recipe
 
@@ -1324,7 +1324,7 @@ Copies a library recipe's revision (the newest by default) into a project as a n
 
 `needs approval`
 
-Asks a person to save a project's recipe to the recipe library: as the next revision of the library recipe it came from (or of `entry`), or as a new library recipe (`newEntry`, or when it came from none). Nothing is saved by the tool. It answers `status: "waiting for approval"` with the `approval` id, `whereToApprove` and the `plan`, which says in plain lines what changes against the newest revision. The approval card's Review opens the save to library sheet in the [Motion view](/docs/views/motion/#recipes), where the person reads the same lines and saves. A save always adds a revision and never overwrites one; an entry that moved since the sheet opened is refused there. A recipe that holds what the newest revision holds is refused. Asking twice returns the same approval. Poll `get_recipe`: `saveWaiting` holds the approval while it waits, and once saved `library` names the revision.
+Asks a person to save a project's recipe to the recipe library: as the next revision of the library recipe it came from (or of `entry`), or as a new library recipe (`newEntry`, or when it came from none). Nothing is saved by the tool. It answers `status: "waiting for approval"` with the `approval` id, `whereToApprove` and the `plan`, which says in plain lines what changes against the newest revision. The approval card's Review opens the save to library sheet in the [Motion view](/docs/views/motion/#save-to-the-library), where the person reads the same lines and saves. A save always adds a revision and never overwrites one; an entry that moved since the sheet opened is refused there. A recipe that holds what the newest revision holds is refused. Asking twice returns the same approval. Poll `get_recipe`: `saveWaiting` holds the approval while it waits, and once saved `library` names the revision.
 
 | Parameter  | Type    | Required | Notes                                                                     |
 | ---------- | ------- | -------- | ------------------------------------------------------------------------- |
