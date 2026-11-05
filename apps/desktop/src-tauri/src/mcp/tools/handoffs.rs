@@ -17,8 +17,21 @@ use serde_json::{Value, json};
 
 use super::hints::{step, with_next};
 use super::inbox::{AcceptArgs, accept_item};
-use super::{McpTools, Out, respond, to_value, workspace};
+use super::{McpTools, Out, ToolError, respond, to_value, workspace};
 use crate::mcp::host::Host;
+
+/// The code of a staged recipe bake sent to add_model_file.
+pub(super) const STAGED_BAKE: &str = "staged-bake";
+
+/// A refused model file, with its own code when it is a staged recipe bake.
+fn refused_file(err: maquette_core::error::CoreError) -> ToolError {
+    let staged = err.to_string() == own_file::STAGED_BAKE;
+    let mut out = ToolError::from(err);
+    if staged {
+        out.code = STAGED_BAKE.to_string();
+    }
+    out
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -149,7 +162,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Add a model file someone made or fixed themselves (an absolute path to a .glb, .gltf, .fbx or .obj, outside the inbox and the projects' models folders) as an asset's next version. It is copied, never moved: a .glb as it is, the others turned into a GLB by headless Blender. It goes into the inbox for the asset as attach_download does, for the asset's newest waiting By hand send when one waits (accepting closes it) or aimed at the asset when none does, and the usual checks run there. With accept true it is accepted into the asset right away and the answer carries the version. Spends nothing."
+        description = "Add a model file someone made or fixed themselves (an absolute path to a .glb, .gltf, .fbx or .obj, outside the inbox, the projects' models folders and the staged recipe bakes, which are refused as staged-bake) as an asset's next version. It is copied, never moved: a .glb as it is, the others turned into a GLB by headless Blender. It goes into the inbox for the asset as attach_download does, for the asset's newest waiting By hand send when one waits (accepting closes it) or aimed at the asset when none does, and the usual checks run there. With accept true it is accepted into the asset right away and the answer carries the version. Spends nothing."
     )]
     async fn add_model_file(&self, Parameters(args): Parameters<AddModelFileArgs>) -> Out {
         let found = self
@@ -166,7 +179,8 @@ impl McpTools {
                         asset: &args.asset,
                         file: Path::new(args.path.trim()),
                     },
-                )?;
+                )
+                .map_err(refused_file)?;
                 let accepted = if args.accept.unwrap_or(false) {
                     let accept = AcceptArgs {
                         id: added.inbox_file.clone(),

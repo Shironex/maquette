@@ -14,7 +14,7 @@ use crate::error::{CoreError, CoreResult};
 use maquette_base::ports::ScriptRunner;
 use maquette_base::tools::Toolbox;
 use maquette_model::project;
-use maquette_model::workspace::WorkspaceConfig;
+use maquette_model::workspace::{self, WorkspaceConfig};
 
 /// The model files that can become a version.
 pub const MODEL_TYPES: [&str; 4] = ["glb", "gltf", "fbx", "obj"];
@@ -24,6 +24,8 @@ const SCRIPT_FILE: &str = "to_glb.py";
 /// The workspace cache folder an own file is turned into a GLB in.
 pub const WORK_DIR: &str = "own-files";
 const OUT_FILE: &str = "model.glb";
+/// Why a staged recipe bake is refused as a model file.
+pub const STAGED_BAKE: &str = "That file is a staged recipe bake. It becomes a version through the recipe's review in the Motion view, which keeps whether it counts as Mixamo's, not as a model file.";
 
 fn ext_of(file: &Path) -> Option<String> {
     file.extension()
@@ -33,9 +35,10 @@ fn ext_of(file: &Path) -> Option<String> {
 }
 
 /// Checks `file` can become a version: an absolute path to a `.glb`,
-/// `.gltf`, `.fbx` or `.obj` that exists, outside the workspace's inbox and
+/// `.gltf`, `.fbx` or `.obj` that exists, outside the workspace's inbox,
 /// every project's `models` folder (a version already there is no new
-/// file). Returns its real path and its type.
+/// file) and the staged recipe bakes in the cache. Returns its real path
+/// and its type.
 ///
 /// # Errors
 ///
@@ -66,6 +69,15 @@ pub fn check(root: &Path, config: &WorkspaceConfig, file: &Path) -> CoreResult<(
         return Err(CoreError::Invalid(
             "That file is in the inbox already. Accept it there.".to_string(),
         ));
+    }
+    // Its real path when it exists, so a cache folder reached through a
+    // link is still seen.
+    let bakes = real_root
+        .join(&config.layout.cache)
+        .join(workspace::RECIPE_BAKES_DIR);
+    let real_bakes = fs::canonicalize(&bakes).unwrap_or_else(|_| bakes.clone());
+    if real.starts_with(&bakes) || real.starts_with(&real_bakes) {
+        return Err(CoreError::Invalid(STAGED_BAKE.to_string()));
     }
     let projects = real_root.join(&config.layout.projects);
     if let Ok(rest) = real.strip_prefix(&projects) {

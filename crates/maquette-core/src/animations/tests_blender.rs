@@ -172,7 +172,7 @@ fn clips_save_from_a_rigged_model_in_the_inbox() {
 }
 
 /// Imports fixture `which` into the library as `file`.
-fn import_fixture(s: &Setup, config: &WorkspaceConfig, which: &str, file: &str) {
+pub(crate) fn import_fixture(s: &Setup, config: &WorkspaceConfig, which: &str, file: &str) {
     let path = s.files.join(file);
     fixture(&s.blender, &s.root.path().join("scripts"), which, &path);
     let paths = [path.display().to_string()];

@@ -354,3 +354,31 @@ fn no_write_lands_while_a_reader_holds_the_layout() {
     });
     assert!(load(project).expect("load").models.contains_key("late"));
 }
+
+#[test]
+fn a_placement_composes_as_the_shared_cases_say() {
+    // The web recipe preview reads the same cases, so both compose alike.
+    let file: serde_json::Value =
+        serde_json::from_str(include_str!("placement_cases.json")).expect("cases");
+    for case in file["cases"].as_array().expect("cases") {
+        let v3 = |key: &str| -> [f32; 3] {
+            std::array::from_fn(|i| case[key][i].as_f64().expect("number") as f32)
+        };
+        let p = Placement {
+            position: v3("position"),
+            rotation: v3("rotation"),
+            scale: case["scale"].as_f64().expect("scale") as f32,
+        };
+        let m = matrix(&p);
+        for (i, want) in case["matrix"]
+            .as_array()
+            .expect("matrix")
+            .iter()
+            .enumerate()
+        {
+            let got = m[i / 4][i % 4];
+            let want = want.as_f64().expect("number") as f32;
+            assert!((got - want).abs() < 1e-5, "{case}: [{i}] {got} != {want}");
+        }
+    }
+}

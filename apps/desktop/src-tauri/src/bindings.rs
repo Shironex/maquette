@@ -11,15 +11,15 @@ use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
     motion, packs, page, parts, paths, pipeline, plan_camera, plan_extras, plan_watch, plans,
-    prepare, project, project_trash, providers, quit, recipes, refs, renders, rig, ship, site,
-    split, thumbs, timeline, toolchain, trash, updater, workspace,
+    prepare, project, project_trash, providers, quit, recipe_bakes, recipes, refs, renders, rig,
+    ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
     ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
     PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PlanChanged, PrepareChanged,
-    ProjectChanged, ProjectCreated, ProviderUpdate, QuitRequested, RecipeChanged, RenderChanged,
-    RigChanged, ThumbnailReady, UpdaterUpdate,
+    ProjectChanged, ProjectCreated, ProviderUpdate, QuitRequested, RecipeBakeChanged,
+    RecipeChanged, RenderChanged, RigChanged, ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -169,6 +169,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             recipes::recipe_rename,
             recipes::recipe_update,
             recipes::recipe_remove,
+            recipe_bakes::recipe_bake_start,
+            recipe_bakes::recipe_bake_get,
+            recipe_bakes::recipe_bake_cancel,
             plans::plan_pick_image,
             plans::plan_open_link,
             plans::plan_links,
@@ -317,6 +320,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             LayoutChanged,
             PlanChanged,
             RecipeChanged,
+            RecipeBakeChanged,
             MaterialsChanged,
             AvatarChanged,
             PrepareChanged,

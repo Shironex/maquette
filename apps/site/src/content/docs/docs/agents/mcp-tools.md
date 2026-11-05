@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 138 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 140 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 ## Tool groups
 
@@ -25,7 +25,7 @@ Every tool belongs to one group, and its description starts with that group in b
 | `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.     |
 | `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                         |
 | `[library]`    | 12    | Models kept outside any project, copied in and out.                                    |
-| `[animation]`  | 9     | The clip library, baking clips onto a rigged model and animation recipes.              |
+| `[animation]`  | 11    | The clip library, baking clips onto a rigged model and animation recipes.              |
 | `[export]`     | 8     | Export packs for other engines and render styles.                                      |
 | `[avatar-rig]` | 7     | VRM avatars and the rig doctor.                                                        |
 
@@ -97,6 +97,7 @@ These look at the workspace and change nothing.
 | [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                                                                                                                                                                           | Nothing | No       |
 | [`list_recipes`](#list_recipes)               | A project's animation recipes: id, name, base clip and frames, whether the base clip is Mixamo's, and the change and blank counts with how many blanks are open                                                                                                                                                                                                                                                    | Nothing | No       |
 | [`get_recipe`](#get_recipe)                   | One animation recipe: its base clip as matched in this computer's library, its blanks and its changes in order                                                                                                                                                                                                                                                                                                     | Nothing | No       |
+| [`get_recipe_bake`](#get_recipe_bake)         | A recipe's last bake: its state, progress, why it stopped, and the staged result with its reach gaps, foot slide and rig stretch                                                                                                                                                                                                                                                                                   | Nothing | No       |
 | [`list_canvases`](#list_canvases)             | A project's planning canvases: id, name, preset, node and link counts and when each last changed                                                                                                                                                                                                                                                                                                                   |
 | [`get_canvas`](#get_canvas)                   | A planning canvas: its nodes and the links between them, each node with who added it                                                                                                                                                                                                                                                                                                                               |
 | [`get_changes`](#get_changes)                 | A planning canvas's change log, newest first, with the change ids `undo_run` takes                                                                                                                                                                                                                                                                                                                                 |
@@ -170,6 +171,7 @@ These look at the workspace and change nothing.
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                                                                                            | Nothing | No       |
 | [`create_recipe`](#create_recipe)                     | Makes an animation recipe on a library clip, as the Motion view's Recipes tab does; bakes nothing                                                                                                                                                                      | Nothing | No       |
 | [`update_recipe`](#update_recipe)                     | Changes a recipe's name, changes or blanks, checked whole before anything is written; bakes nothing                                                                                                                                                                    | Nothing | No       |
+| [`bake_recipe`](#bake_recipe)                         | Bakes a recipe onto a rigged model in headless Blender, staged for a person to review; answers at once                                                                                                                                                                 | Nothing | No       |
 | [`get_retarget_review`](#get_retarget_review)         | A model's last retarget review and the library clips baked into it                                                                                                                                                                                                     | Nothing | No       |
 | [`create_canvas`](#create_canvas)                     | Makes a planning canvas in a project, blank or from the Story or Game mechanics preset                                                                                                                                                                                 |
 | [`add_nodes`](#add_nodes)                             | Adds nodes and links to a planning canvas, placed beside a node, clear of the others                                                                                                                                                                                   |
@@ -775,7 +777,7 @@ Attaches a download from `needsLook` or `unmatched` to an asset: it goes into th
 
 `changes the project`
 
-Adds a model file you made or fixed yourself as an asset's next version. `path` is an absolute path to a `.glb`, `.gltf`, `.fbx` or `.obj`; a file inside the workspace's inbox or a project's `models` folder is refused, since it is there already. The file is copied, never moved: a `.glb` as it is, the others turned into a GLB by headless Blender first. It goes into the inbox for the asset as `attach_download` does: to the asset's newest waiting By hand send when one waits (accepting closes it), else aimed at the asset. The usual checks run there. It answers with the `inboxFile`, the `job` it went to, if any, and the asset; with `accept` true it is accepted at once and `accepted` carries the new version.
+Adds a model file you made or fixed yourself as an asset's next version. `path` is an absolute path to a `.glb`, `.gltf`, `.fbx` or `.obj`; a file inside the workspace's inbox or a project's `models` folder is refused, since it is there already, and a staged recipe bake is refused with `staged-bake`: it becomes a version only through its review in the Motion view, which keeps whether it counts as Mixamo's. The file is copied, never moved: a `.glb` as it is, the others turned into a GLB by headless Blender first. It goes into the inbox for the asset as `attach_download` does: to the asset's newest waiting By hand send when one waits (accepting closes it), else aimed at the asset. The usual checks run there. It answers with the `inboxFile`, the `job` it went to, if any, and the asset; with `accept` true it is accepted at once and `accepted` carries the new version.
 
 | Parameter | Type    | Required | Notes                                                  |
 | --------- | ------- | -------- | ------------------------------------------------------ |
@@ -1170,7 +1172,7 @@ A model's last retarget review: each library clip baked onto it with its status,
 
 `read only`
 
-Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, and when it last changed. A prop blank whose asset the project no longer has counts as open, with a line in `warnings`. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
+Lists a project's [animation recipes](/docs/views/motion/#recipes), one file each in `recipes/<id>.recipe.json`: id, name, the base clip's name and frame count, `mixamo` when the base clip is Mixamo's, the number of `changes` and `blanks`, how many blanks are still `open`, when it last changed and its `version` (send it as `expected` to `update_recipe` or `bake_recipe`). A prop blank whose asset the project no longer has counts as open, with a line in `warnings`. A file that cannot be read lists with its `problem`. An empty list carries a `next` list.
 
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |
@@ -1191,7 +1193,7 @@ Reads one recipe: its name, `revision`, and `base` with the clip's name, frames,
 
 `changes the project`
 
-Makes a recipe on a clip of the animation library, as the Recipes tab in the Motion view does. It writes one file holding the base clip's name, frames, length and hash, never keys, a mesh or a skeleton, and starts with no changes or blanks. A recipe on a Mixamo clip is marked `mixamo`. Website and game projects both take recipes. Nothing is baked and nothing is spent; baking a recipe into a model's next version comes in a later update.
+Makes a recipe on a clip of the animation library, as the Recipes tab in the Motion view does. It writes one file holding the base clip's name, frames, length and hash, never keys, a mesh or a skeleton, and starts with no changes or blanks. A recipe on a Mixamo clip is marked `mixamo`. Website and game projects both take recipes. Nothing is baked and nothing is spent; `bake_recipe` bakes it.
 
 | Parameter | Type   | Required | Notes                                                       |
 | --------- | ------ | -------- | ----------------------------------------------------------- |
@@ -1243,6 +1245,32 @@ A blank is `{ id, label, kind, prop?, point? }`: `kind` is `prop` (an asset of t
   ]
 }
 ```
+
+### bake_recipe
+
+`writes files`
+
+Bakes a recipe onto a rigged model of its project in headless Blender, as Apply in the [Motion view](/docs/views/motion/#recipes) does, and answers at once with the bake's record; follow it with `get_recipe_bake`. The base clip goes onto the model through the same retarget as `use_animations`, then the recipe's changes are solved over it exactly, frame by frame, into one new clip named after the recipe: a reach by IK to its target, a look-at turned the shortest way and held within 80 degrees, a nudge and a wave eased in and out as the rough preview eases them. The facing is read from the rig, as the preview reads it. A prop target sits where the scene layout places the prop, seen from where it places the model, when both are placed; otherwise it takes the preview's spot in front of the model.
+
+The model is staged in the workspace cache, never added to the project: a person reviews the bake and adds it as the model's next version in the app, and no tool adds it. A recipe with open blanks is refused (`open-blanks`) naming them; fill them with `update_recipe`. A recipe with no changes, a base clip missing from the library, a model with no rig or a bone the model lacks is refused with what to fix. A bake of a Mixamo base counts as Mixamo's: its model carries a mark, which bringing the file in as a version records on the asset (inbox accept, a build, a library entry or a game import; so it outlives later Blender steps), and so an export pack leaves its clips out and `save_model_clips` never puts its clip in the library, and `add_model_file` refuses the staged file (`staged-bake`). One bake per recipe runs at a time, and a new one replaces the staged one before it. Spends no credits.
+
+| Parameter  | Type   | Required | Notes                                                                      |
+| ---------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `project`  | string | yes      | The project id.                                                            |
+| `recipe`   | string | yes      | The recipe id.                                                             |
+| `asset`    | string | yes      | The rigged model to bake onto, an asset id of the project.                 |
+| `expected` | string | no       | The `version` `get_recipe` read. Given, a recipe changed since is `moved`. |
+
+### get_recipe_bake
+
+`read only`
+
+Reads a recipe's last bake, or `bake: null` when it was never baked: `state` (`running`, `done`, `failed` or `cancelled`), `startedBy`, `progress` while it runs, `error` when it stopped, and when done `result`: the `recipeVersion` and `baseHash` it was baked from, `mixamo`, the new `clip` and its `frames`, the `facing` read from the rig, `slideCm` (the planted feet's worst slide, beside `baseSlideCm`, the base clip's own on this model), `stretchMm` (the rig's worst stretch past a healthy skin, beside `baseStretchMm`), and per reach its `gapCm` to the target at its end (`reached` within 2 cm) and the first frame its elbow or knee flips, with the timings. `stale` says why a finished bake is out of date: the recipe changed since, or the model has another newest version than the one it went onto; bake again. The staged file's path is not given: only the review in the app adds it. A bake the app closed on reads as failed.
+
+| Parameter | Type   | Required | Notes           |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+| `recipe`  | string | yes      | The recipe id.  |
 
 ### start_rig_doctor
 

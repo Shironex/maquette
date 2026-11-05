@@ -154,6 +154,7 @@ fn update_checks_the_whole_recipe_and_gives_changes_free_ids() {
     assert_eq!(ids, ["l-1", "l-2"]);
     let listed = &list(dir.path(), &lantern_project()).expect("list")[0];
     assert_eq!((listed.layers, listed.blanks, listed.open), (2, 1, 0));
+    assert_eq!(listed.version, version(dir.path(), &id).expect("version"));
     assert_eq!(done.revision, 1, "an edit never moves the revision");
 
     let mut stranger = lantern();
@@ -229,6 +230,7 @@ fn a_broken_or_newer_file_lists_with_its_problem() {
     let found = list(dir.path(), &lantern_project()).expect("list");
     assert_eq!(found.len(), 2);
     assert!(found.iter().all(|r| r.problem.is_some()), "{found:?}");
+    assert!(found.iter().all(|r| r.version.is_empty()), "{found:?}");
     assert!(matches!(
         get(dir.path(), &lantern_project(), "later"),
         Err(CoreError::UnsupportedVersion { .. })

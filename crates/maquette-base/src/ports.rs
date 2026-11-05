@@ -6,9 +6,19 @@
 //! behind it did before the port existed.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 
 use crate::error::CoreResult;
 use crate::tools::Toolbox;
+
+/// What a watched run checks while it waits: whether to stop, and what to
+/// call now and then (to read a progress file the script writes, say).
+pub struct Watch<'a> {
+    /// Turned true, the run is stopped: Blender is killed where it can be.
+    pub cancel: &'a AtomicBool,
+    /// Called every few hundred milliseconds while the run goes.
+    pub tick: &'a mut dyn FnMut(),
+}
 
 /// Runs a Blender script headless and waits for it.
 pub trait ScriptRunner {
@@ -44,7 +54,33 @@ pub trait ScriptRunner {
         let _ = name;
         self.run_script(tools, work, script, extra)
     }
+
+    /// As [`ScriptRunner::run_step`], watched: `watch.cancel` stops the run
+    /// part way (it then fails with [`CANCELLED`]) and `watch.tick` is called
+    /// while it goes. An implementation that cannot stop a running script
+    /// runs it to its end, checking `cancel` only before it starts.
+    ///
+    /// # Errors
+    ///
+    /// As [`ScriptRunner::run_script`], and [`CANCELLED`] once stopped.
+    fn run_watched(
+        &self,
+        tools: &Toolbox,
+        work: &Path,
+        (name, script): (&str, (&str, &str)),
+        extra: &[String],
+        watch: &mut Watch<'_>,
+    ) -> CoreResult<()> {
+        if watch.cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(crate::error::CoreError::Invalid(CANCELLED.to_string()));
+        }
+        (watch.tick)();
+        self.run_step(tools, work, name, script, extra)
+    }
 }
+
+/// What a watched run that was stopped fails with.
+pub const CANCELLED: &str = "The run was cancelled.";
 
 /// Renders a model from the front on a plain ground.
 pub trait PictureRender: Send + Sync {

@@ -37,6 +37,7 @@ pub mod project;
 pub mod project_trash;
 pub mod providers;
 pub mod quit;
+pub mod recipe_bakes;
 pub mod recipes;
 pub mod refs;
 pub mod renders;

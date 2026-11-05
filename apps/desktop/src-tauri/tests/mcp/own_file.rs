@@ -163,6 +163,26 @@ async fn agents_add_a_fixed_model_file_as_the_next_version() {
         assert_eq!(refused.is_error, Some(true), "{path}");
         assert!(text(&refused).contains(says), "{path}: {}", text(&refused));
     }
+    // A staged recipe bake only becomes a version through its review.
+    let staged = root
+        .join(&config.layout.cache)
+        .join(workspace::RECIPE_BAKES_DIR)
+        .join(&project_id)
+        .join("wave")
+        .join("staged.glb");
+    std::fs::create_dir_all(staged.parent().expect("parent")).expect("dir");
+    std::fs::write(&staged, &bytes).expect("staged");
+    let refused = raw_call(
+        &client,
+        "add_model_file",
+        json!({ "project": project_id, "asset": "lantern",
+                "path": staged.display().to_string(), "accept": true }),
+    )
+    .await;
+    assert_eq!(refused.is_error, Some(true));
+    let body: Value = serde_json::from_str(&text(&refused)).expect("json");
+    assert_eq!(body["code"], "staged-bake", "{body}");
+    assert_eq!(body["personOnly"], true, "{body}");
     let unknown = raw_call(
         &client,
         "add_model_file",

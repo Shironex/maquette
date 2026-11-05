@@ -91,6 +91,57 @@ fn only_real_model_files_outside_the_versions_are_taken() {
     fs::create_dir_all(export.parent().expect("parent")).expect("dir");
     fs::write(&export, fixture::clean_prop()).expect("write");
     assert!(check(&world.root, &world.config, &export).is_ok());
+
+    // A staged recipe bake carries its Mixamo mark only through its review.
+    let staged = world
+        .root
+        .join(&world.config.layout.cache)
+        .join(crate::workspace::RECIPE_BAKES_DIR)
+        .join("p")
+        .join("wave")
+        .join("staged.glb");
+    fs::create_dir_all(staged.parent().expect("parent")).expect("dir");
+    fs::write(&staged, fixture::clean_prop()).expect("write");
+    assert_eq!(refused(&staged).to_string(), STAGED_BAKE);
+    // Other cache files, like a rig doctor draft, are still taken.
+    let draft = world
+        .root
+        .join(&world.config.layout.cache)
+        .join("rig")
+        .join("draft.glb");
+    fs::create_dir_all(draft.parent().expect("parent")).expect("dir");
+    fs::write(&draft, fixture::clean_prop()).expect("write");
+    assert!(check(&world.root, &world.config, &draft).is_ok());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_staged_bake_behind_a_linked_cache_folder_is_still_refused() {
+    let world = World::new();
+    let elsewhere = tempfile::tempdir().expect("tempdir");
+    let real_cache = elsewhere.path().join("cache");
+    let staged = real_cache
+        .join(crate::workspace::RECIPE_BAKES_DIR)
+        .join("p")
+        .join("wave")
+        .join("staged.glb");
+    fs::create_dir_all(staged.parent().expect("parent")).expect("dir");
+    fs::write(&staged, fixture::clean_prop()).expect("write");
+    let cache = world.root.join(&world.config.layout.cache);
+    if cache.exists() {
+        fs::remove_dir_all(&cache).expect("clear cache");
+    }
+    std::os::unix::fs::symlink(&real_cache, &cache).expect("link");
+    // Given by its path through the link, or by its real path.
+    let through = cache
+        .join(crate::workspace::RECIPE_BAKES_DIR)
+        .join("p")
+        .join("wave")
+        .join("staged.glb");
+    for file in [&through, &staged] {
+        let refused = check(&world.root, &world.config, file).expect_err("refused");
+        assert_eq!(refused.to_string(), STAGED_BAKE, "{}", file.display());
+    }
 }
 
 #[test]

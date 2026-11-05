@@ -147,6 +147,7 @@ pub fn plan(
     if clips.is_empty() {
         return Err(CoreError::Invalid(format!("{} has no clips.", model.name)));
     }
+    let baked = with_recipe_bake(root, config, from, &model.path, baked);
     let mut tags: Vec<String> = Vec::new();
     for tag in clips.iter().flat_map(|c| names::tags_for(&c.name)) {
         if !tags.contains(&tag) {
@@ -160,12 +161,38 @@ pub fn plan(
         file: model.file,
         rig: rig::detect(&found_rig.joint_names, from_tripo),
         bones: found_rig.joints,
-        clips: clips.iter().map(|c| save_clip(c, baked)).collect(),
+        clips: clips.iter().map(|c| save_clip(c, &baked)).collect(),
         pack: format!("{} moves", model.name),
         tags,
         model_bytes: (model.bytes - motion_bytes).max(0.0),
         name: model.name,
     })
+}
+
+/// `baked`, plus each clip a recipe baked from a Mixamo clip, by the mark
+/// in the model file or the asset's record in `recipe-bakes.json` (which
+/// outlives the mark): such a clip counts as Mixamo's and never goes to the
+/// library.
+fn with_recipe_bake(
+    root: &Path,
+    config: &WorkspaceConfig,
+    from: &ClipsFrom,
+    model: &Path,
+    baked: &[(String, String)],
+) -> Vec<(String, String)> {
+    let mut all = baked.to_vec();
+    if let Some(mark) = crate::recipes::baked::mark_of(model).filter(|m| m.mixamo) {
+        all.push((mark.clip, mark.base_clip));
+    }
+    if let (Some(project), Some(asset)) = (&from.project, &from.asset)
+        && let Ok(dir) = project::dir(root, &config.layout, project)
+        && let Ok(bakes) = crate::recipes::baked::of_asset(&dir, asset)
+    {
+        for bake in bakes.into_iter().filter(|b| b.mixamo) {
+            all.push((bake.clip, bake.base_clip));
+        }
+    }
+    all
 }
 
 fn save_clip(clip: &Clip, baked: &[(String, String)]) -> SaveClip {

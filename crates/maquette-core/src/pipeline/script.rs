@@ -6,13 +6,14 @@
 //! line when it printed one.
 
 use std::path::Path;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use super::history::{self, LogLevel, LogStream, RunState};
-use super::runner::{PipelineRunner, RunOptions, RunSetup};
+use super::runner::{JobRunner, PipelineRunner, RunOptions, RunSetup};
 use super::tools::Toolbox;
 use super::{CompressDefaults, PIPELINE_VERSION, PipelineDef, StepDef, StepKind};
-use crate::base::ports::ScriptRunner;
+use crate::base::ports::{CANCELLED, ScriptRunner, Watch};
 use crate::error::{CoreError, CoreResult};
 use crate::toolchain::ToolId;
 use crate::workspace::{MeshoptLevel, TextureCodec};
@@ -25,6 +26,8 @@ const LOG_TAIL: usize = 30;
 const CLIPS: &str = "Animation clips";
 /// What a script prints before the reason it stopped (`[avatar] Error: ...`).
 const SCRIPT_ERROR: &str = "] Error:";
+/// How often a watched run checks its cancel flag and ticks.
+const WATCH_EVERY: Duration = Duration::from_millis(250);
 
 /// Blender's args, always headless.
 fn args(extra: &[String]) -> Vec<String> {
@@ -140,6 +143,30 @@ fn run_step(
     (script_file, script): (&str, &str),
     extra: &[String],
 ) -> CoreResult<()> {
+    let (setup, cache_dir) = setup(tools, work, name, (script_file, script), extra)?;
+    let record = runner.run_blocking_with(setup, options())?;
+    if record.state != RunState::Done {
+        return Err(CoreError::Invalid(failure(&cache_dir, name, &record)));
+    }
+    Ok(())
+}
+
+fn options() -> RunOptions {
+    RunOptions {
+        timeout: Some(TIMEOUT),
+        ..RunOptions::default()
+    }
+}
+
+/// Writes the script into `work` and answers the run that runs it, and the
+/// folder its records go in.
+fn setup(
+    tools: &Toolbox,
+    work: &Path,
+    name: &str,
+    (script_file, script): (&str, &str),
+    extra: &[String],
+) -> CoreResult<(RunSetup, std::path::PathBuf)> {
     if !tools.has(ToolId::Blender) {
         return Err(CoreError::Unavailable(
             "Blender is not installed, and this needs it. Install it, then try again.".to_string(),
@@ -148,32 +175,74 @@ fn run_step(
     let path = work.join(script_file);
     crate::fs::write_atomic(&path, script.as_bytes()).map_err(|e| CoreError::io(&path, e))?;
     let cache_dir = work.join("runs");
-    let record = runner.run_blocking_with(
-        RunSetup {
-            project: LANE.to_string(),
-            project_dir: work.to_path_buf(),
-            cache_dir: cache_dir.clone(),
-            def: def(name, script_file, extra),
-            tools: tools.clone(),
-            defaults: CompressDefaults {
-                texture_size: 2048,
-                codec: TextureCodec::Etc1s,
-                meshopt: MeshoptLevel::Medium,
-            },
-            vars: Default::default(),
-            shipped_names: Default::default(),
-            materials: Default::default(),
-            from: None,
-            force: true,
-            textures: Default::default(),
-            quality: crate::ship::DEFAULT_QUALITY,
-            build_only: false,
+    let setup = RunSetup {
+        project: LANE.to_string(),
+        project_dir: work.to_path_buf(),
+        cache_dir: cache_dir.clone(),
+        def: def(name, script_file, extra),
+        tools: tools.clone(),
+        defaults: CompressDefaults {
+            texture_size: 2048,
+            codec: TextureCodec::Etc1s,
+            meshopt: MeshoptLevel::Medium,
         },
-        RunOptions {
-            timeout: Some(TIMEOUT),
-            ..RunOptions::default()
-        },
-    )?;
+        vars: Default::default(),
+        shipped_names: Default::default(),
+        materials: Default::default(),
+        from: None,
+        force: true,
+        textures: Default::default(),
+        quality: crate::ship::DEFAULT_QUALITY,
+        build_only: false,
+    };
+    Ok((setup, cache_dir))
+}
+
+/// As [`run_step`], watched: queued on the lane like any other run, it is
+/// cancelled (Blender killed) once `watch.cancel` turns true, and
+/// `watch.tick` is called while it waits.
+///
+/// # Errors
+///
+/// As [`run_step`], and [`CANCELLED`] once stopped.
+fn run_watched(
+    runner: &PipelineRunner,
+    tools: &Toolbox,
+    work: &Path,
+    (name, script): (&str, (&str, &str)),
+    extra: &[String],
+    watch: &mut Watch<'_>,
+) -> CoreResult<()> {
+    if watch.cancel.load(Ordering::SeqCst) {
+        return Err(CoreError::Invalid(CANCELLED.to_string()));
+    }
+    let (setup, cache_dir) = setup(tools, work, name, script, extra)?;
+    let queued = runner.submit_with(setup, options())?;
+    let mut asked = false;
+    loop {
+        (watch.tick)();
+        let (_, waiting) = runner.active(LANE);
+        let busy =
+            runner.running(LANE).contains(&queued.id) || waiting.iter().any(|r| r.id == queued.id);
+        if !busy {
+            break;
+        }
+        if !asked && watch.cancel.load(Ordering::SeqCst) {
+            asked = true;
+            if let Err(err) = runner.cancel(&queued.id) {
+                tracing::warn!(error = %err, "could not cancel a watched Blender run");
+            }
+        }
+        std::thread::sleep(WATCH_EVERY);
+    }
+    (watch.tick)();
+    let record = history::load_runs(&cache_dir)
+        .into_iter()
+        .find(|r| r.id == queued.id)
+        .ok_or_else(|| CoreError::NotFound(format!("the run {}", queued.id)))?;
+    if asked || record.state == RunState::Cancelled {
+        return Err(CoreError::Invalid(CANCELLED.to_string()));
+    }
     if record.state != RunState::Done {
         return Err(CoreError::Invalid(failure(&cache_dir, name, &record)));
     }
@@ -201,98 +270,18 @@ impl ScriptRunner for PipelineRunner {
     ) -> CoreResult<()> {
         run_step(self, tools, work, name, script, extra)
     }
+
+    fn run_watched(
+        &self,
+        tools: &Toolbox,
+        work: &Path,
+        step: (&str, (&str, &str)),
+        extra: &[String],
+        watch: &mut Watch<'_>,
+    ) -> CoreResult<()> {
+        run_watched(self, tools, work, step, extra, watch)
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::pipeline::history::{LogEntry, RunRecord, StepRecord, StepState, save_log};
-
-    fn line(stream: LogStream, level: LogLevel, text: &str) -> LogEntry {
-        LogEntry {
-            run_id: "animations-run-8".into(),
-            step: Some("clips".into()),
-            stream,
-            level,
-            text: text.into(),
-            at_ms: 0.0,
-        }
-    }
-
-    fn record(name: &str) -> RunRecord {
-        RunRecord {
-            id: "animations-run-8".into(),
-            number: 8,
-            project: LANE.into(),
-            from: None,
-            force: true,
-            build_only: false,
-            state: RunState::Failed,
-            queued_at_ms: 0.0,
-            started_at_ms: None,
-            finished_at_ms: None,
-            steps: vec![StepRecord {
-                id: "clips".into(),
-                name: name.into(),
-                state: StepState::Failed,
-                started_at_ms: None,
-                duration_ms: None,
-                exit_code: Some(1),
-                message: Some("Blender exited with code 1.".into()),
-                progress: None,
-            }],
-            message: None,
-            not_shipped: None,
-        }
-    }
-
-    #[test]
-    fn a_failure_carries_the_scripts_own_error_and_the_steps_name() {
-        let dir = tempfile::tempdir().expect("tmp");
-        let lines = [
-            line(
-                LogStream::Stdout,
-                LogLevel::Error,
-                "[avatar] Error: the spring hair-1 no longer matches a part hanging off this model",
-            ),
-            line(LogStream::Stdout, LogLevel::Info, "Blender 5.2.2 LTS"),
-            line(
-                LogStream::System,
-                LogLevel::Error,
-                "Springs chain failed after 0.9s: Blender exited with code 1.",
-            ),
-        ];
-        save_log(dir.path(), 8, &lines).expect("log");
-        assert_eq!(
-            failure(dir.path(), "Springs chain", &record("Springs chain")),
-            "Springs chain failed: The spring hair-1 no longer matches a part hanging off this model."
-        );
-    }
-
-    #[test]
-    fn without_a_script_error_the_runner_says_why() {
-        let dir = tempfile::tempdir().expect("tmp");
-        let lines = [line(
-            LogStream::System,
-            LogLevel::Error,
-            "Reweight failed after 2.0s: Blender exited with code 1.",
-        )];
-        save_log(dir.path(), 8, &lines).expect("log");
-        assert_eq!(
-            failure(dir.path(), "Reweight", &record("Reweight")),
-            "Reweight failed after 2.0s: Blender exited with code 1."
-        );
-        let empty = tempfile::tempdir().expect("tmp");
-        assert_eq!(
-            failure(empty.path(), "Reweight", &record("Reweight")),
-            "Blender exited with code 1."
-        );
-    }
-
-    #[test]
-    fn a_run_is_one_step_named_for_what_runs() {
-        let named = def("Springs find", "avatar_springs.py", &[]);
-        assert_eq!(named.steps[0].name, "Springs find");
-        assert_eq!(named.steps[0].script.as_deref(), Some("avatar_springs.py"));
-    }
-}
+mod tests;

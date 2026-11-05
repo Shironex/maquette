@@ -251,6 +251,7 @@ pub fn update(
     };
     let mut updated = None;
     let changed = project::modify(root, layout, project_id, |m| {
+        crate::recipes::baked::note(&project_dir, asset_id, &project_dir.join(&file), number)?;
         assets::add_version(m, asset_id, file.clone(), newest.stats.clone())?;
         let asset = m
             .assets

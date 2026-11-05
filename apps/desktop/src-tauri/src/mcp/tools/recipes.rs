@@ -239,7 +239,7 @@ fn after(doc: &RecipeDoc) -> Vec<Value> {
 #[tool_router(router = recipes_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List a project's animation recipes: each id (for the other recipe tools), name, base clip name and frame count, whether the base clip is Mixamo's, and its change and blank counts with how many blanks are still open (a prop blank whose asset the project no longer has counts as open, with a warning). A recipe file that cannot be read lists with its problem. Reads only.",
+        description = "List a project's animation recipes: each id (for the other recipe tools), name, base clip name and frame count, whether the base clip is Mixamo's, its change and blank counts with how many blanks are still open, and its version to send as expected (a prop blank whose asset the project no longer has counts as open, with a warning). A recipe file that cannot be read lists with its problem. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn list_recipes(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
@@ -254,7 +254,7 @@ impl McpTools {
                             let mut line = json!({
                                 "id": r.id, "name": r.name, "base": r.base, "frames": r.frames,
                                 "mixamo": r.mixamo, "changes": r.layers, "blanks": r.blanks,
-                                "open": r.open, "edited": r.edited,
+                                "open": r.open, "edited": r.edited, "version": r.version,
                             });
                             if !r.warnings.is_empty() {
                                 line["warnings"] = json!(r.warnings);

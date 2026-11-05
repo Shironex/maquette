@@ -2,16 +2,30 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
+import { useMotionStore } from '@/state/use-motion-store';
+import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
-import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
+import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import RecipesStage from './RecipesStage';
 
 afterEach(() => {
   clearMocks();
   useRecipesStore.setState(useRecipesStore.getInitialState(), true);
   useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
+  useRecipeBakesStore.setState(useRecipeBakesStore.getInitialState(), true);
+  useMotionStore.setState(useMotionStore.getInitialState(), true);
 });
+
+/** The demo recipes with Frostveil's rigged demo models loaded, as the Motion view has them. */
+async function openWithModels() {
+  const args = Array<string | undefined>(12).fill(undefined);
+  args[0] = 'configured';
+  args[6] = 'demo';
+  args[11] = 'demo';
+  await openMockWorkspace(...(args as Parameters<typeof openMockWorkspace>));
+  await useMotionStore.getState().load('frostveil');
+}
 
 describe('the recipes stage', () => {
   it('says there are no recipes yet and opens the base clip picker', async () => {
@@ -22,7 +36,7 @@ describe('the recipes stage', () => {
     expect(useRecipesStore.getState().picking).toBe('frostveil');
   });
 
-  it('lists the project recipes with a Mixamo mark and Apply waiting for baking', async () => {
+  it('lists the project recipes with a Mixamo mark and Apply waiting for a rigged model', async () => {
     await openMockLibrary('demo');
     render(<RecipesStage />);
     const list = await screen.findByRole('list', { name: 'Project recipes' });
@@ -53,6 +67,7 @@ describe('the recipes stage', () => {
         blanks: 1,
         open: 1,
         edited: '2026-11-05T10:00:00.000Z',
+        version: 'v1',
         warnings: [warning],
         problem: null,
       },
@@ -81,5 +96,53 @@ describe('the recipes stage', () => {
     ).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
     expect(await screen.findByRole('list', { name: 'Project recipes' })).toBeVisible();
+  });
+
+  it('applies a recipe onto the rigged model, shows its progress and cancels it', async () => {
+    await openWithModels();
+    const start = vi.spyOn(commands, 'recipeBakeStart');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    // The demo opens with a finished bake of this recipe.
+    expect(await within(reach).findByText('Review and add as a version comes next')).toBeVisible();
+    expect(within(reach).queryByText('Out of date')).not.toBeInTheDocument();
+    await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
+    expect(await within(reach).findByRole('progressbar')).toBeVisible();
+    expect(start.mock.calls[0]?.[0]).toMatchObject({
+      project: 'frostveil',
+      recipe: 'reach-for-the-lantern',
+      expected: expect.stringMatching(/.+/),
+      asset: useMotionStore.getState().view?.models.find(m => m.rig && !m.error)?.asset,
+    });
+    await userEvent.click(within(reach).getByRole('button', { name: 'Cancel' }));
+    expect(await within(reach).findByText(/last bake was cancelled/)).toBeVisible();
+  });
+
+  it('refuses a bake of a recipe that changed since the list read it', async () => {
+    await openWithModels();
+    const listed = await commands.recipeList('frostveil');
+    vi.spyOn(commands, 'recipeList').mockResolvedValueOnce(
+      listed.map(r => (r.id === 'reach-for-the-lantern' ? { ...r, version: 'older' } : r))
+    );
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    // Its finished bake reads as out of date against the version listed.
+    expect(await within(reach).findByText('Out of date')).toBeVisible();
+    await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
+    expect(await within(reach).findByText(/changed since it was read/)).toBeVisible();
+    expect(within(reach).queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('keeps Apply off for a recipe with an open blank', async () => {
+    await openWithModels();
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const look = within(list).getByText('Look around').closest('li')!;
+    expect(within(look).getByRole('button', { name: /Apply/ })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

@@ -165,6 +165,12 @@ pub fn import_models(
             );
             let over = budget::budget_for(game, &file)
                 .is_some_and(|b| budget::check_stats(b, &stats).over());
+            crate::recipes::baked::note(
+                &project_dir,
+                &asset.id,
+                &project_dir.join(&version_file),
+                1,
+            )?;
             assets::add_version(manifest, &asset.id, version_file, Some(stats))?;
             if over {
                 assets::move_to(manifest, &asset.id, Stage::Blender)?;

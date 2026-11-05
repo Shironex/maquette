@@ -7,9 +7,6 @@ import type { AnimationItem, RecipeSummary } from '@/ipc/client';
 import { counted } from '@/lib/format';
 import { NO_ANIMATION_FILTERS, filterClips } from './animations';
 
-/** Why Apply waits: baking a recipe into a model's next version is not built yet. */
-export const APPLY_LATER = 'Baking comes in a later update';
-
 /** "Standing Idle · 120 f · 2 changes · 1 open blank". */
 export function recipeLine(r: RecipeSummary): string {
   return [

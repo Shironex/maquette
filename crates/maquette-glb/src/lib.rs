@@ -7,6 +7,7 @@
 //! bytes and uses only the maquette-base crate.
 
 pub mod analyse;
+pub mod extras;
 pub mod fixture;
 pub mod images;
 pub mod math;

@@ -11,6 +11,7 @@ add_to_library
 assemble_prop
 attach_download
 bake_back
+bake_recipe
 build_avatar
 cancel_concept_jobs
 cancel_provider_jobs
@@ -50,6 +51,7 @@ get_project
 get_provider_job
 get_real_size
 get_recipe
+get_recipe_bake
 get_ref_views
 get_render
 get_retarget_review

@@ -155,6 +155,14 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Read the recipe again with get_recipe, keep what changed there, and send your change with its version as expected.",
             "get_recipe",
         )),
+        super::recipe_bake::OPEN_BLANKS => Some(agent(
+            "Fill the open blanks with update_recipe (a prop's asset id or a point), then bake again.",
+            "update_recipe",
+        )),
+        super::handoffs::STAGED_BAKE => Some(person(
+            "A person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's. No tool adds it.",
+            Some("get_recipe_bake"),
+        )),
         super::recipes::NEEDS_VERSION => Some(agent(
             "Call get_recipe, then send the change with its version as expected.",
             "get_recipe",

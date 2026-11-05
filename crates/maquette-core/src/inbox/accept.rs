@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::*;
 use crate::prepare::{self, ModelPrep, ScenePrep};
+use crate::recipes::baked::{self, RecipeBakeUse};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -88,6 +89,9 @@ pub fn accept(
         .as_ref()
         .filter(|a| a.project == request.project)
         .map(|a| a.asset.clone());
+    // A staged recipe bake's mark, kept on the asset before the file moves,
+    // since a later Blender step drops it from the file.
+    let mark = baked::mark_of(&source);
     let mut result: Option<(Asset, AssetVersion, String)> = None;
     let manifest = project::modify(root, &config.layout, &request.project, |manifest| {
         let id = match request.asset.as_ref().or(aimed.as_ref()) {
@@ -117,6 +121,9 @@ pub fn accept(
             return Err(CoreError::Invalid(format!(
                 "models/{file_name} already exists. Rename it or remove it first."
             )));
+        }
+        if let Some(mark) = &mark {
+            baked::record(&project_dir, &id, RecipeBakeUse::of(mark, number))?;
         }
         fs::create_dir_all(&models).map_err(|e| CoreError::io(&models, e))?;
         move_file(&source, &target)?;

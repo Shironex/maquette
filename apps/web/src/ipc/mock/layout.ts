@@ -160,6 +160,7 @@ export function createFakeLayout(deps: {
         max: stand ? framed(prep, stand.max) : null,
         prep,
         fallback: [i * 1.5, 0, 0],
+        present: true,
         bytes: MEASURED[LAYOUT_FILES[latest.file] ?? '']?.bytes ?? latest.stats?.bytes ?? 0,
         measured: 'raw',
       };

@@ -409,6 +409,35 @@ export const commands = {
 	/**  Moves the recipe file into the workspace trash; returns where it went. */
 	recipeRemove: (project: string, id: string) => __TAURI_INVOKE<string>("recipe_remove", { project, id }),
 	/**
+	 *  Bakes a recipe onto a rigged model of its project, headless: the base
+	 *  clip through the retarget with the recipe's changes solved over it. The
+	 *  model goes to the workspace cache, staged for a review.
+	 */
+	recipeBakeStart: (request: RecipeBakeRequest) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_start", { request }),
+	/**  The recipe's last bake, or none when it was never baked. */
+	recipeBakeGet: (project: string, recipe: string) => __TAURI_INVOKE<{
+	project: string,
+	recipe: string,
+	recipeName: string,
+	asset: string,
+	state: RecipeBakeState,
+	startedBy: RecipeBakeStarter,
+	progress: RecipeBakeProgress | null,
+	error: string | null,
+	startedMs: number | null,
+	updatedMs: number | null,
+	finishedMs: number | null,
+	result: RecipeBakeResult | null,
+	/**
+	 *  Why a finished bake is out of date: the recipe changed since, or the
+	 *  model has another newest version than the one it went onto. Worked
+	 *  out on each read, never saved.
+	 */
+	stale?: string | null,
+} | null>("recipe_bake_get", { project, recipe }),
+	/**  Stops a running bake: Blender is killed and nothing is staged. */
+	recipeBakeCancel: (project: string, recipe: string) => __TAURI_INVOKE<null>("recipe_bake_cancel", { project, recipe }),
+	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
 	 */
@@ -947,6 +976,7 @@ export const events = {
 	projectCreated: makeEvent<ProjectCreated>("project-created"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
+	recipeBakeChanged: makeEvent<RecipeBakeChanged>("recipe-bake-changed"),
 	recipeChanged: makeEvent<RecipeChanged>("recipe-changed"),
 	renderChanged: makeEvent<RenderChanged>("render-changed"),
 	rigChanged: makeEvent<RigChanged>("rig-changed"),
@@ -4159,6 +4189,11 @@ export type LayoutModel = {
 	version: number,
 	/**  Absolute path of the model file. */
 	file: string,
+	/**
+	 *  Whether that file is there: a recipe bake aims at a prop's spot in
+	 *  the layout only then, and so does its preview.
+	 */
+	present: boolean,
 	/**  Relative to the project. */
 	path: string,
 	/**
@@ -6481,6 +6516,116 @@ export type Recipe = {
 };
 
 /**
+ *  A recipe bake changed: it started, moved on a frame, or finished, failed
+ *  or was cancelled. The Motion view's Apply follows it.
+ */
+export type RecipeBakeChanged = {
+	record: RecipeBakeRecord,
+};
+
+/**  How far a running bake is: "Solving frame 12 of 48". */
+export type RecipeBakeProgress = {
+	label: string,
+	done: number,
+	total: number,
+};
+
+/**
+ *  A recipe's bake, as the app and agents read it. One per recipe of a
+ *  project: a new bake replaces the one before.
+ */
+export type RecipeBakeRecord = {
+	project: string,
+	recipe: string,
+	recipeName: string,
+	asset: string,
+	state: RecipeBakeState,
+	startedBy: RecipeBakeStarter,
+	progress: RecipeBakeProgress | null,
+	error: string | null,
+	startedMs: number | null,
+	updatedMs: number | null,
+	finishedMs: number | null,
+	result: RecipeBakeResult | null,
+	/**
+	 *  Why a finished bake is out of date: the recipe changed since, or the
+	 *  model has another newest version than the one it went onto. Worked
+	 *  out on each read, never saved.
+	 */
+	stale?: string | null,
+};
+
+/**  Bake recipe `recipe` of `project` onto the rigged model `asset`. */
+export type RecipeBakeRequest = {
+	project: string,
+	recipe: string,
+	asset: string,
+	/**
+	 *  The recipe's `version` as it was read. Given, a recipe that changed
+	 *  since is refused (code `moved`), so the bake is the recipe on show.
+	 */
+	expected?: string | null,
+};
+
+/**  A finished bake: what it was baked from and what the review reads. */
+export type RecipeBakeResult = {
+	recipe: string,
+	recipeName: string,
+	/**  The recipe file's version (a hash of its bytes) it was baked from. */
+	recipeVersion: string,
+	/**  The library clip it started from, and the hash of its keys. */
+	baseClip: string,
+	baseHash: string,
+	/**  The hash the recipe holds for its base, when the library's differs. */
+	recipeBaseHash: string | null,
+	/**
+	 *  Counts as Mixamo's: left out of export packs, never saved to the
+	 *  clip library.
+	 */
+	mixamo: boolean,
+	asset: string,
+	assetName: string,
+	/**  The version it was baked onto. */
+	fromVersion: number,
+	/**  The new clip's name in the model. */
+	clip: string,
+	frames: number,
+	/**  The staged model, absolute. */
+	file: string,
+	/**  The way the model faces as read from its rig, glTF axes (Y up). */
+	facing: [(number | null), (number | null), (number | null)],
+	/**
+	 *  The worst slide of a planted foot, cm, the frames of that plant and
+	 *  the foot; and the base clip's own slide on this model.
+	 */
+	slideCm: number | null,
+	slideFrames: [number, number] | null,
+	slideFoot: string | null,
+	baseSlideCm: number | null,
+	/**
+	 *  The worst stretch past a healthy skin over the measured frames, mm at
+	 *  a model one metre tall, with its frame; and the base clip's own.
+	 *  None when it could not be measured (`stretch_note` says why).
+	 */
+	stretchMm: number | null,
+	stretchFrame: number | null,
+	baseStretchMm: number | null,
+	stretchNote: string | null,
+	reaches: RecipeReachResult[],
+	/**  How long Blender took, and the whole bake, seconds. */
+	blenderSeconds: number | null,
+	seconds: number | null,
+	/**  What to know about this bake (a base clip with other keys). */
+	warnings: string[],
+};
+
+export type RecipeBakeStarter = "person" | "agent";
+
+export type RecipeBakeState = "running" | 
+/**  The staged result is there, waiting for its review. */
+"done" | "failed" | "cancelled";
+
+/**
  *  The library clip a recipe starts from, by what matches it on another
  *  computer: its name and frame count. The hash tells keys that changed.
  */
@@ -6584,6 +6729,28 @@ export type RecipeLayer = {
 	settings: LayerSettings,
 };
 
+/**  One reach as the bake measured it. */
+export type RecipeReachResult = {
+	/**  The change's id. */
+	layer: string,
+	/**  The hand or foot, by VRM name. */
+	bone: string,
+	/**
+	 *  How far it ends from its target at the reach's end, cm; none when
+	 *  that frame was not measured.
+	 */
+	gapCm: number | null,
+	/**  The frame that was measured on. */
+	frame: number,
+	/**  Within [`GAP_LIMIT_CM`]. */
+	reached: boolean,
+	/**
+	 *  The first frame of the reach its elbow or knee bends the other way
+	 *  than the clip has it there; none when it never does.
+	 */
+	flipFrame: number | null,
+};
+
 /**  A line in the list of a project's recipes. */
 export type RecipeSummary = {
 	id: string,
@@ -6604,6 +6771,11 @@ export type RecipeSummary = {
 	warnings: string[],
 	/**  RFC 3339; empty when the file could not be read. */
 	edited: string,
+	/**
+	 *  A hash of the file's bytes, as get answers it, which a write or a
+	 *  bake may send back as `expected`; empty when it could not be read.
+	 */
+	version: string,
 	/**  Why the file could not be read, for a recipe that only lists. */
 	problem: string | null,
 };

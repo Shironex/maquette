@@ -37,10 +37,10 @@ const TOKEN_PREFIX: &str = "retarget-";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ScriptClip<'a> {
-    id: &'a str,
+pub(crate) struct ScriptClip {
+    id: String,
     file: String,
-    name: &'a str,
+    name: String,
     start: u32,
     end: u32,
     /// The clip's own frame rate, which its start and end count in.
@@ -54,13 +54,15 @@ struct ScriptClip<'a> {
     pins: BTreeMap<String, Vec<[u32; 2]>>,
 }
 
+/// What the retarget script bakes: the model, the clips with their settings
+/// and pairs, and where the copy and the report go.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ScriptJob<'a> {
+pub(crate) struct ScriptJob {
     model: &'static str,
     out: &'static str,
     report: &'static str,
-    clips: Vec<ScriptClip<'a>>,
+    clips: Vec<ScriptClip>,
     keep_rest: Vec<String>,
     /// Model clips the bake replaces.
     replace: Vec<String>,
@@ -108,54 +110,24 @@ pub fn draft(
     let source = clips.first().map(bone_names).unwrap_or_default();
     let map = bones::suggest(&source, &model.joints, &entry.map, &request.map);
 
-    let work = blender::scratch(root, config, "retarget")?;
-    copy(&model.path, &work.join("in").join("model.glb"))?;
-    let mut script_clips = Vec::new();
-    for (setting, clip) in settings.iter().zip(&clips) {
-        let rel = format!("in/clips/{}.glb", clip.id);
-        copy(
-            &clip_dir(root, &clip.id)?.join(&clip.file),
-            &work
-                .join("in")
-                .join("clips")
-                .join(format!("{}.glb", clip.id)),
-        )?;
-        script_clips.push(ScriptClip {
-            id: &clip.id,
-            file: rel,
-            name: &setting.name,
-            start: setting.start,
-            end: setting.end,
-            fps: clip.fps,
-            loops: setting.loops,
-            root_motion: setting.root_motion,
-            speed: setting.speed,
-            pairs: bones::pairs_for(&bone_names(clip), &map),
-            pins: BTreeMap::new(),
-        });
-    }
-    let foot_bones = ["LeftFoot", "RightFoot"]
-        .iter()
-        .filter_map(|b| map.iter().find(|p| p.bone == *b)?.target.clone())
-        .collect();
-    let replace = entry
-        .baked
-        .iter()
-        .filter(|b| ids.contains(&b.setting.clip))
-        .map(|b| b.setting.name.clone())
-        .collect();
     let follow_choices = rest::merged(&entry.follow, &request.follow);
-    let follow = rest::follow_pairs(&follow_choices, &rest::model_bones(&model.path), &map);
-    let mut job = ScriptJob {
-        model: "in/model.glb",
-        out: DRAFT_FILE,
-        report: REPORT_FILE,
-        clips: script_clips,
-        keep_rest: bones::keep_rest(&map),
-        replace,
-        feet: foot_bones,
-        follow,
-    };
+    let work = blender::scratch(root, config, "retarget")?;
+    let mut job = script_job(
+        root,
+        &work,
+        &model,
+        (&clips, &settings),
+        &map,
+        Staged {
+            replace: entry
+                .baked
+                .iter()
+                .filter(|b| ids.contains(&b.setting.clip))
+                .map(|b| b.setting.name.clone())
+                .collect(),
+            follow: follow_choices.clone(),
+        },
+    )?;
     let mut report = run(runner, tools, &work, &job)?;
     let pinned: Vec<String> = settings
         .iter()
@@ -217,6 +189,67 @@ pub fn draft(
     })
 }
 
+/// What a staged job replaces on the model and what its bones only on the
+/// model follow.
+pub(crate) struct Staged {
+    /// Model clips the bake replaces.
+    pub replace: Vec<String>,
+    pub follow: Vec<rest::FollowChoice>,
+}
+
+/// Copies the model and `clips` into `work` and writes nothing else: the
+/// job the retarget script bakes them from, each with its `settings` (in
+/// the same order) and the clip bones paired through `map`.
+pub(crate) fn script_job(
+    root: &Path,
+    work: &Path,
+    model: &super::Model,
+    (clips, settings): (&[crate::animations::AnimationClip], &[super::ClipSetting]),
+    map: &[bones::BonePair],
+    staged: Staged,
+) -> CoreResult<ScriptJob> {
+    copy(&model.path, &work.join("in").join("model.glb"))?;
+    let mut script_clips = Vec::new();
+    for (setting, clip) in settings.iter().zip(clips) {
+        let rel = format!("in/clips/{}.glb", clip.id);
+        copy(
+            &clip_dir(root, &clip.id)?.join(&clip.file),
+            &work
+                .join("in")
+                .join("clips")
+                .join(format!("{}.glb", clip.id)),
+        )?;
+        script_clips.push(ScriptClip {
+            id: clip.id.clone(),
+            file: rel,
+            name: setting.name.clone(),
+            start: setting.start,
+            end: setting.end,
+            fps: clip.fps,
+            loops: setting.loops,
+            root_motion: setting.root_motion,
+            speed: setting.speed,
+            pairs: bones::pairs_for(&bone_names(clip), map),
+            pins: BTreeMap::new(),
+        });
+    }
+    let feet = ["LeftFoot", "RightFoot"]
+        .iter()
+        .filter_map(|b| map.iter().find(|p| p.bone == *b)?.target.clone())
+        .collect();
+    let follow = rest::follow_pairs(&staged.follow, &rest::model_bones(&model.path), map);
+    Ok(ScriptJob {
+        model: "in/model.glb",
+        out: DRAFT_FILE,
+        report: REPORT_FILE,
+        clips: script_clips,
+        keep_rest: bones::keep_rest(map),
+        replace: staged.replace,
+        feet,
+        follow,
+    })
+}
+
 /// Bakes again with the feet of the `pinned` clips held where `before`
 /// found them planted, and once more without the pins that slid more than
 /// the clip did without them. The report of the last run, which wrote the
@@ -225,21 +258,17 @@ fn pin_feet(
     runner: &PipelineRunner,
     tools: &Toolbox,
     work: &Path,
-    job: &mut ScriptJob<'_>,
+    job: &mut ScriptJob,
     before: review::RunReport,
     pinned: &[String],
 ) -> CoreResult<(review::RunReport, Vec<String>)> {
-    for clip in job
-        .clips
-        .iter_mut()
-        .filter(|c| pinned.iter().any(|p| p == c.id))
-    {
+    for clip in job.clips.iter_mut().filter(|c| pinned.contains(&c.id)) {
         if let Some(first) = before.clips.iter().find(|r| r.id == clip.id) {
             clip.pins = feet::pins(&first.feet);
         }
     }
     let holding =
-        |job: &ScriptJob<'_>, id: &str| job.clips.iter().any(|c| c.id == id && !c.pins.is_empty());
+        |job: &ScriptJob, id: &str| job.clips.iter().any(|c| c.id == id && !c.pins.is_empty());
     let mut report = run(runner, tools, work, job)?;
     report.compare_with(&before, |id| holding(job, id));
     let worse = report.pins_made_worse();
@@ -249,7 +278,7 @@ fn pin_feet(
     for clip in job
         .clips
         .iter_mut()
-        .filter(|c| worse.iter().any(|(id, _)| id == c.id))
+        .filter(|c| worse.iter().any(|(id, _)| *id == c.id))
     {
         clip.pins.clear();
     }
@@ -269,7 +298,7 @@ fn run(
     runner: &PipelineRunner,
     tools: &Toolbox,
     work: &Path,
-    job: &ScriptJob<'_>,
+    job: &ScriptJob,
 ) -> CoreResult<review::RunReport> {
     write_json(&work.join(JOB_FILE), job)?;
     let extra = vec!["--job".to_string(), JOB_FILE.to_string()];

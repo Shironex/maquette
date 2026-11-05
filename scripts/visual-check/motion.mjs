@@ -3,7 +3,8 @@
  * rigged figure playing a clip, a prop's states, a rig without clips, a
  * project where nothing moves, the scene over its budget with the clips in
  * it, the bone map, and the Recipes tab (empty, with the library's demo
- * recipes, and its New recipe base clip picker). Mock mode's `?motion=`
+ * recipes and a finished bake, its New recipe base clip picker, and Apply
+ * baking a recipe then showing its numbers). Mock mode's `?motion=`
  * demo models, generated headless in Blender, load in the viewport.
  */
 
@@ -132,6 +133,22 @@ export async function motionShots({ open, shot }) {
   await recipes.waitForTimeout(300);
   await shot(recipes, 'motion-recipe-picker');
   await recipes.context().close();
+
+  // Apply: the mock bake steps through its frames, then shows its numbers.
+  const baking = await motion(open, 'demo&library=demo');
+  await baking.getByRole('tab', { name: 'Recipes' }).click();
+  const lantern = baking
+    .getByRole('list', { name: 'Project recipes' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Reach for the lantern' });
+  await lantern.getByRole('button', { name: 'Apply' }).click();
+  await lantern.getByRole('progressbar').waitFor();
+  await baking.waitForTimeout(600);
+  await shot(baking, 'motion-recipe-baking');
+  await lantern.getByText('Review and add as a version comes next').waitFor({ timeout: 15000 });
+  await baking.waitForTimeout(300);
+  await shot(baking, 'motion-recipe-baked');
+  await baking.context().close();
 
   await recipeEditorShots(open, shot);
 

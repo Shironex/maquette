@@ -1,7 +1,8 @@
 /**
  * A recipe's changes laid roughly over a clip already posed on a model:
  * reach is a two-bone IK toward its blank, look at turns the head or neck to
- * it, nudge adds a turn or a move on one bone and wave swings an arm on a
+ * it, nudge adds a turn or a move on one bone (about and along the model's
+ * own axes: x to its left, y up, z the way it faces) and wave swings an arm on a
  * sine. Each eases in and out over its part of the clip. The bake solves
  * the same changes exactly in Blender; this is only a look before it.
  */
@@ -142,16 +143,32 @@ function lookToward(rig: RecipeRig, bone: THREE.Object3D, target: THREE.Vector3,
   turnBy(bone, turn, amount * limit);
 }
 
-function nudge(layer: RecipeLayer, bone: THREE.Object3D, amount: number) {
+/** The turn from the model's own axes (x left, y up, z ahead) to the world's. */
+export function modelBasis(forward: THREE.Vector3): THREE.Quaternion {
+  const up = new THREE.Vector3(0, 1, 0);
+  const ahead = forward.clone().setY(0);
+  if (ahead.lengthSq() < 1e-8) ahead.set(0, 0, 1);
+  ahead.normalize();
+  const left = up.clone().cross(ahead).normalize();
+  return new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(left, up, ahead)
+  );
+}
+
+/** Turns and moves `bone` about and along the model's own axes, as the bake does. */
+function nudge(rig: RecipeRig, layer: RecipeLayer, bone: THREE.Object3D, amount: number) {
   const { rotation, offset } = layer.settings;
+  const basis = modelBasis(rig.forward);
   if (rotation) {
     const [x, y, z] = rotation.map(v => THREE.MathUtils.degToRad(num(v)));
     const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
-    bone.quaternion.multiply(new THREE.Quaternion().slerp(turn, amount));
+    turnBy(bone, basis.clone().multiply(turn).multiply(basis.clone().invert()), amount);
   }
   if (offset && bone.parent) {
     const world = positionOf(bone).add(
-      new THREE.Vector3(num(offset[0]), num(offset[1]), num(offset[2])).multiplyScalar(amount)
+      new THREE.Vector3(num(offset[0]), num(offset[1]), num(offset[2]))
+        .applyQuaternion(basis)
+        .multiplyScalar(amount)
     );
     bone.position.copy(bone.parent.worldToLocal(world));
   }
@@ -196,7 +213,7 @@ export function poseRecipe(
       if (limb && target) reachToward(limb, bone, target, amount);
     } else if (layer.kind === 'look-at') {
       if (target) lookToward(rig, bone, target, amount);
-    } else if (layer.kind === 'nudge') nudge(layer, bone, amount);
+    } else if (layer.kind === 'nudge') nudge(rig, layer, bone, amount);
     else wave(rig, layer, bone, share, amount);
   }
 }
@@ -231,20 +248,27 @@ export function rigForward(bone: (vrm: string) => THREE.Object3D | undefined): T
   return new THREE.Vector3(0, 0, 1);
 }
 
-/** A blank as the preview places it: a point where it says, a prop in a slot in front. */
+/**
+ * A blank as the preview places it: a point where it says, a prop where the
+ * layout places it (as the bake does) or else in a slot in front.
+ */
 export interface RecipeMarker {
   id: string;
   kind: 'prop' | 'point';
   /** A point blank's point, metres from the model's feet with Y up; null for a prop. */
   point: readonly [number, number, number] | null;
+  /** A prop's spot by the layout, in the model's own frame (recipe-layout.ts). */
+  at?: readonly [number, number, number] | null;
 }
 
 /**
  * Where each blank's target sits, in the model's own frame turned to the
  * way it faces (`forward`, level): X to its left, Y up, Z ahead. A point is
  * where it says, from the spot the model stands on. A prop has no place in a
- * recipe, so the preview puts each in a slot in front of the model, within
- * reach of a hand, alternating sides.
+ * recipe: one the layout places (with the model) sits at its spot there, as
+ * the bake places it, and the others take a slot in front of the model,
+ * within reach of a hand, alternating sides. A placed prop still uses up its
+ * slot, as in the bake.
  */
 export function targetsOf(
   markers: readonly RecipeMarker[],
@@ -263,6 +287,11 @@ export function targetsOf(
       continue;
     }
     if (m.kind !== 'prop') continue;
+    if (m.at) {
+      out.set(m.id, new THREE.Vector3(m.at[0], m.at[1], m.at[2]));
+      slot += 1;
+      continue;
+    }
     const side = slot % 2 === 0 ? -1 : 1;
     const row = Math.floor(slot / 2);
     out.set(m.id, place(side * 0.22 * height, 0.65 * height, (0.18 + 0.1 * row) * height));

@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use maquette_core::animations::recipes::bake::RecipeBakes;
 use maquette_core::concepts::backend::ImageSettings;
 use maquette_core::concepts::codex_usage::CodexUsage;
 use maquette_core::concepts::{ConceptEvent, Concepts, Direction, StyleBoard};
@@ -23,6 +24,7 @@ use crate::commands::lab::Lab;
 use crate::commands::packs::PackJobs;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
+use crate::commands::recipe_bakes::RecipeBakeJobs;
 use crate::commands::renders::RenderJobs;
 use crate::commands::rig::RigJobs;
 use crate::commands::thumbs::Thumbs;
@@ -68,6 +70,11 @@ pub trait Host: Send + Sync + 'static {
 
     /// The render styles service, where the app runs one.
     fn renders(&self) -> Option<&Renders> {
+        None
+    }
+
+    /// The recipe bake service, where the app runs one.
+    fn recipe_bakes(&self) -> Option<&RecipeBakes> {
         None
     }
 
@@ -162,6 +169,10 @@ impl Host for AppHost {
 
     fn renders(&self) -> Option<&Renders> {
         self.0.try_state::<RenderJobs>().map(|r| &r.inner().0)
+    }
+
+    fn recipe_bakes(&self) -> Option<&RecipeBakes> {
+        self.0.try_state::<RecipeBakeJobs>().map(|r| &r.inner().0)
     }
 
     fn site_preview(&self) -> Option<Arc<SitePreview>> {

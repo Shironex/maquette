@@ -141,7 +141,8 @@ fn model(draft: Draft, taken: &mut BTreeSet<String>) -> PackModel {
     let rigged = joints > 0 || read.is_some_and(|(rig, _)| rig.is_some());
     let clips = read.map_or_else(|| draft.stats.as_ref().map_or(0, |s| s.animations), |r| r.1);
     let mixamo = clips > 0
-        && licence::may_be_mixamo(draft.source, read.and_then(|r| r.0), draft.baked_mixamo);
+        && (licence::may_be_mixamo(draft.source, read.and_then(|r| r.0), draft.baked_mixamo)
+            || licence::marked_mixamo(&draft.file));
     PackModel {
         key: key_for(&draft.name, taken),
         height_m: height_of(draft.prep.as_ref()),

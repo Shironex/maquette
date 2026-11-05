@@ -4,6 +4,7 @@ import type { RecipeLayer } from '@/ipc/client';
 import { checkReaches } from './check-reaches';
 import {
   envelope,
+  modelBasis,
   poseRecipe,
   rigForward,
   solveTwoBone,
@@ -130,6 +131,22 @@ describe('the recipe pose', () => {
     );
     poseRecipe(rig, [wave], new Map(), 0.4);
     expect(lower.quaternion.angleTo(turned)).toBeGreaterThan(0.1);
+  });
+
+  it("nudges about and along the model's own axes, whichever way it faces", () => {
+    const { hand, rig } = arm();
+    const sideways: RecipeRig = { ...rig, forward: v(1, 0, 0) };
+    const before = at(hand);
+    // Along z, the way the model faces: world +X for a model facing +X.
+    const ahead = layer({ kind: 'nudge', bone: 'rightHand' }, { offset: [0, 0, 0.1] });
+    poseRecipe(sideways, [ahead], new Map(), 0.5);
+    const moved = at(hand).sub(before);
+    expect(moved.x).toBeCloseTo(0.1, 5);
+    expect(moved.z).toBeCloseTo(0, 5);
+    // A turn about the model's y is a turn about the world's up for any facing.
+    const basis = modelBasis(v(1, 0, 0));
+    expect(v(1, 0, 0).applyQuaternion(basis).z).toBeCloseTo(-1, 5);
+    expect(v(0, 0, 1).applyQuaternion(basis).x).toBeCloseTo(1, 5);
   });
 
   it('places a point where it says and props in slots in front of the model', () => {

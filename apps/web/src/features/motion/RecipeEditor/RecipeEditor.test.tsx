@@ -1,12 +1,17 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands, type RecipeLayer } from '@/ipc/client';
+import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clearMocks, openRecipe } from '@/test/open-recipe';
 import RecipeEditor from './RecipeEditor';
 
-afterEach(clearMocks);
+afterEach(() => {
+  clearMocks();
+  vi.restoreAllMocks();
+  useRecipeBakesStore.setState(useRecipeBakesStore.getInitialState(), true);
+});
 
 const weigh = (weight: number) => (l: RecipeLayer[]) =>
   l.map(x => (x.id === 'l-1' ? { ...x, settings: { ...x.settings, weight } } : x));
@@ -72,5 +77,41 @@ describe('the recipe editor', () => {
     );
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('A reach needs a target: pick a blank, or add one.')).toBeVisible();
+  });
+
+  it('saves unsaved edits before it applies, and bakes the version it saved', async () => {
+    await openRecipe();
+    const start = vi.spyOn(commands, 'recipeBakeStart');
+    render(<RecipeEditor />);
+    edit(0.5);
+    await userEvent.click(screen.getByRole('button', { name: 'Save and apply' }));
+    expect(await screen.findByRole('progressbar')).toBeVisible();
+    const saved = useRecipeEditorStore.getState().editing!.doc;
+    expect(saved.recipe.layers[0]?.settings.weight).toBe(0.5);
+    expect(start.mock.calls[0]?.[0]).toMatchObject({
+      recipe: 'reach-for-the-lantern',
+      expected: saved.version,
+    });
+    expect(screen.getByRole('button', { name: 'Apply' })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  });
+
+  it('does not bake when the save cannot go through', async () => {
+    await openRecipe();
+    const start = vi.spyOn(commands, 'recipeBakeStart');
+    render(<RecipeEditor />);
+    act(() =>
+      useRecipeEditorStore.getState().edit(d => ({
+        ...d,
+        layers: d.layers.map(l =>
+          l.id === 'l-1' ? { ...l, settings: { ...l.settings, target: null } } : l
+        ),
+      }))
+    );
+    expect(screen.getByRole('button', { name: 'Save and apply' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(start).not.toHaveBeenCalled();
   });
 });
