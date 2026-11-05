@@ -24,7 +24,9 @@ fn unreadable(file: &str, name: &str, err: &CoreError) -> CoreError {
 /// Copies the asset `asset_id` of project `from_id` to project `to_id`, as
 /// [`copy::copy_to_project`] does, with its animation records. Both records
 /// are read before anything is copied, so one that cannot be read refuses
-/// the copy and writes nothing.
+/// the copy and writes nothing, and written before the copy is listed, so
+/// one that cannot be written leaves it out (and a copy that cannot be
+/// listed takes its records back out).
 ///
 /// # Errors
 ///
@@ -47,13 +49,32 @@ pub fn copy_to_project(
         .map_err(|e| unreadable(uses::USES_FILE, &from.name, &e))?
         .assets
         .remove(&asset.id);
-    let copied = copy::copy_to_project(workspace_root, layout, from_id, asset_id, to_id, sent)?;
     let to_dir = project::dir(workspace_root, layout, to_id)?;
-    baked::record_all(&to_dir, &copied.asset.id, bakes)?;
-    if let Some(entry) = taken {
-        uses::update(&to_dir, &copied.asset.id, |slot| *slot = entry)?;
+    let mut wrote = None;
+    // Written before the copy is listed, so it never shows without them.
+    let copied = copy::copy_to_project_then(
+        workspace_root,
+        layout,
+        (from_id, asset_id, to_id),
+        sent,
+        |id| {
+            wrote = Some(id.to_string());
+            baked::record_all(&to_dir, id, bakes)?;
+            if let Some(entry) = taken {
+                uses::update(&to_dir, id, |slot| *slot = entry)?;
+            }
+            Ok(())
+        },
+    );
+    if copied.is_err()
+        && let Some(id) = wrote
+    {
+        // The copy was not listed: a later asset of that id must not
+        // inherit its records.
+        let _ = baked::forget(&to_dir, &id);
+        let _ = uses::forget(&to_dir, &id);
     }
-    Ok(copied)
+    copied
 }
 
 #[cfg(test)]
@@ -209,5 +230,47 @@ mod tests {
         assert!(err.to_string().contains("recipe-bakes.json"), "{err}");
         let to = project::load(&t.root, &t.layout, &t.to).expect("to");
         assert!(to.assets.is_empty(), "nothing copied");
+    }
+
+    #[test]
+    fn a_record_the_target_cannot_take_leaves_the_copy_unlisted() {
+        let t = two();
+        let from_dir = project::dir(&t.root, &t.layout, &t.from).expect("dir");
+        let to_dir = project::dir(&t.root, &t.layout, &t.to).expect("dir");
+        baked::record(&from_dir, "elsheria", bake(true)).expect("bake");
+        // The target's record is a newer format this build cannot write over.
+        fs::write(
+            to_dir.join(baked::BAKES_FILE),
+            r#"{"version": 99, "assets": {}}"#,
+        )
+        .expect("newer");
+        let err = copy_to_project(&t.root, &t.layout, &t.from, "elsheria", &t.to, &[])
+            .expect_err("refused");
+        assert!(err.to_string().contains("newer Maquette"), "{err}");
+        let to = project::load(&t.root, &t.layout, &t.to).expect("to");
+        assert!(to.assets.is_empty(), "never listed without its bakes");
+    }
+
+    #[test]
+    fn the_records_of_an_undone_copy_are_forgotten() {
+        let t = two();
+        let to_dir = project::dir(&t.root, &t.layout, &t.to).expect("dir");
+        baked::record(&to_dir, "elsheria", bake(true)).expect("bake");
+        baked::record(&to_dir, "lantern", bake(false)).expect("bake");
+        uses::update(&to_dir, "elsheria", |e| e.review_version = Some(1)).expect("uses");
+        baked::forget(&to_dir, "elsheria").expect("forget");
+        uses::forget(&to_dir, "elsheria").expect("forget");
+        assert!(
+            baked::of_asset(&to_dir, "elsheria")
+                .expect("read")
+                .is_empty()
+        );
+        assert_eq!(baked::of_asset(&to_dir, "lantern").expect("read").len(), 1);
+        assert_eq!(
+            uses::of_asset(&to_dir, "elsheria").expect("uses"),
+            AssetAnimations::default()
+        );
+        // Forgetting what is not there writes nothing.
+        baked::forget(&to_dir, "nobody").expect("nothing");
     }
 }

@@ -135,6 +135,30 @@ pub fn copy_to_project(
     to_id: &str,
     sent: &[String],
 ) -> CoreResult<CopiedAsset> {
+    copy_to_project_then(
+        workspace_root,
+        layout,
+        (from_id, asset_id, to_id),
+        sent,
+        |_| Ok(()),
+    )
+}
+
+/// As [`copy_to_project`], calling `before` with the copy's id once its
+/// files are in and before the target's manifest lists it, so records kept
+/// beside the manifest are written first: when `before` fails, the copy is
+/// never listed.
+///
+/// # Errors
+///
+/// As [`copy_to_project`], and what `before` fails with.
+pub fn copy_to_project_then(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    (from_id, asset_id, to_id): (&str, &str, &str),
+    sent: &[String],
+    before: impl FnOnce(&str) -> CoreResult<()>,
+) -> CoreResult<CopiedAsset> {
     if from_id == to_id {
         return Err(CoreError::Invalid(
             "Pick another project to copy the asset to.".to_string(),
@@ -213,6 +237,7 @@ pub fn copy_to_project(
             .collect(),
         ..asset
     };
+    before(&copy.id)?;
     let to = project::modify(workspace_root, layout, to_id, |m| {
         if m.assets.iter().any(|a| a.id == copy.id) {
             return Err(CoreError::Invalid(format!(

@@ -156,6 +156,20 @@ pub fn record_all(project_dir: &Path, asset: &str, bakes: Vec<RecipeBakeUse>) ->
     write_json(&project_dir.join(BAKES_FILE), &file)
 }
 
+/// Forgets every bake recorded for `asset`, as when its copy is undone.
+///
+/// # Errors
+///
+/// Fails when the record cannot be read or written.
+pub fn forget(project_dir: &Path, asset: &str) -> CoreResult<()> {
+    let _turn = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut file = load(project_dir)?;
+    if file.assets.remove(asset).is_none() {
+        return Ok(());
+    }
+    write_json(&project_dir.join(BAKES_FILE), &file)
+}
+
 /// Records the bake the model at `file` carries, when it carries one, as
 /// `version` of `asset`. Every route that brings a model file in as a
 /// version calls this, so the bake outlives a later step that drops the
