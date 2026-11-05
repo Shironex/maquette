@@ -83,6 +83,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool wrote a planning canvas, so an open
     /// canvas reloads it without waiting for the folder watch.
     fn plan_changed(&self, _project: &str, _id: &str) {}
+    /// Tells the windows that a tool made, changed or removed a recipe, so
+    /// the Motion view's Recipes tab reloads them.
+    fn recipe_changed(&self, _project: &str) {}
     /// Tells the windows that a tool changed a project's material tweaks,
     /// so the Inspector reloads them.
     fn materials_changed(&self, _project: &str) {}
@@ -174,6 +177,15 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a canvas event");
+        }
+    }
+
+    fn recipe_changed(&self, project: &str) {
+        let event = crate::events::RecipeChanged {
+            project: project.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a recipe event");
         }
     }
 

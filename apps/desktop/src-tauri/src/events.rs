@@ -111,6 +111,14 @@ pub struct PlanChanged {
     pub id: String,
 }
 
+/// An agent made, changed or removed one of a project's animation recipes
+/// through the MCP server, so the Motion view's Recipes tab reloads them.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeChanged {
+    pub project: String,
+}
+
 /// An agent changed a project's scene layout through the MCP server, so
 /// the Layout editor reloads it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

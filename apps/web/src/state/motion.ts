@@ -9,7 +9,8 @@ import { deepEqual } from '@/lib/deepEqual';
 import { formatBytes } from '@/lib/format';
 
 export type MotionFilter = 'all' | 'characters' | 'props';
-export type MotionTab = 'clips' | 'states';
+/** Recipes belong to the project, not the selected model. */
+export type MotionTab = 'clips' | 'states' | 'recipes';
 
 /** What Save writes: every asset's states and the clips kept off the site. */
 export interface MotionDraft {

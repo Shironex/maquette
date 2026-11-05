@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useMotionStore } from '@/state/use-motion-store';
 import { clearMocks, openGameMotion, openMotion } from '@/test/open-motion';
@@ -36,6 +36,18 @@ describe('the motion view', () => {
     expect(screen.queryByText('Web')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'States' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Recipes' })).toBeInTheDocument();
+  });
+
+  it('shows the project recipes on the recipes tab and keeps it when a model is picked', async () => {
+    const state = await openMotion();
+    useMotionStore.getState().setTab('recipes');
+    render(<MotionView />);
+    expect(await screen.findByRole('region', { name: 'Recipes' })).toBeInTheDocument();
+    expect(await screen.findByText('No recipes yet')).toBeInTheDocument();
+    const other = state.view!.models.find(m => m.asset !== state.asset)!;
+    act(() => useMotionStore.getState().select(other.asset));
+    expect(useMotionStore.getState().tab).toBe('recipes');
   });
 
   it('says nothing moves yet in a still project', async () => {

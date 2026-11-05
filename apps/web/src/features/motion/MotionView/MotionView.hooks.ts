@@ -48,7 +48,7 @@ export function useMotionView() {
     moving: current ? current.models.filter(m => moves(m, draft)).length : 0,
     model,
     // A game has no States tab.
-    tab: isGame(project) ? 'clips' : tab,
+    tab: isGame(project) && tab === 'states' ? 'clips' : tab,
     hasStates: Boolean(model && draft.states[model.asset]),
   };
 }

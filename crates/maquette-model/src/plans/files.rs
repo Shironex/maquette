@@ -356,7 +356,7 @@ pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<Stri
 }
 
 /// A rename, or a copy and delete when the trash is on another volume.
-fn move_file(from: &Path, to: &Path) -> CoreResult<()> {
+pub(crate) fn move_file(from: &Path, to: &Path) -> CoreResult<()> {
     if maquette_base::fs::rename_retrying(from, to).is_ok() {
         return Ok(());
     }

@@ -68,7 +68,12 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
   ),
   row('game', 'Game projects', 5, "A game project's repo, format, budgets, imports and ship plan"),
   row('library', 'Library', 12, 'Models kept outside any project, copied in and out'),
-  row('animation', 'Animation', 5, 'The clip library and baking clips onto a rigged model'),
+  row(
+    'animation',
+    'Animation',
+    9,
+    'The clip library, baking clips onto a rigged model and animation recipes'
+  ),
   row('export', 'Export packs', 8, 'Export packs for other engines and render styles'),
   row('avatar-rig', 'Avatar and rig', 7, 'VRM avatars and the rig doctor'),
 ];

@@ -24,7 +24,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project, so a tool
 [pipeline] Running a project, presets, bake settings, starter scripts, how a website ships, the site's dev server.
 [game] A game project's repo, format, budgets, imports and ship plan.
 [library] Models kept outside any project. It copies, never links, and spends nothing.
-[animation] The clip library and baking clips onto a rigged model. Mixamo clips stay on this computer.
+[animation] Clips, recipes and baking them onto a rigged model. Mixamo clips stay on this computer.
 [export] Export packs for other engines and render styles: headless Blender, no credits.
 [avatar-rig] VRM avatars and the rig doctor.
 

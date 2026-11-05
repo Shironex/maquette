@@ -2,8 +2,9 @@
  * The Motion view's shots for scripts/visual-check.mjs (ONLY=motion): a
  * rigged figure playing a clip, a prop's states, a rig without clips, a
  * project where nothing moves, the scene over its budget with the clips in
- * it, and the bone map. Mock mode's `?motion=` demo models, generated
- * headless in Blender, load in the viewport.
+ * it, the bone map, and the Recipes tab (empty, with the library's demo
+ * recipes, and its New recipe base clip picker). Mock mode's `?motion=`
+ * demo models, generated headless in Blender, load in the viewport.
  */
 
 const DEMO = '&scenario=configured&motion=';
@@ -55,6 +56,25 @@ export async function motionShots({ open, shot }) {
   await map.waitForTimeout(800);
   await shot(map, 'motion-retarget');
   await map.context().close();
+
+  // The Recipes tab: empty without a library, then the demo recipes and the picker.
+  const empty = await motion(open, 'demo');
+  await empty.getByRole('tab', { name: 'Recipes' }).click();
+  await empty.getByText('No recipes yet').waitFor();
+  await shot(empty, 'motion-recipes-empty');
+  await empty.context().close();
+
+  const recipes = await motion(open, 'demo&library=demo');
+  await recipes.getByRole('tab', { name: 'Recipes' }).click();
+  await recipes.getByRole('list', { name: 'Project recipes' }).waitFor();
+  await shot(recipes, 'motion-recipes');
+  await recipes.getByRole('button', { name: 'New recipe' }).click();
+  const picker = recipes.getByRole('dialog', { name: 'New recipe' });
+  await picker.getByRole('list', { name: 'Library clips' }).getByRole('button').first().click();
+  await picker.getByLabel('Recipe name').waitFor();
+  await recipes.waitForTimeout(300);
+  await shot(recipes, 'motion-recipe-picker');
+  await recipes.context().close();
 
   const rest = await motion(open, 'rest');
   await rest.getByText('No clips on Clay figure yet').waitFor();

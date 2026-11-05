@@ -395,6 +395,19 @@ export const commands = {
 	planRename: (project: string, id: string, name: string) => __TAURI_INVOKE<PlanSummary>("plan_rename", { project, id, name }),
 	/**  Moves the canvas file into the workspace trash; returns where it went. */
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
+	recipeList: (project: string) => __TAURI_INVOKE<RecipeSummary[]>("recipe_list", { project }),
+	recipeGet: (project: string, id: string) => __TAURI_INVOKE<RecipeDoc>("recipe_get", { project, id }),
+	/**  Makes a recipe on the library clip `clip`, called `name` or after the clip. */
+	recipeCreate: (project: string, clip: string, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
+	/**  Renames a recipe; its file and id stay. */
+	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
+	/**
+	 *  Replaces a recipe's name, changes, blanks or any of them in one write,
+	 *  checked whole first.
+	 */
+	recipeUpdate: (project: string, id: string, change: RecipeChange) => __TAURI_INVOKE<RecipeDoc>("recipe_update", { project, id, change }),
+	/**  Moves the recipe file into the workspace trash; returns where it went. */
+	recipeRemove: (project: string, id: string) => __TAURI_INVOKE<string>("recipe_remove", { project, id }),
 	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
@@ -934,6 +947,7 @@ export const events = {
 	projectCreated: makeEvent<ProjectCreated>("project-created"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
+	recipeChanged: makeEvent<RecipeChanged>("recipe-changed"),
 	renderChanged: makeEvent<RenderChanged>("render-changed"),
 	rigChanged: makeEvent<RigChanged>("rig-changed"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
@@ -1877,6 +1891,24 @@ export type Balance = {
 	checkedAtMs: number | null,
 };
 
+/**  A recipe's base clip in the library. */
+export type BaseMatch = {
+	status: BaseStatus,
+	/**  The library clip's id, when one matches. */
+	clip: string | null,
+	/**  What to know before baking, when the match is not exact. */
+	warning: string | null,
+};
+
+/**  How a recipe's base clip stands in this computer's library. */
+export type BaseStatus = 
+/**  A clip of the same name, frame count and keys. */
+"found" | 
+/**  A clip of the same name and frame count, with other keys. */
+"hash-differs" | 
+/**  No clip of that name and frame count. */
+"missing";
+
 /**  An item of a batch that did not go out. */
 export type BatchFailure = {
 	asset: string,
@@ -1954,6 +1986,13 @@ export type BatchSent = {
 	jobs: ProviderJob[],
 	failed: BatchFailure[],
 };
+
+/**  What fills a blank. */
+export type BlankKind = 
+/**  An asset of the project, by its id. */
+"prop" | 
+/**  A point in the scene, in metres with Y up. */
+"point";
 
 export type BlendFile = {
 	/**  Path relative to the scanned folder, with `/` separators. */
@@ -4061,6 +4100,36 @@ export type LabView = {
 	concurrency: number,
 	/**  The project's style board, empty when it has none. */
 	style: StyleBoard,
+};
+
+/**  What a change does to the base clip. */
+export type LayerKind = 
+/**  A hand or foot reaches a target (a prop or a point) with IK. */
+"reach" | 
+/**  A bone's pose is turned or moved by the same amount across the clip. */
+"nudge" | 
+/**  The head or neck turns to follow a target. */
+"look-at" | 
+/**  An arm waves, laid over the clip. */
+"wave";
+
+/**  A change's settings. Each kind reads its own fields; the rest are none. */
+export type LayerSettings = {
+	/**  How much of the change shows, 0 to 1. */
+	weight: number | null,
+	/**  Where in the clip it starts and ends, as shares of its length, 0 to 1. */
+	start: number | null,
+	end: number | null,
+	/**  Reach and look at: the blank that holds the target. */
+	target: string | null,
+	/**  Nudge: degrees added to the bone's rotation, X then Y then Z. */
+	rotation: [(number | null), (number | null), (number | null)] | null,
+	/**  Nudge: metres added to the bone's position, Y up. */
+	offset: [(number | null), (number | null), (number | null)] | null,
+	/**  Wave: how many waves between start and end. */
+	cycles: number | null,
+	/**  Wave: how far each wave swings, in degrees. */
+	amount: number | null,
 };
 
 /**
@@ -6398,6 +6467,118 @@ export type RebaseReport = {
 export type Recipe = {
 	name: string,
 	parts: AssemblePart[],
+};
+
+/**
+ *  The library clip a recipe starts from, by what matches it on another
+ *  computer: its name and frame count. The hash tells keys that changed.
+ */
+export type RecipeBase = {
+	name: string,
+	frames: number,
+	/**  Seconds. */
+	length: number | null,
+	hash: string,
+	/**  Read from a Mixamo rig: a bake counts as Mixamo's. */
+	mixamo: boolean,
+};
+
+/**  A target the person or an agent fills per project. */
+export type RecipeBlank = {
+	id: string,
+	label: string,
+	kind: BlankKind,
+	/**  A prop blank's asset id, once filled. */
+	prop: string | null,
+	/**  A point blank's point, once filled. */
+	point: [(number | null), (number | null), (number | null)] | null,
+};
+
+/**
+ *  What a change to a recipe replaces: its name, the changes, the blanks,
+ *  or any of them, each whole. A change with an empty id gets a free one
+ *  (`l-1`, `l-2`).
+ */
+export type RecipeChange = {
+	/**  A new name; the file and id stay. */
+	name?: string | null,
+	layers: RecipeLayer[] | null,
+	blanks: RecipeBlank[] | null,
+};
+
+/**
+ *  An agent made, changed or removed one of a project's animation recipes
+ *  through the MCP server, so the Motion view's Recipes tab reloads them.
+ */
+export type RecipeChanged = {
+	project: string,
+};
+
+/**  One recipe as the view and agents get it. */
+export type RecipeDoc = {
+	id: string,
+	/**  `recipes/<id>.recipe.json`. */
+	file: string,
+	recipe: RecipeFile,
+	base: BaseMatch,
+	/**
+	 *  A bake counts as Mixamo's: the recipe says so, or its base clip in
+	 *  the library came from a Mixamo rig.
+	 */
+	mixamo: boolean,
+	/**
+	 *  Prop blanks that opened again because the project no longer has
+	 *  their asset, a line each.
+	 */
+	warnings: string[],
+};
+
+/**  `recipes/<id>.recipe.json`. */
+export type RecipeFile = {
+	version: number,
+	name: string,
+	revision: number,
+	/**  RFC 3339, when the recipe was made. */
+	created: string,
+	/**  RFC 3339, the last write that changed something. */
+	edited: string,
+	base: RecipeBase,
+	blanks: RecipeBlank[],
+	/**  In the order they are laid over the clip. */
+	layers: RecipeLayer[],
+};
+
+/**  One change laid over the base clip, on one humanoid bone. */
+export type RecipeLayer = {
+	id: string,
+	kind: LayerKind,
+	/**  A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`. */
+	bone: string,
+	settings: LayerSettings,
+};
+
+/**  A line in the list of a project's recipes. */
+export type RecipeSummary = {
+	id: string,
+	/**  `recipes/<id>.recipe.json`. */
+	file: string,
+	/**  The recipe name, or the file's id when it could not be read. */
+	name: string,
+	/**  The base clip's name; empty when the file could not be read. */
+	base: string,
+	frames: number,
+	/**  The base clip came from a Mixamo rig. */
+	mixamo: boolean,
+	layers: number,
+	blanks: number,
+	/**  Blanks nothing fills yet, a prop the project no longer has included. */
+	open: number,
+	/**  What to know before baking: a prop blank that opened again. */
+	warnings: string[],
+	/**  RFC 3339; empty when the file could not be read. */
+	edited: string,
+	/**  Why the file could not be read, for a recipe that only lists. */
+	problem: string | null,
 };
 
 /**  A one click fix the panel offers next to a warning. */

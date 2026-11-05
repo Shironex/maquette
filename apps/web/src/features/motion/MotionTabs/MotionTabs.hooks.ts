@@ -7,5 +7,9 @@ export function useMotionTabs() {
   const tab = useMotionStore(s => s.tab);
   const setTab = useMotionStore(s => s.setTab);
   const game = useIsGame();
-  return { tab: game ? 'clips' : tab, setTab: (id: string) => setTab(id as MotionTab), game };
+  return {
+    tab: game && tab === 'states' ? 'clips' : tab,
+    setTab: (id: string) => setTab(id as MotionTab),
+    game,
+  };
 }

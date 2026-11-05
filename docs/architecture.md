@@ -139,7 +139,7 @@ against it.
 | Layer     | May use    | Modules                                                                                                                                                                                                                                   |
 | --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                                                           |
-| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, `plans`, and the stored files of `prepare`, `built`, `materials` and `ship`                                    |
+| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, `plans`, `recipes`, and the stored files of `prepare`, `built`, `materials` and `ship`                         |
 | glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                                                                   |
 | preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                                                                      |
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight, springs}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
@@ -594,6 +594,27 @@ sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no m
   `projectChanged` after a bake); the MCP tools are `mcp/tools/animations.rs` and
   `mcp/tools/retarget.rs`; the web state is `state/animations.ts`, `state/retarget.ts` and their
   stores, the views `features/animations` and `features/retarget`.
+
+### Recipes
+
+A recipe is a base clip from the library with changes laid over it, baked later into one clip of a
+model's next version. The file is model data (`maquette_model::recipes`, re-exported as
+`maquette_core::recipes`): one JSON file per recipe at `<project>/recipes/<id>.recipe.json`, the id
+made from the name and fixed for its life (Rename only changes `name`, Remove moves the file into
+the project's trash). It holds `version` (1; a newer one is refused), `name`, `revision` (1, moved
+only by a later save back to a library of recipes), `created`, `edited`, `base` (the clip's name,
+frames, length, hash and `mixamo`), `blanks` (targets filled per project: a `prop` asset id or a
+`point`) and `layers` (`reach`, `nudge`, `look-at` or `wave`, each on a VRM humanoid bone name with
+its settings). It never holds keys, frames, a mesh, a skeleton or a render, so it can be shared.
+Reading normalises it (trimmed text, each change keeping only the settings its kind reads) and
+checks it whole; a file over 256 KB is refused unread, like a canvas over its cap.
+`animations::recipes` (library layer) makes a recipe from a clip and matches a recipe's base
+against the library by name and frame count: `found`, `hash-differs` (a warning, not a refusal)
+or `missing`. A bake counts as Mixamo's when the recipe says so or its matched clip came from a
+Mixamo rig. The Motion view's Recipes tab lists them, and New recipe opens the base clip picker
+(`features/animations/RecipeClipPicker`, mounted by the shell with the other animation sheets).
+Agents use `list_recipes`, `get_recipe`, `create_recipe` and `update_recipe` in the animation
+group; each write ends in `Host::recipe_changed`, which emits `RecipeChanged`.
 
 ## VRM
 
