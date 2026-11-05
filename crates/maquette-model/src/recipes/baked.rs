@@ -62,7 +62,7 @@ pub fn marked_mixamo(file: &Path) -> bool {
 }
 
 /// A recipe bake accepted as a version of an asset.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeBakeUse {
     pub recipe: String,
@@ -76,6 +76,14 @@ pub struct RecipeBakeUse {
 }
 
 impl RecipeBakeUse {
+    /// Whether `other` is the same bake, whichever version it came in as.
+    pub fn same_bake(&self, other: &Self) -> bool {
+        Self {
+            version: other.version,
+            ..self.clone()
+        } == *other
+    }
+
     pub fn of(mark: &RecipeBakeMark, version: u32) -> Self {
         Self {
             recipe: mark.recipe.clone(),
@@ -170,6 +178,27 @@ pub fn note(project_dir: &Path, asset: &str, file: &Path, version: u32) -> CoreR
 /// Fails when it is broken or comes from a newer Maquette.
 pub fn check(project_dir: &Path) -> CoreResult<()> {
     load(project_dir).map(|_| ())
+}
+
+/// What to record for the model at `file` coming in as `version` of an
+/// asset: each bake `carried` with it (a library entry keeps them), now as
+/// `version`, and the bake its mark names unless a carried one is the
+/// same. A file whose mark a Blender step dropped still brings its bakes.
+pub fn incoming(file: &Path, carried: &[RecipeBakeUse], version: u32) -> Vec<RecipeBakeUse> {
+    let mut out: Vec<RecipeBakeUse> = carried
+        .iter()
+        .map(|b| RecipeBakeUse {
+            version,
+            ..b.clone()
+        })
+        .collect();
+    if let Some(mark) = mark_of(file) {
+        let marked = RecipeBakeUse::of(&mark, version);
+        if !out.iter().any(|b| b.same_bake(&marked)) {
+            out.push(marked);
+        }
+    }
+    out
 }
 
 /// The bakes accepted as versions of `asset`, oldest first.

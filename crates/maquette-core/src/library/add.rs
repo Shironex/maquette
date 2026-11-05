@@ -203,6 +203,8 @@ fn add_version(
     let latest = asset
         .latest()
         .ok_or_else(|| CoreError::Invalid(format!("{} has no model yet.", asset.name)))?;
+    // Read before anything is copied: a doubt refuses the add.
+    let recipe_bakes = carried_bakes(project_dir, asset, latest.version)?;
     let folder = entry_dir(root, &entry.id)?;
     let number = entry.next_version();
     let entry_key = key(&entry.id);
@@ -259,6 +261,29 @@ fn add_version(
         thumbnail,
         prep,
         materials: looks,
+        recipe_bakes,
     });
     Ok(number)
+}
+
+/// The recipe bakes `asset` took in up to `version`, as its project's
+/// `recipe-bakes.json` records them.
+///
+/// # Errors
+///
+/// Refuses when that record cannot be read, since the entry could then
+/// lose that a clip is a Mixamo bake.
+fn carried_bakes(
+    project_dir: &Path,
+    asset: &Asset,
+    version: u32,
+) -> CoreResult<Vec<crate::recipes::baked::RecipeBakeUse>> {
+    let all = crate::recipes::baked::of_asset(project_dir, &asset.id).map_err(|err| {
+        CoreError::Invalid(format!(
+            "{} cannot be read, so whether {}'s clips are recipe bakes of Mixamo clips is unknown and it was not added. Fix or remove that file. {err}",
+            project_dir.join(crate::recipes::baked::BAKES_FILE).display(),
+            asset.name
+        ))
+    })?;
+    Ok(all.into_iter().filter(|b| b.version <= version).collect())
 }

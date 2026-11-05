@@ -826,7 +826,7 @@ Lists the models in the [Library](/docs/views/library/). Each entry is compact b
 
 `changes the library`
 
-Copies an asset's newest model, picture, refs, real size, fix-ups and material tweaks into the library, as Add to library does. The same model again (the same hash) adds nothing, and a newer model of an asset already there adds the next version. It spends nothing and the app updates live.
+Copies an asset's newest model, picture, refs, real size, fix-ups and material tweaks into the library, as Add to library does. The same model again (the same hash) adds nothing, and a newer model of an asset already there adds the next version. The recipe bakes the asset took in go with the version, so a project that uses it records them and a Mixamo bake's clips stay out of its packs, even when the file lost the bake's mark; while the project's `recipe-bakes.json` cannot be read the add is refused. It spends nothing and the app updates live.
 
 | Parameter | Type     | Required | Notes                                       |
 | --------- | -------- | -------- | ------------------------------------------- |

@@ -426,3 +426,64 @@ fn tags_are_tidied_and_limited() {
     let many: Vec<String> = (0..=MAX_TAGS).map(|n| format!("t{n}")).collect();
     assert!(clean_tags(&many).is_err());
 }
+
+fn lamp_bake(mixamo: bool, version: u32) -> crate::recipes::baked::RecipeBakeUse {
+    crate::recipes::baked::RecipeBakeUse {
+        recipe: "sway".into(),
+        recipe_version: "0123456789abcdef".into(),
+        base_clip: "idle".into(),
+        clip: "sway".into(),
+        mixamo,
+        version,
+    }
+}
+
+#[test]
+fn an_entry_carries_its_models_recipe_bakes_into_every_project_that_uses_it() {
+    let f = fixture();
+    // The lamp took in a Mixamo bake as v1; its file carries no mark.
+    crate::recipes::baked::record(&f.moon, "desk-lamp", lamp_bake(true, 1)).expect("bake");
+    let added = add_lamp(&f, &["props"]);
+    assert_eq!(
+        added.entry.versions[0].recipe_bakes,
+        vec![lamp_bake(true, 1)]
+    );
+    let used = use_in_project(f.root(), &f.layout, "desk-lamp", None, "study-room").expect("use");
+    assert_eq!(
+        crate::recipes::baked::of_asset(&f.room, &used.asset.id).expect("read"),
+        vec![lamp_bake(true, 1)],
+        "recorded in the target, as its v1"
+    );
+    assert!(crate::recipes::baked::took_mixamo(&f.room, &used.asset.id));
+
+    // A later bake of v2 rides on the entry's next version and comes in
+    // with the update, under the version the update makes.
+    second_model(&f);
+    crate::recipes::baked::record(&f.moon, "desk-lamp", lamp_bake(false, 2)).expect("bake");
+    let again = add_lamp(&f, &[]);
+    assert_eq!(again.entry.versions[1].recipe_bakes.len(), 2);
+    update(f.root(), &f.layout, "study-room", &used.asset.id).expect("update");
+    let bakes = crate::recipes::baked::of_asset(&f.room, &used.asset.id).expect("read");
+    let at_two: Vec<u32> = bakes.iter().map(|b| b.version).collect();
+    assert_eq!(at_two, [1, 2, 2]);
+}
+
+#[test]
+fn an_unreadable_bakes_record_refuses_the_library_add() {
+    let f = fixture();
+    write(&f.moon, crate::recipes::baked::BAKES_FILE, "{ broken");
+    let err = add(
+        f.root(),
+        &f.layout,
+        &AddToLibrary {
+            project: "moon-island".into(),
+            asset: "desk-lamp".into(),
+            name: None,
+            tags: None,
+            into: None,
+        },
+        &[],
+    )
+    .expect_err("refused");
+    assert!(err.to_string().contains("recipe-bakes.json"), "{err}");
+}

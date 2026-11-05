@@ -199,9 +199,12 @@ fn from_entry(root: &Path, layout: &FolderLayout, entry: &LibraryEntry) -> Resul
         return Err(format!("{}: its model file is missing.", entry.name));
     }
     let from = &latest.from;
-    let baked_mixamo = project::dir(root, layout, &from.project)
-        .map(|dir| licence::baked_mixamo(root, &dir, &from.asset))
-        .unwrap_or(false);
+    // The bakes the entry carries count even when the project it came from
+    // is gone or its record moved on.
+    let baked_mixamo = latest.recipe_bakes.iter().any(|b| b.mixamo)
+        || project::dir(root, layout, &from.project)
+            .map(|dir| licence::baked_mixamo(root, &dir, &from.asset))
+            .unwrap_or(false);
     Ok(Draft {
         name: entry.name.clone(),
         kind: entry.kind,

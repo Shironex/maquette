@@ -4394,6 +4394,12 @@ export type LibraryVersion = {
 	prep: ModelPrep | null,
 	/**  The material tweaks it had where it came from. */
 	materials: ModelMaterials | null,
+	/**
+	 *  The recipe bakes its asset took in up to this version where it came
+	 *  from, so a project that uses it records them (a Mixamo bake's clips
+	 *  stay out of packs) even when the file lost the bake's mark.
+	 */
+	recipeBakes?: RecipeBakeUse[],
 };
 
 export type LibraryView = {
@@ -6629,6 +6635,18 @@ export type RecipeBakeStarter = "person" | "agent";
 export type RecipeBakeState = "running" | 
 /**  The staged result is there, waiting for its review. */
 "done" | "failed" | "cancelled";
+
+/**  A recipe bake accepted as a version of an asset. */
+export type RecipeBakeUse = {
+	recipe: string,
+	recipeVersion: string,
+	baseClip: string,
+	/**  The clip the bake added, by its name in the model. */
+	clip: string,
+	mixamo: boolean,
+	/**  The asset version it came in as. */
+	version: number,
+};
 
 /**
  *  The library clip a recipe starts from, by what matches it on another

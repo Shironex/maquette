@@ -258,7 +258,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Add a project asset's newest model to the library with its picture, refs, real size, fix-ups and material tweaks. An asset already in the library (it came from an entry, or was added before) gets its newer model as that entry's next version, and other projects that use the entry then show an update waiting; the same model twice adds nothing. The asset remembers the entry. Copies files, spends nothing and needs no approval."
+        description = "Add a project asset's newest model to the library with its picture, refs, real size, fix-ups and material tweaks. An asset already in the library (it came from an entry, or was added before) gets its newer model as that entry's next version, and other projects that use the entry then show an update waiting; the same model twice adds nothing. The asset remembers the entry. The recipe bakes the asset took in go with the version, so a project that uses it records them (a Mixamo bake's clips stay out of packs) even when the file lost the bake's mark; while the project's recipe-bakes.json cannot be read the add is refused. Copies files, spends nothing and needs no approval."
     )]
     async fn add_to_library(&self, Parameters(args): Parameters<AddToLibraryArgs>) -> Out {
         let found = self
