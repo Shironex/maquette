@@ -57,6 +57,12 @@ fn after(record: &RecipeBakeRecord) -> Vec<Value> {
             "Follow the bake: it runs in headless Blender, seconds to minutes.",
         )];
     }
+    if let (Some(_), Some(why)) = (&record.result, &record.stale) {
+        return vec![step(
+            "bake_recipe",
+            &format!("This bake is out of date: {why}"),
+        )];
+    }
     if record.result.is_some() {
         return vec![step(
             "get_recipe",
@@ -114,7 +120,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a recipe's last bake, or bake null when it was never baked: its state (running, done, failed or cancelled), who started it, progress while it runs, why it stopped, and when done the result: the recipe version and base clip hash it was baked from, mixamo, the new clip's name and frames, the facing read from the rig, the planted feet's worst slide in cm (and the base clip's own), the rig's worst stretch past a healthy skin in mm (and the base clip's), each reach's gap to its target in cm at its end (reached within 2 cm) and the first frame its elbow or knee flips, and the timings. Reads only.",
+        description = "Read a recipe's last bake, or bake null when it was never baked: its state (running, done, failed or cancelled), who started it, progress while it runs, why it stopped, and when done the result: the recipe version and base clip hash it was baked from, mixamo, the new clip's name and frames, the facing read from the rig, the planted feet's worst slide in cm (and the base clip's own), the rig's worst stretch past a healthy skin in mm (and the base clip's), each reach's gap to its target in cm at its end (reached within 2 cm) and the first frame its elbow or knee flips, and the timings; stale says why a finished bake is out of date (the recipe changed since, or the model has another newest version); bake it again then. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe_bake(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {

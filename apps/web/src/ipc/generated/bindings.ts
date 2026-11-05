@@ -428,6 +428,12 @@ export const commands = {
 	updatedMs: number | null,
 	finishedMs: number | null,
 	result: RecipeBakeResult | null,
+	/**
+	 *  Why a finished bake is out of date: the recipe changed since, or the
+	 *  model has another newest version than the one it went onto. Worked
+	 *  out on each read, never saved.
+	 */
+	stale?: string | null,
 } | null>("recipe_bake_get", { project, recipe }),
 	/**  Stops a running bake: Blender is killed and nothing is staged. */
 	recipeBakeCancel: (project: string, recipe: string) => __TAURI_INVOKE<null>("recipe_bake_cancel", { project, recipe }),
@@ -6536,6 +6542,12 @@ export type RecipeBakeRecord = {
 	updatedMs: number | null,
 	finishedMs: number | null,
 	result: RecipeBakeResult | null,
+	/**
+	 *  Why a finished bake is out of date: the recipe changed since, or the
+	 *  model has another newest version than the one it went onto. Worked
+	 *  out on each read, never saved.
+	 */
+	stale?: string | null,
 };
 
 /**  Bake recipe `recipe` of `project` onto the rigged model `asset`. */

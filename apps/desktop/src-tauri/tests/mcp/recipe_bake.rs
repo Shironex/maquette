@@ -125,6 +125,13 @@ async fn a_bake_names_the_open_blanks_and_a_recipe_never_baked_reads_as_none() {
     assert_eq!(done["bake"]["result"]["clip"], "reach_out", "{done}");
     assert!(done["bake"]["result"].get("file").is_none(), "{done}");
     assert!(!done.to_string().contains("staged.glb"), "{done}");
+    // Its recipe changed since (version v1 is no hash of the file).
+    assert_eq!(
+        done["bake"]["stale"],
+        maquette_core::animations::recipes::bake::RECIPE_CHANGED,
+        "{done}"
+    );
+    assert_eq!(done["next"][0]["tool"], "bake_recipe", "{done}");
 
     client.cancel().await.expect("close");
     server.stop();

@@ -68,8 +68,8 @@ fn folder(
         .join(recipe))
 }
 
-/// The record of the bake of `recipe` in `project` as it is on disk, or
-/// none when it was never baked.
+/// The record of the bake of `recipe` in `project` as it is on disk, with
+/// whether it is out of date now, or none when it was never baked.
 ///
 /// # Errors
 ///
@@ -85,9 +85,10 @@ pub fn record_of(
         return Ok(None);
     }
     let text = fs::read_to_string(&file).map_err(|e| CoreError::io(&file, e))?;
-    serde_json::from_str(&text)
-        .map(Some)
-        .map_err(|e| CoreError::json(&file, e))
+    let mut record: RecipeBakeRecord =
+        serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
+    record.stale = super::stale::stale_of(root, config, &record);
+    Ok(Some(record))
 }
 
 fn save(dir: &Path, record: &RecipeBakeRecord) -> CoreResult<()> {
@@ -237,6 +238,7 @@ impl RecipeBakes {
             updated_ms: now,
             finished_ms: None,
             result: None,
+            stale: None,
         };
         let running = Arc::new(Running {
             record: Mutex::new(record.clone()),

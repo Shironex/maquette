@@ -631,3 +631,52 @@ fn a_bake_of_another_project_or_recipe_name_is_refused() {
     );
     assert!(bakes.get(p.root(), &p.config, "..", "x").is_err());
 }
+
+#[test]
+fn a_bake_reads_as_out_of_date_once_the_recipe_or_the_model_moves_on() {
+    let p = reaching();
+    let (bakes, _) = self::bakes(false);
+    bakes
+        .start(
+            p.root(),
+            &p.config,
+            Toolbox::default(),
+            &p.request(),
+            RecipeBakeStarter::Person,
+        )
+        .expect("start");
+    let done = settled(&bakes, &p);
+    assert_eq!(done.state, RecipeBakeState::Done, "{:?}", done.error);
+    assert_eq!(done.stale, None, "a fresh bake is current");
+
+    // The model gets a newer version.
+    fs::write(p.dir.join("models").join("elsheria_v2.glb"), humanoid()).expect("v2");
+    crate::project::modify(p.root(), &p.config.layout, &p.id, |m| {
+        crate::assets::add_version(m, "elsheria", "models/elsheria_v2.glb".into(), None).map(|_| ())
+    })
+    .expect("v2");
+    let newer = settled(&bakes, &p).stale.expect("stale");
+    assert!(newer.contains("v2") && newer.contains("v1"), "{newer}");
+
+    // The recipe changes: that is said first.
+    let mut p = p;
+    p.change(
+        vec![reach("l-1", "leftHand", "b-1")],
+        vec![point("b-1", Some([0.3, 1.2, 0.35]))],
+    );
+    assert_eq!(settled(&bakes, &p).stale.as_deref(), Some(RECIPE_CHANGED));
+    // Never saved: the record on disk holds no reason.
+    let saved = fs::read_to_string(
+        p.root()
+            .join(&p.config.layout.cache)
+            .join(WORK_DIR)
+            .join(&p.id)
+            .join(&p.recipe.id)
+            .join("bake.json"),
+    )
+    .expect("saved");
+    assert!(
+        saved.contains("\"stale\": null") || !saved.contains("stale"),
+        "{saved}"
+    );
+}

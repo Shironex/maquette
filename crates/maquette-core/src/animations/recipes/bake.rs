@@ -22,11 +22,13 @@ mod job;
 mod mark;
 mod result;
 mod service;
+mod stale;
 
 pub use job::{Prepared, open_blanks, prepare};
 pub use mark::{MARK_KEY, RecipeBakeMark, mark_of, marked_mixamo, write_mark};
 pub use result::GAP_LIMIT_CM;
 pub use service::{RecipeBakes, record_of};
+pub use stale::{RECIPE_CHANGED, stale_of};
 
 /// The bake script.
 pub const BAKE_SCRIPT: &str = include_str!("../bake_recipe.py");
@@ -160,6 +162,11 @@ pub struct RecipeBakeRecord {
     pub updated_ms: f64,
     pub finished_ms: Option<f64>,
     pub result: Option<RecipeBakeResult>,
+    /// Why a finished bake is out of date: the recipe changed since, or the
+    /// model has another newest version than the one it went onto. Worked
+    /// out on each read, never saved.
+    #[serde(default)]
+    pub stale: Option<String>,
 }
 
 impl RecipeBakeRecord {
