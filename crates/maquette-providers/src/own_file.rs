@@ -26,7 +26,7 @@ pub const WORK_DIR: &str = "own-files";
 const OUT_FILE: &str = "model.glb";
 /// Why a staged recipe bake, or any file carrying a recipe bake's mark, is
 /// refused as a model file.
-pub const STAGED_BAKE: &str = "That file is a staged recipe bake. It becomes a version through the recipe's review in the Motion view, which keeps whether it counts as Mixamo's, not as a model file.";
+pub const STAGED_BAKE: &str = "This file is a recipe bake. Add it from the recipe's review in the Motion view, which keeps whether it counts as Mixamo's, not as a model file.";
 
 fn ext_of(file: &Path) -> Option<String> {
     file.extension()
