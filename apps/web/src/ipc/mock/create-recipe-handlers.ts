@@ -8,16 +8,14 @@
  * checked whole first. With `?library=demo`, Frostveil opens with two
  * recipes: one with a reach, a look and a wave on its first prop and a
  * point, and one whose base clip the library has with other keys and whose
- * torch prop is gone.
+ * torch prop is gone. The lantern recipe came from r1 of a library recipe
+ * whose newest is r3 (see create-recipe-library-handlers.ts).
  */
 import type {
   AnimationClip,
-  BaseMatch,
   GoneProp,
   ProjectManifest,
   RecipeBlank,
-  RecipeLayer,
-  RecipeBase,
   RecipeChange,
   RecipeDoc,
   RecipeFile,
@@ -27,6 +25,8 @@ import { clock } from '@/lib/clock';
 import { checkDraft } from '@/state/recipe-check';
 import { fail, type Args } from './backend-options';
 import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
+import { createRecipeLibraryHandlers } from './create-recipe-library-handlers';
+import { baseOf, isMixamo, layer, matchBase, newRecipe, versionOf } from './recipe-files';
 import { slugOf } from './plan-store';
 
 interface RecipeContext {
@@ -42,78 +42,6 @@ interface RecipeContext {
 const STAND_IN_CLIPS: Record<string, string> = { 'clay-figure': 'Wave' };
 
 const fileOf = (id: string) => `recipes/${id}.recipe.json`;
-
-/** A stand-in for the core's hash of the file: 16 hex digits that change with any content. */
-function versionOf(recipe: RecipeFile): string {
-  const text = JSON.stringify(recipe);
-  let a = 0x811c9dc5;
-  let b = 0x01000193;
-  for (let i = 0; i < text.length; i += 1) {
-    a = Math.imul(a ^ text.charCodeAt(i), 0x01000193);
-    b = Math.imul(b ^ text.charCodeAt(i), 0x811c9dc5);
-  }
-  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
-  return hex(a) + hex(b);
-}
-
-const baseOf = (clip: AnimationClip): RecipeBase => ({
-  name: clip.name,
-  frames: clip.frames,
-  length: clip.length ?? 0,
-  hash: clip.hash,
-  mixamo: clip.rig.kind === 'mixamo',
-});
-
-function matchBase(clips: readonly AnimationClip[], base: RecipeBase): [BaseMatch, AnimationClip?] {
-  const name = base.name.trim().toLowerCase();
-  const same = clips.filter(c => c.frames === base.frames && c.name.trim().toLowerCase() === name);
-  const exact = same.find(c => c.hash === base.hash);
-  if (exact) return [{ status: 'found', clip: exact.id, warning: null }, exact];
-  const other = same[0];
-  if (other)
-    return [
-      {
-        status: 'hash-differs',
-        clip: other.id,
-        warning: `The library's ${other.name} has other keys than the recipe was made on (its hash differs). A bake will use the library's.`,
-      },
-      other,
-    ];
-  return [
-    {
-      status: 'missing',
-      clip: null,
-      warning: `The animation library has no clip called ${base.name} with ${base.frames} frames. Import it before baking.`,
-    },
-  ];
-}
-
-function newRecipe(name: string, base: RecipeBase): RecipeFile {
-  const now = clock.now().toISOString();
-  return { version: 1, name, revision: 1, created: now, edited: now, base, blanks: [], layers: [] };
-}
-
-const layer = (
-  id: string,
-  kind: RecipeLayer['kind'],
-  bone: string,
-  settings: Partial<RecipeLayer['settings']>
-): RecipeLayer => ({
-  id,
-  kind,
-  bone,
-  settings: {
-    weight: 1,
-    start: 0,
-    end: 1,
-    target: null,
-    rotation: null,
-    offset: null,
-    cycles: null,
-    amount: null,
-    ...settings,
-  },
-});
 
 /**
  * Frostveil's demo recipes: a reach, a look and a wave on its first prop and
@@ -142,6 +70,8 @@ function demoRecipes(
       layer('l-2', 'look-at', 'head', { start: 0.1, end: 0.9, weight: 0.8, target: 'shelf' }),
       layer('l-3', 'wave', 'leftLowerArm', { start: 0.65, end: 0.95, cycles: 2, amount: 25 }),
     ];
+    // Saved to the recipe library as r1, which has r3 since (see recipe-library-fixtures.ts).
+    reach.from = { entry: 'reach-for-the-lantern', revision: 1 };
     out.set('reach-for-the-lantern', reach);
   }
   if (second) {
@@ -201,13 +131,12 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   };
   const doc = (project: string, id: string, stored: RecipeFile): RecipeDoc => {
     const [recipe, warnings, gone] = settled(project, stored);
-    const [base, clip] = matchBase(ctx.clips(), recipe.base);
     return {
       id,
       file: fileOf(id),
       recipe,
-      base,
-      mixamo: recipe.base.mixamo || clip?.rig.kind === 'mixamo',
+      base: matchBase(ctx.clips(), recipe.base)[0],
+      mixamo: isMixamo(ctx.clips(), recipe.base),
       warnings,
       gone,
       version: versionOf(stored),
@@ -262,6 +191,14 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   };
 
   return {
+    ...createRecipeLibraryHandlers({
+      clips: ctx.clips,
+      project: ctx.project,
+      recipes: id => recipes(id),
+      doc,
+      freeId: (project, name) => freeId(project, name),
+      state: ctx.state,
+    }),
     ...createRecipeBakeHandlers({
       doc: (project, id) => doc(project, id, existing(project, id)),
       asset: (project, id) => {

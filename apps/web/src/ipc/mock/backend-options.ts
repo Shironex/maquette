@@ -42,7 +42,8 @@ export type Args = Record<string, unknown>;
  * `?agents=preview` holds only the dev server of a repo an agent set, so the
  * Page view waits on its card until a yes starts it; `?agents=many` asks a
  * ship, a batch, a round and a preview at once; `?agents=recipe` (with
- * `?library=demo`) has an agent ask to add the lantern recipe's bake.
+ * `?library=demo`) has an agent ask to add the lantern recipe's bake, and
+ * `?agents=recipe-save` to save that recipe to the recipe library.
  * `?handoff=batch` adds the veil gate props concept, six object refs made
  * from it and a By hand batch of them in mixed states.
  * `?style=board` gives Frostveil a style board (see `style-board.ts`).

@@ -5,11 +5,13 @@
  * `?agents=batch` asks for three sends under one approval instead, and
  * `?agents=images` a round of two Lab images on OpenAI Images (the jobs
  * `?lab=approval` holds). `?agents=many` asks all of those at once, a page
- * preview too, for the folded cards.
+ * preview too, for the folded cards. `?agents=recipe-save` (with
+ * `?library=demo`) has an agent propose saving a recipe to the library.
  */
 import type { Approval, McpCall, McpStatus, RigRecord, WorkspaceConfig } from '../client';
 import { createRigHandlers } from './create-rig-handlers';
 import { createRecipeBakeAsks } from './recipe-bake-asks';
+import { createRecipeSaveAsks } from './recipe-save-asks';
 import { clock } from '@/lib/clock';
 import { MOCK_TOOL_GROUPS } from './mock-tool-groups';
 
@@ -57,7 +59,15 @@ export function agentCalls(now: number): McpCall[] {
 }
 
 /** The `?agents=` scenes that turn the MCP server on. */
-export const AGENT_SCENES = ['active', 'batch', 'images', 'preview', 'many', 'recipe'];
+export const AGENT_SCENES = [
+  'active',
+  'batch',
+  'images',
+  'preview',
+  'many',
+  'recipe',
+  'recipe-save',
+];
 
 export function createFakeAgents({
   config,
@@ -77,6 +87,7 @@ export function createFakeAgents({
    * round waits instead of it. `preview`: only a page preview waits, the first
    * start of a repo an agent set. `many`: a batch, a round and a preview together.
    * `recipe`: only an add of a recipe bake waits (with `?library=demo`).
+   * `recipe-save`: only a save of a recipe to the library waits (with `?library=demo`).
    */
   scene?: string | null;
   emit?: (status: McpStatus) => void;
@@ -91,6 +102,8 @@ export function createFakeAgents({
 }) {
   // Recipe bakes an agent asked to add; only the review adds one, Deny turns it down.
   const recipeBakes = createRecipeBakeAsks(() => changed(), scene === 'recipe');
+  // Recipe saves an agent proposed; only the save to library sheet saves, Deny turns one down.
+  const recipeSaves = createRecipeSaveAsks(() => changed(), scene === 'recipe-save');
   const many = scene === 'many';
   const batch = scene === 'batch' || many;
   const images = scene === 'images' || many;
@@ -193,8 +206,8 @@ export function createFakeAgents({
     ];
   }
 
-  // Only the recipe bake's add waits, raised by the recipe handlers.
-  if (scene === 'recipe') approvals = [];
+  // Only the recipe bake's add or the recipe save waits.
+  if (scene === 'recipe' || scene === 'recipe-save') approvals = [];
 
   if (preview) {
     approvals = [
@@ -244,6 +257,7 @@ export function createFakeAgents({
         ...(avatars?.approvals() ?? []),
         ...(rig?.approvals() ?? []),
         ...recipeBakes.approvals(),
+        ...recipeSaves.approvals(),
       ],
     };
   };
@@ -260,7 +274,8 @@ export function createFakeAgents({
         games?.decide(game, Boolean(approve));
         return status();
       }
-      if (recipeBakes.deny(approvalId as string)) return status();
+      if (recipeBakes.deny(approvalId as string) || recipeSaves.deny(approvalId as string))
+        return status();
       const found = approvals.find(a => a.id === approvalId);
       if (!found) {
         throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };
