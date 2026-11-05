@@ -4,7 +4,7 @@ import { layoutSpot } from './recipe-layout';
 import { targetsOf } from './recipe-pose';
 
 /** Elsheria turned a quarter about Y, a lantern 1 m along world +Z. */
-function view(placeModel = true): LayoutView {
+function view(placeModel = true, present = true): LayoutView {
   const models: LayoutView['layout']['models'] = {
     lantern: { position: [0, 0, 1], rotation: [0, 0, 0], scale: 1 },
   };
@@ -14,7 +14,7 @@ function view(placeModel = true): LayoutView {
     saved: true,
     layout: { models, stops: [], desk: null } as unknown as LayoutView['layout'],
     models: [
-      { asset: 'lantern', present: true, min: [-0.1, 0, -0.1], max: [0.1, 0.4, 0.1] },
+      { asset: 'lantern', present, min: [-0.1, 0, -0.1], max: [0.1, 0.4, 0.1] },
     ] as unknown as LayoutView['models'],
     firstView: {} as LayoutView['firstView'],
   };
@@ -30,6 +30,8 @@ describe('a prop target by the layout', () => {
   it('is none unless the layout places both, so the slot is used', () => {
     expect(layoutSpot(view(false), 'elsheria', 'lantern')).toBeNull();
     expect(layoutSpot(view(), 'elsheria', 'cup')).toBeNull();
+    // As in the bake, a prop whose newest model file is gone takes the slot.
+    expect(layoutSpot(view(true, false), 'elsheria', 'lantern')).toBeNull();
   });
 
   it('puts a placed prop at its spot and keeps the next prop in the second slot', () => {

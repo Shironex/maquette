@@ -13,7 +13,7 @@ export type Spot = readonly [number, number, number];
 const deg = THREE.MathUtils.degToRad;
 
 /** A placement's matrix, composed as the layout editor and the core compose it. */
-function matrixOf(p: PlainPlacement): THREE.Matrix4 {
+export function placementMatrix(p: PlainPlacement): THREE.Matrix4 {
   const [rx, ry, rz] = p.rotation;
   const turn = new THREE.Quaternion().setFromEuler(
     new THREE.Euler(deg(rx), deg(ry), deg(rz), 'XYZ')
@@ -25,7 +25,8 @@ function matrixOf(p: PlainPlacement): THREE.Matrix4 {
 /**
  * The spot of `prop` in the frame of model `asset` (its own glTF frame, from
  * where it stands), or null when the layout does not place both, so the
- * bake and the preview use the slot instead. The middle is the prop's
+ * bake and the preview use the slot instead, also when the prop's newest
+ * model file is missing. The middle is the prop's
  * bounds as the layout measures them.
  */
 export function layoutSpot(view: LayoutView, asset: string, prop: string): Spot | null {
@@ -34,6 +35,8 @@ export function layoutSpot(view: LayoutView, asset: string, prop: string): Spot 
   const model = placed[asset];
   if (!at || !model) return null;
   const found = view.models.find(m => m.asset === prop);
+  // As in the bake: a prop whose newest model file is gone takes the slot.
+  if (!found?.present) return null;
   const middle = new THREE.Vector3();
   if (found?.min && found.max) {
     const [a, b] = [found.min, found.max];
@@ -43,6 +46,8 @@ export function layoutSpot(view: LayoutView, asset: string, prop: string): Spot 
       ((a[2] ?? 0) + (b[2] ?? 0)) / 2
     );
   }
-  const local = middle.applyMatrix4(matrixOf(at)).applyMatrix4(matrixOf(model).invert());
+  const local = middle
+    .applyMatrix4(placementMatrix(at))
+    .applyMatrix4(placementMatrix(model).invert());
   return [local.x, local.y, local.z];
 }
