@@ -12,7 +12,7 @@ import type {
 import { DEFAULT_ROOT, defaultConfig, mockProjects } from './fixtures';
 import { linkGameInbox } from './game-inbox';
 import { currentStarters, dioramaPipeline, oldStarters, pipelineView } from './pipeline-fixtures';
-import { createFakeAgents } from './agents';
+import { AGENT_SCENES, createFakeAgents } from './agents';
 import { createFakeLab } from './lab';
 import { healThumbnails } from './lab-helpers';
 import { createCodexUsageHandlers } from './create-codex-usage-handlers';
@@ -102,7 +102,7 @@ export function createBackend({
   const seeded = seedMotionProjects(mockProjects(projectsState, libraryState), motion);
   let projects = configured ? syncProjects(seedAvatar(seeded, avatar), sync) : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
-  const agentsOn = ['active', 'batch', 'images', 'preview', 'many'].includes(agentsState ?? '');
+  const agentsOn = AGENT_SCENES.includes(agentsState ?? '');
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }

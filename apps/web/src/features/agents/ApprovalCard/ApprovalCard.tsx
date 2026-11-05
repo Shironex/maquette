@@ -38,7 +38,8 @@ export default function ApprovalCard({
   const weights = approval.kind === 'reweight';
   const chains = approval.kind === 'springs';
   const doctor = approval.kind === 'rig-doctor';
-  const rest = approval.kind === 'rest-pose' || weights || chains || doctor;
+  const recipeBake = approval.kind === 'recipe-bake';
+  const rest = approval.kind === 'rest-pose' || weights || chains || doctor || recipeBake;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
   const preview = approval.kind === 'page-preview' ? approval.preview : null;
@@ -80,15 +81,17 @@ export default function ApprovalCard({
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
           <Icon
             name={
-              rest
-                ? 'person-arms-spread'
-                : preview
-                  ? 'terminal-window'
-                  : round
-                    ? 'image'
-                    : send
-                      ? 'cube'
-                      : 'rocket-launch'
+              recipeBake
+                ? 'flask'
+                : rest
+                  ? 'person-arms-spread'
+                  : preview
+                    ? 'terminal-window'
+                    : round
+                      ? 'image'
+                      : send
+                        ? 'cube'
+                        : 'rocket-launch'
             }
             size={17}
           />
@@ -107,6 +110,11 @@ export default function ApprovalCard({
               read it first. Nothing runs until you approve. A changed folder, command, package.json
               or listed manager config asks again. A yes trusts the repo, including nested packages
               and the files scripts load.
+            </p>
+          ) : recipeBake ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent baked this recipe over MCP and asked to add it. Nothing is added until you
+              review it in the Motion view and add it yourself.
             </p>
           ) : doctor ? (
             <p className="mt-0.5 text-meta text-fg-mute">
@@ -261,13 +269,15 @@ export default function ApprovalCard({
                 disabled={pose.denying}
                 loading={pose.denying}
                 tooltip={
-                  doctor
-                    ? 'Adds nothing; the draft is kept and the agent can read that it waits'
-                    : chains
-                      ? 'Writes the VRM without springs; the agent is told it was turned down'
-                      : weights
-                        ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
-                        : 'Writes nothing; the agent is told the pose was turned down'
+                  recipeBake
+                    ? 'Adds nothing; the staged bake is kept and the agent is told it was turned down'
+                    : doctor
+                      ? 'Adds nothing; the draft is kept and the agent can read that it waits'
+                      : chains
+                        ? 'Writes the VRM without springs; the agent is told it was turned down'
+                        : weights
+                          ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
+                          : 'Writes nothing; the agent is told the pose was turned down'
                 }
                 onClick={event => void pose.deny(decidedBy(source, event))}
               >
@@ -277,13 +287,15 @@ export default function ApprovalCard({
                 variant="primary"
                 icon="magnifying-glass"
                 tooltip={
-                  doctor
-                    ? 'Opens the rig doctor, to add the draft or discard it there'
-                    : 'Opens the before and after sheets large, to approve or deny there'
+                  recipeBake
+                    ? 'Opens the bake in the Motion view, to review it and add it there'
+                    : doctor
+                      ? 'Opens the rig doctor, to add the draft or discard it there'
+                      : 'Opens the before and after sheets large, to approve or deny there'
                 }
                 onClick={pose.open}
               >
-                Open the sheets
+                {recipeBake ? 'Review the bake' : 'Open the sheets'}
               </Button>
             </div>
           ) : (
