@@ -7,8 +7,9 @@
 //! and the manifest say so. A clip counts as Mixamo's when the model baked
 //! a library clip read from a Mixamo rig, or when the model's own rig uses
 //! Mixamo's bone names and it did not come from Tripo (Tripo's rigs use
-//! those names for clips Tripo made). That errs on the side of leaving a
-//! clip out.
+//! those names for clips Tripo made), or when its file carries the mark of
+//! a recipe bake that counts as Mixamo's. That errs on the side of leaving
+//! a clip out.
 
 use std::path::Path;
 
@@ -62,6 +63,12 @@ pub fn may_be_mixamo(
     baked_mixamo: bool,
 ) -> bool {
     baked_mixamo || (rig == Some(RigKind::Mixamo) && source != Some(LibrarySource::Tripo))
+}
+
+/// Whether the model at `file` holds a recipe bake of a Mixamo clip, by the
+/// mark the bake wrote into it.
+pub fn marked_mixamo(file: &Path) -> bool {
+    crate::animations::recipes::bake::marked_mixamo(file)
 }
 
 /// Whether the asset baked a library clip that came from a Mixamo rig, by

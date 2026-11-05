@@ -13,6 +13,7 @@ use std::thread;
 use std::time::Instant;
 
 use super::job::{self, PROGRESS_FILE, Prepared};
+use super::mark::{RecipeBakeMark, write_mark};
 use super::result::{read_run, result_of};
 use super::{
     RecipeBakeProgress, RecipeBakeRecord, RecipeBakeRequest, RecipeBakeStarter, RecipeBakeState,
@@ -294,12 +295,14 @@ impl RecipeBakes {
         fs::rename(work.join(STAGED_FILE), &staged).map_err(|e| CoreError::io(&staged, e))?;
         // The copies of the model and the clip are not needed any more.
         clear(&work.join("in"));
-        Ok(result_of(
+        let result = result_of(
             &run,
             prepared,
             &running.dir,
             started.elapsed().as_secs_f32(),
-        ))
+        );
+        write_mark(&staged, &RecipeBakeMark::of(&result))?;
+        Ok(result)
     }
 
     /// Stops a running bake: Blender is killed and nothing is staged.

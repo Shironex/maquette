@@ -94,6 +94,7 @@ fn check(s: &Setup, which: &str, facing: [f32; 3]) -> RecipeBakeResult {
     names.sort();
     assert_eq!(names, ["idle", result.clip.as_str()], "one new clip");
     assert_eq!(result.clip, "reach_out");
+    assert!(marked_mixamo(file), "the staged model carries its mark");
     result
 }
 

@@ -10,17 +10,21 @@
 //! stretch past a healthy skin, each reach's gap to its target at its end and
 //! an elbow or knee that bends the other way than the clip has it.
 //!
-//! A bake of a Mixamo base counts as Mixamo's. Nothing here copies it into
-//! the clip library or an export pack: the staged file lives only in the
-//! cache, where neither looks.
+//! A bake of a Mixamo base counts as Mixamo's. The staged file lives in
+//! the cache, which neither the clip library nor an export pack reads, and
+//! adding a model file refuses it there. It also carries a mark in its own
+//! GLB (`asset.extras`), which packs and Save clips to the library honour
+//! wherever the file ends up.
 
 use serde::{Deserialize, Serialize};
 
 mod job;
+mod mark;
 mod result;
 mod service;
 
 pub use job::{Prepared, open_blanks, prepare};
+pub use mark::{MARK_KEY, RecipeBakeMark, mark_of, marked_mixamo, write_mark};
 pub use result::GAP_LIMIT_CM;
 pub use service::{RecipeBakes, record_of};
 
@@ -168,3 +172,5 @@ impl RecipeBakeRecord {
 mod tests;
 #[cfg(test)]
 mod tests_blender;
+#[cfg(test)]
+mod tests_mark;

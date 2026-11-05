@@ -165,7 +165,7 @@ pub(super) fn project_on(root: &std::path::Path, clip: &str, model: Vec<u8>) -> 
     }
 }
 
-fn humanoid() -> Vec<u8> {
+pub(super) fn humanoid() -> Vec<u8> {
     fixture::humanoid(&HumanoidSpec::default())
 }
 
@@ -424,7 +424,7 @@ impl ScriptRunner for Fake {
             r#"{"label": "Solving frame 31 of 31", "done": 31, "total": 31}"#,
         )
         .expect("progress");
-        fs::write(work.join(STAGED_FILE), b"glb").expect("staged");
+        fs::write(work.join(STAGED_FILE), humanoid()).expect("staged");
         fs::write(work.join(REPORT_FILE), REPORT).expect("report");
         Ok(())
     }
@@ -505,6 +505,10 @@ fn a_bake_runs_as_a_job_and_stages_its_model_outside_the_project_and_library() {
     assert!(result.mixamo);
     let staged = PathBuf::from(&result.file);
     assert!(staged.is_file());
+    // The staged model carries its Mixamo mark in its own GLB.
+    let mark = mark_of(&staged).expect("mark");
+    assert_eq!(mark, RecipeBakeMark::of(&result));
+    assert!(mark.mixamo && marked_mixamo(&staged));
     let cache = p.root().join(&p.config.layout.cache);
     assert!(staged.starts_with(&cache), "{}", staged.display());
     assert!(

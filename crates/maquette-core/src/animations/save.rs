@@ -147,6 +147,7 @@ pub fn plan(
     if clips.is_empty() {
         return Err(CoreError::Invalid(format!("{} has no clips.", model.name)));
     }
+    let baked = with_recipe_bake(&model.path, baked);
     let mut tags: Vec<String> = Vec::new();
     for tag in clips.iter().flat_map(|c| names::tags_for(&c.name)) {
         if !tags.contains(&tag) {
@@ -160,12 +161,22 @@ pub fn plan(
         file: model.file,
         rig: rig::detect(&found_rig.joint_names, from_tripo),
         bones: found_rig.joints,
-        clips: clips.iter().map(|c| save_clip(c, baked)).collect(),
+        clips: clips.iter().map(|c| save_clip(c, &baked)).collect(),
         pack: format!("{} moves", model.name),
         tags,
         model_bytes: (model.bytes - motion_bytes).max(0.0),
         name: model.name,
     })
+}
+
+/// `baked`, plus the clip a recipe baked from a Mixamo clip, by the mark in
+/// the model: that clip counts as Mixamo's and never goes to the library.
+fn with_recipe_bake(model: &Path, baked: &[(String, String)]) -> Vec<(String, String)> {
+    let mut all = baked.to_vec();
+    if let Some(mark) = super::recipes::bake::mark_of(model).filter(|m| m.mixamo) {
+        all.push((mark.clip, mark.base_clip));
+    }
+    all
 }
 
 fn save_clip(clip: &Clip, baked: &[(String, String)]) -> SaveClip {
