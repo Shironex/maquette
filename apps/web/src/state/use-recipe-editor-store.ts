@@ -13,9 +13,9 @@
  * merged change by change and blank by blank, and only when both sides
  * changed the same entry does `outside` ask Keep mine or Use theirs. Until
  * then nothing saves. Save reads the file first and merges what came in, then
- * sends the `edited` stamp it built on: the core refuses the write when the
- * file moved since (code `moved`), so a write landing in between is never
- * overwritten. The editor then reads and merges again (asking only on a real
+ * sends the version (a hash of the file) it built on: the core refuses the
+ * write when the file moved since in any way (code `moved`), so a write
+ * landing in between is never overwritten. The editor then reads and merges again (asking only on a real
  * clash) and the person saves once more. Only the lists that changed are sent.
  */
 import { create } from 'zustand';
@@ -131,7 +131,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         name: null,
         layers: deepEqual(sent.layers, stored.layers) ? null : sent.layers,
         blanks: deepEqual(sent.blanks, stored.blanks) && !cleared.length ? null : sent.blanks,
-        expected: stored.edited,
+        expected: ready.doc.version,
         clear: cleared,
       });
       const latest = get().editing;

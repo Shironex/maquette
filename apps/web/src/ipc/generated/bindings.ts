@@ -6516,8 +6516,9 @@ export type RecipeChange = {
 	layers: RecipeLayer[] | null,
 	blanks: RecipeBlank[] | null,
 	/**
-	 *  The `edited` stamp of the recipe as it was read. Given, a file
-	 *  that changed since is refused (code `moved`) and nothing is written.
+	 *  The `version` of the recipe as it was read (a hash of the file's
+	 *  bytes). Given, a file that changed since in any way is refused (code
+	 *  `moved`) and nothing is written.
 	 */
 	expected?: string | null,
 	/**
@@ -6555,6 +6556,8 @@ export type RecipeDoc = {
 	warnings: string[],
 	/**  The same blanks, each with the asset id the file still holds. */
 	gone: GoneProp[],
+	/**  A hash of the file's bytes; a write sends it back as `expected`. */
+	version: string,
 };
 
 /**  `recipes/<id>.recipe.json`. */

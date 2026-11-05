@@ -17,6 +17,9 @@ use super::hints::{step, with_next};
 use super::{McpTools, Out, ProjectArgs, ToolError, respond, to_short_value, to_value};
 use crate::commands::recipes as commands;
 
+/// The code of an update_recipe that sends lists without the version it read.
+pub(super) const NEEDS_VERSION: &str = "needs-version";
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeArgs {
@@ -97,8 +100,9 @@ pub struct UpdateRecipeArgs {
     pub changes: Option<Vec<ChangeArg>>,
     /// Every blank. Replaces them whole.
     pub blanks: Option<Vec<BlankArg>>,
-    /// The `edited` stamp get_recipe answered with. Given, a recipe that
-    /// changed since is refused (moved) and nothing is written.
+    /// The `version` get_recipe answered with. Needed whenever changes or
+    /// blanks are sent; a recipe that changed since is refused (moved) and
+    /// nothing is written. A name only update may leave it out.
     pub expected: Option<String>,
     /// Prop blank ids to empty for good, even when the asset they name is gone.
     pub clear: Option<Vec<String>>,
@@ -199,7 +203,7 @@ fn recipe_view(doc: &RecipeDoc) -> Value {
         .collect();
     let mut out = json!({
         "id": doc.id, "file": doc.file, "name": recipe.name, "revision": recipe.revision,
-        "edited": recipe.edited, "mixamo": doc.mixamo, "base": base,
+        "edited": recipe.edited, "version": doc.version, "mixamo": doc.mixamo, "base": base,
         "blanks": blanks, "changes": recipe.layers.iter().map(change_view).collect::<Vec<_>>(),
     });
     if !doc.warnings.is_empty() {
@@ -317,11 +321,21 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an animation recipe: a new name (the file and id stay), its changes, its blanks, or any of them. changes and blanks each replace the list whole, so read get_recipe first and send every entry you keep. A change without an id gets a free one. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, a reach or look-at aiming at a blank the recipe has, a nudge with a rotation or offset, a wave with cycles and amount, and a prop blank naming an asset of the project. When blanks is left out, the blanks stay as they are: a prop blank whose asset the project no longer has keeps its prop in the file (restoring the asset fills it again), reads as open, and warnings says which. A prop blank sent open whose stored prop is such a gone asset keeps it the same way; name it in clear to empty it for good. Pass expected (the edited stamp get_recipe answered with) so a recipe a person or another agent changed since is refused with moved instead of overwritten; then read it again and resend. A name, changes and blanks land in one write. The revision does not move. Answers with the recipe as get_recipe reads it. Nothing is baked."
+        description = "Change an animation recipe: a new name (the file and id stay), its changes, its blanks, or any of them. changes and blanks each replace the list whole, so read get_recipe first and send every entry you keep. A change without an id gets a free one. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, a reach or look-at aiming at a blank the recipe has, a nudge with a rotation or offset, a wave with cycles and amount, and a prop blank naming an asset of the project. When blanks is left out, the blanks stay as they are: a prop blank whose asset the project no longer has keeps its prop in the file (restoring the asset fills it again), reads as open, and warnings says which. A prop blank sent open whose stored prop is such a gone asset keeps it the same way; name it in clear to empty it for good. Sending changes, blanks or clear needs expected, the version get_recipe answered with: a recipe changed since is refused (moved), never overwritten; read it again and resend. A name only update may skip it. A name, changes and blanks land in one write. The revision does not move. Answers with the recipe as get_recipe reads it. Nothing is baked."
     )]
     async fn update_recipe(&self, Parameters(args): Parameters<UpdateRecipeArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
+                let lists = args.changes.is_some() || args.blanks.is_some() || args.clear.is_some();
+                if lists && args.expected.is_none() {
+                    return Err(ToolError {
+                        message: format!(
+                            "Sending changes, blanks or clear needs expected: the version get_recipe answered with for {}, so a person's save since is never overwritten.",
+                            args.recipe
+                        ),
+                        code: NEEDS_VERSION.to_string(),
+                    });
+                }
                 let change = RecipeChange {
                     name: args.name,
                     layers: args

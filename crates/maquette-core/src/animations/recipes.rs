@@ -53,6 +53,8 @@ pub struct RecipeDoc {
     pub warnings: Vec<String>,
     /// The same blanks, each with the asset id the file still holds.
     pub gone: Vec<GoneProp>,
+    /// A hash of the file's bytes; a write sends it back as `expected`.
+    pub version: String,
 }
 
 /// The base a recipe on `clip` stores: its name, frame count, length and
@@ -114,6 +116,7 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         recipe,
         warnings,
         gone,
+        version,
     } = read;
     let (base, clip) = match_base(clips, &recipe.base);
     let mixamo = recipe.base.mixamo || clip.is_some_and(|c| c.rig.kind == SourceRig::Mixamo);
@@ -125,6 +128,7 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         mixamo,
         warnings,
         gone,
+        version,
     }
 }
 
@@ -182,10 +186,12 @@ pub fn create(
         .filter(|n| !n.is_empty())
         .unwrap_or(&clip.name);
     let (id, recipe) = recipes::create(project_dir, name, base_of(&clip))?;
+    let version = recipes::version(project_dir, &id)?;
     let read = RecipeRead {
         recipe,
         warnings: Vec::new(),
         gone: Vec::new(),
+        version,
     };
     Ok(doc_of(&id, read, std::slice::from_ref(&clip)))
 }

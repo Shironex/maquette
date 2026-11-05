@@ -36,11 +36,17 @@ interface RecipeContext {
 
 const fileOf = (id: string) => `recipes/${id}.recipe.json`;
 
-/** Now, or a millisecond past `before` when the clock has not moved, as the core keeps each version's stamp new. */
-function stampAfter(before: string): string {
-  const now = clock.now();
-  const was = Date.parse(before);
-  return (now.getTime() > was ? now : new Date(was + 1)).toISOString();
+/** A stand-in for the core's hash of the file: 16 hex digits that change with any content. */
+function versionOf(recipe: RecipeFile): string {
+  const text = JSON.stringify(recipe);
+  let a = 0x811c9dc5;
+  let b = 0x01000193;
+  for (let i = 0; i < text.length; i += 1) {
+    a = Math.imul(a ^ text.charCodeAt(i), 0x01000193);
+    b = Math.imul(b ^ text.charCodeAt(i), 0x811c9dc5);
+  }
+  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
+  return hex(a) + hex(b);
 }
 
 const baseOf = (clip: AnimationClip): RecipeBase => ({
@@ -197,6 +203,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       mixamo: recipe.base.mixamo || clip?.rig.kind === 'mixamo',
       warnings,
       gone,
+      version: versionOf(stored),
     };
   };
   const summary = (project: string, id: string, stored: RecipeFile): RecipeSummary => {
@@ -271,10 +278,11 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       const { name, layers, blanks, expected, clear = [] } = change as RecipeChange;
       if (name != null) checkName(name);
       const current = existing(project, id);
-      if (expected != null && expected !== current.edited)
+      const now = versionOf(current);
+      if (expected != null && expected !== now)
         fail(
           'moved',
-          `The recipe ${String(id)} changed since it was read (it was edited at ${current.edited}). Read it again and send the change once more.`
+          `The recipe ${String(id)} changed since it was read (its version is now ${now}). Read it again and send the change once more.`
         );
       const kept = blanks
         ? blanksFor(String(project), current, blanks, clear)
@@ -295,7 +303,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
         ...Object.values(problems.layers),
       ][0];
       if (first) fail('invalid', first);
-      const recipe = { ...next, edited: stampAfter(current.edited) };
+      const recipe = { ...next, edited: clock.now().toISOString() };
       recipes(project).set(String(id), recipe);
       return doc(String(project), String(id), recipe);
     },

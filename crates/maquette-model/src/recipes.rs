@@ -48,7 +48,7 @@ mod files;
 
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use files::{
-    RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update,
+    RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update, version,
 };
 
 pub const RECIPES_DIR: &str = "recipes";
@@ -258,6 +258,23 @@ pub fn path(project_dir: &Path, id: &str) -> CoreResult<PathBuf> {
 /// Fails when the file is missing, unreadable or over [`MAX_FILE_BYTES`],
 /// comes from a newer Maquette or holds values [`validate`] refuses.
 pub fn load_file(file: &Path) -> CoreResult<RecipeFile> {
+    Ok(load_versioned(file)?.0)
+}
+
+/// A recipe file's version: the first 16 hex digits of the SHA-256 of its
+/// bytes, so any change on disk (a write here, a hand edit, a sync from
+/// another computer) gives a new one, whatever `edited` says.
+pub fn version_of(text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(text.as_bytes()))[..16].to_string()
+}
+
+/// [`load_file`], with the file's [`version_of`].
+///
+/// # Errors
+///
+/// As [`load_file`].
+pub fn load_versioned(file: &Path) -> CoreResult<(RecipeFile, String)> {
     let text = match crate::plans::read_capped(file, MAX_FILE_BYTES) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
@@ -274,6 +291,7 @@ pub fn load_file(file: &Path) -> CoreResult<RecipeFile> {
         }
         Err(err) => return Err(CoreError::io(file, err)),
     };
+    let version = version_of(&text);
     let value: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| CoreError::json(file, e))?;
     // The version first, so a newer file whose shape changed says so.
@@ -290,7 +308,7 @@ pub fn load_file(file: &Path) -> CoreResult<RecipeFile> {
     let recipe: RecipeFile = serde_json::from_value(value).map_err(|e| CoreError::json(file, e))?;
     let recipe = normalized(&recipe);
     validate(&recipe)?;
-    Ok(recipe)
+    Ok((recipe, version))
 }
 
 /// The recipe as it is written: this version, a trimmed name, base name

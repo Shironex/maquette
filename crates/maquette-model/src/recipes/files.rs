@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     BlankKind, GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank,
     RecipeFile, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id, load_file,
-    normalized, path, settle_props, validate,
+    load_versioned, normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -58,8 +58,9 @@ pub struct RecipeChange {
     pub name: Option<String>,
     pub layers: Option<Vec<RecipeLayer>>,
     pub blanks: Option<Vec<RecipeBlank>>,
-    /// The `edited` stamp of the recipe as it was read. Given, a file
-    /// that changed since is refused (code `moved`) and nothing is written.
+    /// The `version` of the recipe as it was read (a hash of the file's
+    /// bytes). Given, a file that changed since in any way is refused (code
+    /// `moved`) and nothing is written.
     #[serde(default)]
     pub expected: Option<String>,
     /// Prop blanks to empty for good, even when the prop they name is no
@@ -78,16 +79,20 @@ pub struct RecipeRead {
     /// The prop blanks that read open because their asset is gone; the
     /// file keeps each prop.
     pub gone: Vec<GoneProp>,
+    /// A hash of the file's bytes, which a write may send back as
+    /// `expected`.
+    pub version: String,
 }
 
 /// Opens the prop blanks `manifest`'s project no longer has.
-fn settled(mut recipe: RecipeFile, manifest: &ProjectManifest) -> RecipeRead {
+fn settled(mut recipe: RecipeFile, version: String, manifest: &ProjectManifest) -> RecipeRead {
     let gone = gone_props(&recipe, manifest);
     let warnings = settle_props(&mut recipe, manifest);
     RecipeRead {
         recipe,
         warnings,
         gone,
+        version,
     }
 }
 
@@ -98,18 +103,6 @@ static WRITES: Mutex<()> = Mutex::new(());
 
 fn writing() -> MutexGuard<'static, ()> {
     WRITES.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-/// Now, as a stamp other than `before`, so each write that changes a recipe
-/// reads as a new version even within one millisecond.
-fn stamp_after(before: &str) -> String {
-    loop {
-        let now = now_rfc3339();
-        if now != before {
-            return now;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(1));
-    }
 }
 
 fn count(n: usize) -> u32 {
@@ -178,8 +171,8 @@ pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<Re
         if !is_recipe_id(id) || !entry.path().is_file() {
             continue;
         }
-        found.push(match load_file(&entry.path()) {
-            Ok(recipe) => summary(id, &settled(recipe, manifest)),
+        found.push(match load_versioned(&entry.path()) {
+            Ok((recipe, version)) => summary(id, &settled(recipe, version, manifest)),
             Err(err) => broken(id, err.to_string()),
         });
     }
@@ -193,7 +186,17 @@ pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<Re
 ///
 /// Fails when it is missing or [`load_file`] refuses it.
 pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResult<RecipeRead> {
-    Ok(settled(load_file(&path(project_dir, id)?)?, manifest))
+    let (recipe, version) = load_versioned(&path(project_dir, id)?)?;
+    Ok(settled(recipe, version, manifest))
+}
+
+/// The version ([`super::version_of`]) of the recipe `id` as it is on disk.
+///
+/// # Errors
+///
+/// Fails when it is missing or [`load_file`] refuses it.
+pub fn version(project_dir: &Path, id: &str) -> CoreResult<String> {
+    Ok(load_versioned(&path(project_dir, id)?)?.1)
 }
 
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
@@ -257,13 +260,14 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<RecipeSumm
     let name = trimmed(name);
     if recipe.name != name {
         recipe.name = name.to_string();
-        recipe.edited = stamp_after(&recipe.edited);
+        recipe.edited = now_rfc3339();
         write_json(&file, &recipe)?;
     }
     let read = RecipeRead {
         recipe,
         warnings: Vec::new(),
         gone: Vec::new(),
+        version: String::new(),
     };
     Ok(summary(id, &read))
 }
@@ -332,12 +336,11 @@ fn check_clear(next: &RecipeFile, clear: &[String]) -> CoreResult<()> {
     }
 }
 
-/// Refuses a write that read the recipe at another `edited` stamp.
-fn check_expected(id: &str, current: &RecipeFile, expected: Option<&str>) -> CoreResult<()> {
+/// Refuses a write that read the recipe at another version.
+fn check_expected(id: &str, current: &str, expected: Option<&str>) -> CoreResult<()> {
     match expected {
-        Some(read) if read != current.edited => Err(CoreError::Moved(format!(
-            "The recipe {id} changed since it was read (it was edited at {}). Read it again and send the change once more.",
-            current.edited
+        Some(read) if read != current => Err(CoreError::Moved(format!(
+            "The recipe {id} changed since it was read (its version is now {current}). Read it again and send the change once more."
         ))),
         _ => Ok(()),
     }
@@ -351,10 +354,10 @@ fn check_expected(id: &str, current: &RecipeFile, expected: Option<&str>) -> Cor
 /// asset fills it again, and only the answer reads it as open, with a
 /// warning, as [`get`] does. A prop blank sent open whose stored prop is
 /// such a gone asset keeps it too, since it only read as open, unless
-/// `clear` names it. With `expected`, a file whose `edited` stamp moved
-/// since it was read is refused under the write lock, so no write landing
-/// in between is overwritten. `edited` moves only when something changed;
-/// the revision never does.
+/// `clear` names it. With `expected`, a file whose version (a hash of its
+/// bytes) moved since it was read is refused under the write lock, so no
+/// write landing in between, nor a hand edit or a sync, is overwritten.
+/// `edited` moves only when something changed; the revision never does.
 ///
 /// # Errors
 ///
@@ -372,8 +375,8 @@ pub fn update(
     }
     let _lock = writing();
     let file = path(project_dir, id)?;
-    let current = load_file(&file)?;
-    check_expected(id, &current, change.expected.as_deref())?;
+    let (current, current_version) = load_versioned(&file)?;
+    check_expected(id, &current_version, change.expected.as_deref())?;
     let mut next = current.clone();
     if let Some(name) = change.name {
         next.name = trimmed(&name).to_string();
@@ -398,11 +401,14 @@ pub fn update(
             }
         }
     }
-    if next != current {
-        next.edited = stamp_after(&current.edited);
+    let version = if next == current {
+        current_version
+    } else {
+        next.edited = now_rfc3339();
         write_json(&file, &next)?;
-    }
-    Ok(settled(next, manifest))
+        version(project_dir, id)?
+    };
+    Ok(settled(next, version, manifest))
 }
 
 /// Moves the recipe file into `trash_dir` (the workspace's trash for this

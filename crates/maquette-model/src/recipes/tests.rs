@@ -496,7 +496,7 @@ fn a_write_that_read_an_older_version_is_refused_and_writes_nothing() {
         RecipeChange {
             name: Some("Mine".into()),
             blanks: Some(Vec::new()),
-            expected: Some(read.recipe.edited.clone()),
+            expected: Some(read.version.clone()),
             ..RecipeChange::default()
         },
     );
@@ -511,13 +511,56 @@ fn a_write_that_read_an_older_version_is_refused_and_writes_nothing() {
         &id,
         RecipeChange {
             name: Some("Mine".into()),
-            expected: Some(now.recipe.edited.clone()),
+            expected: Some(now.version.clone()),
             ..RecipeChange::default()
         },
     )
     .expect("the version it read is the one on disk");
     assert_eq!(fresh.recipe.name, "Mine");
     assert_eq!(fresh.recipe.blanks.len(), 1);
+    assert_eq!(
+        fresh.version,
+        get(dir.path(), &lantern_project(), &id)
+            .expect("after")
+            .version,
+        "the answer carries the version now on disk"
+    );
+}
+
+#[test]
+fn a_hand_edit_that_keeps_the_stamp_still_moves_the_version() {
+    let dir = tempfile::tempdir().expect("temp");
+    let id = made(dir.path());
+    let read = get(dir.path(), &lantern_project(), &id).expect("read");
+    let file = dir.path().join(format!("recipes/{id}.recipe.json"));
+    let mut value: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).expect("text")).expect("json");
+    value["name"] = serde_json::json!("Edited by hand");
+    std::fs::write(&file, value.to_string()).expect("write");
+    let now = get(dir.path(), &lantern_project(), &id).expect("now");
+    assert_eq!(
+        now.recipe.edited, read.recipe.edited,
+        "the stamp did not move"
+    );
+    assert_ne!(now.version, read.version);
+    let stale = update(
+        dir.path(),
+        &lantern_project(),
+        &id,
+        RecipeChange {
+            blanks: Some(vec![lantern()]),
+            expected: Some(read.version),
+            ..RecipeChange::default()
+        },
+    );
+    assert_eq!(stale.expect_err("moved").code(), "moved");
+    assert_eq!(
+        get(dir.path(), &lantern_project(), &id)
+            .expect("kept")
+            .recipe
+            .name,
+        "Edited by hand"
+    );
 }
 
 #[test]

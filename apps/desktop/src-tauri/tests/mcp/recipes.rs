@@ -26,6 +26,13 @@ fn steps(answer: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// An update_recipe refusal as the agent reads it: error, code, fix, tryTool.
+async fn error_body(client: &super::support::Client, args: Value) -> Value {
+    let result = raw_call(client, "update_recipe", args).await;
+    assert_eq!(result.is_error, Some(true), "update_recipe should fail");
+    serde_json::from_str(&text(&result)).expect("json")
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() {
     let dir = tempfile::tempdir().expect("temp dir");
@@ -53,11 +60,25 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
     assert_eq!(made["changes"], json!([]));
     assert!(steps(&made).contains(&"update_recipe".to_string()));
 
+    let unversioned = error_body(
+        &client,
+        json!({ "project": PROJECT, "recipe": id,
+                "changes": [{ "kind": "nudge", "bone": "spine", "rotation": [0.0, 10.0, 0.0] }] }),
+    )
+    .await;
+    assert_eq!(
+        (
+            unversioned["code"].as_str(),
+            unversioned["tryTool"].as_str()
+        ),
+        (Some("needs-version"), Some("get_recipe")),
+        "{unversioned}"
+    );
     let filled = call(
         &client,
         "update_recipe",
         json!({
-            "project": PROJECT, "recipe": id,
+            "project": PROJECT, "recipe": id, "expected": made["version"],
             "blanks": [{ "id": "target", "label": "What the hand reaches", "kind": "prop", "prop": "dummy" }],
             "changes": [
                 { "kind": "reach", "bone": "rightHand", "target": "target", "start": 0.1, "end": 0.5 },
@@ -92,7 +113,8 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
         let refused = call_error(
             &client,
             "update_recipe",
-            json!({ "project": PROJECT, "recipe": id, "changes": [change] }),
+            json!({ "project": PROJECT, "recipe": id, "changes": [change],
+                    "expected": filled["version"] }),
         )
         .await;
         assert!(refused.contains(says), "{refused}");
@@ -100,7 +122,7 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
     let stranger = call_error(
         &client,
         "update_recipe",
-        json!({ "project": PROJECT, "recipe": id, "name": "Grab it",
+        json!({ "project": PROJECT, "recipe": id, "name": "Grab it", "expected": filled["version"],
                 "blanks": [{ "id": "target", "label": "Prop", "kind": "prop", "prop": "nope" }] }),
     )
     .await;
@@ -128,19 +150,22 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
         (Some(id.as_str()), Some("Grab it"))
     );
     assert_eq!(renamed["revision"], 1);
-    let moved = call_error(
+    let moved = error_body(
         &client,
-        "update_recipe",
         json!({ "project": PROJECT, "recipe": id, "name": "Mine",
-                "expected": kept["edited"] }),
+                "expected": kept["version"] }),
     )
     .await;
-    assert!(moved.contains("changed since it was read"), "{moved}");
+    assert_eq!(
+        (moved["code"].as_str(), moved["tryTool"].as_str()),
+        (Some("moved"), Some("get_recipe")),
+        "{moved}"
+    );
     let fresh = call(
         &client,
         "update_recipe",
         json!({ "project": PROJECT, "recipe": id, "name": "Grab it now",
-                "expected": renamed["edited"] }),
+                "expected": renamed["version"] }),
     )
     .await;
     assert_eq!(fresh["name"], "Grab it now");
@@ -189,7 +214,7 @@ async fn agents_make_a_recipe_fill_it_and_are_refused_what_does_not_check_out() 
     let still = call(
         &client,
         "update_recipe",
-        json!({ "project": PROJECT, "recipe": id,
+        json!({ "project": PROJECT, "recipe": id, "expected": stale["version"],
                 "changes": [{ "kind": "nudge", "bone": "spine", "rotation": [0.0, 5.0, 0.0] }] }),
     )
     .await;
