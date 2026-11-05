@@ -10,5 +10,7 @@ describe('the motion tabs', () => {
     render(<MotionTabs />);
     fireEvent.click(screen.getByRole('tab', { name: 'States' }));
     expect(useMotionStore.getState().tab).toBe('states');
+    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }));
+    expect(useMotionStore.getState().tab).toBe('recipes');
   });
 });

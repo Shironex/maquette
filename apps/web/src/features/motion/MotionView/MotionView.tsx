@@ -4,6 +4,7 @@ import { ClipsPanel } from '../ClipsPanel';
 import { MotionBarActions } from '../MotionBarActions';
 import { MotionEmpty } from '../MotionEmpty';
 import { MotionList } from '../MotionList';
+import { RecipesStage } from '../RecipesStage';
 import { StatesPanel } from '../StatesPanel';
 import { StatesStage } from '../StatesStage';
 import { useMotionView } from './MotionView.hooks';
@@ -11,7 +12,8 @@ import { useMotionView } from './MotionView.hooks';
 /**
  * Motion: the project's characters and props that move. Clips play and
  * scrub in the viewport with what they weigh inside the scene budget;
- * States poses a prop's parts and times the moves between them.
+ * States poses a prop's parts and times the moves between them; Recipes
+ * lists the project's animation recipes.
  */
 export default function MotionView() {
   const { project, stages, view, loading, error, retry, moving, model, tab, estimate } =
@@ -53,6 +55,8 @@ export default function MotionView() {
         <MotionList />
         {moving === 0 && !model ? (
           <MotionEmpty />
+        ) : tab === 'recipes' ? (
+          <RecipesStage />
         ) : tab === 'states' ? (
           <>
             <StatesStage />

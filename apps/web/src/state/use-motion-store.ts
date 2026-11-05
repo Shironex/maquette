@@ -139,7 +139,9 @@ export const useMotionStore = create<MotionStore>((set, get) => {
       const model = get().view?.models.find(m => m.asset === asset);
       const object = get().draft.states[asset];
       const clip = model?.clips[0] ?? null;
-      const tab: MotionTab = !model?.rig && !clip && object ? 'states' : 'clips';
+      // The Recipes tab is the project's, so picking a model stays on it.
+      const tab: MotionTab =
+        get().tab === 'recipes' ? 'recipes' : !model?.rig && !clip && object ? 'states' : 'clips';
       set({ asset, tab, clip: clip?.name ?? null, state: object?.states[1]?.id ?? null });
       resetPlayer(clip?.frames ?? 0);
     },
