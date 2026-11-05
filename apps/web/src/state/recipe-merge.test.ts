@@ -73,6 +73,10 @@ describe('merging an outside change', () => {
     const aim = merged.mine.layers.find(l => l.kind === 'reach' && l.id !== 'l-1');
     expect(aim?.id).not.toBe('l-k3x9q');
     expect(aim?.settings.target).toBe(renamed?.id);
+    expect(merged.renamed).toEqual({
+      blank: { 'prop-k3x9q': renamed?.id },
+      layer: { 'l-k3x9q': aim?.id },
+    });
   });
 
   it('takes an id both sides added with the same entry once', () => {

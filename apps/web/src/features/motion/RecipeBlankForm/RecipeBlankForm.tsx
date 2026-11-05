@@ -75,7 +75,7 @@ export default function RecipeBlankForm({ id }: { id: string }) {
         </p>
       ) : null}
       <div className="flex gap-2">
-        {f.cleared ? (
+        {f.cleared && f.gone ? (
           <Button size="sm" variant="ghost" icon="arrow-counter-clockwise" onClick={f.keepGone}>
             Keep {f.gone}
           </Button>

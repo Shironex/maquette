@@ -56,6 +56,8 @@ export interface DraftMerge {
   theirs: RecipeDraft;
   /** "change l-2", "blank lantern". */
   clashes: string[];
+  /** The person's entries renamed because the outside side added the same id. */
+  renamed: Renamed;
 }
 
 /** Fresh ids for the entries of `mine` that `theirs` added under the same id with something else. */
@@ -75,12 +77,20 @@ function renames<T extends Keyed>(
   return out;
 }
 
-/** `mine` with the ids both sides added kept apart. */
-function apart(base: RecipeDraft, mine: RecipeDraft, theirs: RecipeDraft): RecipeDraft {
+/** `mine` with the ids both sides added kept apart, and the new id of each entry renamed. */
+function apart(
+  base: RecipeDraft,
+  mine: RecipeDraft,
+  theirs: RecipeDraft
+): { draft: RecipeDraft; renamed: Renamed } {
   const blankIds = renames(base.blanks, mine.blanks, theirs.blanks, b => b.kind);
   const layerIds = renames(base.layers, mine.layers, theirs.layers, () => 'l');
-  if (!blankIds.size && !layerIds.size) return mine;
-  return {
+  const renamed = {
+    layer: Object.fromEntries(layerIds),
+    blank: Object.fromEntries(blankIds),
+  };
+  if (!blankIds.size && !layerIds.size) return { draft: mine, renamed };
+  const draft = {
     blanks: mine.blanks.map(b => ({ ...b, id: blankIds.get(b.id) ?? b.id })),
     layers: mine.layers.map(l => {
       const target = l.settings.target;
@@ -88,6 +98,13 @@ function apart(base: RecipeDraft, mine: RecipeDraft, theirs: RecipeDraft): Recip
       return { ...l, id: layerIds.get(l.id) ?? l.id, settings: { ...l.settings, target: aim } };
     }),
   };
+  return { draft, renamed };
+}
+
+/** The new id of each of the person's entries the merge renamed, by kind. */
+export interface Renamed {
+  layer: Record<string, string>;
+  blank: Record<string, string>;
 }
 
 /** Lays the outside change from `base` to `theirs` over the person's `mine`. */
@@ -96,7 +113,7 @@ export function mergeDrafts(
   ownDraft: RecipeDraft,
   theirs: RecipeDraft
 ): DraftMerge {
-  const mine = apart(base, ownDraft, theirs);
+  const { draft: mine, renamed } = apart(base, ownDraft, theirs);
   const layers = mergeList(base.layers, mine.layers, theirs.layers);
   const blanks = mergeList(base.blanks, mine.blanks, theirs.blanks);
   return {
@@ -106,5 +123,6 @@ export function mergeDrafts(
       ...layers.clashes.map(id => `change ${id}`),
       ...blanks.clashes.map(id => `blank ${id}`),
     ],
+    renamed,
   };
 }

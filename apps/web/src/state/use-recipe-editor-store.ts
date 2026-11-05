@@ -24,8 +24,13 @@ import { useAppStore } from './use-app-store';
 import { deepEqual } from '@/lib/deepEqual';
 import { checkDraft, problemCount } from './recipe-check';
 import { draftOf, sameDraft } from './recipe-draft';
-import type { RecipeEditing, RecipeEditorStore, RecipeLeave } from './recipe-editor.types';
-import { mergeDrafts } from './recipe-merge';
+import type {
+  RecipeEditing,
+  RecipeEditorStore,
+  RecipeLeave,
+  RecipePick,
+} from './recipe-editor.types';
+import { mergeDrafts, type Renamed } from './recipe-merge';
 import { useRecipesStore } from './use-recipes-store';
 
 export type { RecipeLeave, RecipePick } from './recipe-editor.types';
@@ -40,9 +45,17 @@ export const MOVED =
 export const GONE =
   'This recipe was removed outside. Copy anything you need; Save cannot bring it back.';
 
+/**
+ * The gone props the next save empties for good: only those still prop
+ * blanks of the draft, so a blank removed or turned into a point since
+ * Leave open is never sent in `clear`.
+ */
+export const clearsOf = (e: RecipeEditing) =>
+  e.cleared.filter(id => e.draft.blanks.some(b => b.id === id && b.kind === 'prop'));
+
 /** Whether the open recipe holds edits its file does not have. */
 export const isDirty = (e: RecipeEditing | null) =>
-  Boolean(e && (e.cleared.length > 0 || !sameDraft(e.draft, draftOf(e.doc.recipe))));
+  Boolean(e && (clearsOf(e).length > 0 || !sameDraft(e.draft, draftOf(e.doc.recipe))));
 
 /** The error code the core answers a write with when the file moved since it was read. */
 const MOVED_CODE = 'moved';
@@ -54,13 +67,15 @@ let reads = 0;
 /** The save running now, so a second Save, or quitting, waits for it. */
 let running: Promise<boolean> | null = null;
 
-/** `editing` on `doc`, keeping only the clears its gone props still need. */
-const onDoc = (editing: RecipeEditing, doc: RecipeDoc, draft: RecipeEditing['draft']) => ({
-  ...editing,
-  doc,
-  draft,
-  cleared: editing.cleared.filter(id => doc.gone.some(g => g.blank === id)),
-});
+/** `editing` on `doc`, keeping only the clears its gone props and the draft still need. */
+const onDoc = (editing: RecipeEditing, doc: RecipeDoc, draft: RecipeEditing['draft']) => {
+  const next = { ...editing, doc, draft };
+  return { ...next, cleared: clearsOf(next).filter(id => doc.gone.some(g => g.blank === id)) };
+};
+
+/** `picked` after a merge renamed the person's entries, so its settings stay open on the same one. */
+const follow = (picked: RecipePick, renamed: Renamed): RecipePick =>
+  picked ? { ...picked, id: renamed[picked.what][picked.id] ?? picked.id } : picked;
 
 export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
   const fresh = {
@@ -100,7 +115,12 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       set({ outside: { theirs, merge } });
       return false;
     }
-    set({ editing: onDoc(editing, theirs, merge.mine), merged: MERGED_OUTSIDE, outside: null });
+    set({
+      editing: onDoc(editing, theirs, merge.mine),
+      merged: MERGED_OUTSIDE,
+      outside: null,
+      picked: follow(get().picked, merge.renamed),
+    });
     return true;
   };
   const saveNow = async () => {
@@ -126,7 +146,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       if (!ready) return false;
       const sent = ready.draft;
       const stored = ready.doc.recipe;
-      const cleared = ready.cleared;
+      const cleared = clearsOf(ready);
       const doc = await commands.recipeUpdate(ready.project, ready.id, {
         name: null,
         layers: deepEqual(sent.layers, stored.layers) ? null : sent.layers,
@@ -139,7 +159,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         // Edits made while it saved stay over the answer.
         const draft = sameDraft(latest.draft, sent) ? draftOf(doc.recipe) : latest.draft;
         const left = latest.cleared.filter(id => !cleared.includes(id));
-        set({ editing: { ...onDoc(latest, doc, draft), cleared: left } });
+        set({ editing: onDoc({ ...latest, cleared: left }, doc, draft) });
       }
       set({ saving: false });
       void useRecipesStore.getState().load(ready.project);
@@ -261,13 +281,21 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
     keepMine: () => {
       const { editing, outside } = get();
       if (!editing || !outside) return;
-      set({ editing: onDoc(editing, outside.theirs, outside.merge.mine), outside: null });
+      set({
+        editing: onDoc(editing, outside.theirs, outside.merge.mine),
+        outside: null,
+        picked: follow(get().picked, outside.merge.renamed),
+      });
     },
 
     useTheirs: () => {
       const { editing, outside } = get();
       if (!editing || !outside) return;
-      set({ editing: onDoc(editing, outside.theirs, outside.merge.theirs), outside: null });
+      set({
+        editing: onDoc(editing, outside.theirs, outside.merge.theirs),
+        outside: null,
+        picked: follow(get().picked, outside.merge.renamed),
+      });
     },
 
     saveForQuit: async () => {

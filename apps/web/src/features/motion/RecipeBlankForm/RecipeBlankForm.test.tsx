@@ -41,6 +41,21 @@ describe('the recipe blank form', () => {
     expect(useRecipeEditorStore.getState().editing?.cleared).toEqual([]);
   });
 
+  it('drops the clear and hides Keep when a cleared blank turns into a point or goes', async () => {
+    await openRecipe('look-around');
+    const { unmount } = render(<RecipeBlankForm id="torch" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Point' }));
+    expect(useRecipeEditorStore.getState().editing?.cleared).toEqual([]);
+    expect(screen.queryByRole('button', { name: /^Keep/ })).toBeNull();
+    unmount();
+    await openRecipe('look-around');
+    render(<RecipeBlankForm id="torch" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove blank' }));
+    expect(useRecipeEditorStore.getState().editing?.cleared).toEqual([]);
+  });
+
   it("keeps picking from the recipe's own project after another project opens", async () => {
     await openRecipe();
     const { useAppStore } = await import('@/state/use-app-store');

@@ -225,6 +225,72 @@ describe('the recipe editor store', () => {
     expect(isDirty(store().editing)).toBe(false);
   });
 
+  it('never sends a clear for a gone prop blank removed after Leave open, and saves', async () => {
+    await store().open('frostveil', 'look-around');
+    store().clearGone('torch', true);
+    store().edit(d => ({
+      ...d,
+      blanks: [],
+      layers: d.layers.map(l => ({ ...l, settings: { ...l.settings, target: null } })),
+    }));
+    store().edit(d => ({ ...d, layers: [] }));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(true);
+    expect(update.mock.calls[0]?.[2]).toMatchObject({ clear: [], blanks: [] });
+    expect(isDirty(store().editing)).toBe(false);
+    expect(store().editing?.cleared).toEqual([]);
+  });
+
+  it('never sends a clear for a gone prop blank turned into a point after Leave open', async () => {
+    await store().open('frostveil', 'look-around');
+    store().clearGone('torch', true);
+    store().edit(d => ({
+      ...d,
+      blanks: d.blanks.map(b => ({ ...b, kind: 'point' as const, prop: null, point: [0, 1, 1] })),
+    }));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(true);
+    expect(update.mock.calls[0]?.[2]).toMatchObject({ clear: [] });
+    expect(isDirty(store().editing)).toBe(false);
+  });
+
+  it('recovers from a clear left over for a blank that is gone from the draft', async () => {
+    await store().open('frostveil', 'look-around');
+    editLayers(l => l.map(x => ({ ...x, settings: { ...x.settings, weight: 0.5 } })));
+    const editing = store().editing!;
+    useRecipeEditorStore.setState({ editing: { ...editing, cleared: ['torch', 'nothing'] } });
+    store().edit(d => ({
+      ...d,
+      blanks: d.blanks.map(b => ({ ...b, kind: 'point' as const, prop: null, point: [0, 1, 1] })),
+    }));
+    expect(await store().save()).toBe(true);
+    expect(store().saveError).toBeNull();
+    expect(isDirty(store().editing)).toBe(false);
+  });
+
+  it('keeps the settings open on a blank of mine the merge renamed', async () => {
+    const mine = {
+      id: 'prop-k3x9q',
+      label: 'Mine',
+      kind: 'point' as const,
+      prop: null,
+      point: [0, 1, 1] as [number, number, number],
+    };
+    store().edit(d => ({ ...d, blanks: [...d.blanks, mine] }));
+    store().pick({ what: 'blank', id: mine.id });
+    const doc = await commands.recipeGet('frostveil', REACH);
+    await commands.recipeUpdate('frostveil', REACH, {
+      name: null,
+      layers: null,
+      blanks: [...doc.recipe.blanks, { ...mine, label: 'Theirs', point: [1, 1, 1] }],
+    });
+    await store().onChanged('frostveil');
+    const renamed = store().editing?.draft.blanks.find(b => b.label === 'Mine')?.id;
+    expect(renamed).toMatch(/^point-[a-z0-9]{5}$/);
+    expect(renamed).not.toBe(mine.id);
+    expect(store().picked).toEqual({ what: 'blank', id: renamed });
+  });
+
   it('waits for a Save already running when the window closes', async () => {
     editLayers(weigh('l-1', 0.6));
     const saving = store().save();
