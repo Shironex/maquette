@@ -2,12 +2,21 @@ import { Button, EmptyState, Icon, InlineBanner, Loader } from '@maquette/ui';
 import type { RecipeSummary } from '@/ipc/client';
 import { APPLY_LATER, recipeLine } from '@/state/recipes';
 import { MotionTabs } from '../MotionTabs';
+import { RecipeEditor } from '../RecipeEditor';
 import { useRecipesStage } from './RecipesStage.hooks';
 
 const ABOUT =
   'A recipe is a clip from the animation library with changes laid over it. Applying one bakes a single clip into the next version of a model.';
 
-function Row({ recipe }: { recipe: RecipeSummary }) {
+function Row({
+  recipe,
+  onEdit,
+  opening,
+}: {
+  recipe: RecipeSummary;
+  onEdit: () => void;
+  opening: boolean;
+}) {
   if (recipe.problem) {
     return (
       <li className="flex items-start gap-3 rounded-card border border-line bg-danger-soft px-3 py-2.5">
@@ -41,6 +50,9 @@ function Row({ recipe }: { recipe: RecipeSummary }) {
           Mixamo
         </span>
       ) : null}
+      <Button size="sm" icon="note-pencil" loading={opening} onClick={onEdit}>
+        Edit
+      </Button>
       <Button size="sm" icon="play" disabled disabledReason={APPLY_LATER}>
         Apply
       </Button>
@@ -50,8 +62,10 @@ function Row({ recipe }: { recipe: RecipeSummary }) {
 
 /** The project's animation recipes, with a new one made from a library clip. */
 export default function RecipesStage() {
-  const { recipes, error, retry, newRecipe } = useRecipesStage();
-  const rows = recipes?.map(r => <Row key={r.id} recipe={r} />);
+  const { recipes, error, retry, newRecipe, editing, edit, opening, openError } = useRecipesStage();
+  const rows = recipes?.map(r => (
+    <Row key={r.id} recipe={r} opening={opening === r.id} onEdit={() => edit(r.id)} />
+  ));
   const add = (
     <Button
       icon="plus"
@@ -61,42 +75,52 @@ export default function RecipesStage() {
       New recipe
     </Button>
   );
+  const body = error ? (
+    <InlineBanner
+      tone="danger"
+      title="The recipes could not be read"
+      detail={error}
+      actions={
+        <Button size="sm" icon="arrow-clockwise" onClick={retry}>
+          Try again
+        </Button>
+      }
+    />
+  ) : recipes === null ? (
+    <Loader label="Reading the recipes..." />
+  ) : recipes.length === 0 ? (
+    <div className="grid flex-1 place-items-center">
+      <EmptyState
+        icon="flask"
+        title="No recipes yet"
+        body="Start one from a clip in the animation library, then lay changes over it: reach, nudge, look at and wave. Baking comes in a later update."
+        action={add}
+      />
+    </div>
+  ) : (
+    <ul aria-label="Project recipes" className="flex list-none flex-col gap-2 overflow-y-auto">
+      {rows}
+    </ul>
+  );
   return (
     <section aria-label="Recipes" className="flex min-w-0 flex-1 flex-col gap-3 px-5 py-4">
       <MotionTabs />
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-panel-title">Recipes</h1>
-          <p className="text-meta text-fg-mute">{ABOUT}</p>
-        </div>
-        {recipes?.length ? add : null}
-      </div>
-      {error ? (
-        <InlineBanner
-          tone="danger"
-          title="The recipes could not be read"
-          detail={error}
-          actions={
-            <Button size="sm" icon="arrow-clockwise" onClick={retry}>
-              Try again
-            </Button>
-          }
-        />
-      ) : recipes === null ? (
-        <Loader label="Reading the recipes..." />
-      ) : recipes.length === 0 ? (
-        <div className="grid flex-1 place-items-center">
-          <EmptyState
-            icon="flask"
-            title="No recipes yet"
-            body="Start one from a clip in the animation library. Its changes (reach, nudge, look at and wave) and baking come in later updates."
-            action={add}
-          />
-        </div>
+      {editing ? (
+        <RecipeEditor />
       ) : (
-        <ul aria-label="Project recipes" className="flex list-none flex-col gap-2 overflow-y-auto">
-          {rows}
-        </ul>
+        <>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-panel-title">Recipes</h1>
+              <p className="text-meta text-fg-mute">{ABOUT}</p>
+            </div>
+            {recipes?.length ? add : null}
+          </div>
+          {openError ? (
+            <InlineBanner tone="danger" title="The recipe could not be opened" detail={openError} />
+          ) : null}
+          {body}
+        </>
       )}
     </section>
   );

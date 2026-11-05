@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
 import RecipesStage from './RecipesStage';
@@ -9,6 +10,7 @@ import RecipesStage from './RecipesStage';
 afterEach(() => {
   clearMocks();
   useRecipesStore.setState(useRecipesStore.getInitialState(), true);
+  useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
 });
 
 describe('the recipes stage', () => {
@@ -25,7 +27,8 @@ describe('the recipes stage', () => {
     render(<RecipesStage />);
     const list = await screen.findByRole('list', { name: 'Project recipes' });
     const reach = within(list).getByText('Reach for the lantern').closest('li')!;
-    expect(reach).toHaveTextContent('1 change · 1 open blank');
+    expect(reach).toHaveTextContent('3 changes');
+    expect(reach).not.toHaveTextContent('open blank');
     expect(reach).toHaveTextContent('Mixamo');
     expect(within(reach).getByRole('button', { name: /Apply/ })).toHaveAttribute(
       'aria-disabled',
@@ -56,5 +59,27 @@ describe('the recipes stage', () => {
     ]);
     render(<RecipesStage />);
     expect(await screen.findByText(warning)).toBeInTheDocument();
+  });
+
+  it('reads a gone prop as an open blank with its warning, from the demo', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const look = within(list).getByText('Look around').closest('li')!;
+    expect(look).toHaveTextContent('1 open blank');
+    expect(look).toHaveTextContent(/The blank torch named old-torch, which is no longer an asset/);
+  });
+
+  it('opens a recipe in the editor and goes back to the list', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    await userEvent.click(within(reach).getByRole('button', { name: 'Edit' }));
+    expect(
+      await screen.findByRole('region', { name: 'Recipe Reach for the lantern' })
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
+    expect(await screen.findByRole('list', { name: 'Project recipes' })).toBeVisible();
   });
 });
