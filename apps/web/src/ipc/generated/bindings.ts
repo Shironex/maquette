@@ -434,6 +434,13 @@ export const commands = {
 	 *  out on each read, never saved.
 	 */
 	stale?: string | null,
+	/**
+	 *  A finished bake's numbers against their limits, worked out again on
+	 *  each read.
+	 */
+	review?: RecipeBakeReview | null,
+	/**  The model version it was added as. */
+	addedVersion?: number | null,
 } | null>("recipe_bake_get", { project, recipe }),
 	/**  Stops a running bake: Blender is killed and nothing is staged. */
 	recipeBakeCancel: (project: string, recipe: string) => __TAURI_INVOKE<null>("recipe_bake_cancel", { project, recipe }),
@@ -6564,6 +6571,13 @@ export type RecipeBakeRecord = {
 	 *  out on each read, never saved.
 	 */
 	stale?: string | null,
+	/**
+	 *  A finished bake's numbers against their limits, worked out again on
+	 *  each read.
+	 */
+	review?: RecipeBakeReview | null,
+	/**  The model version it was added as. */
+	addedVersion?: number | null,
 };
 
 /**  Bake recipe `recipe` of `project` onto the rigged model `asset`. */
@@ -6638,11 +6652,23 @@ export type RecipeBakeResult = {
 	warnings: string[],
 };
 
+/**  The review of a finished bake. */
+export type RecipeBakeReview = {
+	lines: RecipeReviewLine[],
+	/**  How many lines warn. */
+	warns: number,
+};
+
 export type RecipeBakeStarter = "person" | "agent";
 
 export type RecipeBakeState = "running" | 
 /**  The staged result is there, waiting for its review. */
-"done" | "failed" | "cancelled";
+"done" | "failed" | "cancelled" | 
+/**
+ *  A person added it as the model's next version; the staged model is
+ *  gone.
+ */
+"added";
 
 /**  A recipe bake accepted as a version of an asset. */
 export type RecipeBakeUse = {
@@ -6781,6 +6807,32 @@ export type RecipeReachResult = {
 	 */
 	flipFrame: number | null,
 };
+
+/**  One number of the review. */
+export type RecipeReviewLine = {
+	/**  `gap-l-1`, `flip-l-1`, `feet` or `stretch`. */
+	id: string,
+	/**  "Hand gap", "Elbow", "Foot slide", "Rig stretch". */
+	label: string,
+	/**  The bone and change it is about, for a reach. */
+	about: string | null,
+	/**  What was measured, in words: "1.4 cm", "flips at frame 18". */
+	value: string,
+	/**  The limit it is held to, in words: "2 cm", "no flip", "1.9 cm". */
+	limit: string,
+	/**  The measured number and its limit, in `unit`, when there are numbers. */
+	measured: number | null,
+	max: number | null,
+	unit: string | null,
+	status: RecipeReviewStatus,
+	note: string | null,
+};
+
+export type RecipeReviewStatus = "pass" | 
+/**  Worth a look before adding; it does not stop the add. */
+"warn" | 
+/**  The bake could not measure it (`note` says why). */
+"not-measured";
 
 /**  A line in the list of a project's recipes. */
 export type RecipeSummary = {

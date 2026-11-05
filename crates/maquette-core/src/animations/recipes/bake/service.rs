@@ -54,7 +54,7 @@ fn key(project: &str, recipe: &str) -> String {
 }
 
 /// The folder of the bake of `recipe` in `project`.
-fn folder(
+pub(super) fn folder(
     root: &Path,
     config: &WorkspaceConfig,
     project: &str,
@@ -92,10 +92,11 @@ pub fn record_of(
     let mut record: RecipeBakeRecord =
         serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
     record.stale = super::stale::stale_of(root, config, &record);
+    record.review = record.result.as_ref().map(super::review_of);
     Ok(Some(record))
 }
 
-fn save(dir: &Path, record: &RecipeBakeRecord) -> CoreResult<()> {
+pub(super) fn save(dir: &Path, record: &RecipeBakeRecord) -> CoreResult<()> {
     fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
     write_json(&dir.join(RECORD_FILE), record)
 }
@@ -123,7 +124,7 @@ fn clear_runs(dir: &Path) {
 }
 
 /// A file or folder from an earlier bake, gone before a new one starts.
-fn clear(path: &Path) {
+pub(super) fn clear(path: &Path) {
     let gone = if path.is_dir() {
         fs::remove_dir_all(path)
     } else {
@@ -189,6 +190,16 @@ impl RecipeBakes {
                 active: Mutex::new(HashMap::new()),
             }),
         }
+    }
+
+    /// Tells the app about a changed record.
+    pub(super) fn tell(&self, record: &RecipeBakeRecord) {
+        (self.inner.on_change)(record);
+    }
+
+    /// Whether `recipe` of `project` is baking now.
+    pub(super) fn baking(&self, project: &str, recipe: &str) -> bool {
+        self.active().contains_key(&key(project, recipe))
     }
 
     fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
@@ -267,6 +278,8 @@ impl RecipeBakes {
             finished_ms: None,
             result: None,
             stale: None,
+            review: None,
+            added_version: None,
         };
         let running = Arc::new(Running {
             record: Mutex::new(record.clone()),
@@ -384,6 +397,7 @@ fn finish(running: &Running, outcome: CoreResult<super::RecipeBakeResult>) {
         match outcome {
             Ok(result) => {
                 r.state = RecipeBakeState::Done;
+                r.review = Some(super::review_of(&result));
                 r.result = Some(result);
             }
             Err(err) if err.to_string() == CANCELLED => r.state = RecipeBakeState::Cancelled,

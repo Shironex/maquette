@@ -22,6 +22,10 @@ pub fn stale_of(
     config: &WorkspaceConfig,
     record: &RecipeBakeRecord,
 ) -> Option<String> {
+    // Only a staged bake can go out of date; an added one is a version now.
+    if record.state != super::RecipeBakeState::Done {
+        return None;
+    }
     let result = record.result.as_ref()?;
     let dir = project::dir(root, &config.layout, &record.project).ok()?;
     match recipes::version(&dir, &record.recipe) {
