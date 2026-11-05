@@ -28,6 +28,63 @@ async function holdAt(page, frame) {
   await page.waitForTimeout(400);
 }
 
+/** The recipe editor: changes, the preview held at the reach's end, a blank, an error, leaving, a gone prop. */
+async function recipeEditorShots(open, shot) {
+  const page = await motion(open, 'demo&library=demo');
+  await page.getByRole('tab', { name: 'Recipes' }).click();
+  const list = page.getByRole('list', { name: 'Project recipes' });
+  await list
+    .getByRole('listitem')
+    .filter({ hasText: 'Reach for the lantern' })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+  await page.getByRole('img', { name: /rough preview$/ }).waitFor();
+  await page.waitForTimeout(2500);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  const playhead = page.getByRole('slider', { name: 'Playhead' });
+  const frames = Number(await playhead.getAttribute('max'));
+  await playhead.fill(String(Math.round(frames * 0.33)));
+  const changes = page.getByRole('list', { name: 'Recipe changes' });
+  await changes.getByRole('button', { name: /^Reach/ }).click();
+  await page.waitForTimeout(600);
+  await shot(page, 'motion-recipe-editor');
+
+  await changes.getByRole('button', { name: /^Reach/ }).click();
+  await page
+    .getByRole('list', { name: 'Recipe blanks' })
+    .getByRole('button', { name: /^The prop the hand reaches/ })
+    .click();
+  await page.getByRole('group', { name: 'Blank lantern settings' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'motion-recipe-blank');
+
+  await page
+    .getByRole('list', { name: 'Recipe blanks' })
+    .getByRole('button', { name: /^The prop the hand reaches/ })
+    .click();
+  await changes.getByRole('button', { name: /^Reach/ }).click();
+  await page.getByLabel('Target').selectOption('');
+  await page.getByRole('alert').filter({ hasText: 'A reach needs a target' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'motion-recipe-error');
+
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Save the recipe first?' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'motion-recipe-leave');
+  await page.getByRole('button', { name: 'Leave without saving' }).click();
+
+  await list
+    .getByRole('listitem')
+    .filter({ hasText: 'Look around' })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+  await page.getByText('A prop is gone').waitFor();
+  await page.waitForTimeout(2500);
+  await shot(page, 'motion-recipe-warning');
+  await page.context().close();
+}
+
 export async function motionShots({ open, shot }) {
   const main = await motion(open, 'demo');
   // The sets before this one leave their pages open, each with a live
@@ -75,6 +132,8 @@ export async function motionShots({ open, shot }) {
   await recipes.waitForTimeout(300);
   await shot(recipes, 'motion-recipe-picker');
   await recipes.context().close();
+
+  await recipeEditorShots(open, shot);
 
   const rest = await motion(open, 'rest');
   await rest.getByText('No clips on Clay figure yet').waitFor();
