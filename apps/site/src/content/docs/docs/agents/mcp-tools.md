@@ -1118,7 +1118,7 @@ Imports Mixamo FBX files or pack zips that are inside the workspace, as Import c
 
 `changes the library`
 
-Saves a rigged model's clips to the animation library as a pack, as Save clips to library does: a project asset's newest version (`project` and `asset`), or a model waiting in the Inbox (`inbox`, its file name), such as a Tripo job's animations. Only the skeleton and the clips' keys go in. Clips that came from the library are never saved back and keys the library has are skipped. Runs Blender headless and spends nothing.
+Saves a rigged model's clips to the animation library as a pack, as Save clips to library does: a project asset's newest version (`project` and `asset`), or a model waiting in the Inbox (`inbox`, its file name), such as a Tripo job's animations. Only the skeleton and the clips' keys go in. Clips that came from the library are never saved back, nor a recipe bake of a Mixamo clip, and keys the library has are skipped. While the project's `recipe-bakes.json` cannot be read (broken, or from a newer Maquette), nothing is saved and the call is refused with `bakes-unreadable`, since any clip may be such a bake; a person fixes or removes the file. Runs Blender headless and spends nothing.
 
 | Parameter | Type     | Required | Notes                                                     |
 | --------- | -------- | -------- | --------------------------------------------------------- |

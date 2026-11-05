@@ -147,7 +147,7 @@ pub fn plan(
     if clips.is_empty() {
         return Err(CoreError::Invalid(format!("{} has no clips.", model.name)));
     }
-    let baked = with_recipe_bake(root, config, from, &model.path, baked);
+    let baked = with_recipe_bake(root, config, from, &model.path, baked)?;
     let mut tags: Vec<String> = Vec::new();
     for tag in clips.iter().flat_map(|c| names::tags_for(&c.name)) {
         if !tags.contains(&tag) {
@@ -169,30 +169,43 @@ pub fn plan(
     })
 }
 
+/// Why no clip is saved while the asset's `recipe-bakes.json` cannot be
+/// read: any of its clips may be a Mixamo bake. Messages start with it.
+pub const BAKES_UNREADABLE: &str = "The project's recipe-bakes.json cannot be read, so any clip of this model may be a recipe bake of a Mixamo clip and none is saved.";
+
 /// `baked`, plus each clip a recipe baked from a Mixamo clip, by the mark
 /// in the model file or the asset's record in `recipe-bakes.json` (which
 /// outlives the mark): such a clip counts as Mixamo's and never goes to the
 /// library.
+///
+/// # Errors
+///
+/// Refuses ([`BAKES_UNREADABLE`]) when the asset's record cannot be read
+/// (broken, or from a newer Maquette), so a doubt saves nothing.
 fn with_recipe_bake(
     root: &Path,
     config: &WorkspaceConfig,
     from: &ClipsFrom,
     model: &Path,
     baked: &[(String, String)],
-) -> Vec<(String, String)> {
+) -> CoreResult<Vec<(String, String)>> {
     let mut all = baked.to_vec();
     if let Some(mark) = crate::recipes::baked::mark_of(model).filter(|m| m.mixamo) {
         all.push((mark.clip, mark.base_clip));
     }
-    if let (Some(project), Some(asset)) = (&from.project, &from.asset)
-        && let Ok(dir) = project::dir(root, &config.layout, project)
-        && let Ok(bakes) = crate::recipes::baked::of_asset(&dir, asset)
-    {
+    if let (Some(project), Some(asset)) = (&from.project, &from.asset) {
+        let dir = project::dir(root, &config.layout, project)?;
+        let bakes = crate::recipes::baked::of_asset(&dir, asset).map_err(|err| {
+            CoreError::Invalid(format!(
+                "{BAKES_UNREADABLE} Fix or remove {}. {err}",
+                dir.join(crate::recipes::baked::BAKES_FILE).display()
+            ))
+        })?;
         for bake in bakes.into_iter().filter(|b| b.mixamo) {
             all.push((bake.clip, bake.base_clip));
         }
     }
-    all
+    Ok(all)
 }
 
 fn save_clip(clip: &Clip, baked: &[(String, String)]) -> SaveClip {

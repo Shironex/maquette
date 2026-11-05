@@ -163,6 +163,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "A person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's. No tool adds it.",
             Some("get_recipe_bake"),
         )),
+        super::animations::BAKES_UNREADABLE => Some(person(
+            "A person fixes or removes the project's recipe-bakes.json (the message names it). No tool can. Until then no clip of that model is saved.",
+            None,
+        )),
         super::recipes::NEEDS_VERSION => Some(agent(
             "Call get_recipe, then send the change with its version as expected.",
             "get_recipe",
