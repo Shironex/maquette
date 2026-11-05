@@ -106,7 +106,7 @@ pub const GROUPS: &[ToolGroup] = &[
     group(
         "animation",
         "Animation",
-        "The clip library and baking clips onto a rigged model",
+        "The clip library, baking clips onto a rigged model and animation recipes",
     ),
     group(
         "export",

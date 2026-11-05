@@ -24,6 +24,7 @@ mod plan_extras;
 mod plan_presets;
 mod plans;
 mod reads;
+mod recipes;
 mod renders;
 mod rig;
 mod ship;

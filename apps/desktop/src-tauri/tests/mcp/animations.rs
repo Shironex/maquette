@@ -28,7 +28,7 @@ use super::support::{TestHost, call, call_error};
 
 /// A workspace with Frostveil, whose dummy has a model file but no rig, and
 /// one library clip written the way an import leaves it.
-fn fixture(dir: &Path) -> Session {
+pub(super) fn fixture(dir: &Path) -> Session {
     let root = dir.join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
     let session = Session::with_state(dir.join("cfg"), None, AppState::default());

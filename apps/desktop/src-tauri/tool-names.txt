@@ -20,6 +20,7 @@ compare_versions
 copy_asset
 create_canvas
 create_project
+create_recipe
 decide_pack
 decide_render
 discard_inbox_model
@@ -48,6 +49,7 @@ get_pipeline
 get_project
 get_provider_job
 get_real_size
+get_recipe
 get_ref_views
 get_render
 get_retarget_review
@@ -72,6 +74,7 @@ list_inbox
 list_library
 list_packs
 list_projects
+list_recipes
 list_removed_assets
 list_renders
 list_rig_doctors
@@ -130,6 +133,7 @@ tag_library_entries
 undo_run
 update_from_library
 update_nodes
+update_recipe
 update_starters
 use_animations
 use_from_library
