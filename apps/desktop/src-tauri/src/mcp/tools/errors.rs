@@ -159,9 +159,13 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Fill the open blanks with update_recipe (a prop's asset id or a point), then bake again.",
             "update_recipe",
         )),
-        super::handoffs::STAGED_BAKE => Some(person(
-            "A person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's. No tool adds it.",
-            Some("get_recipe_bake"),
+        super::handoffs::STAGED_BAKE => Some(agent(
+            "Call add_recipe_bake: a person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's.",
+            "add_recipe_bake",
+        )),
+        super::recipe_bake::STALE_BAKE => Some(agent(
+            "Bake the recipe again with bake_recipe, then ask to add the new bake.",
+            "bake_recipe",
         )),
         super::animations::BAKES_UNREADABLE => Some(person(
             "A person fixes or removes the project's recipe-bakes.json (the message names it). No tool can. Until then no clip of that model is saved.",

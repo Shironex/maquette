@@ -35,6 +35,10 @@ pub(super) fn add_waiting_fields(value: &mut Value) {
     // Only the avatar's approvals name a step and read get_avatar.
     let avatar = value.get("step").is_some();
     value["pollEverySeconds"] = json!(POLL_EVERY_SECONDS);
+    // A tool that knows a closer place (a review in a view) names it.
+    if value.get("whereToApprove").is_some_and(Value::is_string) {
+        return;
+    }
     value["whereToApprove"] = json!(if avatar {
         APPROVE_IN_AVATAR
     } else {
@@ -126,6 +130,14 @@ mod tests {
                 .expect("place")
                 .contains("Avatar view")
         );
+
+        let mut review = json!({ "status": WAITING, "whereToApprove": "The Motion view" });
+        add_waiting_fields(&mut review);
+        assert_eq!(
+            review["whereToApprove"], "The Motion view",
+            "a closer place stays"
+        );
+        assert_eq!(review["pollEverySeconds"], POLL_EVERY_SECONDS);
 
         let mut done = json!({ "status": "done" });
         add_waiting_fields(&mut done);

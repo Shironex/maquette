@@ -182,7 +182,7 @@ async fn agents_add_a_fixed_model_file_as_the_next_version() {
     assert_eq!(refused.is_error, Some(true));
     let body: Value = serde_json::from_str(&text(&refused)).expect("json");
     assert_eq!(body["code"], "staged-bake", "{body}");
-    assert_eq!(body["personOnly"], true, "{body}");
+    assert_eq!(body["tryTool"], "add_recipe_bake", "{body}");
     let unknown = raw_call(
         &client,
         "add_model_file",
