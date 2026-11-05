@@ -1203,7 +1203,7 @@ Makes a recipe on a clip of the animation library, as the Recipes tab in the Mot
 
 `changes the project`
 
-Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, a prop blank whose asset is gone is opened in the same write instead of refusing the change, and `warnings` says which. Answers with the recipe as `get_recipe` reads it.
+Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, the blanks stay as they are and the change is never refused for them: a prop blank whose asset is gone keeps its prop in the file, so restoring the asset fills it again, and reads as open with a line in `warnings`. Answers with the recipe as `get_recipe` reads it.
 
 A change is `{ id?, kind, bone, weight?, start?, end?, target?, rotation?, offset?, cycles?, amount? }`. Bones are VRM humanoid names. `start` and `end` are shares of the clip from 0 to 1, and `weight` is 0 to 1 (1 by default).
 

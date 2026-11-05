@@ -313,9 +313,29 @@ fn a_prop_removed_after_the_fill_reads_open_and_never_blocks_a_change() {
         },
     )
     .expect("a changes only update goes through");
-    assert_eq!(changed.warnings.len(), 1, "it says which blank it opened");
+    assert_eq!(changed.warnings.len(), 1, "it says which blank reads open");
     assert!(!changed.recipe.blanks[0].filled());
     assert_eq!(changed.recipe.layers.len(), 2);
+
+    let renamed = update(
+        dir.path(),
+        &gone,
+        &id,
+        RecipeChange {
+            name: Some("Still the lantern".into()),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("a name only update goes through");
+    assert_eq!(renamed.warnings.len(), 1);
+    let restored = get(dir.path(), &lantern_project(), &id).expect("restored");
+    assert_eq!(
+        restored.recipe.blanks[0].prop.as_deref(),
+        Some("lantern"),
+        "the file keeps the prop, so restoring the asset fills the blank again"
+    );
+    assert!(restored.warnings.is_empty());
+    assert_eq!(restored.recipe.layers.len(), 2);
 
     let refused = update(
         dir.path(),

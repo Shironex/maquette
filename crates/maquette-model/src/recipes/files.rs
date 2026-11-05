@@ -264,8 +264,10 @@ fn with_ids(layers: Vec<RecipeLayer>) -> Vec<RecipeLayer> {
 /// Replaces the name, the changes, the blanks or any of them of the recipe
 /// `id`, as the file holds it now, in one write after checking the whole
 /// result. Blanks sent must name assets of `manifest`'s project. When the
-/// blanks are kept, a prop blank naming an asset the project no longer has
-/// is opened instead of refusing the change, with a warning in the answer.
+/// blanks are kept, they stay in the file as they are: a prop blank naming
+/// an asset the project no longer has keeps its prop, so restoring the
+/// asset fills it again, and only the answer reads it as open, with a
+/// warning, as [`get`] does.
 /// `edited` moves only when something changed; the revision never does.
 ///
 /// # Errors
@@ -285,28 +287,26 @@ pub fn update(
     let file = path(project_dir, id)?;
     let current = load_file(&file)?;
     let mut next = current.clone();
-    let mut warnings = Vec::new();
     if let Some(name) = change.name {
         next.name = trimmed(&name).to_string();
     }
     if let Some(layers) = change.layers {
         next.layers = with_ids(layers);
     }
-    match change.blanks {
-        Some(blanks) => next.blanks = blanks,
-        None => warnings = settle_props(&mut next, manifest),
+    let sent_blanks = change.blanks.is_some();
+    if let Some(blanks) = change.blanks {
+        next.blanks = blanks;
     }
     let mut next = normalized(&next);
     validate(&next)?;
-    check_props(&next, manifest)?;
+    if sent_blanks {
+        check_props(&next, manifest)?;
+    }
     if next != current {
         next.edited = now_rfc3339();
         write_json(&file, &next)?;
     }
-    Ok(RecipeRead {
-        recipe: next,
-        warnings,
-    })
+    Ok(settled(next, manifest))
 }
 
 /// Moves the recipe file into `trash_dir` (the workspace's trash for this
