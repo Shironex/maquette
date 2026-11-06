@@ -194,7 +194,11 @@ pub(super) fn time_for(edit: &TimeEdit) -> TimeEdit {
 /// version 2. One that does not is written as version 1, which a Maquette
 /// from before still opens.
 pub fn uses_v2(recipe: &RecipeFile) -> bool {
-    !bake_unsupported(recipe).is_empty()
+    !recipe.joined.is_empty()
+        || recipe.clips().any(|c| c.trim.is_some())
+        || recipe.mirror
+        || !recipe.time.is_empty()
+        || !bake_unsupported(recipe).is_empty()
         || recipe.base.blend.is_some()
         || recipe.layers.iter().any(|l| {
             l.mode.is_some()
@@ -208,30 +212,17 @@ pub fn uses_v2(recipe: &RecipeFile) -> bool {
 }
 
 /// What of version 2 `recipe` uses that a bake cannot make yet, in words
-/// ("joined clips", "pose keys"), none for a recipe a bake takes.
+/// ("pins", "pose keys", "grips"), none for a recipe a bake takes. Joined
+/// clips, trims, mirror and time edits bake.
 pub fn bake_unsupported(recipe: &RecipeFile) -> Vec<&'static str> {
     use super::LayerKind;
-    let mut out = Vec::new();
-    if !recipe.joined.is_empty() {
-        out.push("joined clips");
-    }
-    if recipe.clips().any(|c| c.trim.is_some()) {
-        out.push("trims");
-    }
-    if recipe.mirror {
-        out.push("mirror");
-    }
-    if !recipe.time.is_empty() {
-        out.push("time edits");
-    }
-    for (kind, word) in [
+    [
         (LayerKind::Pin, "pins"),
         (LayerKind::Pose, "pose keys"),
         (LayerKind::Grip, "grips"),
-    ] {
-        if recipe.layers.iter().any(|l| l.kind == kind) {
-            out.push(word);
-        }
-    }
-    out
+    ]
+    .into_iter()
+    .filter(|(kind, _)| recipe.layers.iter().any(|l| l.kind == *kind))
+    .map(|(_, word)| word)
+    .collect()
 }

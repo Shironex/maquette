@@ -405,8 +405,12 @@ def sample_frames(count, wanted, extra):
     return picked | {f for f in extra if 0 <= f < count}
 
 
-def end_frame(layer, count):
+def end_frame(layer, count, shares=None):
+    """The last frame of a change: where its end share falls. A recipe that
+    joins clips or edits its base says each frame's share."""
     end = num(layer["settings"].get("end"), 1.0)
+    if shares:
+        return max([i for i, share in enumerate(shares) if share <= end + 1e-6], default=0)
     return max(0, min(count - 1, int(math.floor(end * (count - 1) + 1e-6))))
 
 
@@ -421,6 +425,15 @@ def rest_action(rt, arm, hips, frames):
     action, _ = rt.write_action("recipe_rest_pose", keys, times, rot, loc, {})
     rt.play(arm, action)
     return action
+
+
+def breathe(rig, angle):
+    """Tips the chest, and half as much the spine, about the model's left axis."""
+    for vrm, share in (("chest", 1.0), ("spine", 0.5)):
+        pb = rig.pose_bone(vrm)
+        if pb is not None:
+            rig.turn(pb, Quaternion(rig.left, angle * share))
+            bpy.context.view_layer.update()
 
 
 def solve(rt, scene, arm, objects, action, job, at, progress):
@@ -447,10 +460,14 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
 
     rt.play(arm, action)
     count = int(job["frames"])
-    times = rt.key_frames(count, clip_spec, rt.clip_fps(clip_spec))
+    # A built motion keeps the model's rate, which can differ from its own.
+    times = rt.key_frames(count, clip_spec, job.get("sceneFps") or rt.clip_fps(clip_spec))
     order = rt.hierarchy_order(arm.data)
     measure, stretch_note = stretch_reader(os.path.dirname(at(job["out"])), objects, arm)
-    sampled = sample_frames(count, int(recipe.get("stretchFrames", 10)), [end_frame(r.layer, count) for r in reaches.values()])
+    shares = job.get("shares")
+    breaths = job.get("breaths")
+    ends = {key: end_frame(r.layer, count, shares) for key, r in reaches.items()}
+    sampled = sample_frames(count, int(recipe.get("stretchFrames", 10)), list(ends.values()))
     rot_samples = {b.name: [] for b in order}
     loc_samples = {b.name: [] for b in order}
     prev_q = {}
@@ -467,7 +484,9 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             reach.constraint.influence = 0.0
         rt.set_frame(scene, t)
         bpy.context.view_layer.update()
-        share = i / (count - 1) if count > 1 else 0.0
+        share = shares[i] if shares else (i / (count - 1) if count > 1 else 0.0)
+        if breaths and breaths[i]:
+            breathe(rig, breaths[i])
         for side, bone in sides.items():
             base_feet[side].append(rig.head(arm.pose.bones[bone]))
         bends = {key: reach.bend(rig) for key, reach in reaches.items()}
@@ -502,7 +521,7 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             feet[side].append(rig.head(arm.pose.bones[bone]))
         for key, reach in reaches.items():
             s = reach.layer["settings"]
-            if i == end_frame(reach.layer, count):
+            if i == ends[key]:
                 reach.gap = (rig.head(reach.end) - reach.target).length
                 reach.gap_frame = i
             on = envelope("reach", num(s.get("start")), num(s.get("end"), 1.0), share) > 0.0
@@ -581,6 +600,58 @@ def corrected(base_track, base, final):
     return out
 
 
+def composed(rt, scene, arm, job, made, folder):
+    """The recipe's motion built from its clips as its timeline says, as one
+    action, with each frame's share and breath set on the job for solve. The
+    clips' own actions are removed, so the model is written without them."""
+    recipe = job["recipe"]
+    timeline = recipe["timeline"]
+    motion = load_sibling(folder, "recipe_motion")
+    rig = Rig(arm, recipe["bones"])
+    order = rt.hierarchy_order(arm.data)
+    names = [b.name for b in order]
+    rest = recipe.get("rest")
+    if rest:
+        rt.set_fps(scene, float(rest.get("fps") or rt.DEFAULT_FPS))
+    scene_fps = scene.render.fps / scene.render.fps_base
+    parts = []
+    for spec in recipe["parts"]:
+        action = made.get(spec["clip"]) if spec.get("clip") else None
+        if spec.get("clip") and action is None:
+            raise RuntimeError(f"the clip {spec['clip']} could not go on the model")
+        parts.append(motion.Part(action, scene_fps / rt.clip_fps(spec), names))
+    sk = motion.Skeleton(arm, order, recipe["hips"], rig)
+    poses, breaths, moved = motion.build(sk, parts, timeline, recipe.get("mirrorPairs", []))
+    for action in set(made.values()):
+        data = arm.animation_data
+        for track in list(data.nla_tracks):
+            if any(strip.action == action for strip in track.strips):
+                data.nla_tracks.remove(track)
+        if data.action == action:
+            data.action = None
+        bpy.data.actions.remove(action)
+    fps = float(timeline["fps"])
+    times = [t * scene_fps / fps for t in range(len(poses))]
+    rot = {n: [] for n in names}
+    for pose in poses:
+        for n in names:
+            q = pose[n][0].copy()
+            if rot[n] and rot[n][-1].dot(q) < 0.0:
+                q.negate()
+            rot[n].append(q)
+    hips = recipe["hips"]
+    locs = {n: [pose[n][1].copy() for pose in poses] for n in moved | {hips}}
+    keys = Keys(arm, order, hips)
+    others = {n: v for n, v in locs.items() if n != hips and any(x.length > 1e-6 for x in v)}
+    action, _ = rt.write_action("maquette_recipe_motion", keys, times, rot, locs[hips], others)
+    rt.play(arm, action)
+    job["clipSpec"] = {"fps": fps}
+    job["sceneFps"] = scene_fps
+    job["shares"] = [k["share"] for k in timeline["keys"]]
+    job["breaths"] = breaths
+    return action, {"frames": len(poses), "travel": 0.0}, recipe["name"]
+
+
 def main():
     args = parse_args()
     started = time.time()
@@ -595,7 +666,9 @@ def main():
         scene, arm, objects, report, made = rt.retarget(job["retarget"], at)
         recipe = job["recipe"]
         rest = recipe.get("rest")
-        if rest:
+        if recipe.get("timeline"):
+            action, entry, name = composed(rt, scene, arm, job, made, folder)
+        elif rest:
             fps = float(rest.get("fps") or rt.DEFAULT_FPS)
             rt.set_fps(scene, fps)
             frames = max(int(rest["frames"]), 2)

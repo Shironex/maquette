@@ -111,6 +111,15 @@ pub(crate) fn result_of(
         base_clip,
         base_hash,
         recipe_base_hash,
+        joined_clips: prepared
+            .joined
+            .iter()
+            .map(|c| super::RecipeBakedClip {
+                clip: c.id.clone(),
+                name: c.name.clone(),
+                hash: c.hash.clone(),
+            })
+            .collect(),
         mixamo: doc.mixamo,
         asset: prepared.asset.clone(),
         asset_name: prepared.model.name.clone(),

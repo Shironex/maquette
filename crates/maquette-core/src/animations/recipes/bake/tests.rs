@@ -236,16 +236,20 @@ fn a_recipe_using_what_the_bake_cannot_make_yet_is_refused_naming_it() {
         &manifest,
         &p.recipe.id,
         RecipeChange {
-            mirror: Some(true),
+            layers: Some(vec![
+                reach("l-1", "rightHand", "b-1"),
+                RecipeLayer::new("l-2", LayerKind::Pin, "leftFoot", LayerSettings::default()),
+            ]),
+            expected: Some(p.recipe.version.clone()),
             ..RecipeChange::default()
         },
     )
-    .expect("mirror");
+    .expect("pin");
     let refused = refusal(&p, &p.request());
     assert!(matches!(refused, CoreError::Invalid(_)));
     let words = refused.to_string();
     assert!(words.starts_with(NOT_BAKEABLE_YET), "{words}");
-    assert!(words.contains("it uses mirror"), "{words}");
+    assert!(words.contains("it uses pins"), "{words}");
     assert_eq!(not_bakeable(&p.recipe), Some(words));
     assert_eq!(not_bakeable(&reaching().recipe), None);
 }
