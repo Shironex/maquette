@@ -22,4 +22,21 @@ describe('the recipe range', () => {
     await userEvent.type(start, '90{Enter}');
     expect(onChange).toHaveBeenLastCalledWith(0.59, 0.6);
   });
+
+  it('shows and sets frames of the bake through the base edits when it has them', () => {
+    const onChange = vi.fn();
+    // A bake twice as long as the shares say, as a slowed down clip makes.
+    const convert = {
+      toFrame: (share: number) => Math.round(share * 200),
+      toShare: (f: number) => f / 200,
+    };
+    render(
+      <RecipeRange frames={200} convert={convert} start={0.2} end={0.6} onChange={onChange} />
+    );
+    expect(screen.getByLabelText('Start frame')).toHaveValue('40');
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Ends at frame 120' }), {
+      key: 'ArrowRight',
+    });
+    expect(onChange).toHaveBeenLastCalledWith(0.2, 121 / 200);
+  });
 });

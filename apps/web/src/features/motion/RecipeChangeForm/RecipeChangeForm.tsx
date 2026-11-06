@@ -67,6 +67,7 @@ export default function RecipeChangeForm({ id }: { id: string }) {
       </div>
       <RecipeRange
         frames={f.frames}
+        convert={f.convert}
         start={num(s.start)}
         end={num(s.end, 1)}
         onChange={f.setRange}
