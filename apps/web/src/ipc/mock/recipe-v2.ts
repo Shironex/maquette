@@ -272,8 +272,15 @@ export function followClips(
   const origins = clips.map((clip, j) => {
     if (keptFrom) {
       const i = keptFrom[j];
-      if (i != null && !old[i]) fail('invalid', `The recipe has no clip ${i + 1} to keep.`);
-      return i ?? null;
+      if (i == null) return null;
+      const was = old[i];
+      if (!was) fail('invalid', `The recipe has no clip ${i + 1} to keep.`);
+      if (!sameClip(was, clip))
+        fail(
+          'invalid',
+          `Clip ${j + 1} sent keeps clip ${i + 1} (${was.name}), but it is ${clip.name}. Keep a clip as it is, or send it as a new one.`
+        );
+      return i;
     }
     const i = old.findIndex((o, k) => !taken[k] && sameClip(o, clip));
     if (i < 0) return null;
@@ -313,4 +320,20 @@ export function followClips(
     );
   }
   return { layers, time };
+}
+
+/** The biggest recipe file the core reads or writes, bytes. */
+export const MAX_FILE_BYTES = 256 * 1024;
+
+/**
+ * The core's size check before a write: a recipe whose file would be over
+ * {@link MAX_FILE_BYTES} fails `recipe-too-big`, since it would not open again.
+ */
+export function checkSize(recipe: RecipeFile) {
+  const bytes = new TextEncoder().encode(`${JSON.stringify(recipe, null, 2)}\n`).length;
+  if (bytes > MAX_FILE_BYTES)
+    fail(
+      'recipe-too-big',
+      `The recipe would be over ${MAX_FILE_BYTES / 1024} KB, too big to save. Take out some pose keys, grips or changes.`
+    );
 }

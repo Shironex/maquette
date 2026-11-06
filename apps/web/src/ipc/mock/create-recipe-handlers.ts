@@ -36,7 +36,7 @@ import {
   restBase,
   versionOf,
 } from './recipe-files';
-import { followClips, v2Problem, withVersion } from './recipe-v2';
+import { checkSize, followClips, v2Problem, withVersion } from './recipe-v2';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 
@@ -278,6 +278,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
     recipe_rename: ({ project, id, name }: Args) => {
       checkName(String(name));
       const recipe = { ...existing(project, id), name: String(name).trim() };
+      checkSize(recipe);
       recipes(project).set(String(id), recipe);
       return summary(String(project), String(id), recipe);
     },
@@ -331,6 +332,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       ].filter(Boolean)[0];
       if (first) fail('invalid', first);
       const recipe = { ...next, edited: clock.now().toISOString() };
+      checkSize(recipe);
       recipes(project).set(String(id), recipe);
       return doc(String(project), String(id), recipe);
     },

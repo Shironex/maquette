@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RecipeBase, RecipeFile, RecipeLayer } from '../client';
 import { layer, motionVersionOf, newRecipe } from './recipe-files';
-import { followClips, usesV2, v2Problem, V2_LIMITS, withVersion } from './recipe-v2';
+import { checkSize, followClips, usesV2, v2Problem, V2_LIMITS, withVersion } from './recipe-v2';
 
 const clip = (name: string, frames = 60): RecipeBase => ({
   name,
@@ -97,5 +97,21 @@ describe('the mock recipe file version 2', () => {
     );
     const sent = followClips(recipe, [a, c], [0, 2], true, true);
     expect(sent.layers).toBe(recipe.layers);
+  });
+});
+
+describe('the mock recipe write checks', () => {
+  it('refuses a kept index that names another clip than the one sent', () => {
+    const r = onThree();
+    const [a, b, c] = [r.base, ...(r.joined ?? [])] as RecipeBase[];
+    expect(() => followClips(r, [a, c, b] as RecipeBase[], [0, 1, 2], false, false)).toThrow(
+      /keeps clip 2/
+    );
+  });
+
+  it('refuses a recipe too big to open again, as the core does', () => {
+    const big = { ...newRecipe('Big', clip('A')), name: 'x'.repeat(300 * 1024) };
+    expect(() => checkSize(big)).toThrow(/too big to save/);
+    expect(() => checkSize(onThree())).not.toThrow();
   });
 });
