@@ -428,9 +428,16 @@ fn no_mcp_tool_can_answer_an_approval() {
         "close_recipe_save",
         "save_back",
         "recipe_library_save",
-        // Only the person adds a recipe file to the library.
+        // Only the person adds a recipe file to the library, copies a
+        // starter there, or removes a library recipe or revision.
         "import_to_library",
         "recipe_import_to_library",
+        "copy_to_library",
+        "recipe_library_copy_starter",
+        "remove_entry",
+        "remove_revision",
+        "recipe_library_remove",
+        "recipe_library_remove_revision",
         "from_card",
         "mcp_decide",
         "avatar_decide",
