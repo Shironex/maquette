@@ -48,7 +48,7 @@ pub(crate) fn linked(
 
 pub(crate) fn use_in(session: &Session, request: &UseRecipe) -> CommandResult<RecipeUsed> {
     let (root, config) = session.workspace()?;
-    Ok(library::use_recipe(&root, &config.layout, request)?)
+    library::use_recipe(&root, &config.layout, request).map_err(super::recipes::coded)
 }
 
 pub(crate) fn plan_save(
