@@ -312,7 +312,8 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them()
     assert_eq!(clips[1]["blend"]["frames"], 6);
     assert_eq!(clips[1]["blend"]["lineUp"], "hips");
     assert_eq!(clips[1]["library"], "found");
-    assert_eq!(made["bakeable"], false, "{made}");
+    assert!(made.get("bakeable").is_none(), "joined clips bake: {made}");
+    assert_eq!(made["frames"], 60, "28 kept, then 38 less a blend of 6");
 
     let keyed = call(
         &client,
@@ -334,6 +335,8 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them()
     assert_eq!(changes[0]["keys"][0]["ease"], "out");
     assert_eq!(changes[1]["flat"], "heel");
     assert_eq!(keyed["time"][0]["kind"], "freeze");
+    assert_eq!(keyed["bakeable"], false, "pose keys and pins wait: {keyed}");
+    assert_eq!(keyed["frames"], 72, "the freeze adds its 12");
 
     // A change read back resends as it is.
     let resent = call(
