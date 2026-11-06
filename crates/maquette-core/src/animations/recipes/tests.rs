@@ -121,3 +121,70 @@ fn an_empty_hash_matches_by_name_only_when_a_starter_marked_it() {
     assert_eq!(found.status, BaseStatus::Found);
     assert!(matched.is_some());
 }
+
+#[test]
+fn a_joined_recipe_matches_each_clip_and_is_mixamo_when_any_clip_is() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (root, project) = (dir.path().join("ws"), dir.path().join("project"));
+    let mut own = library_clip("slash", "Own Slash", "Singles", "h1");
+    own.rig.kind = SourceRig::Custom;
+    store(&root, &own).expect("store");
+    store(
+        &root,
+        &library_clip("idle", "Standing Idle", "Singles", "h2"),
+    )
+    .expect("store");
+    let picks = [
+        ClipPick {
+            clip: Some("slash".into()),
+            trim: Some([2, 30]),
+            ..ClipPick::default()
+        },
+        ClipPick {
+            clip: Some("idle".into()),
+            ..ClipPick::default()
+        },
+    ];
+    let doc = create_joined(&root, &project, &picks, false, None).expect("create");
+    assert_eq!(doc.recipe.name, "Own Slash");
+    assert_eq!(doc.recipe.version, crate::recipes::RECIPE_VERSION);
+    assert_eq!(doc.recipe.base.trim, Some([2, 30]));
+    assert_eq!(doc.recipe.base.blend, None);
+    assert_eq!(
+        doc.recipe.joined[0].blend,
+        Some(crate::recipes::BlendWindow::default())
+    );
+    assert_eq!(doc.base.status, BaseStatus::Found);
+    assert_eq!(doc.joined.len(), 1);
+    assert_eq!(doc.joined[0].status, BaseStatus::Found);
+    assert!(doc.mixamo, "the second clip is Mixamo's");
+
+    let kept = clips_of(
+        &root,
+        Some(&doc.recipe),
+        &[ClipPick {
+            keep: Some(1),
+            ..ClipPick::default()
+        }],
+    )
+    .expect("keep");
+    assert_eq!(kept[0].name, "Standing Idle");
+    assert_eq!(kept[0].blend, None, "the first clip has no blend");
+    for wrong in [
+        ClipPick::default(),
+        ClipPick {
+            keep: Some(5),
+            ..ClipPick::default()
+        },
+        ClipPick {
+            clip: Some("idle".into()),
+            keep: Some(0),
+            ..ClipPick::default()
+        },
+    ] {
+        assert!(clips_of(&root, Some(&doc.recipe), &[wrong]).is_err());
+    }
+    let one = create_joined(&root, &project, &picks[1..], false, Some("Idle")).expect("one");
+    assert_eq!(one.recipe.version, crate::recipes::RECIPE_VERSION_1);
+    assert!(one.joined.is_empty());
+}
