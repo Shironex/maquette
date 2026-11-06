@@ -388,4 +388,21 @@ describe('the recipe editor store', () => {
     expect(store().editing?.doc.recipe.layers[0]?.settings.weight).toBe(0.4);
     expect(isDirty(store().editing)).toBe(false);
   });
+
+  it('refuses to save a prop blank holding the model the recipe animates', async () => {
+    const { useMotionStore } = await import('./use-motion-store');
+    const view = {
+      models: [{ asset: 'elsheria', name: 'Elsheria', rig: {}, error: null }],
+    } as unknown as NonNullable<ReturnType<typeof useMotionStore.getState>['view']>;
+    useMotionStore.setState({ view, asset: 'elsheria' });
+    store().edit(d => ({
+      ...d,
+      blanks: d.blanks.map(b => (b.kind === 'prop' ? { ...b, prop: 'elsheria' } : b)),
+    }));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(false);
+    expect(store().saveError).toBe(FIX_FIRST);
+    expect(update).not.toHaveBeenCalled();
+    useMotionStore.setState(useMotionStore.getInitialState(), true);
+  });
 });

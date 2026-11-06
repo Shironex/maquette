@@ -40,4 +40,15 @@ describe('recipe checks', () => {
     expect(problems.layers[reach.id]).toMatch(/aims at the blank gone/);
     expect(problems.blanks.lantern).toBe('Two blanks are called lantern.');
   });
+
+  it('marks a prop blank holding the model the recipe animates, only when that model is known', () => {
+    const self = { ...lantern, prop: 'elsheria' };
+    const draft = { layers: [newLayer('reach', [], [self])], blanks: [self] };
+    expect(problemCount(checkDraft(draft))).toBe(0);
+    const problems = checkDraft(draft, { asset: 'elsheria', name: 'Elsheria' });
+    expect(problems.blanks.lantern).toBe(
+      'Elsheria is the model this recipe animates. Pick another prop.'
+    );
+    expect(problemCount(checkDraft(draft, { asset: 'shiro', name: 'Shiro' }))).toBe(0);
+  });
 });

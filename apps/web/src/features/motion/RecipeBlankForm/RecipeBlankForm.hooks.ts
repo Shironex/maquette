@@ -10,8 +10,8 @@ type Triple = [number, number, number];
 /**
  * One blank's name, kind and fill, edited into the open recipe's draft, with
  * the project's assets to pick from. The model the recipe animates is no
- * prop of its own: it is left out, and a blank still filled with it says so
- * (the bake refuses it too).
+ * prop of its own: it is left out, and a blank still filled with it is
+ * marked by `checkDraft` (the bake refuses it too).
  */
 export function useRecipeBlankForm(id: string) {
   const draft = useRecipeEditorStore(s => s.editing?.draft ?? null);
@@ -21,11 +21,7 @@ export function useRecipeBlankForm(id: string) {
   const { edit, pick, clearGone } = useRecipeEditorStore.getState();
   const blank = draft?.blanks.find(b => b.id === id) ?? null;
   const model = useBakeModel();
-  const animated = blank?.kind === 'prop' && model !== null && blank.prop === model.asset;
-  const checked = draft && blank ? checkDraft(draft).blanks[id] : undefined;
-  const problem =
-    checked ??
-    (animated ? `${model.name} is the model this recipe animates. Pick another prop.` : null);
+  const problem = draft && blank ? (checkDraft(draft, model).blanks[id] ?? null) : null;
   const choices = assets.filter(a => a.id !== model?.asset || a.id === blank?.prop);
   const put = (next: (blank: RecipeBlank) => RecipeBlank) =>
     edit(d => ({ ...d, blanks: d.blanks.map(b => (b.id === id ? next(b) : b)) }));

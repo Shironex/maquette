@@ -45,6 +45,14 @@ function blankProblem(blank: RecipeBlank): string | null {
   return null;
 }
 
+function animatedProblem(
+  blank: RecipeBlank,
+  animated: { asset: string; name: string } | null
+): string | null {
+  if (!animated || blank.kind !== 'prop' || blank.prop !== animated.asset) return null;
+  return `${animated.name} is the model this recipe animates. Pick another prop.`;
+}
+
 function settingsProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): string | null {
   const s = layer.settings;
   const word = KIND_WORDS[layer.kind].toLowerCase();
@@ -91,8 +99,16 @@ function layerProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): strin
   return settingsProblem(layer, blanks);
 }
 
-/** Everything the core would refuse in `draft`, said where it is. */
-export function checkDraft(draft: RecipeDraft): DraftProblems {
+/**
+ * Everything the core would refuse in `draft`, said where it is. With
+ * `animated`, the model a bake of it goes onto, a prop blank holding that
+ * model is marked too: the bake refuses it, so Save and Apply wait as they
+ * do for an open blank.
+ */
+export function checkDraft(
+  draft: RecipeDraft,
+  animated: { asset: string; name: string } | null = null
+): DraftProblems {
   const out: DraftProblems = { layers: {}, blanks: {}, general: [] };
   if (draft.layers.length > LIMITS.layers)
     out.general.push(`A recipe holds at most ${LIMITS.layers} changes.`);
@@ -100,7 +116,9 @@ export function checkDraft(draft: RecipeDraft): DraftProblems {
     out.general.push(`A recipe holds at most ${LIMITS.blanks} blanks.`);
   const seen = new Set<string>();
   for (const blank of draft.blanks) {
-    const problem = seen.has(blank.id) ? `Two blanks are called ${blank.id}.` : blankProblem(blank);
+    const problem = seen.has(blank.id)
+      ? `Two blanks are called ${blank.id}.`
+      : (blankProblem(blank) ?? animatedProblem(blank, animated));
     if (problem) out.blanks[blank.id] = problem;
     seen.add(blank.id);
   }

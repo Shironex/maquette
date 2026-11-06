@@ -22,6 +22,7 @@ import { create } from 'zustand';
 import { commands, errorMessage, type RecipeDoc } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 import { deepEqual } from '@/lib/deepEqual';
+import { bakeModelOf } from './recipe-bake';
 import { checkDraft, problemCount } from './recipe-check';
 import { draftOf, sameDraft } from './recipe-draft';
 import type {
@@ -31,6 +32,7 @@ import type {
   RecipePick,
 } from './recipe-editor.types';
 import { mergeDrafts, type Renamed } from './recipe-merge';
+import { useMotionStore } from './use-motion-store';
 import { useRecipesStore } from './use-recipes-store';
 
 export type { RecipeLeave, RecipePick } from './recipe-editor.types';
@@ -138,7 +140,8 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       set({ saveError: ANSWER_FIRST });
       return false;
     }
-    if (problemCount(checkDraft(editing.draft))) {
+    const { view, asset } = useMotionStore.getState();
+    if (problemCount(checkDraft(editing.draft, bakeModelOf(view, asset)))) {
       set({ saveError: FIX_FIRST });
       return false;
     }
