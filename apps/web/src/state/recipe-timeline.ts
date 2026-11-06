@@ -82,8 +82,9 @@ export const clipsOf = (recipe: RecipeFile): RecipeBase[] => [
 
 /** A clip's frames a second, to a thousandth: its frames over its length. */
 export function clipFps(clip: RecipeBase): number {
-  if (clip.rest || clip.frames === 0 || !(clip.length > 0)) return REST_FPS;
-  return Math.round((clip.frames / clip.length) * 1000) / 1000;
+  const length = clip.length ?? 0;
+  if (clip.rest || clip.frames === 0 || !(length > 0)) return REST_FPS;
+  return Math.round((clip.frames / length) * 1000) / 1000;
 }
 
 function speedAt(retimes: readonly TimeEdit[], p: number): number {
