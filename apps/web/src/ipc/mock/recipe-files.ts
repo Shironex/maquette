@@ -28,6 +28,20 @@ export function motionVersionOf(file: RecipeFile): string {
   return versionOf({ ...file, from: null, revision: 0, edited: '', created: '' });
 }
 
+/** The core's `unique_name`: a taken name gets ` (2)` and on, ignoring case. */
+export function uniqueName(name: string, taken: readonly string[]): string {
+  const used = (candidate: string) =>
+    taken.some(t => t.trim().toLowerCase() === candidate.toLowerCase());
+  const base = name.trim();
+  if (!used(base)) return base;
+  for (let n = 2; n < 10_000; n += 1) {
+    const suffix = ` (${n})`;
+    const candidate = `${base.slice(0, 120 - suffix.length).trimEnd()}${suffix}`;
+    if (!used(candidate)) return candidate;
+  }
+  return base;
+}
+
 export const baseOf = (clip: AnimationClip): RecipeBase => ({
   name: clip.name,
   frames: clip.frames,

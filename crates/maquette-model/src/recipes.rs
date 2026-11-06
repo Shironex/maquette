@@ -54,7 +54,7 @@ pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use copies::{create_whole, link};
 pub use files::{
     RecipeChange, RecipeRead, RecipeSummary, create, get, list, list_with, motion_version_of,
-    remove, rename, rename_with, update, version,
+    names, remove, rename, rename_with, update, version,
 };
 
 pub const RECIPES_DIR: &str = "recipes";
@@ -381,6 +381,31 @@ pub fn motion_version(recipe: &RecipeFile) -> String {
     bare.edited = String::new();
     bare.created = String::new();
     version_of(&serde_json::to_string(&bare).unwrap_or_default())
+}
+
+/// `name`, or `name (2)`, `name (3)` and on when another of `taken` has it
+/// (ignoring case and edge spaces), cut to fit [`NAME_MAX_CHARS`]. Ids are
+/// not touched: only the name a person reads.
+pub fn unique_name<S: AsRef<str>>(name: &str, taken: &[S]) -> String {
+    let name = trimmed(name);
+    let used = |candidate: &str| {
+        taken
+            .iter()
+            .any(|t| trimmed(t.as_ref()).to_lowercase() == candidate.to_lowercase())
+    };
+    if !used(name) {
+        return name.to_string();
+    }
+    for n in 2..10_000u32 {
+        let suffix = format!(" ({n})");
+        let room = NAME_MAX_CHARS.saturating_sub(suffix.chars().count());
+        let short: String = name.chars().take(room).collect();
+        let candidate = format!("{}{suffix}", short.trim_end());
+        if !used(&candidate) {
+            return candidate;
+        }
+    }
+    name.to_string()
 }
 
 /// [`load_file`], with the file's [`version_of`].

@@ -239,7 +239,8 @@ pub fn save_back(root: &Path, layout: &FolderLayout, save: &RecipeSave) -> CoreR
                 version: super::ENTRY_VERSION,
                 id: free_entry_id(root, &file.name)?,
                 uid: super::link::new_uid(&file.name),
-                name: file.name.clone(),
+                // A taken name reads `name (2)`, in the list and in the file.
+                name: recipes::unique_name(&file.name, &super::names(root)),
                 created_at: now.clone(),
                 updated_at: now.clone(),
                 last_revision: 1,
@@ -247,6 +248,9 @@ pub fn save_back(root: &Path, layout: &FolderLayout, save: &RecipeSave) -> CoreR
             },
         };
         let mut stored = file.clone();
+        if save.entry.is_none() {
+            stored.name.clone_from(&entry.name);
+        }
         stored.revision = entry.last_revision;
         write_revision(root, &entry, &stored)?;
         let from = super::link_to(&entry, entry.last_revision);

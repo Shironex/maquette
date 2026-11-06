@@ -407,6 +407,17 @@ pub fn get(root: &Path, id: &str, revision: Option<u32>) -> CoreResult<LibraryRe
     })
 }
 
+/// The names of the library's recipes; an entry that cannot be read has none.
+pub(super) fn names(root: &Path) -> Vec<String> {
+    let Ok(read) = fs::read_dir(dir(root)) else {
+        return Vec::new();
+    };
+    read.filter_map(Result::ok)
+        .filter_map(|e| load_entry(root, &e.file_name().to_string_lossy()).ok())
+        .map(|(entry, _)| entry.name)
+        .collect()
+}
+
 /// A free entry id for `seed` (a name or a file stem): its slug, then
 /// `-2`, `-3` and on.
 pub(super) fn free_entry_id(root: &Path, seed: &str) -> CoreResult<String> {

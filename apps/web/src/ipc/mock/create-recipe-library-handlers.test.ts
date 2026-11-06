@@ -149,7 +149,15 @@ describe('the mock recipe library', () => {
     const first = (await handle('recipe_import_to_library')) as RecipeImported;
     const second = (await handle('recipe_import_to_library')) as RecipeImported;
     expect([first.entry, second.entry]).toEqual(['sit-and-wave', 'sit-and-wave-2']);
-    expect(second.notes[0]).toMatch(/already, so this one is sit-and-wave-2/);
+    expect(second.notes.join(' ')).toMatch(/already, so this one is sit-and-wave-2/);
+    expect(second.name).toBe('Sit and wave (2)');
+    expect(first.name).toBe('Sit and wave');
+    // A second import into the project shares no name with the first.
+    const again = (await handle('recipe_import_to_project', {
+      project: 'frostveil',
+    })) as RecipeUsed;
+    expect(again.doc.recipe.name).toBe('Sit and wave (2)');
+    expect(again.doc.id).toBe('sit-and-wave-2');
   });
 
   it('removes a revision but never the only one, and refuses a stale version', async () => {

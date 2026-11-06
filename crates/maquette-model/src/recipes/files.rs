@@ -246,6 +246,20 @@ pub fn motion_version_of(project_dir: &Path, id: &str) -> CoreResult<String> {
     Ok(motion_version(&super::load_file(&path(project_dir, id)?)?))
 }
 
+/// The names of the recipes of the project at `project_dir`; a file that
+/// cannot be read has none.
+pub fn names(project_dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(dir(project_dir)) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().ends_with(RECIPE_SUFFIX))
+        .filter_map(|e| super::load_file(&e.path()).ok())
+        .map(|r| r.name)
+        .collect()
+}
+
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
 pub(super) fn free_id(project_dir: &Path, name: &str) -> CoreResult<String> {
     let base = latin_slug(name).map_or_else(

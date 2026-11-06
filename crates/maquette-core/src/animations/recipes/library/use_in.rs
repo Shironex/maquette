@@ -76,7 +76,7 @@ pub(super) fn landed(
     let (id, written, version) = recipes::create_whole(project_dir, recipe, wanted)?;
     let wanted_id = wanted
         .and_then(project::latin_slug)
-        .or_else(|| project::latin_slug(&written.name))
+        .or_else(|| project::latin_slug(&recipe.name))
         .map(|w| {
             let short: String = w.chars().take(recipes::ID_MAX_CHARS - 5).collect();
             short.trim_end_matches('-').to_string()
@@ -84,6 +84,12 @@ pub(super) fn landed(
     if let Some(wanted_id) = wanted_id.filter(|w| *w != id && id.starts_with(w.as_str())) {
         notes.push(format!(
             "The project has a recipe {wanted_id} already, so this one is {id}."
+        ));
+    }
+    if written.name != recipe.name {
+        notes.push(format!(
+            "The project has a recipe called {} already, so this one is {}.",
+            recipe.name, written.name
         ));
     }
     let gone = recipes::gone_props(&written, manifest);

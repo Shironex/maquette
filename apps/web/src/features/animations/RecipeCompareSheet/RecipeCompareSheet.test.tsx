@@ -26,7 +26,7 @@ describe('the What changed sheet', () => {
     expect(within(sheet).getByRole('list', { name: 'Changes' }).children).toHaveLength(2);
     await userEvent.click(within(sheet).getByRole('button', { name: 'Use r3' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(useAppStore.getState().notice?.title).toBe('Made Reach for the lantern from r3');
+    expect(useAppStore.getState().notice?.title).toBe('Made Reach for the lantern (2) from r3');
     const ids = (await commands.recipeList('frostveil')).map(r => r.id);
     expect(ids).toContain('reach-for-the-lantern-2');
     expect(ids).toContain('reach-for-the-lantern');

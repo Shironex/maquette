@@ -462,6 +462,11 @@ fn an_export_carries_no_library_link_and_no_path_and_imports_back() {
     assert_eq!(lamp.prop, None);
     let clash = import_to_project(&w.root, &w.config.layout, &w.frost, &to).expect("clash");
     assert_eq!(clash.doc.id, "reach-out-2");
+    assert_eq!(
+        clash.doc.recipe.name, "Reach out (2)",
+        "no two share a name"
+    );
+    assert_eq!(into_moon.doc.recipe.name, "Reach out", "a free name stays");
     assert!(
         clash.notes.iter().any(|n| n.contains("reach-out-2")),
         "{:?}",
@@ -470,6 +475,20 @@ fn an_export_carries_no_library_link_and_no_path_and_imports_back() {
 
     let first = import_to_library(&w.root, &to).expect("library");
     assert_eq!(first.entry, "reach-out-2", "reach-out is the saved one");
+    assert_eq!(first.name, "Reach out (2)");
+    assert!(
+        first
+            .notes
+            .iter()
+            .any(|n| n.contains("so this one is Reach out (2)")),
+        "{:?}",
+        first.notes
+    );
+    assert_eq!(
+        get(&w.root, &first.entry, None).expect("get").recipe.name,
+        "Reach out (2)",
+        "the file says the same"
+    );
     let doc = get(&w.root, &first.entry, None).expect("get");
     assert_eq!(doc.revision, 1);
     assert_eq!(
@@ -722,4 +741,17 @@ fn a_link_to_a_removed_entry_whose_id_is_taken_again_reads_as_gone() {
     );
     let gone = compare(&w.root, &w.config.layout, &w.frost, "reach-out").expect_err("gone");
     assert!(matches!(gone, CoreError::NotFound(_)), "{gone:?}");
+}
+
+#[test]
+fn saving_a_project_recipe_as_a_new_entry_takes_a_free_name() {
+    let w = ws();
+    let first = w.save(&w.plan(None)).expect("r1");
+    // The same name again, as a second new entry.
+    let plan = w.plan(None);
+    let second = w.save(&plan).expect("second");
+    assert_ne!(first.entry, second.entry);
+    let name = |id: &str| get(&w.root, id, None).expect("get").entry.name;
+    assert_eq!(name(&first.entry), "Reach out");
+    assert_eq!(name(&second.entry), "Reach out (2)");
 }

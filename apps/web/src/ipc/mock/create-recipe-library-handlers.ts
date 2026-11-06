@@ -29,7 +29,7 @@ import { fail, type Args } from './backend-options';
 import { HOME } from './fixtures';
 import { slugOf } from './plan-store';
 import { recipeChanges } from './recipe-changes';
-import { isMixamo, matchBase, versionOf } from './recipe-files';
+import { isMixamo, matchBase, uniqueName, versionOf } from './recipe-files';
 import {
   IMPORT_FILE,
   demoLibrary,
@@ -97,6 +97,16 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     for (let n = 2; entries().has(id); n += 1) id = `${base}-${n}`;
     return id;
   };
+  /** `file` under a name no library recipe has, with a note when it changed. */
+  const libraryNamed = (file: RecipeFile, notes: string[]): RecipeFile => {
+    const name = uniqueName(
+      file.name,
+      [...entries().values()].map(e => e.entry.name)
+    );
+    if (name === file.name) return file;
+    notes.push(`The library has a recipe called ${file.name} already, so this one is ${name}.`);
+    return { ...file, name };
+  };
   const summary = (e: StoredEntry): LibraryRecipeSummary => {
     const latest = latestOf(e);
     const newest = e.files.get(latest);
@@ -131,8 +141,14 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     const id = ctx.freeId(project, file.name);
     if (id !== wanted)
       notes.push(`The project has a recipe ${wanted} already, so this one is ${id}.`);
+    const name = uniqueName(
+      file.name,
+      [...ctx.recipes(project).values()].map(r => r.name)
+    );
+    if (name !== file.name)
+      notes.push(`The project has a recipe called ${file.name} already, so this one is ${name}.`);
     const now = clock.now().toISOString();
-    const stored: RecipeFile = { ...file, blanks, created: now, edited: now };
+    const stored: RecipeFile = { ...file, name, blanks, created: now, edited: now };
     ctx.recipes(project).set(id, stored);
     const doc = ctx.doc(project, id, stored);
     if (doc.base.warning) notes.push(doc.base.warning);
@@ -201,7 +217,8 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
       };
     } else {
       const id = freeEntryId(file.name);
-      stored = storedEntry(id, file.name, [[file, source(1)]]);
+      const named = libraryNamed(file, []);
+      stored = storedEntry(id, named.name, [[named, source(1)]]);
       entries().set(id, stored);
     }
     const revision = stored.entry.lastRevision;
@@ -235,11 +252,12 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     },
     recipe_starter_list: () => starterList(ctx.clips()),
     recipe_library_copy_starter: ({ id }: Args) => {
-      const file = starterFile(String(id), ctx.clips());
-      if (!file) fail('not_found', `Not found: the starter recipe ${String(id)}`);
+      const starter = starterFile(String(id), ctx.clips());
+      if (!starter) fail('not_found', `Not found: the starter recipe ${String(id)}`);
       const notes: string[] = [];
-      const wanted = slugOf(file.name);
-      const entry = freeEntryId(file.name);
+      const wanted = slugOf(starter.name);
+      const entry = freeEntryId(starter.name);
+      const file = libraryNamed(starter, notes);
       if (entry !== wanted)
         notes.push(`The library has a recipe ${wanted} already, so this one is ${entry}.`);
       const base = matchBase(ctx.clips(), file.base)[0];
@@ -325,10 +343,11 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     recipe_import_to_project: ({ project }: Args) =>
       land(String(project), importedFile(ctx.clips()), []),
     recipe_import_to_library: () => {
-      const file = importedFile(ctx.clips());
+      const imported = importedFile(ctx.clips());
       const notes: string[] = [];
-      const wanted = slugOf(file.name);
-      const id = freeEntryId(file.name);
+      const wanted = slugOf(imported.name);
+      const id = freeEntryId(imported.name);
+      const file = libraryNamed(imported, notes);
       if (id !== wanted)
         notes.push(`The library has a recipe ${wanted} already, so this one is ${id}.`);
       const base = matchBase(ctx.clips(), file.base)[0];
