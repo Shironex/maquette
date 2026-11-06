@@ -144,20 +144,32 @@ export function useRecipeSetup(
 
 /**
  * Where each blank's target sits, from the model's height once it is framed
- * and the way its rig faces (+Z until it is set up).
+ * and the way its rig faces (+Z until it is set up). Targets are in the
+ * model's own frame, as the bake places them; framing moves the model to
+ * stand on the floor, so they move with it (`origin`, where its own origin
+ * ended up), or a model whose bounds do not start at its feet would reach
+ * for a spot the bake never aims at.
  */
 export function useTargets(
   markers: readonly RecipeMarker[],
   box: THREE.Box3 | null,
-  forward: THREE.Vector3 | null
+  forward: THREE.Vector3 | null,
+  origin: THREE.Vector3 | null = null
 ) {
   const key = JSON.stringify(markers);
   const height = box ? box.max.y - box.min.y : 0;
   const [x, z] = forward ? [forward.x, forward.z] : [0, 1];
-  return useMemo(
-    () => targetsOf(JSON.parse(key) as RecipeMarker[], height || 1.7, new THREE.Vector3(x, 0, z)),
-    [key, height, x, z]
-  );
+  const [ox, oy, oz] = origin ? [origin.x, origin.y, origin.z] : [0, 0, 0];
+  return useMemo(() => {
+    const targets = targetsOf(
+      JSON.parse(key) as RecipeMarker[],
+      height || 1.7,
+      new THREE.Vector3(x, 0, z)
+    );
+    const shift = new THREE.Vector3(ox, oy, oz);
+    for (const at of targets.values()) at.add(shift);
+    return targets;
+  }, [key, height, x, z, ox, oy, oz]);
 }
 
 /**
