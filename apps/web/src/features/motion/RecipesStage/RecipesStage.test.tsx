@@ -51,6 +51,18 @@ describe('the recipes stage', () => {
     act(() => useAgentsStore.setState(useAgentsStore.getInitialState(), true));
   });
 
+  it('reads the recipes again when the window comes back, for a file edited by hand', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    await screen.findByRole('list', { name: 'Project recipes' });
+    const list = vi.spyOn(commands, 'recipeList');
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+    expect(list).toHaveBeenCalledWith('frostveil');
+  });
+
   it('says there are no recipes yet and opens the base clip picker', async () => {
     await openMockLibrary();
     render(<RecipesStage />);

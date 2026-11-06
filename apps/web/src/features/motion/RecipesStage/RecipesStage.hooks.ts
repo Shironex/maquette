@@ -35,6 +35,17 @@ export function useRecipesStage() {
   useEffect(() => {
     if (project) void load(project);
   }, [project, load]);
+  // No watcher looks at recipes/: an agent's edit sends recipe-changed, but
+  // a .recipe.json edited by hand only shows once the window comes back.
+  useEffect(() => {
+    if (!project) return;
+    const again = () => {
+      useRecipesStore.getState().onChanged(project);
+      void useRecipeEditorStore.getState().onChanged(project);
+    };
+    window.addEventListener('focus', again);
+    return () => window.removeEventListener('focus', again);
+  }, [project]);
   // The "Library has rN" notes read the recipe library.
   useEffect(() => {
     void loadLibrary();
