@@ -26,6 +26,7 @@ mod plans;
 mod reads;
 mod recipe_bake;
 mod recipe_library;
+mod recipe_starters;
 mod recipes;
 mod renders;
 mod rig;

@@ -8,6 +8,7 @@
 
 use std::path::Path;
 
+use maquette_core::animations::recipes::library::starters::{self, RecipeStarter};
 use maquette_core::animations::recipes::library::{
     self, ExportSource, LibraryRecipeDoc, LibraryRecipeEntry, LibraryRecipeSummary, RecipeCompare,
     RecipeExported, RecipeImported, RecipeSave, RecipeSavePlan, RecipeSaved, RecipeUsed, UseRecipe,
@@ -114,6 +115,39 @@ pub fn recipe_library_list(
     session: State<'_, Session>,
 ) -> CommandResult<Vec<LibraryRecipeSummary>> {
     list(&session)
+}
+
+pub(crate) fn starter_list(session: &Session) -> CommandResult<Vec<RecipeStarter>> {
+    let (root, _) = session.workspace()?;
+    Ok(starters::list(&root)?)
+}
+
+pub(crate) fn starter_get(session: &Session, id: &str) -> CommandResult<RecipeStarter> {
+    let (root, _) = session.workspace()?;
+    Ok(starters::get(&root, id)?)
+}
+
+/// The starter recipes built into the app, each matched against the clip
+/// library. Never written to the library by listing them.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_starter_list(session: State<'_, Session>) -> CommandResult<Vec<RecipeStarter>> {
+    starter_list(&session)
+}
+
+/// Copies a starter recipe into the library as a new recipe at r1 the
+/// person can edit. Only the person's Save to library calls this.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_library_copy_starter(
+    app: AppHandle,
+    session: State<'_, Session>,
+    id: String,
+) -> CommandResult<RecipeImported> {
+    let (root, _) = session.workspace()?;
+    let copied = starters::copy_to_library(&root, &id)?;
+    changed(&app, None);
+    Ok(copied)
 }
 
 /// A library recipe's revision, the newest when none is given.

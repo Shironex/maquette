@@ -174,6 +174,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             recipe_bakes::recipe_bake_cancel,
             recipe_bakes::recipe_bake_add,
             recipe_library::recipe_library_list,
+            recipe_library::recipe_starter_list,
+            recipe_library::recipe_library_copy_starter,
             recipe_library::recipe_library_get,
             recipe_library::recipe_library_use,
             recipe_library::recipe_library_plan_save,
