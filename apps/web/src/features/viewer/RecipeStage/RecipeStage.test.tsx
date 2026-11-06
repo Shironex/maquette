@@ -13,9 +13,7 @@ describe('the recipe stage', () => {
         pairs={[]}
         layers={[]}
         markers={[]}
-        share={0}
-        playing={false}
-        onTick={() => undefined}
+        play={{ share: 0, playing: false, onTick: () => undefined }}
         label="Reach on Clay, rough preview"
       />
     );
@@ -30,9 +28,7 @@ describe('the recipe stage', () => {
         pairs={[]}
         layers={[]}
         markers={[]}
-        share={0}
-        playing={false}
-        onTick={() => undefined}
+        play={{ share: 0, playing: false, onTick: () => undefined }}
         label="The rest pose on Clay, rough preview"
       />
     );

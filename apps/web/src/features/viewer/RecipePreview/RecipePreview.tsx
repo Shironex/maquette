@@ -4,6 +4,7 @@
  * in Blender; the label says so on the picture.
  */
 import { Suspense } from 'react';
+import type { Timeline } from '@/state/recipe-timeline';
 import { StageLoader } from '@/features/common/ViewLoader';
 import { lazyAfterPaint } from '@/lib/after-paint';
 import { Icon, InlineBanner } from '@maquette/ui';
@@ -13,19 +14,37 @@ import type { RecipeLayer } from '@/ipc/client';
 import type { ReachCheck } from '@/state/recipe-review';
 import type { RecipeMarker } from '../recipe-pose';
 import { useRoughMap } from '../RoughPreview/RoughPreview.hooks';
+import { useRecipePreview } from './RecipePreview.hooks';
 
 const RecipeStage = lazyAfterPaint(() => import('@/features/viewer/RecipeStage'));
 
 export const ROUGH_LABEL = 'Rough preview. The bake solves it exactly.';
 
+/** A clip of a joined recipe as the library has it, and its frames a second. */
+export interface JoinedClip {
+  id: string | null;
+  file: string | null;
+  fps: number;
+}
+
+/** A recipe that joins, trims, retimes or mirrors: every clip, base first, and its timeline. */
+export interface JoinedClips {
+  joined: readonly JoinedClip[];
+  timeline: Timeline;
+}
+
 export interface RecipePreviewProps {
   project: string | null;
   /** The moving model's asset, its name and its newest file. */
   model: { asset: string; name: string; file: string } | null;
-  /** The base clip in the animation library, or `'rest'` for the model's rest pose. */
-  clip: { id: string; name: string; file: string } | 'rest' | null;
+  /**
+   * The base clip in the animation library, `'rest'` for the model's rest
+   * pose, or every clip of a recipe that joins, trims, retimes or mirrors.
+   */
+  clip: { id: string; name: string; file: string } | 'rest' | JoinedClips | null;
   layers: readonly RecipeLayer[];
   markers: readonly RecipeMarker[];
+  /** Where the playhead is: a share of the clip, or of the bake's frames for joined clips. */
   share: number;
   playing: boolean;
   onTick: (delta: number) => void;
@@ -41,25 +60,28 @@ const NO_PICKS = [] as const;
 
 function why(props: RecipePreviewProps): string | null {
   if (!props.model) return 'Pick a rigged model in the list to see the recipe on it.';
-  if (!props.clip) return 'The base clip is not in the animation library, so nothing can play.';
+  const { clip } = props;
+  const lost =
+    clip && typeof clip === 'object' && 'joined' in clip ? clip.joined.findIndex(c => !c.file) : -1;
+  if (lost >= 0) return `Clip ${lost + 1} is not in the animation library, so nothing can play.`;
+  if (!clip) return 'The base clip is not in the animation library, so nothing can play.';
   return null;
 }
 
 export default function RecipePreview(props: RecipePreviewProps) {
   const { model } = props;
-  const rest = props.clip === 'rest';
-  const clip = props.clip === 'rest' ? null : props.clip;
+  const v = useRecipePreview(props.clip);
   const { map, problem, setFailed } = useRoughMap(
     props.project,
     model?.asset ?? null,
-    clip?.id ?? null,
+    v.clipId,
     NO_PICKS,
-    rest
+    v.rest
   );
   const modelUrl = fileUrl(model?.file);
-  const clipUrl = rest ? null : fileUrl(clip?.file);
-  const ready = modelUrl && (rest || clipUrl) && map && !problem;
-  const base = rest ? 'The rest pose' : (clip?.name ?? 'The base clip');
+  const ready = modelUrl && (v.rest || v.clipUrl) && v.playable && map && !problem;
+  // A new set of clip files is a new stage; trims and time edits only pose it again.
+  const stageKey = `${modelUrl}#${v.files}`;
   const waiting = why(props);
   return (
     <figure
@@ -67,20 +89,19 @@ export default function RecipePreview(props: RecipePreviewProps) {
       className={`relative overflow-hidden rounded-card border border-line bg-studio ${props.className ?? ''}`}
     >
       {ready ? (
-        <CanvasBoundary resetKey={`${modelUrl}#${clipUrl}`}>
+        <CanvasBoundary resetKey={stageKey}>
           <Suspense fallback={<StageLoader />}>
             <RecipeStage
-              key={`${modelUrl}#${clipUrl}`}
+              key={stageKey}
               className="absolute! inset-0"
-              label={`${base} on ${model?.name ?? 'the model'} with the recipe's changes, rough preview`}
+              label={`${v.base} on ${model?.name ?? 'the model'} with the recipe's changes, rough preview`}
               modelUrl={modelUrl}
-              clipUrl={clipUrl}
+              clipUrl={v.clipUrl}
+              joined={v.play}
               pairs={map}
               layers={props.layers}
               markers={props.markers}
-              share={props.share}
-              playing={props.playing}
-              onTick={props.onTick}
+              play={{ share: props.share, playing: props.playing, onTick: props.onTick }}
               onChecks={props.onChecks}
               onError={setFailed}
             />
