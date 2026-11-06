@@ -8,7 +8,7 @@
  * the bundled skeleton the core's reader wrote headless.
  */
 
-import { libraryRecipesShot } from './recipe-library.mjs';
+import { libraryRecipesShot, starterRecipesShot } from './recipe-library.mjs';
 
 const DEMO = '&scenario=configured&library=demo';
 
@@ -128,4 +128,5 @@ export async function animationsShots({ open, shot }) {
   await tryOn.context().close();
 
   await libraryRecipesShot({ open, shot });
+  await starterRecipesShot({ open, shot });
 }

@@ -52,4 +52,23 @@ describe('Use in project', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Use in project' }));
     expect(await screen.findByText(/revision r9/)).toBeVisible();
   });
+
+  it('copies a starter with no revision into the project', async () => {
+    await openMockLibrary('demo');
+    useRecipeLibraryStore
+      .getState()
+      .openUse({ entry: 'starter:wave-hello', revision: null, name: 'Wave hello' });
+    const used = vi.spyOn(commands, 'recipeLibraryUse');
+    render(<UseRecipeSheet />);
+    const sheet = screen.getByRole('dialog', { name: 'Use in project' });
+    expect(sheet).toHaveTextContent('The starter into Frostveil');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Use in project' }));
+    expect(used).toHaveBeenCalledWith({
+      entry: 'starter:wave-hello',
+      revision: null,
+      project: 'frostveil',
+      name: null,
+    });
+    expect(await within(sheet).findByText('Made Wave hello in Frostveil')).toBeVisible();
+  });
 });
