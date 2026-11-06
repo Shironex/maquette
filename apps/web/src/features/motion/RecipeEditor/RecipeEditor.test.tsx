@@ -195,6 +195,55 @@ describe('the recipe editor', () => {
     expect(useRecipeEditorStore.getState().editing).toBeNull();
   });
 
+  it('keeps the leave question and the edits when an agent turns the recipe into version 2', async () => {
+    await openRecipe();
+    render(<RecipeEditor />);
+    edit(0.5);
+    const id = useRecipeEditorStore.getState().editing!.id;
+    await commands.recipeUpdate('frostveil', id, {
+      name: null,
+      layers: null,
+      blanks: null,
+      mirror: true,
+    });
+    await act(() => useRecipeEditorStore.getState().onChanged('frostveil'));
+    expect(
+      screen.getByText('This recipe uses what this Maquette cannot edit or bake yet')
+    ).toBeVisible();
+    expect(screen.getByText('You have unsaved edits')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
+    expect(screen.getByRole('dialog', { name: 'Save the recipe first?' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save my edits' }));
+    const saved = await commands.recipeGet('frostveil', id);
+    expect(saved.recipe.mirror).toBe(true);
+    expect(saved.recipe.layers[0]?.settings.weight).toBe(0.5);
+    expect(screen.queryByText('You have unsaved edits')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
+    expect(useRecipeEditorStore.getState().editing).toBeNull();
+  });
+
+  it('discards the edits from the read only view, or drops them on leaving', async () => {
+    await openRecipe();
+    render(<RecipeEditor />);
+    edit(0.5);
+    const id = useRecipeEditorStore.getState().editing!.id;
+    await commands.recipeUpdate('frostveil', id, {
+      name: null,
+      layers: null,
+      blanks: null,
+      mirror: true,
+    });
+    await act(() => useRecipeEditorStore.getState().onChanged('frostveil'));
+    await userEvent.click(screen.getByRole('button', { name: 'Discard my edits' }));
+    expect(screen.queryByText('You have unsaved edits')).toBeNull();
+    expect((await commands.recipeGet('frostveil', id)).recipe.layers[0]?.settings.weight).not.toBe(
+      0.5
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
+    expect(useRecipeEditorStore.getState().editing).toBeNull();
+  });
+
   it('goes back to version 1 once nothing new is used', async () => {
     await openRecipe();
     const doc = useRecipeEditorStore.getState().editing!.doc;

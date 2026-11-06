@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Button, InlineBanner } from '@maquette/ui';
 import type { RecipeBase, RecipeDoc, RecipeLayer, TimeEdit } from '@/ipc/client';
 import { counted } from '@/lib/format';
@@ -47,7 +48,19 @@ function Section({ label, lines }: { label: string; lines: string[] }) {
  * pins, pose keys or grips), shown read only until the editor and the bake
  * learn those: what it holds, with no Save and no Apply.
  */
-export default function RecipeReadOnly({ doc, onBack }: { doc: RecipeDoc; onBack: () => void }) {
+export default function RecipeReadOnly({
+  doc,
+  onBack,
+  pending,
+  children,
+}: {
+  doc: RecipeDoc;
+  onBack: () => void;
+  /** Edits made before the recipe became version 2, to save or discard. */
+  pending?: ReactNode;
+  /** The editor's questions, shown over this view too. */
+  children?: ReactNode;
+}) {
   const { recipe } = doc;
   const clips = [recipe.base, ...(recipe.joined ?? [])];
   return (
@@ -67,6 +80,7 @@ export default function RecipeReadOnly({ doc, onBack }: { doc: RecipeDoc; onBack
           </p>
         </div>
       </div>
+      {pending}
       <InlineBanner
         tone="info"
         title="This recipe uses what this Maquette cannot edit or bake yet"
@@ -79,6 +93,7 @@ export default function RecipeReadOnly({ doc, onBack }: { doc: RecipeDoc; onBack
         <Section label="Changes" lines={recipe.layers.map(layerLine)} />
         <Section label="Blanks" lines={recipe.blanks.map(b => `${b.id} · ${b.label}`)} />
       </div>
+      {children}
     </div>
   );
 }
