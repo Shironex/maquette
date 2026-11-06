@@ -148,7 +148,19 @@ fn a_reach_on_the_rest_pose_bakes_with_no_base_clip() {
 /// The Blender processes running a bake script whose working folder is
 /// under `root` (the script is passed by a relative path, so the folder is
 /// the only mark of whose bake it is). Where the folder cannot be read
-/// (Windows) every bake script's process counts. Empty once Blender is gone.
+/// (Windows) every bake script's process counts; only call this where
+/// [`can_see_processes`]. Empty once Blender is gone.
+/// Whether this machine can say which processes belong to the test: `lsof`
+/// reads a process's folder on macOS and Linux. Windows has no such lookup
+/// here, so the "Blender is gone" check is left out there.
+fn can_see_processes() -> bool {
+    !cfg!(windows)
+        && std::process::Command::new("lsof")
+            .arg("-v")
+            .output()
+            .is_ok()
+}
+
 fn bake_processes(root: &Path) -> Vec<String> {
     let folder = root
         .file_name()
@@ -198,25 +210,33 @@ fn bake_processes(root: &Path) -> Vec<String> {
 #[test]
 fn cancelling_a_long_bake_mid_solve_kills_blender_and_reads_cancelled() {
     let Some(s) = setup() else { return };
+    let seeing = can_see_processes();
+    if !seeing {
+        eprintln!("no lsof here: the check that Blender is gone is skipped");
+    }
     let file = s.files.join("model.glb");
     fixture(&s.blender, &s.root.path().join("scripts"), "model", &file);
     let mut p = project_on(s.root.path(), None, std::fs::read(&file).expect("model"));
-    let reaches = [
-        ("l-1", "rightHand", [-0.3, 1.25, 0.3]),
-        ("l-2", "leftHand", [0.3, 1.25, 0.3]),
-        ("l-3", "rightFoot", [-0.15, 0.1, 0.25]),
-        ("l-4", "leftFoot", [0.15, 0.1, 0.25]),
+    // Four reaches on each hand and foot, the most the cap lets the solver
+    // chew on; the bake is quick, so Cancel has to land at once.
+    let ends = [(0.0_f32, 0.0_f32), (0.01, 0.02), (0.02, 0.0), (0.0, 0.01)];
+    let limbs = [
+        ("rightHand", [-0.3, 1.25, 0.3]),
+        ("leftHand", [0.3, 1.25, 0.3]),
+        ("rightFoot", [-0.15, 0.1, 0.25]),
+        ("leftFoot", [0.15, 0.1, 0.25]),
     ];
-    p.change(
-        reaches
-            .iter()
-            .map(|(id, bone, _)| reach(id, bone, &format!("b-{id}")))
-            .collect(),
-        reaches
-            .iter()
-            .map(|(id, _, at)| point(&format!("b-{id}"), Some(*at)))
-            .collect(),
-    );
+    let mut layers = Vec::new();
+    let mut blanks = Vec::new();
+    for (n, (bone, at)) in limbs.iter().enumerate() {
+        for (m, (dx, dz)) in ends.iter().enumerate() {
+            let id = format!("l-{}", n * ends.len() + m + 1);
+            let blank = format!("b-{id}");
+            layers.push(reach(&id, bone, &blank));
+            blanks.push(point(&blank, Some([at[0] + dx, at[1], at[2] + dz])));
+        }
+    }
+    p.change(layers, blanks);
     // The recipe runs for the longest a rest pose does.
     let file = crate::recipes::path(&p.dir, &p.recipe.id).expect("path");
     let mut recipe = crate::recipes::load_file(&file).expect("recipe");
@@ -256,10 +276,11 @@ fn cancelling_a_long_bake_mid_solve_kills_blender_and_reads_cancelled() {
             break;
         }
         assert!(started.elapsed() < Duration::from_secs(120), "{record:?}");
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(5));
     }
+    let solving_since = Instant::now();
     assert!(
-        !bake_processes(p.root()).is_empty(),
+        !seeing || !bake_processes(p.root()).is_empty(),
         "the bake's Blender should be running before Cancel"
     );
 
@@ -273,11 +294,16 @@ fn cancelling_a_long_bake_mid_solve_kills_blender_and_reads_cancelled() {
         assert!(cancelled.elapsed() < Duration::from_secs(60), "{record:?}");
         std::thread::sleep(Duration::from_millis(100));
     };
+    eprintln!(
+        "cancelled {:?} after it began solving ({:?} seen)",
+        solving_since.elapsed(),
+        record.progress.as_ref().map(|g| (g.done, g.total))
+    );
     assert_eq!(record.state, RecipeBakeState::Cancelled, "{record:?}");
     assert!(record.result.is_none() && record.error.is_none());
     // The process is gone, not just forgotten.
     let gone = Instant::now();
-    while !bake_processes(p.root()).is_empty() {
+    while seeing && !bake_processes(p.root()).is_empty() {
         assert!(
             gone.elapsed() < Duration::from_secs(15),
             "Blender still runs: {:?}",
