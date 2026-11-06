@@ -6887,9 +6887,11 @@ export type RecipeBakeUse = {
  *  - `rest`: the recipe runs on the model's rest pose for `frames` frames
  *    at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
  *    its hash empty and it is never Mixamo's.
- *  - An empty `hash` (not rest): a base known by its name only, as a
- *    starter recipe names it when the clip library had no such clip. It
- *    matches the first library clip of that name, whatever its frames.
+ *  - `byName` (with an empty `hash`, not rest): a base known by its name
+ *    only, as a starter recipe names it when the clip library had no such
+ *    clip. It matches the first library clip of that name, whatever its
+ *    frames. Any other base, an empty hash included, matches by name and
+ *    frame count.
  */
 export type RecipeBase = {
 	name: string,
@@ -6901,6 +6903,11 @@ export type RecipeBase = {
 	mixamo: boolean,
 	/**  The model's rest pose, no base clip. A file from before reads false. */
 	rest?: boolean,
+	/**
+	 *  Known by its clip's name only, as a starter names it. A file from
+	 *  before reads false.
+	 */
+	byName?: boolean,
 };
 
 /**  A target the person or an agent fills per project. */

@@ -42,13 +42,14 @@ export const restBase = (frames = REST_FRAMES): RecipeBase => ({
   rest: true,
 });
 
-/** A base known by its clip's name only (an empty hash), as a starter names it. */
+/** A base known by its clip's name only (marked, with an empty hash), as a starter names it. */
 export const namedBase = (name: string): RecipeBase => ({
   name,
   frames: 1,
   length: 1 / REST_FPS,
   hash: '',
   mixamo: false,
+  byName: true,
 });
 
 /** The first clip called `name`, case aside, whatever its frames. */
@@ -60,7 +61,7 @@ export function matchBase(
   base: RecipeBase
 ): [BaseMatch, AnimationClip?] {
   if (base.rest) return [{ status: 'rest', clip: null, warning: null }];
-  if (!base.hash) {
+  if (base.byName && !base.hash) {
     const found = clipNamed(clips, base.name);
     if (found) return [{ status: 'found', clip: found.id, warning: null }, found];
     return [

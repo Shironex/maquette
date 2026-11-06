@@ -12,6 +12,7 @@ fn base() -> RecipeBase {
         hash: "abc123".into(),
         mixamo: true,
         rest: false,
+        by_name: false,
     }
 }
 
@@ -725,4 +726,25 @@ fn a_base_known_by_name_only_is_valid_and_says_so() {
     validate(&RecipeFile::new("Point", named)).expect("valid");
     assert!(!base().name_only());
     assert!(!RecipeBase::rest_pose(REST_FRAMES).name_only());
+    let kept = normalized(&RecipeFile::new("Point", RecipeBase::named("Walking")));
+    let text = serde_json::to_string(&kept).expect("json");
+    assert!(text.contains("\"byName\":true"), "{text}");
+}
+
+#[test]
+fn an_empty_hash_alone_is_not_a_base_known_by_name() {
+    let mut empty = base();
+    empty.hash.clear();
+    assert!(
+        !empty.name_only(),
+        "only a starter's marked base matches by name"
+    );
+    let mut stale = RecipeBase::named("Walking");
+    stale.hash = "h1".into();
+    assert!(!normalized(&RecipeFile::new("Point", stale)).base.by_name);
+    let old: RecipeBase = serde_json::from_str(
+        r#"{"name":"Walking","frames":32,"length":1.0,"hash":"","mixamo":false}"#,
+    )
+    .expect("v1 base");
+    assert!(!old.by_name && !old.name_only());
 }

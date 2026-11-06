@@ -72,6 +72,7 @@ pub fn base_of(clip: &AnimationClip) -> RecipeBase {
         hash: clip.hash.clone(),
         mixamo: clip.rig.kind == SourceRig::Mixamo,
         rest: false,
+        by_name: false,
     }
 }
 

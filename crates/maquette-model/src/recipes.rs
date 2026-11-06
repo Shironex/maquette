@@ -121,9 +121,11 @@ pub enum BlankKind {
 /// - `rest`: the recipe runs on the model's rest pose for `frames` frames
 ///   at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
 ///   its hash empty and it is never Mixamo's.
-/// - An empty `hash` (not rest): a base known by its name only, as a
-///   starter recipe names it when the clip library had no such clip. It
-///   matches the first library clip of that name, whatever its frames.
+/// - `byName` (with an empty `hash`, not rest): a base known by its name
+///   only, as a starter recipe names it when the clip library had no such
+///   clip. It matches the first library clip of that name, whatever its
+///   frames. Any other base, an empty hash included, matches by name and
+///   frame count.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeBase {
@@ -138,6 +140,11 @@ pub struct RecipeBase {
     #[serde(default)]
     #[specta(optional)]
     pub rest: bool,
+    /// Known by its clip's name only, as a starter names it. A file from
+    /// before reads false.
+    #[serde(default)]
+    #[specta(optional)]
+    pub by_name: bool,
 }
 
 impl RecipeBase {
@@ -151,6 +158,7 @@ impl RecipeBase {
             hash: String::new(),
             mixamo: false,
             rest: true,
+            by_name: false,
         }
     }
 
@@ -164,12 +172,14 @@ impl RecipeBase {
             hash: String::new(),
             mixamo: false,
             rest: false,
+            by_name: true,
         }
     }
 
-    /// Known by name only: not the rest pose, and no hash.
+    /// Known by name only: marked so (as a starter's base is), not the rest
+    /// pose, and no hash.
     pub fn name_only(&self) -> bool {
-        !self.rest && self.hash.is_empty()
+        self.by_name && !self.rest && self.hash.is_empty()
     }
 }
 
@@ -445,10 +455,12 @@ pub fn normalized(recipe: &RecipeFile) -> RecipeFile {
                 hash: String::new(),
                 mixamo: false,
                 rest: true,
+                by_name: false,
             }
         } else {
             RecipeBase {
                 name: trimmed(&recipe.base.name).to_string(),
+                by_name: recipe.base.name_only(),
                 ..recipe.base.clone()
             }
         },

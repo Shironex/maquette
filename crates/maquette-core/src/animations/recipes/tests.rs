@@ -102,3 +102,21 @@ fn lists_mark_mixamo_as_reading_one_recipe_does() {
     let full = library::get(&root, &added.entry, None).expect("library get");
     assert!(full.mixamo && row.mixamo, "library list and get agree");
 }
+
+#[test]
+fn an_empty_hash_matches_by_name_only_when_a_starter_marked_it() {
+    let clip = library_clip("idle", "Idle", "Singles", "h1");
+    let mut base = base_of(&clip);
+    base.hash.clear();
+    base.frames = 99;
+    let (missing, _) = match_base(std::slice::from_ref(&clip), &base);
+    assert_eq!(
+        missing.status,
+        BaseStatus::Missing,
+        "an import keeps name and frames"
+    );
+    let named = RecipeBase::named("Idle");
+    let (found, matched) = match_base(std::slice::from_ref(&clip), &named);
+    assert_eq!(found.status, BaseStatus::Found);
+    assert!(matched.is_some());
+}
