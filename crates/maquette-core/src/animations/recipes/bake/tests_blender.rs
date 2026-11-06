@@ -145,6 +145,54 @@ fn a_reach_on_the_rest_pose_bakes_with_no_base_clip() {
     assert_eq!(names, ["idle", "reach_out"], "one new clip");
 }
 
+/// Blender's glTF import also makes a mesh to draw the bones with (an
+/// icosphere about 2 m across). Counting it in the model's height put the
+/// slot of a prop with no place in the layout above a 1.5 m model's head,
+/// out of reach, where the rough preview put it at chest height. The
+/// fixture's body is a box 0.4 m tall, so its height reads 0.4 m.
+#[test]
+fn the_height_the_slot_is_placed_by_leaves_out_the_bone_shape_mesh() {
+    let Some(s) = setup() else { return };
+    let file = s.files.join("model.glb");
+    fixture(&s.blender, &s.root.path().join("scripts"), "model", &file);
+    let mut p = project_on(s.root.path(), None, std::fs::read(&file).expect("model"));
+    crate::project::modify(p.root(), &p.config.layout, &p.id, |m| {
+        crate::assets::add(
+            m,
+            crate::assets::NewAsset {
+                name: "Lantern".into(),
+                kind: crate::assets::AssetKind::Prop,
+                stage: crate::assets::Stage::Blender,
+            },
+        )
+        .map(|_| ())
+    })
+    .expect("prop");
+    p.change(
+        vec![reach("l-1", "rightHand", "b-1")],
+        vec![crate::recipes::RecipeBlank {
+            id: "b-1".into(),
+            label: "b-1".into(),
+            kind: crate::recipes::BlankKind::Prop,
+            prop: Some("lantern".into()),
+            point: None,
+        }],
+    );
+    let record = baked(&s, &p);
+    assert_eq!(record.state, RecipeBakeState::Done, "{:?}", record.error);
+    let staged = std::path::PathBuf::from(record.result.expect("result").file);
+    let report = std::fs::read_dir(staged.parent().expect("folder"))
+        .expect("runs")
+        .filter_map(Result::ok)
+        .map(|e| e.path().join(super::job::REPORT_FILE))
+        .find(|f| f.is_file())
+        .expect("report");
+    let report: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(report).expect("read")).expect("json");
+    let height = report["height"].as_f64().expect("height");
+    assert!((height - 0.4).abs() < 0.01, "height {height}");
+}
+
 /// The Blender processes running a bake script whose working folder is
 /// under `root` (the script is passed by a relative path, so the folder is
 /// the only mark of whose bake it is). Where the folder cannot be read
