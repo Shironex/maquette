@@ -237,6 +237,8 @@ mod tests_add;
 #[cfg(test)]
 mod tests_blender;
 #[cfg(test)]
+mod tests_blender_joined;
+#[cfg(test)]
 mod tests_joined;
 #[cfg(test)]
 mod tests_mark;
