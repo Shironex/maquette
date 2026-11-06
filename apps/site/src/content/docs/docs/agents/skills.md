@@ -1,6 +1,6 @@
 ---
 title: Agent skills
-description: Six skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars, game export and planning canvases. Install them from the repo.
+description: Seven skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars, game export, planning canvases and animation recipes. Install them from the repo.
 sidebar:
   label: Agent skills
 ---
@@ -9,14 +9,15 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 
 ## The skills
 
-| Skill                    | Use it to                                                                                                                                                                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maquette-lab-round`     | Run a concept art round: read the Codex usage and image backend, set the style board, start a direction per asset, let you pick, make object refs and the missing views, clean backgrounds.                                                   |
-| `maquette-by-hand-round` | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept (one by one or many), compare two versions, make render pictures, add to the library, redo a bad generation. |
-| `maquette-character-rig` | Take a rigged character from its rig check to a clean v2, through the rig doctor first: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                                         |
-| `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo, or write an export pack for another engine.                                      |
-| `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                                                                      |
-| `maquette-plan-canvas`   | Plan beside you on a canvas in the Plan view: read it and its change log, add notes and links near the right node under its own name, tidy them, and undo its own run.                                                                        |
+| Skill                       | Use it to                                                                                                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maquette-lab-round`        | Run a concept art round: read the Codex usage and image backend, set the style board, start a direction per asset, let you pick, make object refs and the missing views, clean backgrounds.                                                   |
+| `maquette-by-hand-round`    | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept (one by one or many), compare two versions, make render pictures, add to the library, redo a bad generation. |
+| `maquette-character-rig`    | Take a rigged character from its rig check to a clean v2, through the rig doctor first: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                                         |
+| `maquette-game-export`      | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo, or write an export pack for another engine.                                      |
+| `maquette-avatar-vrm`       | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                                                                      |
+| `maquette-plan-canvas`      | Plan beside you on a canvas in the Plan view: read it and its change log, add notes and links near the right node under its own name, tidy them, and undo its own run.                                                                        |
+| `maquette-animation-recipe` | Change a clip without redrawing it: start a recipe from a starter, the library, a clip or the rest pose, fill its changes and blanks, bake it, read the review numbers, then ask you to add it as a version or save it to the recipe library. |
 
 The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config), and the avatar skill the rest pose script Maquette itself runs. Everything else is instructions.
 
@@ -59,6 +60,12 @@ A new rest pose changes how every clip plays, so nothing uses the normalised mod
 Prompt: "Read the combat ideas canvas and pin three references for the rune burst next to my note."
 
 Nothing here costs credits. The agent's nodes carry its name and land in the change log, so you see what it added (a toast and the Changes panel) and can undo any agent change, a whole run at once. It never removes your nodes or links, and its edits to your notes stay undoable until you undo or keep them. Agent names are labels the agent picks, so they tell you who did what, not who may: only your own work is protected from agents.
+
+### `maquette-animation-recipe`
+
+Prompt: "Make the guardian wave hello on its idle, bake it and tell me if the numbers pass."
+
+Nothing here costs credits. The agent makes the recipe, fills its changes and blanks and bakes it in headless Blender. Adding the bake as the model's next version waits for you: you review it in the Motion view and press Add as vN. Saving a recipe to the library, copying a starter there, removing library recipes and exporting outside `exports/recipes` are yours too. A warn in the review is reported, never hidden. See [Animation recipes](/docs/guides/animation-recipes/).
 
 ## Rules every skill keeps
 
