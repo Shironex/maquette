@@ -79,6 +79,11 @@ pub struct Seam {
     /// The window's length in timeline frames (0 cuts).
     pub frames: u32,
     pub line_up: LineUp,
+    /// The clip before's frame and the clip's own first frame at `frame`,
+    /// which the line up compares (at a cut the timeline shows only the
+    /// clip's own).
+    pub from: ClipSample,
+    pub to: ClipSample,
 }
 
 /// The frames of the timeline a clip shows on, first and last.
@@ -368,6 +373,8 @@ pub fn timeline(recipe: &RecipeFile) -> Timeline {
                 .blend
                 .as_ref()
                 .map_or_else(LineUp::default, |b| b.line_up),
+            from: parts[i - 1][starts[i] - starts[i - 1]].clone(),
+            to: parts[i][0].clone(),
         })
         .collect();
     let spans = (0..parts.len())

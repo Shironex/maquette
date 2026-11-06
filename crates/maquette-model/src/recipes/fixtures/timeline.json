@@ -402,7 +402,7 @@
           "byName": false,
           "frames": 72,
           "hash": "great-sword-slash-hash",
-          "length": 2.4000000953674316,
+          "length": 2.4,
           "mixamo": true,
           "name": "Great Sword Slash",
           "rest": false,
@@ -425,7 +425,7 @@
             "byName": false,
             "frames": 64,
             "hash": "great-sword-thrust-hash",
-            "length": 2.133333444595337,
+            "length": 2.1333334,
             "mixamo": true,
             "name": "Great Sword Thrust",
             "rest": false,
@@ -461,7 +461,7 @@
             "clip": 0,
             "from": 20,
             "kind": "retime",
-            "speed": 1.600000023841858,
+            "speed": 1.6,
             "to": 34
           },
           {
@@ -478,13 +478,34 @@
           "clip": 1,
           "frame": 39,
           "frames": 8,
-          "lineUp": "hips-and-facing"
+          "from": {
+            "at": 50.40000000000001,
+            "clip": 0
+          },
+          "lineUp": "hips-and-facing",
+          "to": {
+            "at": 4.0,
+            "clip": 1
+          }
         },
         {
           "clip": 2,
           "frame": 107,
           "frames": 6,
-          "lineUp": "hips-and-facing"
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "lineUp": "hips-and-facing",
+          "to": {
+            "at": 0.0,
+            "clip": 2
+          }
         }
       ]
     },
@@ -724,7 +745,7 @@
           "byName": false,
           "frames": 72,
           "hash": "great-sword-slash-hash",
-          "length": 2.4000000953674316,
+          "length": 2.4,
           "mixamo": true,
           "name": "Great Sword Slash",
           "rest": false,
@@ -747,7 +768,7 @@
             "byName": false,
             "frames": 64,
             "hash": "great-sword-thrust-hash",
-            "length": 2.133333444595337,
+            "length": 2.1333334,
             "mixamo": true,
             "name": "Great Sword Thrust",
             "rest": false,
@@ -784,7 +805,7 @@
             "clip": 0,
             "from": 20,
             "kind": "retime",
-            "speed": 1.600000023841858,
+            "speed": 1.6,
             "to": 34
           },
           {
@@ -801,13 +822,34 @@
           "clip": 1,
           "frame": 39,
           "frames": 8,
-          "lineUp": "hips-and-facing"
+          "from": {
+            "at": 50.40000000000001,
+            "clip": 0
+          },
+          "lineUp": "hips-and-facing",
+          "to": {
+            "at": 4.0,
+            "clip": 1
+          }
         },
         {
           "clip": 2,
           "frame": 107,
           "frames": 6,
-          "lineUp": "hips-and-facing"
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "lineUp": "hips-and-facing",
+          "to": {
+            "at": 0.0,
+            "clip": 2
+          }
         }
       ]
     },
@@ -973,7 +1015,7 @@
           "byName": false,
           "frames": 80,
           "hash": "charge-hash",
-          "length": 2.6666667461395264,
+          "length": 2.6666667,
           "mixamo": true,
           "name": "Charge",
           "rest": false
@@ -1170,7 +1212,7 @@
           "byName": false,
           "frames": 72,
           "hash": "run-hash",
-          "length": 2.4000000953674316,
+          "length": 2.4,
           "mixamo": true,
           "name": "Run",
           "rest": false
@@ -1214,7 +1256,15 @@
           "clip": 1,
           "frame": 72,
           "frames": 0,
-          "lineUp": "hips"
+          "from": {
+            "at": 72.0,
+            "clip": 0
+          },
+          "lineUp": "hips",
+          "to": {
+            "at": 0.0,
+            "clip": 1
+          }
         }
       ]
     },

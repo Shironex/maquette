@@ -48,6 +48,9 @@ export interface Seam {
   frame: number;
   frames: number;
   lineUp: LineUp;
+  /** The clip before's frame and the clip's own first frame at `frame`, which the line up compares. */
+  from: ClipSample;
+  to: ClipSample;
 }
 
 export interface ClipSpan {
@@ -210,12 +213,17 @@ export function timeline(recipe: RecipeFile): Timeline {
     fps,
     frames: total,
     keys,
-    seams: parts.slice(1).map((_, k) => ({
-      clip: k + 1,
-      frame: starts[k + 1] ?? 0,
-      frames: windows[k + 1] ?? 0,
-      lineUp: clips[k + 1]?.blend?.lineUp ?? 'hips-and-facing',
-    })),
+    seams: parts.slice(1).map((part, k) => {
+      const at = starts[k + 1] ?? 0;
+      return {
+        clip: k + 1,
+        frame: at,
+        frames: windows[k + 1] ?? 0,
+        lineUp: clips[k + 1]?.blend?.lineUp ?? 'hips-and-facing',
+        from: (parts[k] ?? [])[at - (starts[k] ?? 0)] as ClipSample,
+        to: part[0] as ClipSample,
+      };
+    }),
     clips: parts.map((p, i) => ({
       clip: i,
       first: starts[i] ?? 0,

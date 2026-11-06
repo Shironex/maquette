@@ -121,7 +121,9 @@ fn expected(recipe: &RecipeFile) -> Value {
     at.dedup();
     json!({
         "name": recipe.name,
-        "recipe": recipe,
+        // As a file holds it: an f32 written as its decimal, as the app reads it.
+        "recipe": serde_json::from_str::<Value>(&serde_json::to_string(recipe).expect("recipe"))
+            .expect("json"),
         "fps": t.fps,
         "frames": t.frames,
         "seams": t.seams,
