@@ -221,6 +221,16 @@ pub fn prepare(
         }
     };
     let model = retarget::model(root, config, &request.project, &request.asset)?;
+    if let Some(blank) =
+        doc.recipe.blanks.iter().find(|b| {
+            b.kind == BlankKind::Prop && b.prop.as_deref() == Some(request.asset.as_str())
+        })
+    {
+        return invalid(format!(
+            "The blank {} holds {}, the model this bakes onto, which cannot reach for itself. Fill it with another prop.",
+            blank.id, model.name
+        ));
+    }
     let entry = retarget::uses::of_asset(&model.dir, &request.asset)?;
     let names = clip.as_ref().map(retarget::bone_names).unwrap_or_default();
     let map = bones::suggest(&names, &model.joints, &entry.map, &[]);

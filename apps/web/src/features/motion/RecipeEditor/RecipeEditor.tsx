@@ -46,7 +46,7 @@ export default function RecipeEditor() {
         </Button>
         <Button
           size="sm"
-          variant="primary"
+          variant={v.saveBlocked ? 'secondary' : 'primary'}
           icon="check"
           loading={v.saving}
           disabled={Boolean(v.saveBlocked)}
@@ -63,6 +63,13 @@ export default function RecipeEditor() {
           tone="danger"
           title="The recipe file is gone"
           detail="It was removed outside. Copy anything you need; Save cannot bring it back."
+        />
+      ) : null}
+      {v.unreadable && !v.gone ? (
+        <InlineBanner
+          tone="info"
+          title="The file on disk cannot be read right now"
+          detail="Your edits are kept. It reads again when the window comes back or the file changes."
         />
       ) : null}
       {v.saveError ? (

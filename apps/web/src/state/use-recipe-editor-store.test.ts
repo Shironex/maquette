@@ -111,6 +111,31 @@ describe('the recipe editor store', () => {
     expect(await store().save()).toBe(true);
     const saved = (await commands.recipeGet('frostveil', REACH)).recipe.layers;
     expect(saved.map(l => l.settings.weight)).toEqual([0.4, 0.1, 1]);
+    expect(store().merged).toBeNull();
+  });
+
+  it('drops the merged note on Discard, and once a resolved clash is saved', async () => {
+    editLayers(weigh('l-1', 0.4));
+    await agentWrites(weigh('l-2', 0.1));
+    expect(store().merged).toBe(MERGED_OUTSIDE);
+    store().discard();
+    expect(store().merged).toBeNull();
+
+    editLayers(weigh('l-1', 0.4));
+    await agentWrites(weigh('l-3', 0.2));
+    await agentWrites(weigh('l-1', 0.9));
+    expect(store().outside).not.toBeNull();
+    store().useTheirs();
+    expect(store().merged).toBe(MERGED_OUTSIDE);
+    expect(await store().save()).toBe(true);
+    expect(store().merged).toBeNull();
+  });
+
+  it('drops the note of an outside change once Save finds nothing left to write', async () => {
+    await agentWrites(weigh('l-2', 0.1));
+    expect(store().merged).toBe(CHANGED_OUTSIDE);
+    expect(await store().save()).toBe(true);
+    expect(store().merged).toBeNull();
   });
 
   it('asks Keep mine or Use theirs on a clash, and saves nothing until answered', async () => {
@@ -311,5 +336,73 @@ describe('the recipe editor store', () => {
       layers: [...d.layers, { ...newLayer('nudge', d.layers, []), bone: 'tail' }],
     }));
     expect(await store().saveForQuit()).toBe(FIX_FIRST);
+  });
+
+  it('reads gone only for a file that is not there, and clears it on a later good read', async () => {
+    const realGet = commands.recipeGet.bind(commands);
+    const get = vi.spyOn(commands, 'recipeGet');
+    get.mockRejectedValueOnce({ code: 'json', message: 'expected value at line 1' });
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(false);
+    expect(store().unreadable).toBe(true);
+    get.mockRejectedValueOnce(new Error('IPC went away'));
+    editLayers(weigh('l-1', 0.4));
+    await store().onChanged('frostveil');
+    expect(store().unreadable).toBe(true);
+    expect(layers()[0]?.settings.weight).toBe(0.4);
+    get.mockImplementation(realGet);
+    await store().onChanged('frostveil');
+    expect(store().unreadable).toBe(false);
+
+    get.mockRejectedValueOnce({ code: 'not-found', message: 'Not found: the recipe file' });
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(true);
+    expect(store().unreadable).toBe(false);
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(false);
+    expect(layers()[0]?.settings.weight).toBe(0.4);
+  });
+
+  it('reads gone when the mock backend no longer has the recipe, as the core answers', async () => {
+    await commands.recipeRemove('frostveil', REACH);
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(true);
+  });
+
+  it('drops an outside read that started before a save landed', async () => {
+    const realGet = commands.recipeGet.bind(commands);
+    const before = await realGet('frostveil', REACH);
+    let release: (doc: typeof before) => void = () => undefined;
+    const late = new Promise<typeof before>(resolve => {
+      release = resolve;
+    });
+    const get = vi.spyOn(commands, 'recipeGet').mockImplementationOnce(() => late);
+    const reading = store().onChanged('frostveil');
+    get.mockImplementation(realGet);
+    editLayers(weigh('l-1', 0.4));
+    expect(await store().save()).toBe(true);
+    // The read from before the save comes back now, holding the old file.
+    release(before);
+    await reading;
+    expect(store().merged).toBeNull();
+    expect(store().editing?.doc.recipe.layers[0]?.settings.weight).toBe(0.4);
+    expect(isDirty(store().editing)).toBe(false);
+  });
+
+  it('refuses to save a prop blank holding the model the recipe animates', async () => {
+    const { useMotionStore } = await import('./use-motion-store');
+    const view = {
+      models: [{ asset: 'elsheria', name: 'Elsheria', rig: {}, error: null }],
+    } as unknown as NonNullable<ReturnType<typeof useMotionStore.getState>['view']>;
+    useMotionStore.setState({ view, asset: 'elsheria' });
+    store().edit(d => ({
+      ...d,
+      blanks: d.blanks.map(b => (b.kind === 'prop' ? { ...b, prop: 'elsheria' } : b)),
+    }));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(false);
+    expect(store().saveError).toBe(FIX_FIRST);
+    expect(update).not.toHaveBeenCalled();
+    useMotionStore.setState(useMotionStore.getInitialState(), true);
   });
 });

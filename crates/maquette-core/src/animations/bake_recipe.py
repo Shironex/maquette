@@ -224,8 +224,24 @@ class Rig:
         pb.matrix = m
 
 
+def body_meshes(objects):
+    """The meshes a file really holds. Blender's glTF import also makes a
+    mesh (an icosphere about 2 m across) to draw the bones with; it is no
+    part of the model and is never written, but counting it made a 1.5 m
+    model 2.5 m tall, so the slot sat above its head where the rough
+    preview, which never sees it, put it at chest height."""
+    shapes = {
+        pb.custom_shape
+        for o in objects
+        if o.type == "ARMATURE" and o.pose
+        for pb in o.pose.bones
+        if pb.custom_shape is not None
+    }
+    return [o for o in objects if o.type == "MESH" and o not in shapes]
+
+
 def model_height(objects, arm):
-    zs = [(o.matrix_world @ Vector(c)).z for o in objects if o.type == "MESH" for c in o.bound_box]
+    zs = [(o.matrix_world @ Vector(c)).z for o in body_meshes(objects) for c in o.bound_box]
     if not zs:
         zs = [(arm.matrix_world @ p).z for b in arm.data.bones for p in (b.head_local, b.tail_local)]
     height = max(zs) - min(zs) if zs else 0.0
@@ -236,7 +252,7 @@ def prop_center(rt, path):
     """The middle of a prop's bounds as its file places it, Blender axes."""
     found = rt.import_gltf(path)
     try:
-        points = [o.matrix_world @ Vector(c) for o in found["objects"] if o.type == "MESH" for c in o.bound_box]
+        points = [o.matrix_world @ Vector(c) for o in body_meshes(found["objects"]) for c in o.bound_box]
         if not points:
             return Vector((0.0, 0.0, 0.0))
         low = Vector(tuple(min(p[k] for p in points) for k in range(3)))

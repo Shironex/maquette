@@ -67,7 +67,7 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
   };
   const entryOf = (id: unknown) => {
     const found = entries().get(String(id));
-    if (!found) fail('not_found', `Not found: the library recipe ${String(id)}`);
+    if (!found) fail('not-found', `Not found: the library recipe ${String(id)}`);
     return found;
   };
   const latestOf = (e: StoredEntry) => Math.max(0, ...e.entry.revisions.map(r => r.revision));
@@ -75,7 +75,7 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     const at = revision ?? latestOf(e);
     const file = e.files.get(at);
     if (!file || !e.entry.revisions.some(r => r.revision === at))
-      fail('not_found', `Not found: revision r${at} of the library recipe ${e.entry.id}`);
+      fail('not-found', `Not found: revision r${at} of the library recipe ${e.entry.id}`);
     return { at, file };
   };
   const checkExpected = (e: StoredEntry, expected: unknown) => {
@@ -88,7 +88,7 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
   };
   const recipeOf = (project: unknown, recipe: unknown) => {
     const file = ctx.recipes(String(project)).get(String(recipe));
-    if (!file) fail('not_found', `Not found: the recipe ${String(recipe)}`);
+    if (!file) fail('not-found', `Not found: the recipe ${String(recipe)}`);
     return file;
   };
   const freeEntryId = (name: string) => {
@@ -253,7 +253,7 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
     recipe_starter_list: () => starterList(ctx.clips()),
     recipe_library_copy_starter: ({ id }: Args) => {
       const starter = starterFile(String(id), ctx.clips());
-      if (!starter) fail('not_found', `Not found: the starter recipe ${String(id)}`);
+      if (!starter) fail('not-found', `Not found: the starter recipe ${String(id)}`);
       const notes: string[] = [];
       const wanted = slugOf(starter.name);
       const entry = freeEntryId(starter.name);
@@ -274,7 +274,7 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
         if (revision != null)
           fail('invalid', 'A starter recipe has no revisions. Leave revision out.');
         const file = starterFile(entry, ctx.clips());
-        if (!file) fail('not_found', `Not found: the starter recipe ${entry}`);
+        if (!file) fail('not-found', `Not found: the starter recipe ${entry}`);
         return land(project, { ...file, name: name?.trim() || file.name }, []);
       }
       const e = entryOf(entry);

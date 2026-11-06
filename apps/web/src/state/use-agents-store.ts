@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type DecidedBy, type McpStatus } from '@/ipc/client';
+import { approvalToast } from './approval-toast';
 import { isGame } from './game';
 import { useAppStore } from './use-app-store';
 
@@ -42,34 +43,12 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
     set({ deciding: approvalId });
     try {
       set({ status: await commands.mcpDecide(approvalId, approve, by) });
-      if (approval?.kind === 'send-to-3d') {
-        const asset = approval.assetName ?? 'The asset';
-        notify(
-          approve ? 'done' : 'info',
-          approve ? `${asset} is on its way to ${approval.service}` : `${asset} was not sent`,
-          approve
-            ? 'Follow it in Sends. The agent sees it on its next get_provider_job.'
-            : 'Nothing was spent. The agent is told it was denied.'
-        );
-      } else if (
-        approval &&
-        isGame(useAppStore.getState().workspace?.projects.find(p => p.id === approval.project))
-      ) {
-        notify(
-          approve ? 'done' : 'info',
-          approve ? `Run ${approval.runNumber} is shipping` : `Run ${approval.runNumber} stopped`,
-          approve
-            ? 'Ship never commits. Review the change in git and commit it yourself.'
-            : 'Ship did not run. Nothing in the game repo changed.'
-        );
-      } else if (approval) {
-        notify(
-          approve ? 'done' : 'info',
-          approve ? `Run ${approval.runNumber} is shipping` : `Run ${approval.runNumber} stopped`,
-          approve
-            ? 'The agent sees the result on its next get_run.'
-            : 'Ship did not run. The agent is told it was denied.'
-        );
+      if (approval) {
+        const project = useAppStore
+          .getState()
+          .workspace?.projects.find(p => p.id === approval.project);
+        const { status, title, detail } = approvalToast(approval, approve, isGame(project));
+        notify(status, title, detail);
       }
     } catch (error) {
       notify('failed', 'Could not answer the approval', errorMessage(error));

@@ -20,10 +20,10 @@ export function useRecipeChanges() {
     problems,
     picked,
     toggle: (id: string) => pick(picked === id ? null : { what: 'layer', id }),
-    kinds: (Object.keys(KIND_WORDS) as LayerKind[]).map(k => ({
-      value: k,
-      label: `${KIND_WORDS[k]}: ${KIND_ABOUT[k].toLowerCase()}`,
-    })),
+    // Short labels, as the change form's kind picker has them, so the closed
+    // select is never cut off; what the picked kind does shows on hover.
+    kinds: (Object.keys(KIND_WORDS) as LayerKind[]).map(k => ({ value: k, label: KIND_WORDS[k] })),
+    kindAbout: KIND_ABOUT[kind],
     kind,
     setKind,
     addBlocked: full ? `A recipe holds at most ${LIMITS.layers} changes` : undefined,

@@ -4,6 +4,7 @@
  * use-recipe-bakes-store.ts.
  */
 import type {
+  MotionView,
   RecipeBakeRecord,
   RecipeBakeResult,
   RecipeBakeReview,
@@ -12,6 +13,23 @@ import type {
 
 /** A reach may end this far from its target, cm (the core's limit). */
 export const GAP_LIMIT_CM = 2;
+
+/** A model a recipe bakes onto: its asset id and display name. */
+export interface BakeModel {
+  asset: string;
+  name: string;
+}
+
+/**
+ * The rigged model a bake goes onto: the one picked in the Motion view
+ * (`asset`), else the project's first rigged model, as the rough preview
+ * picks it.
+ */
+export function bakeModelOf(view: MotionView | null, asset: string | null): BakeModel | null {
+  const rigged = view?.models.filter(m => m.rig && !m.error) ?? [];
+  const model = rigged.find(m => m.asset === asset) ?? rigged[0] ?? null;
+  return model ? { asset: model.asset, name: model.name } : null;
+}
 
 /** The store key of the bake of `recipe` in `project`. */
 export const bakeKey = (project: string, recipe: string) => `${project}/${recipe}`;

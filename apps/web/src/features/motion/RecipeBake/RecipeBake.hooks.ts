@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { applyBlocked, bakeKey, staleOf } from '@/state/recipe-bake';
+import { useEffect, useMemo } from 'react';
+import { applyBlocked, bakeKey, bakeModelOf, staleOf, type BakeModel } from '@/state/recipe-bake';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 
@@ -7,12 +7,10 @@ import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
  * The rigged model a bake goes onto: the one picked in the Motion view, else
  * the project's first rigged model, as the rough preview picks it.
  */
-export function useBakeModel(): { asset: string; name: string } | null {
+export function useBakeModel(): BakeModel | null {
   const view = useMotionStore(s => s.view);
   const asset = useMotionStore(s => s.asset);
-  const rigged = view?.models.filter(m => m.rig && !m.error) ?? [];
-  const model = rigged.find(m => m.asset === asset) ?? rigged[0] ?? null;
-  return model ? { asset: model.asset, name: model.name } : null;
+  return useMemo(() => bakeModelOf(view, asset), [view, asset]);
 }
 
 /**

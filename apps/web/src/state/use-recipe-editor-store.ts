@@ -22,6 +22,7 @@ import { create } from 'zustand';
 import { commands, errorMessage, type RecipeDoc } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 import { deepEqual } from '@/lib/deepEqual';
+import { bakeModelOf } from './recipe-bake';
 import { checkDraft, problemCount } from './recipe-check';
 import { draftOf, sameDraft } from './recipe-draft';
 import type {
@@ -31,6 +32,7 @@ import type {
   RecipePick,
 } from './recipe-editor.types';
 import { mergeDrafts, type Renamed } from './recipe-merge';
+import { useMotionStore } from './use-motion-store';
 import { useRecipesStore } from './use-recipes-store';
 
 export type { RecipeLeave, RecipePick } from './recipe-editor.types';
@@ -59,6 +61,8 @@ export const isDirty = (e: RecipeEditing | null) =>
 
 /** The error code the core answers a write with when the file moved since it was read. */
 const MOVED_CODE = 'moved';
+/** The error code the core answers a read of a file that is not there with. */
+const NOT_FOUND_CODE = 'not-found';
 const codeOf = (error: unknown) =>
   typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : null;
 
@@ -83,6 +87,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
     outside: null,
     merged: null,
     gone: false,
+    unreadable: false,
     leaving: null,
   };
   const take = (project: string, doc: RecipeDoc) => {
@@ -126,15 +131,22 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
   const saveNow = async () => {
     const { editing, outside } = get();
     if (!editing) return false;
-    if (!isDirty(editing)) return true;
+    if (!isDirty(editing)) {
+      // Nothing left to write: whatever came in is what the file holds.
+      if (!outside) set({ merged: null });
+      return true;
+    }
     if (outside) {
       set({ saveError: ANSWER_FIRST });
       return false;
     }
-    if (problemCount(checkDraft(editing.draft))) {
+    const { view, asset } = useMotionStore.getState();
+    if (problemCount(checkDraft(editing.draft, bakeModelOf(view, asset)))) {
       set({ saveError: FIX_FIRST });
       return false;
     }
+    // A read that started before this save must not land after it with the old file.
+    reads += 1;
     set({ saving: true, saveError: null });
     try {
       // An outside write whose event has not come yet merges first, or asks.
@@ -154,17 +166,21 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         expected: ready.doc.version,
         clear: cleared,
       });
+      // Nor one that started while it saved: it may have read the file before the write.
+      reads += 1;
       const latest = get().editing;
       if (latest?.id === ready.id) {
         // Edits made while it saved stay over the answer.
         const draft = sameDraft(latest.draft, sent) ? draftOf(doc.recipe) : latest.draft;
         const left = latest.cleared.filter(id => !cleared.includes(id));
-        set({ editing: onDoc({ ...latest, cleared: left }, doc, draft) });
+        // The merged edits are written now, so the note about them is done.
+        set({ editing: onDoc({ ...latest, cleared: left }, doc, draft), merged: null });
       }
       set({ saving: false });
       void useRecipesStore.getState().load(ready.project);
       return true;
     } catch (error) {
+      reads += 1;
       if (codeOf(error) !== MOVED_CODE) {
         set({ saving: false, saveError: errorMessage(error) });
         return false;
@@ -236,6 +252,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         set({
           editing: { ...editing, draft: draftOf(editing.doc.recipe), cleared: [] },
           saveError: null,
+          merged: null,
         });
     },
 
@@ -270,11 +287,21 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       const editing = get().editing;
       if (!editing || editing.project !== project) return;
       const read = ++reads;
+      const current = () => read === reads && get().editing?.id === editing.id;
       try {
         const doc = await commands.recipeGet(project, editing.id);
-        if (read === reads && get().editing?.id === editing.id) absorb(doc);
-      } catch {
-        if (read === reads && get().editing?.id === editing.id) set({ gone: true });
+        if (!current()) return;
+        set({ gone: false, unreadable: false });
+        absorb(doc);
+      } catch (error) {
+        // Only a file that is not there is gone; a half written or broken
+        // file, or a one-off IPC error, keeps the edits and waits for a good read.
+        if (current())
+          set(
+            codeOf(error) === NOT_FOUND_CODE
+              ? { gone: true, unreadable: false }
+              : { gone: false, unreadable: true }
+          );
       }
     },
 

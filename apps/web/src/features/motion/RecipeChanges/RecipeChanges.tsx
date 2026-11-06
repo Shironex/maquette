@@ -53,7 +53,8 @@ export default function RecipeChanges() {
           options={c.kinds}
           value={c.kind}
           onChange={(k: LayerKind) => c.setKind(k)}
-          fieldClassName="w-[200px]"
+          title={c.kindAbout}
+          fieldClassName="w-[120px]"
         />
         <Button
           size="sm"

@@ -4,6 +4,7 @@ import { LIMITS, checkDraft } from '@/state/recipe-check';
 import { blankFill, newBlank } from '@/state/recipe-draft';
 import { useRecipeAssets } from '@/state/use-recipe-assets';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { useBakeModel } from '../RecipeBake';
 
 /** The open recipe's blanks, what fills each, the gone props' warnings and adding one. */
 export function useRecipeBlanks() {
@@ -12,7 +13,8 @@ export function useRecipeBlanks() {
   const picked = useRecipeEditorStore(s => (s.picked?.what === 'blank' ? s.picked.id : null));
   const assets = useRecipeAssets();
   const { edit, pick } = useRecipeEditorStore.getState();
-  const problems = useMemo(() => (draft ? checkDraft(draft).blanks : {}), [draft]);
+  const model = useBakeModel();
+  const problems = useMemo(() => (draft ? checkDraft(draft, model).blanks : {}), [draft, model]);
   const blanks = draft?.blanks ?? [];
   const full = blanks.length >= LIMITS.blanks;
   const nameOf = (id: string) => assets.find(a => a.id === id)?.name ?? null;

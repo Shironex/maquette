@@ -3,7 +3,7 @@ import type { RecipeOutside } from '@/state/recipe-editor.types';
 import { checkDraft, problemCount } from '@/state/recipe-check';
 import { blankFilled } from '@/state/recipe-draft';
 import { isDirty, useRecipeEditorStore } from '@/state/use-recipe-editor-store';
-import { useRecipeBake } from '../RecipeBake';
+import { useBakeModel, useRecipeBake } from '../RecipeBake';
 
 /**
  * The open recipe's header and its questions: unsaved edits, Save and
@@ -16,12 +16,14 @@ export function useRecipeEditor() {
   const saveError = useRecipeEditorStore(s => s.saveError);
   const merged = useRecipeEditorStore(s => s.merged);
   const gone = useRecipeEditorStore(s => s.gone);
+  const unreadable = useRecipeEditorStore(s => s.unreadable);
   const outside = useRecipeEditorStore(s => s.outside);
   const leaving = useRecipeEditorStore(s => s.leaving);
   // Escape closes the clash question without choosing; saves stay blocked until it is answered.
   const [hidden, setHidden] = useState<RecipeOutside | null>(null);
   const draft = editing?.draft ?? null;
-  const problems = useMemo(() => (draft ? checkDraft(draft) : null), [draft]);
+  const model = useBakeModel();
+  const problems = useMemo(() => (draft ? checkDraft(draft, model) : null), [draft, model]);
   const store = useRecipeEditorStore.getState();
   const dirty = isDirty(editing);
   const toFix = problems ? problemCount(problems) : 0;
@@ -32,6 +34,7 @@ export function useRecipeEditor() {
     saveError,
     merged,
     gone,
+    unreadable,
     general: problems?.general ?? [],
     toFix,
     saveBlocked: outside
@@ -96,7 +99,9 @@ export function useEditorApply(saveBlocked: string | undefined) {
   return {
     bake,
     dirty,
-    blocked: bake.blocked ?? (dirty ? saveBlocked : undefined),
+    // A marked entry blocks Apply with or without unsaved edits: the file
+    // may hold it too (a prop blank holding the model it bakes onto).
+    blocked: bake.blocked ?? saveBlocked,
     loading: saving || (bake.busy && !bake.running),
     apply: () => void apply(),
   };

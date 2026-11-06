@@ -2,6 +2,9 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands, type RecipeLayer } from '@/ipc/client';
+import { bakeModelOf } from '@/state/recipe-bake';
+import type { RecipeDraft } from '@/state/recipe-draft';
+import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clearMocks, openRecipe } from '@/test/open-recipe';
@@ -22,11 +25,16 @@ describe('the recipe editor', () => {
   it('saves only with unsaved edits, then says saved', async () => {
     await openRecipe();
     render(<RecipeEditor />);
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-disabled', 'true');
+    const save = () => screen.getByRole('button', { name: 'Save' });
+    expect(save()).toHaveAttribute('aria-disabled', 'true');
+    // A Save with nothing to save looks as the other disabled buttons do, not primary.
+    expect(save()).not.toHaveClass('bg-clay');
     edit(0.5);
     expect(screen.getByText(/unsaved edits$/)).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(save()).toHaveClass('bg-clay');
+    await userEvent.click(save());
     expect(await screen.findByText(/· saved$/)).toBeVisible();
+    expect(save()).not.toHaveClass('bg-clay');
   });
 
   it('asks before Back drops unsaved edits, and stays when asked to', async () => {
@@ -77,6 +85,39 @@ describe('the recipe editor', () => {
     );
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('A reach needs a target: pick a blank, or add one.')).toBeVisible();
+  });
+
+  it('blocks Save and Apply while a prop blank holds the model the recipe animates', async () => {
+    await openRecipe();
+    const { view, asset } = useMotionStore.getState();
+    const model = bakeModelOf(view, asset)!;
+    const holdModel = (d: RecipeDraft) => ({
+      ...d,
+      blanks: d.blanks.map(b => (b.id === 'lantern' ? { ...b, prop: model.asset } : b)),
+    });
+    const { unmount } = render(<RecipeEditor />);
+    act(() => useRecipeEditorStore.getState().edit(holdModel));
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Save and apply' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    unmount();
+    // The same held in the file itself: Apply waits too, with no unsaved edits.
+    const doc = useRecipeEditorStore.getState().editing!.doc;
+    await commands.recipeUpdate('frostveil', doc.id, {
+      name: null,
+      layers: null,
+      blanks: holdModel(useRecipeEditorStore.getState().editing!.draft).blanks,
+    });
+    useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
+    await useRecipeEditorStore.getState().open('frostveil', doc.id);
+    const start = vi.spyOn(commands, 'recipeBakeStart');
+    render(<RecipeEditor />);
+    const apply = screen.getByRole('button', { name: 'Apply' });
+    expect(apply).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(apply);
+    expect(start).not.toHaveBeenCalled();
   });
 
   it('saves unsaved edits before it applies, and bakes the version it saved', async () => {
