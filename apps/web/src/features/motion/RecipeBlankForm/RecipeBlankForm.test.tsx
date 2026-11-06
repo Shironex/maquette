@@ -1,11 +1,19 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clearMocks, openRecipe } from '@/test/open-recipe';
 import RecipeBlankForm from './RecipeBlankForm';
 
 afterEach(clearMocks);
+
+/** The rigged model the bake goes onto, as the editor picks it. */
+const animatedModel = () => {
+  const { view, asset } = useMotionStore.getState();
+  const rigged = view?.models.filter(m => m.rig && !m.error) ?? [];
+  return rigged.find(m => m.asset === asset) ?? rigged[0] ?? null;
+};
 
 const blank = (id: string) =>
   useRecipeEditorStore.getState().editing?.draft.blanks.find(b => b.id === id);
@@ -67,7 +75,26 @@ describe('the recipe blank form', () => {
     });
     render(<RecipeBlankForm id="lantern" />);
     const picker = screen.getByLabelText('Prop') as HTMLSelectElement;
-    expect(picker.options).toHaveLength(kept + 1);
+    // Every kept asset but the model the recipe animates, and "Pick a prop".
+    expect(picker.options).toHaveLength(kept);
+  });
+
+  it('leaves the model the recipe animates out of the props, and says so when a blank holds it', async () => {
+    await openRecipe();
+    const model = animatedModel();
+    expect(model).toBeTruthy();
+    const { unmount } = render(<RecipeBlankForm id="lantern" />);
+    const picker = screen.getByLabelText('Prop') as HTMLSelectElement;
+    expect([...picker.options].map(o => o.value)).not.toContain(model!.asset);
+    unmount();
+    useRecipeEditorStore.getState().edit(d => ({
+      ...d,
+      blanks: d.blanks.map(b => (b.id === 'lantern' ? { ...b, prop: model!.asset } : b)),
+    }));
+    render(<RecipeBlankForm id="lantern" />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `${model!.name} is the model this recipe animates. Pick another prop.`
+    );
   });
 
   it('removes the blank and leaves what aimed at it without a target', async () => {
