@@ -47,6 +47,11 @@ describe('joined recipes in mock mode', () => {
     const done = await commands.recipeBakeGet('frostveil', JOINED);
     expect(done?.result?.frames).toBe(timeline(mirrored.recipe).frames);
     expect(done?.result?.frames).not.toBe(mirrored.recipe.base.frames);
+    const joinedClips = (done?.result as { joinedClips?: { name: string }[] }).joinedClips;
+    expect(joinedClips?.map(c => c.name)).toEqual([
+      'Sword And Shield Block',
+      'Sword And Shield Idle',
+    ]);
   });
 
   it('still refuses pins, pose keys and grips as not bakeable yet', async () => {

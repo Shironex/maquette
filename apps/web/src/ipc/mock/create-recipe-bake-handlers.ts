@@ -151,6 +151,24 @@ const snake = (name: string) =>
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_|_$/g, '') || 'recipe';
 
+/**
+ * The result's `joinedClips` where the bindings have it: each joined clip's
+ * library clip, name and hash, none for a one clip bake. Typed so it fits
+ * the result with or without that field.
+ */
+type JoinedField = RecipeBakeResult extends { joinedClips?: infer J }
+  ? { joinedClips: NonNullable<J> }
+  : Record<never, never>;
+
+function joinedClipsOf(doc: RecipeDoc): JoinedField {
+  const joinedClips = (doc.recipe.joined ?? []).map((c, i) => ({
+    clip: doc.joined?.[i]?.clip ?? '',
+    name: c.name,
+    hash: c.hash,
+  }));
+  return { joinedClips } as unknown as JoinedField;
+}
+
 function resultOf(
   doc: RecipeDoc,
   asset: string,
@@ -166,6 +184,7 @@ function resultOf(
     baseClip: doc.base.clip ?? '',
     baseHash: doc.recipe.base.hash,
     recipeBaseHash: null,
+    ...joinedClipsOf(doc),
     mixamo: doc.mixamo,
     asset,
     assetName: onto.name,
