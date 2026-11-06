@@ -61,7 +61,7 @@ export const blendBlocks = (t: Timeline): LaneBlock[] =>
       label: `Blend, ${s.frames} f`,
     }));
 
-/** A mark in the middle of each trimmed clip: "Great Sword Slash 6 to 58". */
+/** A mark over each trimmed clip: "Keeps 6 to 58" (the Clips lane names the clip). */
 export function trimBlocks(t: Timeline, clips: readonly RecipeBase[]): LaneBlock[] {
   return t.clips.flatMap(span => {
     const clip = clips[span.clip];
@@ -71,7 +71,7 @@ export function trimBlocks(t: Timeline, clips: readonly RecipeBase[]): LaneBlock
         key: `trim-${span.clip}`,
         first: span.first,
         last: span.last,
-        label: `${clip.name} ${keptWords(clip)}`,
+        label: `Keeps ${keptWords(clip)}`,
       },
     ];
   });

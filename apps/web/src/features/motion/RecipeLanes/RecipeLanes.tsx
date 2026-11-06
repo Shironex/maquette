@@ -132,7 +132,7 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
       key={b.key}
       block={b}
       frames={frames}
-      name={`Trim ${b.label}`}
+      name={`Trim of clip ${Number(b.key.slice(5)) + 1}, ${b.label.toLowerCase()}`}
       picked={v.isPicked('trim', b.key.slice(5))}
       onPick={() => v.toggle('trim', b.key.slice(5))}
       className="bg-transparent text-center text-fg-dim hover:bg-hover"
