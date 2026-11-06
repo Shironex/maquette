@@ -142,6 +142,8 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       set({ saveError: FIX_FIRST });
       return false;
     }
+    // A read that started before this save must not land after it with the old file.
+    reads += 1;
     set({ saving: true, saveError: null });
     try {
       // An outside write whose event has not come yet merges first, or asks.
@@ -161,6 +163,8 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         expected: ready.doc.version,
         clear: cleared,
       });
+      // Nor one that started while it saved: it may have read the file before the write.
+      reads += 1;
       const latest = get().editing;
       if (latest?.id === ready.id) {
         // Edits made while it saved stay over the answer.
@@ -173,6 +177,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       void useRecipesStore.getState().load(ready.project);
       return true;
     } catch (error) {
+      reads += 1;
       if (codeOf(error) !== MOVED_CODE) {
         set({ saving: false, saveError: errorMessage(error) });
         return false;

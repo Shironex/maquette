@@ -368,4 +368,24 @@ describe('the recipe editor store', () => {
     await store().onChanged('frostveil');
     expect(store().gone).toBe(true);
   });
+
+  it('drops an outside read that started before a save landed', async () => {
+    const realGet = commands.recipeGet.bind(commands);
+    const before = await realGet('frostveil', REACH);
+    let release: (doc: typeof before) => void = () => undefined;
+    const late = new Promise<typeof before>(resolve => {
+      release = resolve;
+    });
+    const get = vi.spyOn(commands, 'recipeGet').mockImplementationOnce(() => late);
+    const reading = store().onChanged('frostveil');
+    get.mockImplementation(realGet);
+    editLayers(weigh('l-1', 0.4));
+    expect(await store().save()).toBe(true);
+    // The read from before the save comes back now, holding the old file.
+    release(before);
+    await reading;
+    expect(store().merged).toBeNull();
+    expect(store().editing?.doc.recipe.layers[0]?.settings.weight).toBe(0.4);
+    expect(isDirty(store().editing)).toBe(false);
+  });
 });
