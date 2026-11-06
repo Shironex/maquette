@@ -1,0 +1,1404 @@
+{
+  "cases": [
+    {
+      "clips": [
+        {
+          "clip": 0,
+          "first": 0,
+          "last": 60
+        }
+      ],
+      "fps": 30.0,
+      "frames": 60,
+      "name": "Plain",
+      "probes": [
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 0.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.0,
+          "t": 0,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 5.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.083333,
+          "t": 5,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 10.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.166667,
+          "t": 10,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 16.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.266667,
+          "t": 16,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 21.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.35,
+          "t": 21,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 27.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.45,
+          "t": 27,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 32.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.533333,
+          "t": 32,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 38.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.633333,
+          "t": 38,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 43.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.716667,
+          "t": 43,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 49.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.816667,
+          "t": 49,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 54.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.9,
+          "t": 54,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 60.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 1.0,
+          "t": 60,
+          "to": null
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "standing-idle-hash",
+          "length": 2.0,
+          "mixamo": true,
+          "name": "Standing Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-06T00:00:00.000Z",
+        "edited": "2026-11-06T00:00:00.000Z",
+        "from": null,
+        "layers": [],
+        "name": "Plain",
+        "revision": 1,
+        "version": 1
+      },
+      "seams": []
+    },
+    {
+      "clips": [
+        {
+          "clip": 0,
+          "first": 0,
+          "last": 47
+        },
+        {
+          "clip": 1,
+          "first": 39,
+          "last": 113
+        },
+        {
+          "clip": 2,
+          "first": 107,
+          "last": 147
+        }
+      ],
+      "fps": 30.0,
+      "frames": 147,
+      "name": "Slash into thrust",
+      "probes": [
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 6.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.026549,
+          "t": 0,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 19.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.084071,
+          "t": 13,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 37.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.165487,
+          "t": 26,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 50.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.223009,
+          "t": 39,
+          "to": {
+            "at": 4.0,
+            "clip": 1,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.042969,
+          "from": {
+            "at": 51.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.232301,
+          "t": 40,
+          "to": {
+            "at": 5.0,
+            "clip": 1,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.5,
+          "from": {
+            "at": 54.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.297345,
+          "t": 43,
+          "to": {
+            "at": 8.0,
+            "clip": 1,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 18.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.39823,
+          "t": 53,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 31.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.455752,
+          "t": 66,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 45.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.517699,
+          "t": 80,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.566372,
+          "t": 93,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.566372,
+          "t": 106,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.566372,
+          "t": 107,
+          "to": {
+            "at": 0.0,
+            "clip": 2,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.5,
+          "from": {
+            "at": 57.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.59292,
+          "t": 110,
+          "to": {
+            "at": 3.0,
+            "clip": 2,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 13.0,
+            "clip": 2,
+            "hold": null
+          },
+          "share": 0.659292,
+          "t": 120,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 26.0,
+            "clip": 2,
+            "hold": null
+          },
+          "share": 0.716814,
+          "t": 133,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 40.0,
+            "clip": 2,
+            "hold": null
+          },
+          "share": 0.778761,
+          "t": 147,
+          "to": null
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 72,
+          "hash": "great-sword-slash-hash",
+          "length": 2.4000000953674316,
+          "mixamo": true,
+          "name": "Great Sword Slash",
+          "rest": false,
+          "trim": [
+            6,
+            58
+          ]
+        },
+        "blanks": [],
+        "created": "2026-11-06T00:00:00.000Z",
+        "edited": "2026-11-06T00:00:00.000Z",
+        "from": null,
+        "joined": [
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 8,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 64,
+            "hash": "great-sword-thrust-hash",
+            "length": 2.133333444595337,
+            "mixamo": true,
+            "name": "Great Sword Thrust",
+            "rest": false,
+            "trim": [
+              4,
+              60
+            ]
+          },
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 6,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 90,
+            "hash": "sword-idle-hash",
+            "length": 3.0,
+            "mixamo": true,
+            "name": "Sword Idle",
+            "rest": false,
+            "trim": [
+              0,
+              40
+            ]
+          }
+        ],
+        "layers": [],
+        "name": "Slash into thrust",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 0,
+            "from": 20,
+            "kind": "retime",
+            "speed": 1.600000023841858,
+            "to": 34
+          },
+          {
+            "at": 56,
+            "clip": 1,
+            "frames": 18,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      },
+      "seams": [
+        {
+          "clip": 1,
+          "frame": 39,
+          "frames": 8,
+          "lineUp": "hips-and-facing"
+        },
+        {
+          "clip": 2,
+          "frame": 107,
+          "frames": 6,
+          "lineUp": "hips-and-facing"
+        }
+      ]
+    },
+    {
+      "clips": [
+        {
+          "clip": 0,
+          "first": 0,
+          "last": 47
+        },
+        {
+          "clip": 1,
+          "first": 39,
+          "last": 113
+        },
+        {
+          "clip": 2,
+          "first": 107,
+          "last": 147
+        }
+      ],
+      "fps": 30.0,
+      "frames": 147,
+      "name": "Slash into thrust, left",
+      "probes": [
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 6.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.026549,
+          "t": 0,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 19.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.084071,
+          "t": 13,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 37.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.165487,
+          "t": 26,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 50.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.223009,
+          "t": 39,
+          "to": {
+            "at": 4.0,
+            "clip": 1,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.042969,
+          "from": {
+            "at": 51.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.232301,
+          "t": 40,
+          "to": {
+            "at": 5.0,
+            "clip": 1,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.5,
+          "from": {
+            "at": 54.4,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.297345,
+          "t": 43,
+          "to": {
+            "at": 8.0,
+            "clip": 1,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 18.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.39823,
+          "t": 53,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 31.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.455752,
+          "t": 66,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 45.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.517699,
+          "t": 80,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.566372,
+          "t": 93,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.566372,
+          "t": 106,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 56.0,
+            "clip": 1,
+            "hold": {
+              "at": 56,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.566372,
+          "t": 107,
+          "to": {
+            "at": 0.0,
+            "clip": 2,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.5,
+          "from": {
+            "at": 57.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.59292,
+          "t": 110,
+          "to": {
+            "at": 3.0,
+            "clip": 2,
+            "hold": null
+          }
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 13.0,
+            "clip": 2,
+            "hold": null
+          },
+          "share": 0.659292,
+          "t": 120,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 26.0,
+            "clip": 2,
+            "hold": null
+          },
+          "share": 0.716814,
+          "t": 133,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 40.0,
+            "clip": 2,
+            "hold": null
+          },
+          "share": 0.778761,
+          "t": 147,
+          "to": null
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 72,
+          "hash": "great-sword-slash-hash",
+          "length": 2.4000000953674316,
+          "mixamo": true,
+          "name": "Great Sword Slash",
+          "rest": false,
+          "trim": [
+            6,
+            58
+          ]
+        },
+        "blanks": [],
+        "created": "2026-11-06T00:00:00.000Z",
+        "edited": "2026-11-06T00:00:00.000Z",
+        "from": null,
+        "joined": [
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 8,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 64,
+            "hash": "great-sword-thrust-hash",
+            "length": 2.133333444595337,
+            "mixamo": true,
+            "name": "Great Sword Thrust",
+            "rest": false,
+            "trim": [
+              4,
+              60
+            ]
+          },
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 6,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 90,
+            "hash": "sword-idle-hash",
+            "length": 3.0,
+            "mixamo": true,
+            "name": "Sword Idle",
+            "rest": false,
+            "trim": [
+              0,
+              40
+            ]
+          }
+        ],
+        "layers": [],
+        "mirror": true,
+        "name": "Slash into thrust, left",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 0,
+            "from": 20,
+            "kind": "retime",
+            "speed": 1.600000023841858,
+            "to": 34
+          },
+          {
+            "at": 56,
+            "clip": 1,
+            "frames": 18,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      },
+      "seams": [
+        {
+          "clip": 1,
+          "frame": 39,
+          "frames": 8,
+          "lineUp": "hips-and-facing"
+        },
+        {
+          "clip": 2,
+          "frame": 107,
+          "frames": 6,
+          "lineUp": "hips-and-facing"
+        }
+      ]
+    },
+    {
+      "clips": [
+        {
+          "clip": 0,
+          "first": 0,
+          "last": 109
+        }
+      ],
+      "fps": 30.0,
+      "frames": 109,
+      "name": "Eased",
+      "probes": [
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 0.0,
+            "clip": 0,
+            "hold": {
+              "at": 0,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.0,
+          "t": 0,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 3.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.0375,
+          "t": 9,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 12.756944,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.159462,
+          "t": 19,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 18.517637,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.23147,
+          "t": 29,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 23.517637,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.29397,
+          "t": 39,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 28.517637,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.35647,
+          "t": 49,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 33.517637,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.41897,
+          "t": 59,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 40.367586,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.504595,
+          "t": 69,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 50.367586,
+            "clip": 0,
+            "hold": {
+              "at": 50,
+              "breathe": 0.5,
+              "weight": 0.023783
+            }
+          },
+          "share": 0.629595,
+          "t": 79,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 60.367586,
+            "clip": 0,
+            "hold": {
+              "at": 50,
+              "breathe": 0.5,
+              "weight": 1.0
+            }
+          },
+          "share": 0.754595,
+          "t": 89,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 70.367586,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.879595,
+          "t": 99,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 80.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 1.0,
+          "t": 109,
+          "to": null
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 80,
+          "hash": "charge-hash",
+          "length": 2.6666667461395264,
+          "mixamo": true,
+          "name": "Charge",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-06T00:00:00.000Z",
+        "edited": "2026-11-06T00:00:00.000Z",
+        "from": null,
+        "layers": [],
+        "name": "Eased",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 0,
+            "ease": 6,
+            "from": 10,
+            "kind": "retime",
+            "speed": 0.5,
+            "to": 40
+          },
+          {
+            "at": 50,
+            "breathe": 0.5,
+            "clip": 0,
+            "easeIn": 4,
+            "easeOut": 5,
+            "frames": 20,
+            "kind": "hold-over"
+          },
+          {
+            "at": 0,
+            "clip": 0,
+            "easeOut": 3,
+            "frames": 6,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      },
+      "seams": []
+    },
+    {
+      "clips": [
+        {
+          "clip": 0,
+          "first": 0,
+          "last": 72
+        },
+        {
+          "clip": 1,
+          "first": 72,
+          "last": 114
+        }
+      ],
+      "fps": 30.0,
+      "frames": 114,
+      "name": "Two rates",
+      "probes": [
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 0.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.0,
+          "t": 0,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 10.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.083333,
+          "t": 10,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 20.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.166667,
+          "t": 20,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 31.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.258333,
+          "t": 31,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 41.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.341667,
+          "t": 41,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 51.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.425,
+          "t": 51,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 62.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.516667,
+          "t": 62,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 0.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.6,
+          "t": 72,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 10.4,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.686667,
+          "t": 82,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 31.2,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.86,
+          "t": 93,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 39.2,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 0.926667,
+          "t": 103,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 48.0,
+            "clip": 1,
+            "hold": null
+          },
+          "share": 1.0,
+          "t": 114,
+          "to": null
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 72,
+          "hash": "run-hash",
+          "length": 2.4000000953674316,
+          "mixamo": true,
+          "name": "Run",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-06T00:00:00.000Z",
+        "edited": "2026-11-06T00:00:00.000Z",
+        "from": null,
+        "joined": [
+          {
+            "blend": {
+              "curve": "linear",
+              "frames": 0,
+              "lineUp": "hips"
+            },
+            "byName": false,
+            "frames": 48,
+            "hash": "slow-walk-hash",
+            "length": 2.0,
+            "mixamo": true,
+            "name": "Slow Walk",
+            "rest": false
+          }
+        ],
+        "layers": [],
+        "name": "Two rates",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 1,
+            "from": 6,
+            "kind": "retime",
+            "speed": 2.5,
+            "to": 30
+          }
+        ],
+        "version": 1
+      },
+      "seams": [
+        {
+          "clip": 1,
+          "frame": 72,
+          "frames": 0,
+          "lineUp": "hips"
+        }
+      ]
+    },
+    {
+      "clips": [
+        {
+          "clip": 0,
+          "first": 0,
+          "last": 72
+        }
+      ],
+      "fps": 30.0,
+      "frames": 72,
+      "name": "Rest hold",
+      "probes": [
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 0.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.0,
+          "t": 0,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 6.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.1,
+          "t": 6,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 13.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.216667,
+          "t": 13,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 19.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.316667,
+          "t": 19,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 26.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.433333,
+          "t": 26,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 30.0,
+            "clip": 0,
+            "hold": {
+              "at": 30,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.5,
+          "t": 32,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 30.0,
+            "clip": 0,
+            "hold": {
+              "at": 30,
+              "breathe": 0.0,
+              "weight": 1.0
+            }
+          },
+          "share": 0.5,
+          "t": 39,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 33.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.55,
+          "t": 45,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 40.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.666667,
+          "t": 52,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 46.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.766667,
+          "t": 58,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 53.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 0.883333,
+          "t": 65,
+          "to": null
+        },
+        {
+          "blend": 0.0,
+          "from": {
+            "at": 60.0,
+            "clip": 0,
+            "hold": null
+          },
+          "share": 1.0,
+          "t": 72,
+          "to": null
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "",
+          "length": 2.0,
+          "mixamo": false,
+          "name": "Rest pose",
+          "rest": true
+        },
+        "blanks": [],
+        "created": "2026-11-06T00:00:00.000Z",
+        "edited": "2026-11-06T00:00:00.000Z",
+        "from": null,
+        "layers": [],
+        "name": "Rest hold",
+        "revision": 1,
+        "time": [
+          {
+            "at": 30,
+            "clip": 0,
+            "frames": 12,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      },
+      "seams": []
+    }
+  ]
+}

@@ -64,6 +64,7 @@ mod edits;
 mod files;
 mod keys;
 mod normal;
+pub mod timeline;
 
 pub use change::{RecipeChange, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
@@ -611,3 +612,6 @@ mod tests_v2_motion;
 
 #[cfg(test)]
 mod tests_v2_size;
+
+#[cfg(test)]
+mod tests_timeline;
