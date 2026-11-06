@@ -4,27 +4,15 @@
  * checks and limits of clips, time edits, pose keys and grips, and keys
  * and time edits following their clip when the clips are replaced.
  */
-import type { BlendWindow, RecipeBase, RecipeFile, RecipeLayer, TimeEdit } from '../client';
+import type { RecipeBase, RecipeFile, RecipeLayer, TimeEdit } from '../client';
+import { DEFAULT_BLEND, V2_LIMITS, clipsProblem, timeProblem } from '@/state/recipe-v2-check';
 import { fail } from './backend-options';
 import { clipsOf } from './recipe-files';
 
-/** The core's limits of version 2. */
-export const V2_LIMITS = {
-  clips: 8,
-  keys: 64,
-  keyBones: 32,
-  gripBones: 64,
-  timeEdits: 32,
-  recipeKeys: 256,
-  recipeTurns: 1024,
-  holdFrames: 600,
-  turnDegrees: 180,
-} as const;
+export { V2_LIMITS };
 
 /** How the core starts a refusal of clips that strand keys or time edits. */
 export const CLIP_IN_USE = 'Taking out clip';
-
-const DEFAULT_BLEND: BlendWindow = { frames: 8, curve: 'smooth', lineUp: 'hips-and-facing' };
 
 const V2_KINDS: readonly RecipeLayer['kind'][] = ['pin', 'pose', 'grip'];
 
@@ -107,83 +95,6 @@ export function withVersion(recipe: RecipeFile): RecipeFile {
   return { ...out, version: usesV2(out) ? 2 : 1 };
 }
 
-/** How many frames of `clip` its trim keeps. */
-const keptFrames = (clip: RecipeBase) => (clip.trim ? clip.trim[1] - clip.trim[0] : clip.frames);
-
-function clipsProblem(recipe: RecipeFile): string | null {
-  const clips = clipsOf(recipe);
-  if (clips.length > V2_LIMITS.clips) return `A recipe joins at most ${V2_LIMITS.clips} clips.`;
-  if (recipe.base.rest && clips.length > 1)
-    return 'A recipe on the rest pose has no clips to join. Start it on a clip instead.';
-  for (const [i, clip] of clips.entries()) {
-    if (i > 0 && clip.rest)
-      return `Only the base can be the rest pose, and then alone; clip ${i + 1} cannot.`;
-    if (!clip.trim) continue;
-    if (clip.rest) return 'The rest pose has no clip to trim. Set how many frames it runs instead.';
-    const [from, to] = clip.trim;
-    if (from >= to || to > clip.frames)
-      return `The clip ${i + 1} keeps frames ${from} to ${to}; keep at least one frame within its ${clip.frames} frames, the first before the last.`;
-  }
-  for (const [i, clip] of clips.entries()) {
-    const before = clips[i - 1];
-    if (!before) continue;
-    const most = Math.floor(Math.min(keptFrames(before), keptFrames(clip)) / 2);
-    const frames = clip.blend?.frames ?? DEFAULT_BLEND.frames;
-    if (frames > most)
-      return `The blend into clip ${i + 1} lasts ${frames} frames; it can last at most ${most}, half the shorter clip as trimmed.`;
-  }
-  return null;
-}
-
-function timeProblem(recipe: RecipeFile): string | null {
-  const time = recipe.time ?? [];
-  if (time.length > V2_LIMITS.timeEdits)
-    return `A recipe holds at most ${V2_LIMITS.timeEdits} time edits.`;
-  const clips = clipsOf(recipe);
-  const spans: [TimeEdit, number, number][] = [];
-  for (const edit of time) {
-    const clip = clips[edit.clip];
-    if (!clip) return `A time edit sits on clip ${edit.clip + 1}, which the recipe does not have.`;
-    const where = `clip ${edit.clip + 1}`;
-    if (edit.kind === 'retime') {
-      const { from, to, speed } = edit;
-      if (from == null || to == null || speed == null)
-        return `A retime on ${where} needs from, to and speed.`;
-      if (from >= to || to > clip.frames)
-        return `A retime on ${where} runs from frame ${from} to ${to}; keep it within its ${clip.frames} frames, from before to.`;
-      if (speed < 0.25 || speed > 4) return `A retime plays 0.25x to 4x, not ${speed}x.`;
-      spans.push([edit, from, to]);
-    } else {
-      const word = edit.kind === 'freeze' ? 'freeze' : 'hold over';
-      const { at, frames } = edit;
-      if (at == null || frames == null) return `A ${word} on ${where} needs at and frames.`;
-      if (at >= clip.frames)
-        return `A ${word} on ${where} holds frame ${at}, past its ${clip.frames} frames.`;
-      if (frames < 1 || frames > V2_LIMITS.holdFrames)
-        return `A ${word} lasts 1 to ${V2_LIMITS.holdFrames} frames, not ${frames}.`;
-      if (edit.kind === 'hold-over' && at + frames > clip.frames)
-        return `A hold over on ${where} keeps the length, so it has to end within its ${clip.frames} frames.`;
-      spans.push([edit, at, edit.kind === 'hold-over' ? at + frames : at + 1]);
-    }
-  }
-  for (const [i, [edit, first, end]] of spans.entries()) {
-    const clash = spans
-      .slice(0, i)
-      .some(
-        ([o, a, b]) =>
-          o.clip === edit.clip &&
-          (o.kind === 'retime') === (edit.kind === 'retime') &&
-          a < end &&
-          first < b
-      );
-    if (clash)
-      return edit.kind === 'retime'
-        ? `Two retime ranges on clip ${edit.clip + 1} overlap. Keep each range apart.`
-        : `Two holds on clip ${edit.clip + 1} overlap. Keep each hold apart.`;
-  }
-  return null;
-}
-
 function turnsProblem(turns: Record<string, unknown>, most: number, what: string): string | null {
   const count = Object.keys(turns).length;
   if (count === 0) return `The ${what} turns no bone. Turn one, or take it out.`;
@@ -242,7 +153,9 @@ function layersProblem(recipe: RecipeFile): string | null {
 
 /** The first thing of version 2 the core refuses in `recipe`, or null. */
 export const v2Problem = (recipe: RecipeFile): string | null =>
-  clipsProblem(recipe) ?? timeProblem(recipe) ?? layersProblem(recipe);
+  clipsProblem(clipsOf(recipe)) ??
+  timeProblem(recipe.time ?? [], clipsOf(recipe)) ??
+  layersProblem(recipe);
 
 const sameClip = (a: RecipeBase, b: RecipeBase) =>
   a.name === b.name &&
