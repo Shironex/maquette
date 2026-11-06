@@ -25,7 +25,12 @@ describe('the recipe changes', () => {
   it('adds a change of the kind picked and opens it', async () => {
     await openRecipe();
     render(<RecipeChanges />);
-    await userEvent.selectOptions(screen.getByLabelText('Kind of change'), 'nudge');
+    const picker = screen.getByLabelText('Kind of change') as HTMLSelectElement;
+    // Short labels, so the closed picker is never cut off; what it does shows on hover.
+    expect([...picker.options].map(o => o.text)).toEqual(['Reach', 'Nudge', 'Look at', 'Wave']);
+    expect(picker).toHaveAttribute('title', 'A hand or foot reaches a blank');
+    await userEvent.selectOptions(picker, 'nudge');
+    expect(picker).toHaveAttribute('title', "Turns or moves one bone's pose");
     await userEvent.click(screen.getByRole('button', { name: 'Add change' }));
     const draft = useRecipeEditorStore.getState().editing?.draft;
     const added = draft?.layers.at(-1);
