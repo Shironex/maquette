@@ -118,7 +118,11 @@ fn file_of(id: &str) -> String {
     format!("{RECIPES_DIR}/{id}{RECIPE_SUFFIX}")
 }
 
-fn summary(id: &str, read: &RecipeRead) -> RecipeSummary {
+fn summary(
+    id: &str,
+    read: &RecipeRead,
+    clip_mixamo: &dyn Fn(&RecipeBase) -> bool,
+) -> RecipeSummary {
     let recipe = &read.recipe;
     RecipeSummary {
         id: id.to_string(),
@@ -126,7 +130,7 @@ fn summary(id: &str, read: &RecipeRead) -> RecipeSummary {
         name: recipe.name.clone(),
         base: recipe.base.name.clone(),
         frames: recipe.base.frames,
-        mixamo: recipe.base.mixamo,
+        mixamo: recipe.base.mixamo || clip_mixamo(&recipe.base),
         layers: count(recipe.layers.len()),
         blanks: count(recipe.blanks.len()),
         open: count(recipe.blanks.iter().filter(|b| !b.filled()).count()),
@@ -165,6 +169,21 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
 ///
 /// Fails only when the `recipes` folder exists but cannot be read.
 pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<RecipeSummary>> {
+    list_with(project_dir, manifest, &|_| false)
+}
+
+/// As [`list`], each recipe also marked Mixamo when `clip_mixamo` says its
+/// base matches a clip read from a Mixamo rig, as reading it one by one
+/// does.
+///
+/// # Errors
+///
+/// As [`list`].
+pub fn list_with(
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    clip_mixamo: &dyn Fn(&RecipeBase) -> bool,
+) -> CoreResult<Vec<RecipeSummary>> {
     let folder = dir(project_dir);
     let entries = match fs::read_dir(&folder) {
         Ok(entries) => entries,
@@ -181,7 +200,7 @@ pub fn list(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Vec<Re
             continue;
         }
         found.push(match load_versioned(&entry.path()) {
-            Ok((recipe, version)) => summary(id, &settled(recipe, version, manifest)),
+            Ok((recipe, version)) => summary(id, &settled(recipe, version, manifest), clip_mixamo),
             Err(err) => broken(id, err.to_string()),
         });
     }
@@ -263,6 +282,20 @@ pub fn create(
 /// Fails on a name [`check_name`] refuses, when the recipe is gone or the
 /// file cannot be written.
 pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<RecipeSummary> {
+    rename_with(project_dir, id, name, &|_| false)
+}
+
+/// As [`rename`], its Mixamo mark read as [`list_with`] reads it.
+///
+/// # Errors
+///
+/// As [`rename`].
+pub fn rename_with(
+    project_dir: &Path,
+    id: &str,
+    name: &str,
+    clip_mixamo: &dyn Fn(&RecipeBase) -> bool,
+) -> CoreResult<RecipeSummary> {
     check_name(name)?;
     let _lock = writing();
     let file = path(project_dir, id)?;
@@ -280,7 +313,7 @@ pub fn rename(project_dir: &Path, id: &str, name: &str) -> CoreResult<RecipeSumm
         gone: Vec::new(),
         version,
     };
-    Ok(summary(id, &read))
+    Ok(summary(id, &read, clip_mixamo))
 }
 
 /// Free ids for the changes that came without one.

@@ -151,6 +151,46 @@ pub fn match_base<'a>(
     (missing, None)
 }
 
+/// Whether a recipe on `base` bakes as Mixamo's: marked so in its file, or
+/// its base matches a clip of `clips` read from a Mixamo rig.
+pub fn base_mixamo(clips: &[AnimationClip], base: &RecipeBase) -> bool {
+    base.mixamo
+        || match_base(clips, base)
+            .1
+            .is_some_and(|c| c.rig.kind == SourceRig::Mixamo)
+}
+
+/// Every recipe of the project at `project_dir`, each Mixamo mark read
+/// against the clip library of the workspace at `root` as [`get`] reads it.
+///
+/// # Errors
+///
+/// Fails when the recipes folder or the clip library cannot be read.
+pub fn summaries(
+    root: &Path,
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+) -> CoreResult<Vec<recipes::RecipeSummary>> {
+    let clips = list(root)?;
+    recipes::list_with(project_dir, manifest, &|b| base_mixamo(&clips, b))
+}
+
+/// Renames the recipe `id` as [`recipes::rename`] does, its Mixamo mark read
+/// as [`summaries`] reads it.
+///
+/// # Errors
+///
+/// As [`recipes::rename`], or when the clip library cannot be read.
+pub fn rename(
+    root: &Path,
+    project_dir: &Path,
+    id: &str,
+    name: &str,
+) -> CoreResult<recipes::RecipeSummary> {
+    let clips = list(root)?;
+    recipes::rename_with(project_dir, id, name, &|b| base_mixamo(&clips, b))
+}
+
 /// `read` as the view gets it, its base matched against `clips`.
 pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc {
     let RecipeRead {
@@ -159,8 +199,8 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         gone,
         version,
     } = read;
-    let (base, clip) = match_base(clips, &recipe.base);
-    let mixamo = recipe.base.mixamo || clip.is_some_and(|c| c.rig.kind == SourceRig::Mixamo);
+    let (base, _) = match_base(clips, &recipe.base);
+    let mixamo = base_mixamo(clips, &recipe.base);
     RecipeDoc {
         id: id.to_string(),
         file: format!("{}/{id}{}", recipes::RECIPES_DIR, recipes::RECIPE_SUFFIX),

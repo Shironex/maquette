@@ -65,3 +65,40 @@ fn a_mixamo_clip_in_the_library_marks_the_recipe_as_mixamo() {
     assert!(doc.mixamo, "the library clip came from a Mixamo rig");
     assert!(!doc.recipe.base.mixamo);
 }
+
+#[test]
+fn lists_mark_mixamo_as_reading_one_recipe_does() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (root, project) = (dir.path().join("ws"), dir.path().join("project"));
+    store(
+        &root,
+        &library_clip("idle", "Standing Idle", "Singles", "h1"),
+    )
+    .expect("store");
+    let doc = create(&root, &project, Some("idle"), None).expect("create");
+    let mut unmarked = doc.recipe.clone();
+    unmarked.base.mixamo = false;
+    crate::recipes::create_whole(&project, &unmarked, Some("unmarked")).expect("write");
+    let manifest: crate::project::ProjectManifest = serde_json::from_value(serde_json::json!({
+        "version": 1, "id": "frostveil", "name": "Frostveil", "template": "floating-diorama",
+        "createdAt": "2026-11-05T10:00:00.000Z", "assets": []
+    }))
+    .expect("manifest");
+    let listed = summaries(&root, &project, &manifest).expect("list");
+    let line = listed
+        .iter()
+        .find(|r| r.id == "unmarked")
+        .expect("the unmarked copy");
+    let read = get(&root, &project, &manifest, &line.id).expect("get");
+    assert!(read.mixamo && line.mixamo, "list and get agree");
+    let renamed = rename(&root, &project, &line.id, "Idle again").expect("rename");
+    assert!(renamed.mixamo);
+
+    let file = dir.path().join("unmarked.recipe.json");
+    std::fs::write(&file, serde_json::to_string(&unmarked).expect("json")).expect("file");
+    let added = library::import_to_library(&root, &file).expect("library");
+    let entry = library::list(&root).expect("library list");
+    let row = entry.iter().find(|e| e.id == added.entry).expect("row");
+    let full = library::get(&root, &added.entry, None).expect("library get");
+    assert!(full.mixamo && row.mixamo, "library list and get agree");
+}

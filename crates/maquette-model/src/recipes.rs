@@ -53,7 +53,8 @@ mod files;
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use copies::{create_whole, link};
 pub use files::{
-    RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update, version,
+    RecipeChange, RecipeRead, RecipeSummary, create, get, list, list_with, remove, rename,
+    rename_with, update, version,
 };
 
 pub const RECIPES_DIR: &str = "recipes";

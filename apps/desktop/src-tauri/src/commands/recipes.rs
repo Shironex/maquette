@@ -27,8 +27,8 @@ fn opened(
 }
 
 pub(crate) fn list(session: &Session, project: &str) -> CommandResult<Vec<RecipeSummary>> {
-    let (_, dir, manifest) = opened(session, project)?;
-    Ok(recipes::list(&dir, &manifest)?)
+    let (root, dir, manifest) = opened(session, project)?;
+    Ok(library_recipes::summaries(&root, &dir, &manifest)?)
 }
 
 pub(crate) fn get(session: &Session, project: &str, id: &str) -> CommandResult<RecipeDoc> {
@@ -105,11 +105,8 @@ pub fn recipe_rename(
     id: String,
     name: String,
 ) -> CommandResult<RecipeSummary> {
-    Ok(recipes::rename(
-        &project_dir(&session, &project)?,
-        &id,
-        &name,
-    )?)
+    let (root, dir, _) = opened(&session, &project)?;
+    Ok(library_recipes::rename(&root, &dir, &id, &name)?)
 }
 
 /// Replaces a recipe's name, changes, blanks or any of them in one write,
