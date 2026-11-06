@@ -7160,10 +7160,18 @@ export type RecipeChange_Deserialize = {
 	blanks: RecipeBlank[] | null,
 	/**
 	 *  Every clip in order, the base first, each with its trim and (after
-	 *  the first) its blend window. Keys and time edits on a clip no longer
-	 *  sent are refused, so send those lists too.
+	 *  the first) its blend window. The keys and time edits the recipe
+	 *  keeps (the lists not sent with it) follow their clip to its new
+	 *  place; taking away a clip one of them sits on is refused. Lists sent
+	 *  with it count clips in the new order.
 	 */
 	clips?: RecipeBase_Deserialize[] | null,
+	/**
+	 *  For each clip of `clips`, the index of the recipe's clip it keeps (0
+	 *  the base), or none for a new one. Left out, a clip sent keeps the
+	 *  first of the recipe's clips with its name, frames and hash.
+	 */
+	kept?: (number | null)[] | null,
 	/**  Every time edit. */
 	time?: TimeEdit_Deserialize[] | null,
 	/**  Left and right swapped across the whole recipe, or not. */
@@ -7194,10 +7202,18 @@ export type RecipeChange_Serialize = {
 	blanks: RecipeBlank[] | null,
 	/**
 	 *  Every clip in order, the base first, each with its trim and (after
-	 *  the first) its blend window. Keys and time edits on a clip no longer
-	 *  sent are refused, so send those lists too.
+	 *  the first) its blend window. The keys and time edits the recipe
+	 *  keeps (the lists not sent with it) follow their clip to its new
+	 *  place; taking away a clip one of them sits on is refused. Lists sent
+	 *  with it count clips in the new order.
 	 */
 	clips?: RecipeBase_Serialize[] | null,
+	/**
+	 *  For each clip of `clips`, the index of the recipe's clip it keeps (0
+	 *  the base), or none for a new one. Left out, a clip sent keeps the
+	 *  first of the recipe's clips with its name, frames and hash.
+	 */
+	kept?: (number | null)[] | null,
 	/**  Every time edit. */
 	time?: TimeEdit_Serialize[] | null,
 	/**  Left and right swapped across the whole recipe, or not. */

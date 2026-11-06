@@ -22,10 +22,17 @@ export function versionOf(value: unknown): string {
 
 /**
  * A stand-in for the core's motion version: the file's hash without its
- * library link and bookkeeping, so saving to the library changes nothing.
+ * library link, a grip's library link and bookkeeping, so saving to the
+ * library or linking a grip again changes nothing.
  */
 export function motionVersionOf(file: RecipeFile): string {
-  return versionOf({ ...file, from: null, revision: 0, edited: '', created: '' });
+  const layers = file.layers.map(l => {
+    if (!l.from) return l;
+    const bare = { ...l };
+    delete bare.from;
+    return bare;
+  });
+  return versionOf({ ...file, layers, from: null, revision: 0, edited: '', created: '' });
 }
 
 /** The core's `unique_name`: a taken name gets ` (2)` and on, ignoring case. */
@@ -130,35 +137,6 @@ export const clipsOf = (recipe: RecipeFile): RecipeBase[] => [
 /** A bake of `recipe` counts as Mixamo's when any of its clips does. */
 export const recipeMixamo = (clips: readonly AnimationClip[], recipe: RecipeFile) =>
   clipsOf(recipe).some(c => isMixamo(clips, c));
-
-const V2_KINDS: readonly RecipeLayer['kind'][] = ['pin', 'pose', 'grip'];
-
-/** The core's `uses_v2`: joined clips, a trim, mirror, time edits, pins, pose keys or grips. */
-export const usesV2 = (recipe: RecipeFile) =>
-  Boolean(
-    recipe.joined?.length ||
-    recipe.mirror ||
-    recipe.time?.length ||
-    clipsOf(recipe).some(c => c.trim) ||
-    recipe.layers.some(l => V2_KINDS.includes(l.kind))
-  );
-
-/**
- * The recipe as the core writes it: version 1 while it uses nothing of
- * version 2 and 2 once it does, the version 2 lists left out while empty.
- */
-export function withVersion(recipe: RecipeFile): RecipeFile {
-  const { joined, mirror, time, ...rest } = recipe;
-  const out: RecipeFile = {
-    ...rest,
-    ...(joined?.length
-      ? { joined: joined.map(c => ({ ...c, blend: c.blend ?? { frames: 8 } })) }
-      : {}),
-    ...(mirror ? { mirror } : {}),
-    ...(time?.length ? { time } : {}),
-  };
-  return { ...out, version: usesV2(out) ? 2 : 1 };
-}
 
 export function newRecipe(name: string, base: RecipeBase): RecipeFile {
   const now = clock.now().toISOString();

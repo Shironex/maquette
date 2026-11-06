@@ -35,8 +35,8 @@ import {
   recipeMixamo,
   restBase,
   versionOf,
-  withVersion,
 } from './recipe-files';
+import { followClips, v2Problem, withVersion } from './recipe-v2';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 
@@ -287,6 +287,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
         layers,
         blanks,
         clips,
+        kept: keptFrom,
         time,
         mirror,
         expected,
@@ -308,17 +309,17 @@ export function createRecipeHandlers(ctx: RecipeContext) {
           fail('invalid', `The recipe has no prop blank ${c} to clear.`);
       const [head, ...joined] = clips ?? [current.base, ...(current.joined ?? [])];
       if (!head) fail('invalid', 'Send at least one clip: the first is the base.');
-      if (joined.length + 1 > 8) fail('invalid', 'A recipe joins at most 8 clips.');
-      const base = { ...head };
-      delete base.blend;
+      const followed = clips
+        ? followClips(current, clips, keptFrom, layers != null, time != null)
+        : { layers: current.layers, time: current.time ?? [] };
       const next: RecipeFile = withVersion({
         ...current,
         name: name?.trim() ?? current.name,
-        base,
+        base: head,
         joined,
         mirror: mirror ?? current.mirror,
-        time: time ?? current.time,
-        layers: (layers ?? current.layers).map((l, i) => (l.id ? l : { ...l, id: `l-${i + 1}` })),
+        time: time ?? followed.time,
+        layers: (layers ?? followed.layers).map((l, i) => (l.id ? l : { ...l, id: `l-${i + 1}` })),
         blanks: kept,
       });
       const problems = checkDraft(next);
@@ -326,7 +327,8 @@ export function createRecipeHandlers(ctx: RecipeContext) {
         ...problems.general,
         ...Object.values(problems.blanks),
         ...Object.values(problems.layers),
-      ][0];
+        v2Problem(next),
+      ].filter(Boolean)[0];
       if (first) fail('invalid', first);
       const recipe = { ...next, edited: clock.now().toISOString() };
       recipes(project).set(String(id), recipe);
