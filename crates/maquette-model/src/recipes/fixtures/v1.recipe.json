@@ -26,7 +26,11 @@
       "label": "Where the eyes go after",
       "kind": "point",
       "prop": null,
-      "point": [0.35, 1.45, 0.6]
+      "point": [
+        0.35,
+        1.45,
+        0.6
+      ]
     }
   ],
   "layers": [
@@ -84,8 +88,16 @@
         "start": 0.0,
         "end": 1.0,
         "target": null,
-        "rotation": [0.0, 10.0, -5.5],
-        "offset": [0.0, 0.02, 0.0],
+        "rotation": [
+          0.0,
+          10.0,
+          -5.5
+        ],
+        "offset": [
+          0.0,
+          0.02,
+          0.0
+        ],
         "cycles": null,
         "amount": null
       }
