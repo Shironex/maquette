@@ -92,17 +92,27 @@ pub fn base_of(clip: &AnimationClip) -> RecipeBase {
 }
 
 /// A clip a recipe is made or changed on: a library clip by id, or one the
-/// recipe already has by its index (kept as it is, its hash included), with
-/// its trim and, after the first, its blend window.
+/// recipe already has by its index (kept as it is, its hash, trim and blend
+/// included unless the pick sends a trim or blend), with its trim and,
+/// after the first, its blend window.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ClipPick {
     /// A library clip's id, as list_animations gives it.
     pub clip: Option<String>,
     /// The index of a clip the recipe has: 0 the base.
     pub keep: Option<u32>,
+    /// None keeps a kept clip's trim, or takes the whole of a library clip.
     pub trim: Option<[u32; 2]>,
-    /// None takes the default: 8 frames, smooth, hips and facing lined up.
+    /// None keeps a kept clip's blend, or takes the default: 8 frames,
+    /// smooth, hips and facing lined up. The first clip never has one.
     pub blend: Option<BlendWindow>,
+}
+
+/// For each of `picks`, the index of the recipe's clip it keeps, or none
+/// for a library clip: what [`RecipeChange::kept`] takes, so keys and time
+/// edits follow their clip.
+pub fn kept_of(picks: &[ClipPick]) -> Vec<Option<u32>> {
+    picks.iter().map(|p| p.keep).collect()
 }
 
 /// The clips `picks` name, in order, each library clip read from the
@@ -139,11 +149,14 @@ pub fn clips_of(
                     )));
                 }
             };
-            clip.trim = pick.trim;
+            // A kept clip keeps its trim and blend unless the pick sends them.
+            if pick.trim.is_some() || pick.keep.is_none() {
+                clip.trim = pick.trim;
+            }
             clip.blend = if i == 0 {
                 None
             } else {
-                Some(pick.blend.clone().unwrap_or_default())
+                Some(pick.blend.clone().or(clip.blend.take()).unwrap_or_default())
             };
             Ok(clip)
         })

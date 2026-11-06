@@ -188,3 +188,66 @@ fn a_joined_recipe_matches_each_clip_and_is_mixamo_when_any_clip_is() {
     assert_eq!(one.recipe.version, crate::recipes::RECIPE_VERSION_1);
     assert!(one.joined.is_empty());
 }
+
+#[test]
+fn a_kept_clip_keeps_its_trim_and_blend_unless_the_pick_sends_them() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (root, project) = (dir.path().join("ws"), dir.path().join("project"));
+    for (id, name, hash) in [("a", "Clip A", "h1"), ("b", "Clip B", "h2")] {
+        store(&root, &library_clip(id, name, "Singles", hash)).expect("store");
+    }
+    let window = crate::recipes::BlendWindow {
+        frames: 4,
+        curve: crate::recipes::BlendCurve::Linear,
+        line_up: crate::recipes::LineUp::Hips,
+    };
+    let picks = [
+        ClipPick {
+            clip: Some("a".into()),
+            trim: Some([2, 30]),
+            ..ClipPick::default()
+        },
+        ClipPick {
+            clip: Some("b".into()),
+            trim: Some([1, 20]),
+            blend: Some(window.clone()),
+            ..ClipPick::default()
+        },
+    ];
+    let doc = create_joined(&root, &project, &picks, false, None).expect("create");
+    let keep = |keep: u32| ClipPick {
+        keep: Some(keep),
+        ..ClipPick::default()
+    };
+
+    let same = clips_of(&root, Some(&doc.recipe), &[keep(0), keep(1)]).expect("keep");
+    assert_eq!(same[0].trim, Some([2, 30]));
+    assert_eq!(same[1].trim, Some([1, 20]));
+    assert_eq!(same[1].blend, Some(window.clone()), "its own blend");
+
+    let sent = clips_of(
+        &root,
+        Some(&doc.recipe),
+        &[
+            keep(0),
+            ClipPick {
+                trim: Some([0, 10]),
+                blend: Some(crate::recipes::BlendWindow::default()),
+                ..keep(1)
+            },
+        ],
+    )
+    .expect("sent");
+    assert_eq!(sent[1].trim, Some([0, 10]), "a sent trim wins");
+    assert_eq!(sent[1].blend, Some(crate::recipes::BlendWindow::default()));
+
+    let swapped = clips_of(&root, Some(&doc.recipe), &[keep(1), keep(0)]).expect("swap");
+    assert_eq!(swapped[0].blend, None, "the first clip has no blend");
+    assert_eq!(swapped[0].trim, Some([1, 20]));
+    assert_eq!(
+        swapped[1].blend,
+        Some(crate::recipes::BlendWindow::default()),
+        "the old base had no blend, so it takes the default"
+    );
+    assert_eq!(kept_of(&[keep(1), ClipPick::default()]), [Some(1), None]);
+}
