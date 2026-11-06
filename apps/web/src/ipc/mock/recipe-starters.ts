@@ -43,7 +43,7 @@ const SPECS: Spec[] = [
     name: 'Wave hello',
     about: 'Raises the right arm and waves the forearm, on the rest pose.',
     clips: [],
-    frames: 90,
+    frames: 60,
     blanks: [],
     layers: [
       layer('l-1', 'nudge', 'rightUpperArm', { rotation: [0, 0, -60] }),
