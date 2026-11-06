@@ -1,16 +1,19 @@
 import { Button, Icon, InlineBanner } from '@maquette/ui';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
+import { editable } from '@/state/recipe-draft';
 import { RecipeBlanks } from '../RecipeBlanks';
 import { RecipeChanges } from '../RecipeChanges';
 import { RecipePlayer } from '../RecipePlayer';
 import { ApplyButton, EditorBake } from './EditorApply';
+import RecipeReadOnly from './RecipeReadOnly';
 import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
 
 /**
  * One recipe open: the rough preview with its timeline, the changes and the
  * blanks. Edits stay here until Save, through leaving the tab; leaving the
  * recipe with unsaved edits asks first, and an agent's edit made meanwhile
- * merges or asks which side wins.
+ * merges or asks which side wins. A recipe of file version 2, which the
+ * editor cannot edit yet, shows read only.
  */
 export default function RecipeEditor() {
   const v = useRecipeEditor();
@@ -18,6 +21,7 @@ export default function RecipeEditor() {
   const { editing } = v;
   if (!editing) return null;
   const { doc } = editing;
+  if (!editable(doc.recipe)) return <RecipeReadOnly doc={doc} onBack={v.back} />;
   const general = v.general.map(line => <InlineBanner key={line} tone="danger" title={line} />);
   const status = v.saving ? 'saving' : v.dirty ? 'unsaved edits' : 'saved';
   return (

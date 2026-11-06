@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { LayerKind } from '@/ipc/client';
 import { LIMITS, checkDraft } from '@/state/recipe-check';
-import { KIND_ABOUT, KIND_WORDS, newLayer } from '@/state/recipe-draft';
+import { EDITABLE_KINDS, KIND_ABOUT, KIND_WORDS, newLayer } from '@/state/recipe-draft';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 
 /** The open recipe's changes in order, the one whose settings show, and adding one. */
@@ -22,7 +22,7 @@ export function useRecipeChanges() {
     toggle: (id: string) => pick(picked === id ? null : { what: 'layer', id }),
     // Short labels, as the change form's kind picker has them, so the closed
     // select is never cut off; what the picked kind does shows on hover.
-    kinds: (Object.keys(KIND_WORDS) as LayerKind[]).map(k => ({ value: k, label: KIND_WORDS[k] })),
+    kinds: EDITABLE_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
     kindAbout: KIND_ABOUT[kind],
     kind,
     setKind,

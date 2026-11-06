@@ -121,6 +121,45 @@ export function matchBase(
 export const isMixamo = (clips: readonly AnimationClip[], base: RecipeBase) =>
   base.mixamo || matchBase(clips, base)[1]?.rig.kind === 'mixamo';
 
+/** Every clip of a recipe in order: the base, then the joined ones. */
+export const clipsOf = (recipe: RecipeFile): RecipeBase[] => [
+  recipe.base,
+  ...(recipe.joined ?? []),
+];
+
+/** A bake of `recipe` counts as Mixamo's when any of its clips does. */
+export const recipeMixamo = (clips: readonly AnimationClip[], recipe: RecipeFile) =>
+  clipsOf(recipe).some(c => isMixamo(clips, c));
+
+const V2_KINDS: readonly RecipeLayer['kind'][] = ['pin', 'pose', 'grip'];
+
+/** The core's `uses_v2`: joined clips, a trim, mirror, time edits, pins, pose keys or grips. */
+export const usesV2 = (recipe: RecipeFile) =>
+  Boolean(
+    recipe.joined?.length ||
+    recipe.mirror ||
+    recipe.time?.length ||
+    clipsOf(recipe).some(c => c.trim) ||
+    recipe.layers.some(l => V2_KINDS.includes(l.kind))
+  );
+
+/**
+ * The recipe as the core writes it: version 1 while it uses nothing of
+ * version 2 and 2 once it does, the version 2 lists left out while empty.
+ */
+export function withVersion(recipe: RecipeFile): RecipeFile {
+  const { joined, mirror, time, ...rest } = recipe;
+  const out: RecipeFile = {
+    ...rest,
+    ...(joined?.length
+      ? { joined: joined.map(c => ({ ...c, blend: c.blend ?? { frames: 8 } })) }
+      : {}),
+    ...(mirror ? { mirror } : {}),
+    ...(time?.length ? { time } : {}),
+  };
+  return { ...out, version: usesV2(out) ? 2 : 1 };
+}
+
 export function newRecipe(name: string, base: RecipeBase): RecipeFile {
   const now = clock.now().toISOString();
   return { version: 1, name, revision: 1, created: now, edited: now, base, blanks: [], layers: [] };

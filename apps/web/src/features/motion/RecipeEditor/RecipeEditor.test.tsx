@@ -155,4 +155,63 @@ describe('the recipe editor', () => {
     );
     expect(start).not.toHaveBeenCalled();
   });
+
+  it('shows a recipe of file version 2 read only, with no Save or Apply', async () => {
+    await openRecipe();
+    const doc = useRecipeEditorStore.getState().editing!.doc;
+    const keys: RecipeLayer = {
+      id: 'l-9',
+      kind: 'pose',
+      bone: '',
+      settings: { ...doc.recipe.layers[0]!.settings, target: null, start: 0, end: 1 },
+      keys: [{ clip: 1, frame: 4, pose: { chest: [0, -18, 0] } }],
+    };
+    const changed = await commands.recipeUpdate('frostveil', doc.id, {
+      name: null,
+      layers: [...doc.recipe.layers, keys],
+      blanks: null,
+      clips: [{ ...doc.recipe.base, trim: [2, 30] }, doc.recipe.base],
+      time: [{ kind: 'freeze', clip: 1, at: 10, frames: 6 }],
+      mirror: true,
+    });
+    expect(changed.recipe.version).toBe(2);
+    useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
+    await useRecipeEditorStore.getState().open('frostveil', doc.id);
+    render(<RecipeEditor />);
+    expect(
+      screen.getByText('This recipe uses what this Maquette cannot edit or bake yet')
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /apply/i })).toBeNull();
+    const clips = screen.getByRole('region', { name: 'Clips' });
+    expect(clips).toHaveTextContent(/keeps 2 to 30/);
+    expect(clips).toHaveTextContent(/blend 8 f/);
+    expect(screen.getByRole('region', { name: 'Time edits' })).toHaveTextContent(
+      'Freeze clip 2, frame 10 for 6 f'
+    );
+    expect(screen.getByRole('region', { name: 'Changes' })).toHaveTextContent('Pose keys · 1 key');
+    expect(screen.getByRole('region', { name: 'Mirror' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
+    expect(useRecipeEditorStore.getState().editing).toBeNull();
+  });
+
+  it('goes back to version 1 once nothing new is used', async () => {
+    await openRecipe();
+    const doc = useRecipeEditorStore.getState().editing!.doc;
+    const on = await commands.recipeUpdate('frostveil', doc.id, {
+      name: null,
+      layers: null,
+      blanks: null,
+      mirror: true,
+    });
+    expect(on.recipe.version).toBe(2);
+    const off = await commands.recipeUpdate('frostveil', doc.id, {
+      name: null,
+      layers: null,
+      blanks: null,
+      mirror: false,
+    });
+    expect(off.recipe.version).toBe(1);
+    expect(off.motionVersion).toBe(doc.motionVersion);
+  });
 });

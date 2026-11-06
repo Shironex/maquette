@@ -28,13 +28,14 @@ import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
 import { createRecipeLibraryHandlers } from './create-recipe-library-handlers';
 import {
   baseOf,
-  isMixamo,
   layer,
   matchBase,
   motionVersionOf,
   newRecipe,
+  recipeMixamo,
   restBase,
   versionOf,
+  withVersion,
 } from './recipe-files';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
@@ -146,7 +147,10 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       file: fileOf(id),
       recipe,
       base: matchBase(ctx.clips(), recipe.base)[0],
-      mixamo: isMixamo(ctx.clips(), recipe.base),
+      ...(recipe.joined?.length
+        ? { joined: recipe.joined.map(c => matchBase(ctx.clips(), c)[0]) }
+        : {}),
+      mixamo: recipeMixamo(ctx.clips(), recipe),
       warnings,
       gone,
       version: versionOf(stored),
@@ -161,7 +165,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       name: recipe.name,
       base: recipe.base.name,
       frames: recipe.base.frames,
-      mixamo: recipe.base.mixamo,
+      mixamo: recipe.base.mixamo || (recipe.joined ?? []).some(c => c.mixamo),
       layers: recipe.layers.length,
       blanks: recipe.blanks.length,
       open: recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point)).length,
@@ -171,6 +175,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       warnings,
       problem: null,
       from: stored.from ?? null,
+      format: stored.version,
     };
   };
   /**
@@ -277,7 +282,16 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       return summary(String(project), String(id), recipe);
     },
     recipe_update: ({ project, id, change }: Args) => {
-      const { name, layers, blanks, expected, clear = [] } = change as RecipeChange;
+      const {
+        name,
+        layers,
+        blanks,
+        clips,
+        time,
+        mirror,
+        expected,
+        clear = [],
+      } = change as RecipeChange;
       if (name != null) checkName(name);
       const current = existing(project, id);
       const now = versionOf(current);
@@ -292,12 +306,21 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       for (const c of clear)
         if (!kept.some(b => b.id === c && b.kind === 'prop'))
           fail('invalid', `The recipe has no prop blank ${c} to clear.`);
-      const next: RecipeFile = {
+      const [head, ...joined] = clips ?? [current.base, ...(current.joined ?? [])];
+      if (!head) fail('invalid', 'Send at least one clip: the first is the base.');
+      if (joined.length + 1 > 8) fail('invalid', 'A recipe joins at most 8 clips.');
+      const base = { ...head };
+      delete base.blend;
+      const next: RecipeFile = withVersion({
         ...current,
         name: name?.trim() ?? current.name,
+        base,
+        joined,
+        mirror: mirror ?? current.mirror,
+        time: time ?? current.time,
         layers: (layers ?? current.layers).map((l, i) => (l.id ? l : { ...l, id: `l-${i + 1}` })),
         blanks: kept,
-      };
+      });
       const problems = checkDraft(next);
       const first = [
         ...problems.general,

@@ -13,9 +13,13 @@ const KIND: Record<RecipeLayer['kind'], string> = {
   nudge: 'nudge',
   'look-at': 'look at',
   wave: 'wave',
+  pin: 'pin',
+  pose: 'pose keys',
+  grip: 'grip',
 };
 
-const layerWords = (l: RecipeLayer) => `the ${KIND[l.kind]} on ${l.bone} (${l.id})`;
+const layerWords = (l: RecipeLayer) =>
+  l.bone ? `the ${KIND[l.kind]} on ${l.bone} (${l.id})` : `the ${KIND[l.kind]} (${l.id})`;
 const blankWords = (b: RecipeBlank) => `the ${b.kind} blank ${b.id} (${b.label})`;
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
