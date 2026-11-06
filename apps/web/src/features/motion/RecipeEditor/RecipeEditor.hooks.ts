@@ -3,6 +3,7 @@ import type { RecipeOutside } from '@/state/recipe-editor.types';
 import { checkDraft, problemCount } from '@/state/recipe-check';
 import { blankFilled } from '@/state/recipe-draft';
 import { isDirty, useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 import { useBakeModel, useRecipeBake } from '../RecipeBake';
 
 /**
@@ -24,12 +25,17 @@ export function useRecipeEditor() {
   const draft = editing?.draft ?? null;
   const model = useBakeModel();
   const problems = useMemo(() => (draft ? checkDraft(draft, model) : null), [draft, model]);
+  const dt = useRecipeTimeline();
   const store = useRecipeEditorStore.getState();
   const dirty = isDirty(editing);
   const toFix = problems ? problemCount(problems) : 0;
+  const status = saving ? 'saving' : dirty ? 'unsaved edits' : 'saved';
+  const clips = draft?.clips.map(c => c.name).join(' + ') ?? '';
   return {
     editing,
     dirty,
+    /** "Slash + Block + Idle · 147 f · slash.recipe.json · saved". */
+    meta: [clips, `${dt?.timeline.frames ?? 0} f`, editing?.doc.file ?? '', status].join(' · '),
     saving,
     saveError,
     merged,

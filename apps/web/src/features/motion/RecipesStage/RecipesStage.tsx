@@ -10,10 +10,6 @@ import { RecipeEditor } from '../RecipeEditor';
 import { RecipeReview } from '../RecipeReview';
 import { useRecipesStage, useRowMenu } from './RecipesStage.hooks';
 
-/** Why Apply waits on a recipe of file version 2. */
-const NOT_BAKEABLE =
-  'This Maquette cannot bake joined clips, trims, mirror, time edits, pins, pose keys or grips yet.';
-
 const ABOUT =
   'A recipe is a clip from the animation library with changes laid over it. Apply bakes it onto a rigged model as a single clip, staged for a review.';
 
@@ -106,7 +102,9 @@ function Row({
     { open: recipe.open, layers: recipe.layers },
     { version: recipe.version || null, motionVersion: recipe.motionVersion || null }
   );
-  const blocked = (recipe.format ?? 1) > 1 ? NOT_BAKEABLE : bake.blocked;
+  // A recipe holding pins, pose keys or grips is refused by the bake itself
+  // (not-bakeable-yet): the list's summary does not say which kinds it holds.
+  const blocked = bake.blocked;
   if (recipe.problem) {
     return (
       <li className="flex items-start gap-3 rounded-card border border-line bg-danger-soft px-3 py-2.5">

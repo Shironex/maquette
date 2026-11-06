@@ -174,7 +174,21 @@ describe('the recipe editor', () => {
     expect(start).not.toHaveBeenCalled();
   });
 
-  it('shows a recipe of file version 2 read only, with no Save or Apply', async () => {
+  it('edits a joined recipe, with its base edits and the bake length in the header', async () => {
+    await openRecipe('slash-into-block');
+    render(<RecipeEditor />);
+    expect(screen.getByRole('region', { name: 'Base edits' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /^Sword And Shield Slash \+ Sword And Shield Block \+ Sword And Shield Idle · \d+ f · /
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('This recipe uses what this Maquette cannot edit or bake yet')
+    ).toBeNull();
+  });
+
+  it('shows a recipe holding pose keys read only, with no Save and Apply off', async () => {
     await openRecipe();
     const doc = useRecipeEditorStore.getState().editing!.doc;
     const keys: RecipeLayer = {
@@ -200,7 +214,7 @@ describe('the recipe editor', () => {
       screen.getByText('This recipe uses what this Maquette cannot edit or bake yet')
     ).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /apply/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /apply/i })).toHaveAttribute('aria-disabled', 'true');
     const clips = screen.getByRole('region', { name: 'Clips' });
     expect(clips).toHaveTextContent(/keeps 2 to 30/);
     expect(clips).toHaveTextContent(/blend 8 f/);

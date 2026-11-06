@@ -1,5 +1,6 @@
 import { Button, InlineBanner } from '@maquette/ui';
 import { editable } from '@/state/recipe-draft';
+import { RecipeBaseEdits } from '../RecipeBaseEdits';
 import { RecipeBlanks } from '../RecipeBlanks';
 import { RecipeChanges } from '../RecipeChanges';
 import { RecipePlayer } from '../RecipePlayer';
@@ -12,9 +13,11 @@ import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
  * One recipe open: the rough preview with its timeline, the changes and the
  * blanks. Edits stay here until Save, through leaving the tab; leaving the
  * recipe with unsaved edits asks first, and an agent's edit made meanwhile
- * merges or asks which side wins. A recipe of file version 2, which the
- * editor cannot edit yet, shows read only, with the same questions and a
- * way to save or discard edits made before an agent changed it.
+ * merges or asks which side wins. Base edits (joined clips, trims, time
+ * edits, the mirror) sit above the changes. A recipe holding pins, pose
+ * keys or grips, which the editor cannot edit yet, shows read only, with
+ * the same questions and a way to save or discard edits made before an
+ * agent changed it.
  */
 export default function RecipeEditor() {
   const v = useRecipeEditor();
@@ -29,7 +32,6 @@ export default function RecipeEditor() {
       </RecipeReadOnly>
     );
   const general = v.general.map(line => <InlineBanner key={line} tone="danger" title={line} />);
-  const status = v.saving ? 'saving' : v.dirty ? 'unsaved edits' : 'saved';
   return (
     <div
       aria-label={`Recipe ${doc.recipe.name}`}
@@ -42,9 +44,7 @@ export default function RecipeEditor() {
         </Button>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-panel-title">{doc.recipe.name}</h2>
-          <p className="truncate font-mono text-[11.5px] text-fg-mute">
-            {doc.recipe.base.name} · {doc.recipe.base.frames} f · {doc.file} · {status}
-          </p>
+          <p className="truncate font-mono text-[11.5px] text-fg-mute">{v.meta}</p>
         </div>
         {v.outside && !v.outside.asking ? (
           <Button size="sm" icon="warning" onClick={v.outside.ask}>
@@ -90,6 +90,7 @@ export default function RecipeEditor() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,1fr)]">
         <RecipePlayer />
         <div className="flex min-w-0 flex-col gap-3">
+          <RecipeBaseEdits />
           <RecipeChanges />
           <RecipeBlanks />
         </div>
