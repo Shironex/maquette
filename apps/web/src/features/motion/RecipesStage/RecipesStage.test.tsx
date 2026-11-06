@@ -2,6 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
+import { act } from 'react';
+import { useAgentsStore } from '@/state/use-agents-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
@@ -36,6 +38,19 @@ async function openWithModels() {
 }
 
 describe('the recipes stage', () => {
+  it('leaves room under the last row for a floating approval card', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    expect(list).not.toHaveClass('pb-72');
+    const status = { approvals: [{ id: 'a' }] } as unknown as NonNullable<
+      ReturnType<typeof useAgentsStore.getState>['status']
+    >;
+    act(() => useAgentsStore.setState({ status }));
+    expect(list).toHaveClass('pb-72');
+    act(() => useAgentsStore.setState(useAgentsStore.getInitialState(), true));
+  });
+
   it('says there are no recipes yet and opens the base clip picker', async () => {
     await openMockLibrary();
     render(<RecipesStage />);
@@ -76,6 +91,7 @@ describe('the recipes stage', () => {
         open: 1,
         edited: '2026-11-05T10:00:00.000Z',
         version: 'v1',
+        motionVersion: 'm1',
         warnings: [warning],
         problem: null,
         from: null,
@@ -144,7 +160,9 @@ describe('the recipes stage', () => {
     await openWithModels();
     const listed = await commands.recipeList('frostveil');
     vi.spyOn(commands, 'recipeList').mockResolvedValueOnce(
-      listed.map(r => (r.id === 'reach-for-the-lantern' ? { ...r, version: 'older' } : r))
+      listed.map(r =>
+        r.id === 'reach-for-the-lantern' ? { ...r, version: 'older', motionVersion: 'older' } : r
+      )
     );
     render(<RecipesStage />);
     const list = await screen.findByRole('list', { name: 'Project recipes' });
@@ -154,6 +172,28 @@ describe('the recipes stage', () => {
     await userEvent.click(within(reach).getByRole('button', { name: 'Apply' }));
     expect(await within(reach).findByText(/changed since it was read/)).toBeVisible();
     expect(within(reach).queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('reads a bake record from before the motion version as out of date once the file changed', async () => {
+    await openWithModels();
+    const listed = await commands.recipeList('frostveil');
+    const reach = listed.find(r => r.id === 'reach-for-the-lantern')!;
+    const real = await commands.recipeBakeGet('frostveil', 'reach-for-the-lantern');
+    expect(real?.result).toBeTruthy();
+    // An old record holds only the file version, which the recipe does not have.
+    const old = {
+      ...real!,
+      stale: null,
+      result: { ...real!.result!, motionVersion: '', recipeVersion: 'older' },
+    };
+    vi.spyOn(commands, 'recipeBakeGet').mockResolvedValue(old);
+    vi.spyOn(commands, 'recipeList').mockResolvedValueOnce(
+      listed.map(r => (r.id === reach.id ? { ...r, version: 'newer' } : r))
+    );
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const row = within(list).getByText('Reach for the lantern').closest('li')!;
+    expect(await within(row).findByText('Out of date')).toBeVisible();
   });
 
   it('keeps Apply off for a recipe with an open blank', async () => {

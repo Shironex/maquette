@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, IconButton, InlineBanner, Loader } from '@maquette/ui';
+import { Button, EmptyState, Icon, IconButton, InlineBanner, Loader, cn } from '@maquette/ui';
 import { Menu } from '@/features/common/Menu';
 import { MixamoBadge } from '@/features/common/MixamoBadge';
 import type { RecipeSummary } from '@/ipc/client';
@@ -100,7 +100,7 @@ function Row({
     project,
     recipe.id,
     { open: recipe.open, layers: recipe.layers },
-    recipe.version || null
+    { version: recipe.version || null, motionVersion: recipe.motionVersion || null }
   );
   if (recipe.problem) {
     return (
@@ -172,6 +172,7 @@ export default function RecipesStage() {
     edit,
     opening,
     openError,
+    covered,
     ...library
   } = useRecipesStage();
   const rows = recipes?.map(r => (
@@ -246,7 +247,10 @@ export default function RecipesStage() {
       />
     </div>
   ) : (
-    <ul aria-label="Project recipes" className="flex list-none flex-col gap-2 overflow-y-auto">
+    <ul
+      aria-label="Project recipes"
+      className={cn('flex list-none flex-col gap-2 overflow-y-auto', covered && 'pb-72')}
+    >
       {rows}
     </ul>
   );

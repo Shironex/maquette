@@ -42,7 +42,7 @@ export default function SaveRecipeSheet() {
       width={560}
       footer={
         <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-          <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
+          <span className="min-w-0 flex-1 text-meta text-fg-mute">
             A save adds a revision; it never overwrites one.
           </span>
           <Button onClick={v.close}>Cancel</Button>

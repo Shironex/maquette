@@ -118,6 +118,12 @@ pub struct RecipeBakeResult {
     pub recipe_name: String,
     /// The recipe file's version (a hash of its bytes) it was baked from.
     pub recipe_version: String,
+    /// The recipe's motion version it was baked from: the file's hash
+    /// without its library link and other bookkeeping, which is what
+    /// "out of date" reads. Empty in a record from before, which reads by
+    /// `recipe_version` instead.
+    #[serde(default)]
+    pub motion_version: String,
     /// The library clip it started from, and the hash of its keys; both
     /// empty for a bake on the rest pose.
     pub base_clip: String,
@@ -142,6 +148,9 @@ pub struct RecipeBakeResult {
     /// What a name clash with the model's clips came to, in a sentence.
     #[serde(default)]
     pub clip_note: Option<String>,
+    /// The clip's length in frames as the clip library counts it: the
+    /// frame of its last key (keys 0 to `frames`), so it equals the base
+    /// clip's frames. The reaches' `frame`s count the same way.
     pub frames: u32,
     /// The staged model, absolute.
     pub file: String,

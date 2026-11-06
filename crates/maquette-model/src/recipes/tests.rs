@@ -748,3 +748,16 @@ fn an_empty_hash_alone_is_not_a_base_known_by_name() {
     .expect("v1 base");
     assert!(!old.by_name && !old.name_only());
 }
+
+#[test]
+fn a_taken_name_gets_a_number_and_a_free_one_stays() {
+    let taken = ["Lean in", " lean in (2) "];
+    assert_eq!(unique_name("Wave", &taken), "Wave");
+    assert_eq!(unique_name("Lean in", &taken), "Lean in (3)");
+    assert_eq!(unique_name("LEAN IN", &taken), "LEAN IN (3)");
+    assert_eq!(unique_name("Lean in", &[] as &[&str]), "Lean in");
+    let long = "x".repeat(NAME_MAX_CHARS);
+    let fit = unique_name(&long, &[long.as_str()]);
+    assert_eq!(fit.chars().count(), NAME_MAX_CHARS);
+    assert!(fit.ends_with(" (2)"));
+}

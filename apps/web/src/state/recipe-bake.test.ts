@@ -24,15 +24,27 @@ describe('a recipe bake', () => {
 
   it('reads as out of date once the recipe or the model moves on', () => {
     const model = { name: 'Elsheria', version: 2 };
-    expect(staleOf(record(), { recipeVersion: 'v1', model })).toBeNull();
-    expect(staleOf(record(), { recipeVersion: 'v2', model })).toBe(RECIPE_CHANGED);
-    expect(staleOf(record(), { recipeVersion: 'v1', model: { ...model, version: 3 } })).toBe(
+    expect(staleOf(record(), { motionVersion: 'm1', model })).toBeNull();
+    expect(staleOf(record(), { motionVersion: 'm2', model })).toBe(RECIPE_CHANGED);
+    // A record from before has no motion version: the file's version decides.
+    const old = record();
+    if (old.result) old.result.motionVersion = '';
+    expect(staleOf(old, { recipeVersion: 'v2', model })).toBe(RECIPE_CHANGED);
+    expect(staleOf(old, { recipeVersion: 'v1', model })).toBeNull();
+    expect(staleOf(record(), { motionVersion: 'm1', model: { ...model, version: 3 } })).toBe(
       'Elsheria is at v3 now, and this bake went onto v2. Bake it again.'
     );
     // What the view does not know, the core's last read says.
-    expect(staleOf(record({ stale: 'Gone.' }), { recipeVersion: 'v1' })).toBe('Gone.');
-    expect(staleOf(record({ stale: 'Gone.' }), { recipeVersion: 'v1', model })).toBeNull();
-    expect(staleOf(record({ state: 'running', result: null }), { recipeVersion: 'v9' })).toBeNull();
+    expect(staleOf(record({ stale: 'Gone.' }), { motionVersion: 'm1' })).toBe('Gone.');
+    // What the view judged itself drops the core's older word; any other reason stands.
+    expect(staleOf(record({ stale: RECIPE_CHANGED }), { motionVersion: 'm1', model })).toBeNull();
+    expect(
+      staleOf(record({ stale: 'The base clip Idle has other keys. Bake it again.' }), {
+        motionVersion: 'm1',
+        model,
+      })
+    ).toBe('The base clip Idle has other keys. Bake it again.');
+    expect(staleOf(record({ state: 'running', result: null }), { motionVersion: 'm9' })).toBeNull();
   });
 
   it('reads its progress as a label and a share', () => {

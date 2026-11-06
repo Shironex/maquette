@@ -26,7 +26,16 @@ import { checkDraft } from '@/state/recipe-check';
 import { fail, type Args } from './backend-options';
 import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
 import { createRecipeLibraryHandlers } from './create-recipe-library-handlers';
-import { baseOf, isMixamo, layer, matchBase, newRecipe, restBase, versionOf } from './recipe-files';
+import {
+  baseOf,
+  isMixamo,
+  layer,
+  matchBase,
+  motionVersionOf,
+  newRecipe,
+  restBase,
+  versionOf,
+} from './recipe-files';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 
@@ -141,6 +150,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       warnings,
       gone,
       version: versionOf(stored),
+      motionVersion: motionVersionOf(stored),
     };
   };
   const summary = (project: string, id: string, stored: RecipeFile): RecipeSummary => {
@@ -157,6 +167,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       open: recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point)).length,
       edited: recipe.edited,
       version: versionOf(stored),
+      motionVersion: motionVersionOf(stored),
       warnings,
       problem: null,
       from: stored.from ?? null,

@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     BlankKind, GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank,
     RecipeFile, RecipeFrom, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id,
-    load_versioned, normalized, path, settle_props, validate,
+    load_versioned, motion_version, normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -46,6 +46,10 @@ pub struct RecipeSummary {
     /// A hash of the file's bytes, as get answers it, which a write or a
     /// bake may send back as `expected`; empty when it could not be read.
     pub version: String,
+    /// A hash of what the recipe does, leaving out its library link and
+    /// other bookkeeping ([`super::motion_version`]); what a bake's
+    /// staleness is read by. Empty when it could not be read.
+    pub motion_version: String,
     /// Why the file could not be read, for a recipe that only lists.
     pub problem: Option<String>,
     /// The library recipe and revision it came from or was last saved as.
@@ -87,17 +91,21 @@ pub struct RecipeRead {
     /// A hash of the file's bytes, which a write may send back as
     /// `expected`.
     pub version: String,
+    /// [`super::motion_version`] of the recipe as the file holds it.
+    pub motion_version: String,
 }
 
 /// Opens the prop blanks `manifest`'s project no longer has.
 fn settled(mut recipe: RecipeFile, version: String, manifest: &ProjectManifest) -> RecipeRead {
     let gone = gone_props(&recipe, manifest);
+    let motion = motion_version(&recipe);
     let warnings = settle_props(&mut recipe, manifest);
     RecipeRead {
         recipe,
         warnings,
         gone,
         version,
+        motion_version: motion,
     }
 }
 
@@ -136,6 +144,7 @@ fn summary(
         open: count(recipe.blanks.iter().filter(|b| !b.filled()).count()),
         edited: recipe.edited.clone(),
         version: read.version.clone(),
+        motion_version: read.motion_version.clone(),
         warnings: read.warnings.clone(),
         problem: None,
         from: recipe.from.clone(),
@@ -155,6 +164,7 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         open: 0,
         edited: String::new(),
         version: String::new(),
+        motion_version: String::new(),
         warnings: Vec::new(),
         problem: Some(problem),
         from: None,
@@ -225,6 +235,29 @@ pub fn get(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResu
 /// Fails when it is missing or [`super::load_file`] refuses it.
 pub fn version(project_dir: &Path, id: &str) -> CoreResult<String> {
     Ok(load_versioned(&path(project_dir, id)?)?.1)
+}
+
+/// The [`super::motion_version`] of the recipe `id` as it is on disk.
+///
+/// # Errors
+///
+/// Fails when it is missing or [`super::load_file`] refuses it.
+pub fn motion_version_of(project_dir: &Path, id: &str) -> CoreResult<String> {
+    Ok(motion_version(&super::load_file(&path(project_dir, id)?)?))
+}
+
+/// The names of the recipes of the project at `project_dir`; a file that
+/// cannot be read has none.
+pub fn names(project_dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(dir(project_dir)) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().ends_with(RECIPE_SUFFIX))
+        .filter_map(|e| super::load_file(&e.path()).ok())
+        .map(|r| r.name)
+        .collect()
 }
 
 /// A free id for a recipe called `name`: its slug, then `-2`, `-3` and on.
@@ -308,6 +341,7 @@ pub fn rename_with(
         version = load_versioned(&file)?.1;
     }
     let read = RecipeRead {
+        motion_version: motion_version(&recipe),
         recipe,
         warnings: Vec::new(),
         gone: Vec::new(),

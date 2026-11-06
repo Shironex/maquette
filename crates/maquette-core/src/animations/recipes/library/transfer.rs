@@ -323,6 +323,14 @@ pub(super) fn add_entry(
     let mut notes = Vec::new();
     let entry = {
         let _turn = turn();
+        let named = recipes::unique_name(&recipe.name, &super::names(root));
+        if named != recipe.name {
+            notes.push(format!(
+                "The library has a recipe called {} already, so this one is {named}.",
+                recipe.name
+            ));
+            recipe.name = named;
+        }
         let id = free_entry_id(root, seed)?;
         if latin_slug(seed).is_some_and(|s| s != id && id.starts_with(&s)) {
             notes.push(format!(

@@ -5,6 +5,7 @@ export const RESULT: RecipeBakeResult = {
   recipe: 'reach-out',
   recipeName: 'Reach out',
   recipeVersion: 'v1',
+  motionVersion: 'm1',
   baseClip: 'standing-idle',
   baseHash: 'h1',
   recipeBaseHash: null,

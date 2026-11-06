@@ -10,7 +10,7 @@ use super::tests::{Project, bakes, humanoid, point, reach, reaching, settled};
 use super::*;
 use crate::error::CoreResult;
 use crate::pipeline::tools::Toolbox;
-use crate::recipes::baked;
+use crate::recipes::{self, baked};
 
 /// A finished bake of `p`'s recipe, as Apply leaves it.
 fn baked_once(p: &Project) -> (RecipeBakes, RecipeBakeRecord) {
@@ -302,4 +302,59 @@ fn a_finished_add_is_saved_even_when_the_bakes_record_cannot_be_written() {
         .expect("record");
     assert_eq!(read.added_version, Some(version));
     assert!(refused(&p).contains("added already"), "{}", refused(&p));
+}
+
+#[test]
+fn saving_the_recipe_to_the_library_leaves_its_bake_up_to_date_and_ready_to_add() {
+    use crate::animations::recipes::library::{RecipeSave, plan_save, save_back};
+    let mut p = reaching();
+    let (_bakes, done) = baked_once(&p);
+    let before = recipes::version(&p.dir, &p.recipe.id).expect("version");
+
+    // The save writes the library link into the project's recipe file.
+    let plan = plan_save(p.root(), &p.config.layout, &p.id, &p.recipe.id, None).expect("plan");
+    save_back(
+        p.root(),
+        &p.config.layout,
+        &RecipeSave {
+            project: p.id.clone(),
+            recipe: p.recipe.id.clone(),
+            entry: None,
+            expected: None,
+            recipe_expected: Some(plan.recipe_version),
+        },
+    )
+    .expect("save");
+    let after = recipes::version(&p.dir, &p.recipe.id).expect("version");
+    assert_ne!(before, after, "the file's own version moved with the link");
+
+    let read = record_of(p.root(), &p.config, &p.id, &p.recipe.id)
+        .expect("read")
+        .expect("record");
+    assert_eq!(read.stale, None, "the motion did not change");
+    ready_to_add(p.root(), &p.config, &p.id, &p.recipe.id).expect("still ready");
+
+    // A real change still makes it stale.
+    assert_eq!(done.state, RecipeBakeState::Done);
+    p.change(
+        vec![reach("l-1", "rightHand", "b-1")],
+        vec![point("b-1", Some([0.3, 1.2, 0.35]))],
+    );
+    let why = refused(&p);
+    assert!(why.contains(RECIPE_CHANGED), "{why}");
+}
+
+#[test]
+fn a_bake_record_from_before_the_motion_version_reads_by_the_files_version() {
+    let p = reaching();
+    let (_bakes, done) = baked_once(&p);
+    let mut record = done;
+    let result = record.result.as_mut().expect("result");
+    result.motion_version = String::new();
+    assert_eq!(stale_of(p.root(), &p.config, &record), None);
+    record.result.as_mut().expect("result").recipe_version = "older".into();
+    assert_eq!(
+        stale_of(p.root(), &p.config, &record).as_deref(),
+        Some(RECIPE_CHANGED)
+    );
 }

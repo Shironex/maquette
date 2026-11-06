@@ -125,7 +125,7 @@ const SPECS: [Spec; 5] = [
         name: "Wave hello",
         about: "Raises the right arm and waves the forearm, on the rest pose.",
         clips: &[],
-        frames: 90,
+        frames: 60,
         blanks: Vec::new,
         layers: || {
             vec![

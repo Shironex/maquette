@@ -23,8 +23,8 @@ export function useRecipeBake(
   project: string,
   recipe: string,
   counts: { open: number; layers: number },
-  /** The recipe's version as the view read it, to tell a bake out of date. */
-  version?: string | null
+  /** The recipe's versions as the view read them, to tell a bake out of date. */
+  versions?: { version?: string | null; motionVersion?: string | null }
 ) {
   const key = bakeKey(project, recipe);
   const record = useRecipeBakesStore(s => s.bakes[key]);
@@ -43,7 +43,11 @@ export function useRecipeBake(
     /** The baked model's name as the Motion view lists it. */
     assetName: baked?.name ?? record?.asset ?? null,
     /** Why the last bake is out of date, or null. */
-    stale: staleOf(record ?? null, { recipeVersion: version, model: baked ?? null }),
+    stale: staleOf(record ?? null, {
+      ...versions,
+      recipeVersion: versions?.version,
+      model: baked ?? null,
+    }),
     busy,
     error,
     model,

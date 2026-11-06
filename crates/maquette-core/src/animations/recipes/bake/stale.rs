@@ -29,10 +29,23 @@ pub fn stale_of(
     }
     let result = record.result.as_ref()?;
     let dir = project::dir(root, &config.layout, &record.project).ok()?;
-    match recipes::version(&dir, &record.recipe) {
+    // The library link and other bookkeeping are no change to the motion.
+    // A record from before kept only the file's version: compare that.
+    let (now, baked) = if result.motion_version.is_empty() {
+        (
+            recipes::version(&dir, &record.recipe),
+            &result.recipe_version,
+        )
+    } else {
+        (
+            recipes::motion_version_of(&dir, &record.recipe),
+            &result.motion_version,
+        )
+    };
+    match now {
         Err(CoreError::NotFound(_)) => return Some(RECIPE_GONE.to_string()),
         Err(_) => return None,
-        Ok(now) if now != result.recipe_version => return Some(RECIPE_CHANGED.to_string()),
+        Ok(now) if now != *baked => return Some(RECIPE_CHANGED.to_string()),
         Ok(_) => {}
     }
     // A bake on the rest pose has no base clip to change.

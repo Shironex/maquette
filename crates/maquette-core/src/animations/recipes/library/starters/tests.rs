@@ -195,3 +195,11 @@ fn a_starter_copied_to_the_library_is_an_ordinary_recipe_at_r1() {
     );
     assert!(copy_to_library(root, "starter:nope").is_err());
 }
+
+#[test]
+fn the_rest_pose_starter_runs_as_long_as_a_new_rest_pose_recipe() {
+    let dir = tempfile::tempdir().expect("temp");
+    let wave = recipe(dir.path(), "starter:wave-hello").expect("wave");
+    assert!(wave.base.rest);
+    assert_eq!(wave.base.frames, recipes::REST_FRAMES);
+}

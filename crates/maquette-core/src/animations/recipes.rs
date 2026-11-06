@@ -60,6 +60,9 @@ pub struct RecipeDoc {
     pub gone: Vec<GoneProp>,
     /// A hash of the file's bytes; a write sends it back as `expected`.
     pub version: String,
+    /// A hash of what the recipe does, without its library link and other
+    /// bookkeeping; a bake is out of date when this changes, not `version`.
+    pub motion_version: String,
 }
 
 /// The base a recipe on `clip` stores: its name, frame count, length and
@@ -199,6 +202,7 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         warnings,
         gone,
         version,
+        motion_version,
     } = read;
     let (base, _) = match_base(clips, &recipe.base);
     let mixamo = base_mixamo(clips, &recipe.base);
@@ -211,6 +215,7 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         warnings,
         gone,
         version,
+        motion_version,
     }
 }
 
@@ -275,6 +280,7 @@ pub fn create(
     let (id, recipe) = recipes::create(project_dir, &name, base)?;
     let version = recipes::version(project_dir, &id)?;
     let read = RecipeRead {
+        motion_version: recipes::motion_version(&recipe),
         recipe,
         warnings: Vec::new(),
         gone: Vec::new(),

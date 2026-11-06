@@ -6,7 +6,10 @@ use std::fs;
 use std::path::Path;
 
 use super::files::{free_id, writing};
-use super::{RecipeFile, RecipeFrom, check_name, dir, load_versioned, normalized, path, validate};
+use super::{
+    RecipeFile, RecipeFrom, check_name, dir, load_versioned, names, normalized, path, unique_name,
+    validate,
+};
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::project::latin_slug;
@@ -15,7 +18,8 @@ use crate::project::latin_slug;
 /// under a free id made from `wanted` (a file name's stem, say) or else its
 /// name, normalised and checked first. Prop blanks are not checked against
 /// the project: the caller opens the ones it does not have. Answers with
-/// the id, the recipe as written and its version.
+/// the id, the recipe as written (its name taking `(2)` and on when the
+/// project has a recipe of that name) and its version.
 ///
 /// # Errors
 ///
@@ -27,12 +31,13 @@ pub fn create_whole(
     wanted: Option<&str>,
 ) -> CoreResult<(String, RecipeFile, String)> {
     check_name(&recipe.name)?;
-    let recipe = normalized(recipe);
+    let mut recipe = normalized(recipe);
     validate(&recipe)?;
     let _lock = writing();
     let seed = wanted
         .and_then(latin_slug)
         .unwrap_or_else(|| recipe.name.clone());
+    recipe.name = unique_name(&recipe.name, &names(project_dir));
     let id = free_id(project_dir, &seed)?;
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;

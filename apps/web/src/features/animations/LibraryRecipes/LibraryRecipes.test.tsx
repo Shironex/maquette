@@ -36,10 +36,10 @@ describe('the library recipes', () => {
     const panel = screen.getByRole('complementary', { name: 'Selected starter' });
     expect(screen.queryByRole('complementary', { name: 'Selected recipe' })).toBeNull();
     await userEvent.click(within(panel).getByRole('button', { name: 'Save to library' }));
-    expect(await screen.findByText('Saved Wave hello to the library as r1')).toBeVisible();
+    expect(await screen.findByText('Saved Wave hello (2) to the library as r1')).toBeVisible();
     expect(screen.getByText(/so this one is wave-hello-2/)).toBeVisible();
     const library = screen.getByRole('list', { name: 'Library recipes' });
-    const copies = within(library).getAllByRole('button', { name: 'Wave hello' });
+    const copies = within(library).getAllByRole('button', { name: /^Wave hello( \(2\))?$/ });
     expect(copies.filter(b => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
     expect(screen.getByText('4 recipes')).toBeVisible();
   });

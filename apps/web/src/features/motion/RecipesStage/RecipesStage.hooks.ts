@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { RecipeSummary } from '@/ipc/client';
 import { libraryNote } from '@/state/recipe-library';
+import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useRecipeCompareStore } from '@/state/use-recipe-compare-store';
 import { useRecipeLibraryStore } from '@/state/use-recipe-library-store';
@@ -29,6 +30,8 @@ export function useRecipesStage() {
   const loadLibrary = useRecipeLibraryStore(s => s.load);
   const imported = useRecipesStore(s => s.imported);
   const importing = useRecipesStore(s => s.importing);
+  // An approval card floats over the bottom right: the list scrolls clear of it.
+  const covered = useAgentsStore(s => (s.status?.approvals.length ?? 0) > 0);
   useEffect(() => {
     if (project) void load(project);
   }, [project, load]);
@@ -51,6 +54,7 @@ export function useRecipesStage() {
     reviewing: Boolean(project) && reviewed === project,
     opening,
     openError,
+    covered,
     retry: () => (project ? void load(project) : undefined),
     newRecipe: () => (project ? openPicker(project) : undefined),
     edit: (id: string) =>

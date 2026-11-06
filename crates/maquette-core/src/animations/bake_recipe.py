@@ -23,8 +23,8 @@ recipe, and where the model, the report and the progress go:
 
 A recipe on the rest pose has no base clip: "retarget" then lists no clips
 and the recipe holds "clip": null and "rest": {"name": "wave_hello",
-"frames": 90, "fps": 30}. The model is still imported through the retarget
-and the rest pose is held for those frames, keyed as a clip of its own, so
+"frames": 60, "fps": 30}. The model is still imported through the retarget
+and the rest pose is held for those frames (keys on frames 0 to 60), keyed as a clip of its own, so
 the changes are laid over it as over any clip and its feet measure the rest
 pose's (still) feet.
 
@@ -395,9 +395,10 @@ def end_frame(layer, count):
 
 
 def rest_action(rt, arm, hips, frames):
-    """An action that holds the rest pose for `frames` frames, as a base clip would."""
+    """An action that holds the rest pose for `frames` frames, as a base clip
+    would: keys on frame 0 to `frames`, the way the library counts a clip."""
     keys = Keys(arm, rt.hierarchy_order(arm.data), hips)
-    times = [0.0, float(max(frames - 1, 1))]
+    times = [0.0, float(max(frames, 1))]
     still = Quaternion((1.0, 0.0, 0.0, 0.0))
     rot = {b.name: [still.copy(), still.copy()] for b in keys.order}
     loc = [Vector((0.0, 0.0, 0.0)), Vector((0.0, 0.0, 0.0))]
@@ -582,7 +583,8 @@ def main():
             fps = float(rest.get("fps") or rt.DEFAULT_FPS)
             rt.set_fps(scene, fps)
             frames = max(int(rest["frames"]), 2)
-            entry = {"frames": frames, "travel": 0.0}
+            # One key more than frames: a clip of N frames has keys 0 to N.
+            entry = {"frames": frames + 1, "travel": 0.0}
             action = rest_action(rt, arm, recipe["hips"], frames)
             name = rest["name"]
             job["clipSpec"] = {"fps": fps}
@@ -601,7 +603,9 @@ def main():
         base_track = entry.get("feet") or {side: track_of(points) for side, points in solved["baseFeet"].items()}
         result = {
             "clip": name,
-            "frames": entry["frames"],
+            # The clip's length in frames as the library counts it (the last
+            # key's frame, one less than the keys), so it matches its base.
+            "frames": entry["frames"] - 1,
             "facing": [round(c, 4) for c in to_gltf(rig.ahead)],
             "height": round(height, 4),
             "baseFeet": base_track,
@@ -618,7 +622,7 @@ def main():
         with open(at(job["report"]), "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
         progress.set("Done", 1, 1)
-        log(f"wrote {job['out']}, {entry['frames']} frames as {name}")
+        log(f"wrote {job['out']}, {entry['frames'] - 1} frames as {name}")
     except Exception as err:
         traceback.print_exc()
         print(f"[recipe] Error: {err}", flush=True)

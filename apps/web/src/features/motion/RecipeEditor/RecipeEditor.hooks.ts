@@ -85,7 +85,7 @@ export function useEditorApply(saveBlocked: string | undefined) {
       open: draft?.blanks.filter(b => !blankFilled(b)).length ?? 0,
       layers: draft?.layers.length ?? 0,
     },
-    editing?.doc.version ?? null
+    { version: editing?.doc.version ?? null, motionVersion: editing?.doc.motionVersion ?? null }
   );
   const dirty = isDirty(editing);
   const apply = async () => {
