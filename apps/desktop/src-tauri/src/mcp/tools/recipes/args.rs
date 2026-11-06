@@ -39,13 +39,17 @@ pub(super) struct ClipArg {
     /// A library clip id, as list_animations returns it. Give this or keep.
     pub clip: Option<String>,
     /// The index of a clip the recipe already has (get_recipe's clips, 0 the
-    /// base), kept as it is, its hash included. update_recipe only.
+    /// base), kept as it is: its hash, trim and blend, unless trim or blend
+    /// is sent. The keys and time edits on it move with it. update_recipe
+    /// only.
     pub keep: Option<u32>,
     /// The frames of the clip kept, [in, out], out after in and at most its
-    /// frame count ([6, 58] keeps 52). Left out, the whole clip.
+    /// frame count ([6, 58] keeps 52). Left out, a kept clip's own trim, or
+    /// the whole of a library clip.
     pub trim: Option<[u32; 2]>,
-    /// The blend from the clip before; ignored on the first clip. Left out:
-    /// 8 frames, smooth, hips and facing lined up.
+    /// The blend from the clip before; ignored on the first clip. Left out,
+    /// a kept clip's own blend, or 8 frames, smooth, hips and facing lined
+    /// up.
     pub blend: Option<BlendArg>,
 }
 
@@ -213,7 +217,10 @@ pub(super) struct UpdateRecipeArgs {
     pub blanks: Option<Vec<BlankArg>>,
     /// Every clip in order, the base first, each a library clip id or the
     /// index of a clip the recipe has (keep), with its trim and blend.
-    /// Replaces them whole; up to 8.
+    /// Replaces them whole; up to 8. Keys and time edits not sent with it
+    /// follow their kept clip to its new place; changes and time sent with
+    /// it count clips in the new order. Dropping or replacing a clip that
+    /// kept keys or time edits sit on is refused (clip-in-use).
     pub clips: Option<Vec<ClipArg>>,
     /// Every time edit. Replaces them whole.
     pub time: Option<Vec<TimeArg>>,

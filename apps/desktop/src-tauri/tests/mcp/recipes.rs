@@ -345,14 +345,38 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them()
     .await;
     assert_eq!(resent["version"], keyed["version"], "nothing moved");
 
-    let past = call_error(
+    let past = raw_call(
         &client,
         "update_recipe",
         json!({ "project": PROJECT, "recipe": id, "expected": keyed["version"],
                 "clips": [{ "keep": 0 }] }),
     )
     .await;
-    assert!(past.contains("clip 2"), "{past}");
+    let past: Value = serde_json::from_str(&text(&past)).expect("json");
+    assert_eq!(
+        past["code"], "clip-in-use",
+        "the freeze sits on clip 2: {past}"
+    );
+
+    // Swapping the clips moves the key and the freeze with their clips, and
+    // each kept clip keeps its own trim.
+    let swapped = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": keyed["version"],
+                "clips": [{ "keep": 1 }, { "keep": 0 }] }),
+    )
+    .await;
+    assert_eq!(swapped["clips"][1]["trim"], json!([2, 30]), "{swapped}");
+    assert_eq!(swapped["changes"][0]["keys"][0]["clip"], 1, "{swapped}");
+    assert_eq!(swapped["time"][0]["clip"], 0, "{swapped}");
+    let keyed = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": swapped["version"],
+                "clips": [{ "keep": 1 }, { "keep": 0 }] }),
+    )
+    .await;
 
     let bake = raw_call(
         &client,

@@ -4,7 +4,7 @@
 //! changing its clips, time edits, mirror, changes, blanks or name. Nothing
 //! here bakes, runs Blender or spends anything.
 
-use maquette_core::animations::recipes::ClipPick;
+use maquette_core::animations::recipes::{ClipPick, kept_of};
 use maquette_core::recipes::RecipeChange;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{tool, tool_router};
@@ -170,7 +170,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an animation recipe: its name (the file and id stay), changes, blanks, clips, time edits, mirror, or any of them. changes, blanks, clips and time each replace the list whole, so read get_recipe first and send every entry you keep. Everything is checked before anything is written: each kind's bones, weight 0 to 1, start before end, targets naming blanks the recipe has, a nudge's rotation or offset, a wave's cycles and amount, pose keys, grips, clips and time edits within their limits, and prop blanks naming assets of the project; keys and time edits left on a clip no longer sent are refused. A recipe using nothing new stays format 1, which an older Maquette opens; joined clips, trims, mirror, time edits, pins, pose keys or grips make it format 2, which this Maquette cannot bake yet. Left out, blanks stay as they are: a prop blank whose asset is gone keeps its prop in the file, reads as open, and warnings says which; one sent open keeps it the same way unless clear names it. Sending anything but the name needs expected, the version get_recipe answered with: a recipe changed since is refused (moved), never overwritten and nothing is written; the revision does not move. Answers as get_recipe does. Nothing is baked."
+        description = "Change an animation recipe: its name (the file and id stay), changes, blanks, clips, time edits, mirror, or any of them. changes, blanks, clips and time each replace the list whole, so read get_recipe first and send every entry you keep. Everything is checked before anything is written: bones, weights, spans, targets naming blanks, nudge, wave, pose key, grip, clip and time limits, and prop blanks naming project assets. A clip sent with keep stays as it was (trim and blend too unless sent), and keys and time edits not sent move with it to its new place; dropping or replacing a clip they sit on is refused (clip-in-use). A file too big to open again is refused (recipe-too-big). Nothing new keeps format 1, which an older Maquette opens; joined clips, trims, mirror, time edits, pins, pose keys or grips make format 2, which this Maquette cannot bake yet. Blanks left out stay as they are: one whose asset is gone keeps its prop, reads as open, and warnings says which; one sent open keeps it too unless clear names it. Sending anything but the name needs expected, the version get_recipe answered with: a recipe changed since is refused (moved) and nothing is written. Answers as get_recipe does. Nothing is baked."
     )]
     async fn update_recipe(&self, Parameters(args): Parameters<UpdateRecipeArgs>) -> Out {
         let found = self
@@ -190,18 +190,20 @@ impl McpTools {
                         code: NEEDS_VERSION.to_string(),
                     });
                 }
-                let clips = args
+                let picked = args
                     .clips
                     .map(|c| -> Result<_, ToolError> {
                         let picks = picks_of(c)?;
-                        Ok(commands::picked_clips(
+                        let clips = commands::picked_clips(
                             host.session(),
                             &args.project,
                             &args.recipe,
                             &picks,
-                        )?)
+                        )?;
+                        Ok((clips, kept_of(&picks)))
                     })
                     .transpose()?;
+                let (clips, kept) = picked.unzip();
                 let change = RecipeChange {
                     name: args.name,
                     layers: args
@@ -213,6 +215,7 @@ impl McpTools {
                         .map(|b| b.into_iter().map(blank_of).collect::<Result<Vec<_>, _>>())
                         .transpose()?,
                     clips,
+                    kept,
                     time: args
                         .time
                         .map(|t| t.into_iter().map(time_of).collect::<Result<Vec<_>, _>>())

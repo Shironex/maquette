@@ -175,6 +175,14 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "A person fixes or removes the project's recipe-bakes.json (the message names it). No tool can. Until then no clip of that model is saved.",
             None,
         )),
+        crate::commands::recipes::TOO_BIG => Some(agent(
+            "Take out some pose keys, grips or changes and send the change again.",
+            "update_recipe",
+        )),
+        crate::commands::recipes::CLIP_IN_USE => Some(agent(
+            "Keep the clip the message names (clips with keep), or send changes and time without the keys and time edits on it, then send the clips again.",
+            "get_recipe",
+        )),
         super::recipes::NEEDS_VERSION => Some(agent(
             "Call get_recipe, then send the change with its version as expected.",
             "get_recipe",
