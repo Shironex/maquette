@@ -6,7 +6,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{LayerKind, RecipeLayer, settings_for};
+use super::normal::settings_for;
+use super::{LayerKind, RecipeLayer};
 use crate::plans::trimmed;
 
 /// Degrees per VRM humanoid bone, X then Y then Z: `{"chest": [0, -18, 0]}`.

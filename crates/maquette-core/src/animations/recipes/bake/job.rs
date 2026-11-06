@@ -22,9 +22,11 @@ use crate::recipes::{BlankKind, LayerKind, RecipeLayer};
 use crate::workspace::WorkspaceConfig;
 
 mod clip_name;
+mod ready;
 mod rest;
 pub(crate) use clip_name::clip_name;
 use clip_name::clip_note;
+pub use ready::{NOT_BAKEABLE_YET, not_bakeable, open_blanks};
 use rest::RestSpec;
 
 const BAKE_FILE: &str = "bake_recipe.py";
@@ -157,34 +159,6 @@ pub struct Prepared {
     /// What the name clash with the model's clips came to, in a sentence.
     pub(crate) clip_note: Option<String>,
     pub warnings: Vec<String>,
-}
-
-/// How a refusal of a recipe whose version 2 features a bake cannot make
-/// yet starts, so an agent's answer can carry its own code.
-pub const NOT_BAKEABLE_YET: &str = "This Maquette cannot bake";
-
-/// Why `doc` cannot be baked yet: it uses joined clips, trims, mirror, time
-/// edits, pins, pose keys or grips, which the bake does not make yet. None
-/// for a recipe a bake takes.
-pub fn not_bakeable(doc: &RecipeDoc) -> Option<String> {
-    let unsupported = crate::recipes::bake_unsupported(&doc.recipe);
-    (!unsupported.is_empty()).then(|| {
-        format!(
-            "{NOT_BAKEABLE_YET} {} yet: it uses {}. Take those out to bake it now; a later Maquette bakes them.",
-            doc.recipe.name,
-            unsupported.join(", ")
-        )
-    })
-}
-
-/// The blanks of a recipe nothing fills yet, by id.
-pub fn open_blanks(doc: &RecipeDoc) -> Vec<String> {
-    doc.recipe
-        .blanks
-        .iter()
-        .filter(|b| !b.filled())
-        .map(|b| b.id.clone())
-        .collect()
 }
 
 fn invalid<T>(message: String) -> CoreResult<T> {
