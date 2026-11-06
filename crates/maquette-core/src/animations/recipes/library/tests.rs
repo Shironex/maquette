@@ -74,15 +74,15 @@ impl Ws {
 }
 
 fn layer(id: &str, kind: LayerKind, bone: &str, target: Option<&str>) -> RecipeLayer {
-    RecipeLayer {
-        id: id.into(),
+    RecipeLayer::new(
+        id,
         kind,
-        bone: bone.into(),
-        settings: LayerSettings {
+        bone,
+        LayerSettings {
             target: target.map(Into::into),
             ..LayerSettings::default()
         },
-    }
+    )
 }
 
 fn project(root: &Path, config: &WorkspaceConfig, name: &str) -> String {

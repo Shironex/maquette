@@ -9,15 +9,14 @@ use std::io;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::{
-    BlankKind, GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank,
-    RecipeFile, RecipeFrom, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id,
-    load_versioned, motion_version, normalized, path, settle_props, validate,
+    GoneProp, ID_MAX_CHARS, MAX_FILE_BYTES, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeFile,
+    RecipeFrom, check_name, dir, gone_props, is_recipe_id, load_versioned, motion_version,
+    normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::json::write_json;
 use crate::plans::trimmed;
 use crate::project::{ProjectManifest, latin_slug, now_rfc3339, windows_safe};
 
@@ -54,29 +53,10 @@ pub struct RecipeSummary {
     pub problem: Option<String>,
     /// The library recipe and revision it came from or was last saved as.
     pub from: Option<RecipeFrom>,
-}
-
-/// What a change to a recipe replaces: its name, the changes, the blanks,
-/// or any of them, each whole. A change with an empty id gets a free one
-/// (`l-1`, `l-2`).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct RecipeChange {
-    /// A new name; the file and id stay.
-    #[serde(default)]
-    pub name: Option<String>,
-    pub layers: Option<Vec<RecipeLayer>>,
-    pub blanks: Option<Vec<RecipeBlank>>,
-    /// The `version` of the recipe as it was read (a hash of the file's
-    /// bytes). Given, a file that changed since in any way is refused (code
-    /// `moved`) and nothing is written.
-    #[serde(default)]
-    pub expected: Option<String>,
-    /// Prop blanks to empty for good, even when the prop they name is no
-    /// longer an asset (which a blank sent open otherwise keeps). A blank
-    /// sent with a prop keeps that prop.
-    #[serde(default)]
-    pub clear: Vec<String>,
+    /// The file's version: 1, or 2 once it uses something of version 2,
+    /// which a bake cannot make yet. 0 when it could not be read.
+    #[specta(optional)]
+    pub format: u32,
 }
 
 /// A recipe as read for its project, prop blanks the project no longer
@@ -96,7 +76,11 @@ pub struct RecipeRead {
 }
 
 /// Opens the prop blanks `manifest`'s project no longer has.
-fn settled(mut recipe: RecipeFile, version: String, manifest: &ProjectManifest) -> RecipeRead {
+pub(super) fn settled(
+    mut recipe: RecipeFile,
+    version: String,
+    manifest: &ProjectManifest,
+) -> RecipeRead {
     let gone = gone_props(&recipe, manifest);
     let motion = motion_version(&recipe);
     let warnings = settle_props(&mut recipe, manifest);
@@ -118,6 +102,25 @@ pub(super) fn writing() -> MutexGuard<'static, ()> {
     WRITES.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// How a refusal of a recipe too big to write starts, so an answer can
+/// carry its own code.
+pub const TOO_BIG: &str = "The recipe would be over";
+
+/// Writes a recipe file as [`write_json`] would, refused before anything is
+/// written when it would be over [`MAX_FILE_BYTES`], since such a file would
+/// not open again.
+pub(super) fn write_recipe(file: &Path, recipe: &RecipeFile) -> CoreResult<()> {
+    let mut text = serde_json::to_string_pretty(recipe).map_err(|e| CoreError::json(file, e))?;
+    text.push('\n');
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "{TOO_BIG} {} KB, too big to save. Take out some pose keys, grips or changes.",
+            MAX_FILE_BYTES / 1024
+        )));
+    }
+    maquette_base::fs::write_atomic(file, text.as_bytes()).map_err(|e| CoreError::io(file, e))
+}
+
 fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
@@ -126,7 +129,7 @@ fn file_of(id: &str) -> String {
     format!("{RECIPES_DIR}/{id}{RECIPE_SUFFIX}")
 }
 
-fn summary(
+pub(super) fn summary(
     id: &str,
     read: &RecipeRead,
     clip_mixamo: &dyn Fn(&RecipeBase) -> bool,
@@ -138,7 +141,7 @@ fn summary(
         name: recipe.name.clone(),
         base: recipe.base.name.clone(),
         frames: recipe.base.frames,
-        mixamo: recipe.base.mixamo || clip_mixamo(&recipe.base),
+        mixamo: recipe.clips().any(|c| c.mixamo || clip_mixamo(c)),
         layers: count(recipe.layers.len()),
         blanks: count(recipe.blanks.len()),
         open: count(recipe.blanks.iter().filter(|b| !b.filled()).count()),
@@ -148,6 +151,7 @@ fn summary(
         warnings: read.warnings.clone(),
         problem: None,
         from: recipe.from.clone(),
+        format: recipe.version,
     }
 }
 
@@ -168,6 +172,7 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         warnings: Vec::new(),
         problem: Some(problem),
         from: None,
+        format: 0,
     }
 }
 
@@ -296,14 +301,38 @@ pub fn create(
     name: &str,
     base: RecipeBase,
 ) -> CoreResult<(String, RecipeFile)> {
+    create_joined(project_dir, name, vec![base], false)
+}
+
+/// As [`create`], on `clips` joined in order (the first the base), mirrored
+/// or not. One clip that is not mirrored and has no trim writes version 1.
+///
+/// # Errors
+///
+/// As [`create`], and for no clips at all.
+pub fn create_joined(
+    project_dir: &Path,
+    name: &str,
+    clips: Vec<RecipeBase>,
+    mirror: bool,
+) -> CoreResult<(String, RecipeFile)> {
     check_name(name)?;
-    let recipe = normalized(&RecipeFile::new(name, base));
+    let mut clips = clips.into_iter();
+    let Some(base) = clips.next() else {
+        return Err(CoreError::Invalid(
+            "A recipe needs a clip to start from, or the rest pose.".into(),
+        ));
+    };
+    let mut recipe = RecipeFile::new(name, base);
+    recipe.joined = clips.collect();
+    recipe.mirror = mirror;
+    let recipe = normalized(&recipe);
     validate(&recipe)?;
     let _lock = writing();
     let id = free_id(project_dir, &recipe.name)?;
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
-    write_json(&path(project_dir, &id)?, &recipe)?;
+    write_recipe(&path(project_dir, &id)?, &recipe)?;
     Ok((id, recipe))
 }
 
@@ -337,7 +366,7 @@ pub fn rename_with(
     if recipe.name != name {
         recipe.name = name.to_string();
         recipe.edited = now_rfc3339();
-        write_json(&file, &recipe)?;
+        write_recipe(&file, &recipe)?;
         version = load_versioned(&file)?.1;
     }
     let read = RecipeRead {
@@ -348,145 +377,6 @@ pub fn rename_with(
         version,
     };
     Ok(summary(id, &read, clip_mixamo))
-}
-
-/// Free ids for the changes that came without one.
-fn with_ids(layers: Vec<RecipeLayer>) -> Vec<RecipeLayer> {
-    let mut taken: Vec<String> = layers
-        .iter()
-        .map(|l| trimmed(&l.id).to_string())
-        .filter(|id| !id.is_empty())
-        .collect();
-    let mut next = 1u32;
-    layers
-        .into_iter()
-        .map(|mut layer| {
-            if trimmed(&layer.id).is_empty() {
-                while taken.contains(&format!("l-{next}")) {
-                    next += 1;
-                }
-                layer.id = format!("l-{next}");
-                taken.push(layer.id.clone());
-            }
-            layer
-        })
-        .collect()
-}
-
-/// Puts back the stored prop of each prop blank sent open whose prop the
-/// project no longer has: it read as open, so sending it open again is not
-/// a choice to empty it, and restoring the asset fills it again. A blank
-/// named in `clear` is left empty.
-fn keep_stale_props(
-    next: &mut RecipeFile,
-    current: &RecipeFile,
-    manifest: &ProjectManifest,
-    clear: &[String],
-) {
-    for blank in &mut next.blanks {
-        if blank.kind != BlankKind::Prop || blank.prop.is_some() || clear.contains(&blank.id) {
-            continue;
-        }
-        let stale = current
-            .blanks
-            .iter()
-            .find(|b| b.id == blank.id && b.kind == BlankKind::Prop)
-            .and_then(|b| b.prop.as_ref())
-            .filter(|p| !manifest.assets.iter().any(|a| &a.id == *p));
-        if let Some(prop) = stale {
-            blank.prop = Some(prop.clone());
-        }
-    }
-}
-
-/// Refuses a `clear` naming something that is not a prop blank of `next`.
-fn check_clear(next: &RecipeFile, clear: &[String]) -> CoreResult<()> {
-    match clear.iter().find(|id| {
-        !next
-            .blanks
-            .iter()
-            .any(|b| &&b.id == id && b.kind == BlankKind::Prop)
-    }) {
-        Some(id) => Err(CoreError::Invalid(format!(
-            "The recipe has no prop blank {id} to clear."
-        ))),
-        None => Ok(()),
-    }
-}
-
-/// Refuses a write that read the recipe at another version.
-fn check_expected(id: &str, current: &str, expected: Option<&str>) -> CoreResult<()> {
-    match expected {
-        Some(read) if read != current => Err(CoreError::Moved(format!(
-            "The recipe {id} changed since it was read (its version is now {current}). Read it again and send the change once more."
-        ))),
-        _ => Ok(()),
-    }
-}
-
-/// Replaces the name, the changes, the blanks or any of them of the recipe
-/// `id`, as the file holds it now, in one write after checking the whole
-/// result. Blanks sent must name assets of `manifest`'s project. When the
-/// blanks are kept, they stay in the file as they are: a prop blank naming
-/// an asset the project no longer has keeps its prop, so restoring the
-/// asset fills it again, and only the answer reads it as open, with a
-/// warning, as [`get`] does. A prop blank sent open whose stored prop is
-/// such a gone asset keeps it too, since it only read as open, unless
-/// `clear` names it. With `expected`, a file whose version (a hash of its
-/// bytes) moved since it was read is refused under the write lock, so no
-/// write landing in between, nor a hand edit or a sync, is overwritten.
-/// `edited` moves only when something changed; the revision never does.
-///
-/// # Errors
-///
-/// Fails on a name [`check_name`] refuses, when the recipe is gone or
-/// changed since `expected`, `clear` names no prop blank, the result does
-/// not validate or the file cannot be written.
-pub fn update(
-    project_dir: &Path,
-    manifest: &ProjectManifest,
-    id: &str,
-    change: RecipeChange,
-) -> CoreResult<RecipeRead> {
-    if let Some(name) = &change.name {
-        check_name(name)?;
-    }
-    let _lock = writing();
-    let file = path(project_dir, id)?;
-    let (current, current_version) = load_versioned(&file)?;
-    check_expected(id, &current_version, change.expected.as_deref())?;
-    let mut next = current.clone();
-    if let Some(name) = change.name {
-        next.name = trimmed(&name).to_string();
-    }
-    if let Some(layers) = change.layers {
-        next.layers = with_ids(layers);
-    }
-    let sent_blanks = change.blanks.is_some();
-    if let Some(blanks) = change.blanks {
-        next.blanks = blanks;
-    }
-    let mut next = normalized(&next);
-    validate(&next)?;
-    check_clear(&next, &change.clear)?;
-    if sent_blanks {
-        check_props(&next, manifest)?;
-        keep_stale_props(&mut next, &current, manifest, &change.clear);
-    } else {
-        for blank in &mut next.blanks {
-            if change.clear.contains(&blank.id) {
-                blank.prop = None;
-            }
-        }
-    }
-    let version = if next == current {
-        current_version
-    } else {
-        next.edited = now_rfc3339();
-        write_json(&file, &next)?;
-        version(project_dir, id)?
-    };
-    Ok(settled(next, version, manifest))
 }
 
 /// Moves the recipe file into `trash_dir` (the workspace's trash for this

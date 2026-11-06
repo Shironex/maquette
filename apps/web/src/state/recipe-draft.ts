@@ -26,6 +26,9 @@ export const KIND_WORDS: Record<LayerKind, string> = {
   nudge: 'Nudge',
   'look-at': 'Look at',
   wave: 'Wave',
+  pin: 'Pin',
+  pose: 'Pose keys',
+  grip: 'Grip',
 };
 
 export const KIND_ABOUT: Record<LayerKind, string> = {
@@ -33,7 +36,19 @@ export const KIND_ABOUT: Record<LayerKind, string> = {
   nudge: "Turns or moves one bone's pose",
   'look-at': 'The head or neck follows a blank',
   wave: 'An arm swings, laid over the clip',
+  pin: 'A hand or foot stays put',
+  pose: 'Keys on the bones and frames you set',
+  grip: 'A hand pose from the grip library',
 };
+
+/**
+ * The kinds the editor makes and edits. Pins, pose keys and grips (recipe
+ * file version 2) only show, read only, until the editor learns them.
+ */
+export const EDITABLE_KINDS: readonly LayerKind[] = ['reach', 'nudge', 'look-at', 'wave'];
+
+/** Whether the editor can edit `recipe`: it uses nothing of file version 2. */
+export const editable = (recipe: RecipeFile) => recipe.version <= 1;
 
 export const BLANK_WORDS: Record<BlankKind, string> = { prop: 'Prop', point: 'Point' };
 

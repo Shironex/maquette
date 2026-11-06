@@ -85,11 +85,19 @@ function settingsProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): st
         return `Amount: more than 0 and at most ${LIMITS.amount} degrees.`;
       return null;
     }
+    // Recipe file version 2 kinds: the editor shows them read only and the
+    // core checks them on every write.
+    case 'pin':
+    case 'pose':
+    case 'grip':
+      return null;
   }
 }
 
 function layerProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): string | null {
   if (!isItemId(layer.id)) return `"${layer.id}" is not a change id.`;
+  // Pose keys name their bones in each key, so the change itself has none.
+  if (layer.kind === 'pose') return layer.bone ? 'Pose keys name their bones in each key.' : null;
   const bones = bonesFor(layer.kind);
   if (!bones.includes(layer.bone)) {
     return bones === HUMAN_BONES

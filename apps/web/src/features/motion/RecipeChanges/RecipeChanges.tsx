@@ -9,6 +9,9 @@ const KIND_ICON: Record<LayerKind, IconName> = {
   nudge: 'sliders-horizontal',
   'look-at': 'eye',
   wave: 'person-arms-spread',
+  pin: 'map-pin',
+  pose: 'bone',
+  grip: 'hand-pointing',
 };
 
 /** The changes laid over the base clip, in order; one opens to edit at a time. */

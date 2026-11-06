@@ -90,7 +90,7 @@ async fn agents_read_and_use_starters_and_make_a_rest_pose_recipe() {
         json!({ "project": PROJECT, "restPose": true, "clip": "standing-dodge-left" }),
     )
     .await;
-    assert!(both.contains("one of the two"), "{both}");
+    assert!(both.contains("one of the three"), "{both}");
     let neither = call_error(&client, "create_recipe", json!({ "project": PROJECT })).await;
     assert!(neither.contains("restPose"), "{neither}");
 

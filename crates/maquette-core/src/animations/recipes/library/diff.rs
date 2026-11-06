@@ -11,10 +11,16 @@ fn kind_word(kind: LayerKind) -> &'static str {
         LayerKind::Nudge => "nudge",
         LayerKind::LookAt => "look at",
         LayerKind::Wave => "wave",
+        LayerKind::Pin => "pin",
+        LayerKind::Pose => "pose keys",
+        LayerKind::Grip => "grip",
     }
 }
 
 fn layer_words(layer: &RecipeLayer) -> String {
+    if layer.bone.is_empty() {
+        return format!("the {} ({})", kind_word(layer.kind), layer.id);
+    }
     format!(
         "the {} on {} ({})",
         kind_word(layer.kind),
@@ -41,7 +47,7 @@ fn layer_edits(a: &RecipeLayer, b: &RecipeLayer) -> Vec<&'static str> {
     if a.bone != b.bone {
         out.push("bone");
     }
-    let pairs: [(&'static str, bool); 8] = [
+    let pairs: [(&'static str, bool); 15] = [
         ("weight", x.weight != y.weight),
         ("start", x.start != y.start),
         ("end", x.end != y.end),
@@ -50,6 +56,13 @@ fn layer_edits(a: &RecipeLayer, b: &RecipeLayer) -> Vec<&'static str> {
         ("offset", x.offset != y.offset),
         ("cycles", x.cycles != y.cycles),
         ("amount", x.amount != y.amount),
+        ("ease in", x.ease_in != y.ease_in),
+        ("ease out", x.ease_out != y.ease_out),
+        ("flat", x.flat != y.flat),
+        ("mode", a.mode != b.mode),
+        ("keys", a.keys != b.keys),
+        ("pose", a.pose != b.pose),
+        ("grip", a.from != b.from),
     ];
     out.extend(pairs.into_iter().filter(|(_, d)| *d).map(|(n, _)| n));
     out
@@ -118,6 +131,25 @@ pub fn changes(before: Option<&RecipeFile>, after: &RecipeFile) -> Vec<String> {
         out.push(format!(
             "Changes the base clip from {} ({} frames) to {} ({} frames).",
             b.name, b.frames, a.name, a.frames
+        ));
+    }
+    if b.trim != a.trim || before.joined != after.joined {
+        out.push(format!(
+            "Changes the clips joined or their trims and blends ({} clips now).",
+            after.clips().count()
+        ));
+    }
+    if before.mirror != after.mirror {
+        out.push(if after.mirror {
+            "Mirrors it, left and right swapped.".to_string()
+        } else {
+            "Takes the mirror off.".to_string()
+        });
+    }
+    if before.time != after.time {
+        out.push(format!(
+            "Changes the time edits ({} now).",
+            after.time.len()
         ));
     }
     for layer in &after.layers {

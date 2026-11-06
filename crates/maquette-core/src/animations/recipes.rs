@@ -1,7 +1,9 @@
 //! Recipes over library clips: making a project's recipe from a clip of the
 //! animation library, and finding a recipe's base clip in the library again
 //! by its name and frame count, as on another computer. A hash that differs
-//! is a warning, never a refusal: the clip may have been imported again.
+//! is a warning, never a refusal: the clip may have been imported again. A
+//! recipe that joins clips is matched clip by clip, and its bake counts as
+//! Mixamo's when any of them does.
 //! The recipe file itself is model data ([`crate::recipes`]).
 
 use std::path::Path;
@@ -9,9 +11,12 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{AnimationClip, SourceRig, list, load};
+use crate::error::CoreError;
 use crate::error::CoreResult;
 use crate::project::ProjectManifest;
-use crate::recipes::{self, GoneProp, RecipeBase, RecipeChange, RecipeFile, RecipeRead};
+use crate::recipes::{
+    self, BlendWindow, GoneProp, RecipeBase, RecipeChange, RecipeFile, RecipeRead,
+};
 
 pub mod bake;
 pub mod library;
@@ -50,8 +55,13 @@ pub struct RecipeDoc {
     pub file: String,
     pub recipe: RecipeFile,
     pub base: BaseMatch,
-    /// A bake counts as Mixamo's: the recipe says so, or its base clip in
-    /// the library came from a Mixamo rig.
+    /// Each joined clip in the library, in order (clip 2 first). Empty for
+    /// a recipe on one clip.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub joined: Vec<BaseMatch>,
+    /// A bake counts as Mixamo's: the recipe says so of any clip, or any of
+    /// its clips in the library came from a Mixamo rig.
     pub mixamo: bool,
     /// Prop blanks that read open because the project no longer has their
     /// asset, a line each.
@@ -76,7 +86,81 @@ pub fn base_of(clip: &AnimationClip) -> RecipeBase {
         mixamo: clip.rig.kind == SourceRig::Mixamo,
         rest: false,
         by_name: false,
+        trim: None,
+        blend: None,
     }
+}
+
+/// A clip a recipe is made or changed on: a library clip by id, or one the
+/// recipe already has by its index (kept as it is, its hash, trim and blend
+/// included unless the pick sends a trim or blend), with its trim and,
+/// after the first, its blend window.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ClipPick {
+    /// A library clip's id, as list_animations gives it.
+    pub clip: Option<String>,
+    /// The index of a clip the recipe has: 0 the base.
+    pub keep: Option<u32>,
+    /// None keeps a kept clip's trim, or takes the whole of a library clip.
+    pub trim: Option<[u32; 2]>,
+    /// None keeps a kept clip's blend, or takes the default: 8 frames,
+    /// smooth, hips and facing lined up. The first clip never has one.
+    pub blend: Option<BlendWindow>,
+}
+
+/// For each of `picks`, the index of the recipe's clip it keeps, or none
+/// for a library clip: what [`RecipeChange::kept`] takes, so keys and time
+/// edits follow their clip.
+pub fn kept_of(picks: &[ClipPick]) -> Vec<Option<u32>> {
+    picks.iter().map(|p| p.keep).collect()
+}
+
+/// The clips `picks` name, in order, each library clip read from the
+/// library of the workspace at `root` and each kept one from `current`.
+///
+/// # Errors
+///
+/// `invalid` for a pick that names both or neither, or a clip index
+/// `current` does not have; as [`load`] for an unknown library clip.
+pub fn clips_of(
+    root: &Path,
+    current: Option<&RecipeFile>,
+    picks: &[ClipPick],
+) -> CoreResult<Vec<RecipeBase>> {
+    picks
+        .iter()
+        .enumerate()
+        .map(|(i, pick)| {
+            let mut clip = match (&pick.clip, pick.keep) {
+                (Some(id), None) => base_of(&load(root, id)?),
+                (None, Some(index)) => current
+                    .and_then(|r| r.clip(index))
+                    .cloned()
+                    .ok_or_else(|| {
+                        CoreError::Invalid(format!(
+                            "The recipe has no clip {} to keep.",
+                            u64::from(index) + 1
+                        ))
+                    })?,
+                _ => {
+                    return Err(CoreError::Invalid(format!(
+                        "Give clip {} as a library clip id or the index of a clip the recipe has, one of the two.",
+                        i + 1
+                    )));
+                }
+            };
+            // A kept clip keeps its trim and blend unless the pick sends them.
+            if pick.trim.is_some() || pick.keep.is_none() {
+                clip.trim = pick.trim;
+            }
+            clip.blend = if i == 0 {
+                None
+            } else {
+                Some(pick.blend.clone().or(clip.blend.take()).unwrap_or_default())
+            };
+            Ok(clip)
+        })
+        .collect()
 }
 
 /// The first clip of `clips` called `name`, case aside, whatever its
@@ -164,6 +248,12 @@ pub fn base_mixamo(clips: &[AnimationClip], base: &RecipeBase) -> bool {
             .is_some_and(|c| c.rig.kind == SourceRig::Mixamo)
 }
 
+/// Whether `recipe` bakes as Mixamo's: any of its clips does
+/// ([`base_mixamo`]).
+pub fn recipe_mixamo(clips: &[AnimationClip], recipe: &RecipeFile) -> bool {
+    recipe.clips().any(|c| base_mixamo(clips, c))
+}
+
 /// Every recipe of the project at `project_dir`, each Mixamo mark read
 /// against the clip library of the workspace at `root` as [`get`] reads it.
 ///
@@ -177,6 +267,16 @@ pub fn summaries(
 ) -> CoreResult<Vec<recipes::RecipeSummary>> {
     let clips = list(root)?;
     recipes::list_with(project_dir, manifest, &|b| base_mixamo(&clips, b))
+}
+
+/// The recipe `id` as its file holds it, for a change that keeps some of
+/// its clips ([`clips_of`]).
+///
+/// # Errors
+///
+/// As [`recipes::get`].
+pub fn current(project_dir: &Path, manifest: &ProjectManifest, id: &str) -> CoreResult<RecipeFile> {
+    Ok(recipes::get(project_dir, manifest, id)?.recipe)
 }
 
 /// Renames the recipe `id` as [`recipes::rename`] does, its Mixamo mark read
@@ -205,12 +305,18 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         motion_version,
     } = read;
     let (base, _) = match_base(clips, &recipe.base);
-    let mixamo = base_mixamo(clips, &recipe.base);
+    let joined = recipe
+        .joined
+        .iter()
+        .map(|c| match_base(clips, c).0)
+        .collect();
+    let mixamo = recipe_mixamo(clips, &recipe);
     RecipeDoc {
         id: id.to_string(),
         file: format!("{}/{id}{}", recipes::RECIPES_DIR, recipes::RECIPE_SUFFIX),
         recipe,
         base,
+        joined,
         mixamo,
         warnings,
         gone,
@@ -278,7 +384,17 @@ pub fn create(
         .unwrap_or(&base.name)
         .to_string();
     let (id, recipe) = recipes::create(project_dir, &name, base)?;
-    let version = recipes::version(project_dir, &id)?;
+    created(project_dir, &id, recipe, clip.as_slice())
+}
+
+/// The recipe `id` just written, as [`get`] reads it against `clips`.
+fn created(
+    project_dir: &Path,
+    id: &str,
+    recipe: RecipeFile,
+    clips: &[AnimationClip],
+) -> CoreResult<RecipeDoc> {
+    let version = recipes::version(project_dir, id)?;
     let read = RecipeRead {
         motion_version: recipes::motion_version(&recipe),
         recipe,
@@ -286,7 +402,34 @@ pub fn create(
         gone: Vec::new(),
         version,
     };
-    Ok(doc_of(&id, read, clip.as_slice()))
+    Ok(doc_of(id, read, clips))
+}
+
+/// Makes a recipe in the project at `project_dir` on the library clips
+/// `picks` names, joined in order, mirrored or not, called `name` or else
+/// after its first clip. One clip that is not trimmed or mirrored writes a
+/// version 1 file, as [`create`] does.
+///
+/// # Errors
+///
+/// As [`clips_of`] (where a pick may not keep a clip, there being no
+/// recipe yet) and [`create`].
+pub fn create_joined(
+    root: &Path,
+    project_dir: &Path,
+    picks: &[ClipPick],
+    mirror: bool,
+    name: Option<&str>,
+) -> CoreResult<RecipeDoc> {
+    let joined = clips_of(root, None, picks)?;
+    let first = joined.first().map(|c| c.name.clone()).unwrap_or_default();
+    let name = name
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .unwrap_or(&first)
+        .to_string();
+    let (id, recipe) = recipes::create_joined(project_dir, &name, joined, mirror)?;
+    created(project_dir, &id, recipe, &list(root)?)
 }
 
 #[cfg(test)]

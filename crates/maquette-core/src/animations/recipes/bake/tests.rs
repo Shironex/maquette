@@ -170,15 +170,15 @@ pub(super) fn humanoid() -> Vec<u8> {
 }
 
 pub(super) fn reach(id: &str, bone: &str, target: &str) -> RecipeLayer {
-    RecipeLayer {
-        id: id.into(),
-        kind: LayerKind::Reach,
-        bone: bone.into(),
-        settings: LayerSettings {
+    RecipeLayer::new(
+        id,
+        LayerKind::Reach,
+        bone,
+        LayerSettings {
             target: Some(target.into()),
             ..LayerSettings::default()
         },
-    }
+    )
 }
 
 pub(super) fn point(id: &str, at: Option<[f32; 3]>) -> RecipeBlank {
@@ -224,6 +224,30 @@ fn a_recipe_with_open_blanks_or_no_changes_is_refused_naming_what_to_fix() {
     let open = refusal(&p, &p.request());
     assert!(matches!(open, CoreError::Invalid(_)));
     assert!(open.to_string().contains("b-1, b-2"), "{open}");
+}
+
+#[test]
+fn a_recipe_using_what_the_bake_cannot_make_yet_is_refused_naming_it() {
+    let mut p = reaching();
+    let manifest = crate::project::load(p.root(), &p.config.layout, &p.id).expect("manifest");
+    p.recipe = library_recipes::update(
+        p.root(),
+        &p.dir,
+        &manifest,
+        &p.recipe.id,
+        RecipeChange {
+            mirror: Some(true),
+            ..RecipeChange::default()
+        },
+    )
+    .expect("mirror");
+    let refused = refusal(&p, &p.request());
+    assert!(matches!(refused, CoreError::Invalid(_)));
+    let words = refused.to_string();
+    assert!(words.starts_with(NOT_BAKEABLE_YET), "{words}");
+    assert!(words.contains("it uses mirror"), "{words}");
+    assert_eq!(not_bakeable(&p.recipe), Some(words));
+    assert_eq!(not_bakeable(&reaching().recipe), None);
 }
 
 #[test]

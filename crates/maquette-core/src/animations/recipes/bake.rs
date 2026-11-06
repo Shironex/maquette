@@ -30,7 +30,7 @@ pub use crate::recipes::baked::{
     MARK_KEY, RecipeBakeMark, RecipeBakeUse, mark_of, marked_mixamo, took_mixamo, write_mark,
 };
 pub use add::{AddClaim, BAKE_CHANGED, OUT_OF_DATE, ready_to_add};
-pub use job::{Prepared, open_blanks, prepare};
+pub use job::{NOT_BAKEABLE_YET, Prepared, not_bakeable, open_blanks, prepare};
 pub use result::GAP_LIMIT_CM;
 pub use result::mark_for;
 pub use review::{

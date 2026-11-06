@@ -21,3 +21,6 @@ apps/web/public/basis/
 # Written by Maquette's Ship step as it writes it (JSON.stringify), so a ship
 # leaves the formatter nothing to change.
 apps/site/src/scene/shipped.json
+
+# Recipe files the model reads byte for byte; their hashes are pinned in tests.
+crates/maquette-model/src/recipes/fixtures/

@@ -7,6 +7,8 @@ import type { LayerKind } from '@/ipc/client';
 
 /** The hands and feet a reach moves. */
 export const REACH_BONES = ['leftHand', 'rightHand', 'leftFoot', 'rightFoot'] as const;
+/** The hands a grip holds with. */
+export const GRIP_BONES = ['leftHand', 'rightHand'] as const;
 /** What turns to look. */
 export const LOOK_BONES = ['head', 'neck'] as const;
 /** The arm bones a wave swings. */
@@ -85,7 +87,12 @@ export function bonesFor(kind: LayerKind): readonly string[] {
       return LOOK_BONES;
     case 'wave':
       return WAVE_BONES;
+    case 'pin':
+      return REACH_BONES;
+    case 'grip':
+      return GRIP_BONES;
     case 'nudge':
+    case 'pose':
       return HUMAN_BONES;
   }
 }

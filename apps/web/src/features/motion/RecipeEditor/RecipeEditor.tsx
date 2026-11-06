@@ -1,16 +1,20 @@
-import { Button, Icon, InlineBanner } from '@maquette/ui';
-import { ChoiceDialog } from '@/features/common/ChoiceDialog';
+import { Button, InlineBanner } from '@maquette/ui';
+import { editable } from '@/state/recipe-draft';
 import { RecipeBlanks } from '../RecipeBlanks';
 import { RecipeChanges } from '../RecipeChanges';
 import { RecipePlayer } from '../RecipePlayer';
 import { ApplyButton, EditorBake } from './EditorApply';
+import { EditorDialogs, PendingEdits } from './EditorDialogs';
+import RecipeReadOnly from './RecipeReadOnly';
 import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
 
 /**
  * One recipe open: the rough preview with its timeline, the changes and the
  * blanks. Edits stay here until Save, through leaving the tab; leaving the
  * recipe with unsaved edits asks first, and an agent's edit made meanwhile
- * merges or asks which side wins.
+ * merges or asks which side wins. A recipe of file version 2, which the
+ * editor cannot edit yet, shows read only, with the same questions and a
+ * way to save or discard edits made before an agent changed it.
  */
 export default function RecipeEditor() {
   const v = useRecipeEditor();
@@ -18,6 +22,12 @@ export default function RecipeEditor() {
   const { editing } = v;
   if (!editing) return null;
   const { doc } = editing;
+  if (!editable(doc.recipe))
+    return (
+      <RecipeReadOnly doc={doc} onBack={v.back} pending={<PendingEdits v={v} />}>
+        <EditorDialogs v={v} file={doc.file} />
+      </RecipeReadOnly>
+    );
   const general = v.general.map(line => <InlineBanner key={line} tone="danger" title={line} />);
   const status = v.saving ? 'saving' : v.dirty ? 'unsaved edits' : 'saved';
   return (
@@ -84,52 +94,7 @@ export default function RecipeEditor() {
           <RecipeBlanks />
         </div>
       </div>
-      {v.leave ? (
-        <ChoiceDialog
-          title="Save the recipe first?"
-          onDismiss={v.leave.stay}
-          choices={[
-            { label: 'Leave without saving', variant: 'danger', onClick: v.leave.anyway },
-            { label: 'Stay', onClick: v.leave.stay },
-            {
-              label: 'Save',
-              variant: 'primary',
-              loading: v.saving,
-              disabled: Boolean(v.leave.blocked),
-              disabledReason: v.leave.blocked,
-              onClick: v.leave.save,
-            },
-          ]}
-        >
-          <p>{doc.file} does not have your latest edits.</p>
-          {v.saveError ? (
-            <p className="mt-2 flex items-start gap-1.5 text-danger">
-              <Icon name="warning-circle" size={14} className="mt-0.5 flex-none" />
-              {v.saveError}
-            </p>
-          ) : null}
-          <p className="mt-2">Save them, stay to keep editing, or leave and drop them.</p>
-        </ChoiceDialog>
-      ) : null}
-      {v.outside?.asking && !v.leave ? (
-        <ChoiceDialog
-          title="The recipe changed outside"
-          onDismiss={v.outside.later}
-          choices={[
-            { label: 'Use theirs', onClick: v.outside.useTheirs },
-            { label: 'Keep mine', variant: 'primary', onClick: v.outside.keepMine },
-          ]}
-        >
-          <p>
-            An agent changed {doc.file} while you had unsaved edits. Everything that does not clash
-            is already merged.
-          </p>
-          <p className="mt-2">
-            Both sides changed {v.outside.clashes.join(', ')}. Keep your edits there, or use the
-            version on disk.
-          </p>
-        </ChoiceDialog>
-      ) : null}
+      <EditorDialogs v={v} file={doc.file} />
     </div>
   );
 }

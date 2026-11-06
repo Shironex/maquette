@@ -288,3 +288,121 @@ async fn the_recipe_tools_are_hidden_and_refused_while_the_animation_group_is_of
     client.cancel().await.expect("close");
     server.stop();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (client, server, host) = serve(fixture(dir.path())).await;
+
+    let made = call(
+        &client,
+        "create_recipe",
+        json!({ "project": PROJECT, "name": "Dodge twice", "clips": [
+            { "clip": "standing-dodge-left", "trim": [2, 30] },
+            { "clip": "standing-dodge-left", "blend": { "frames": 6, "lineUp": "hips" } },
+        ] }),
+    )
+    .await;
+    let id = made["id"].as_str().expect("id").to_string();
+    assert_eq!(made["format"], 2, "{made}");
+    let clips = made["clips"].as_array().expect("clips");
+    assert_eq!(clips.len(), 2);
+    assert_eq!(clips[0]["trim"], json!([2, 30]));
+    assert!(clips[0].get("blend").is_none(), "{made}");
+    assert_eq!(clips[1]["blend"]["frames"], 6);
+    assert_eq!(clips[1]["blend"]["lineUp"], "hips");
+    assert_eq!(clips[1]["library"], "found");
+    assert_eq!(made["bakeable"], false, "{made}");
+
+    let keyed = call(
+        &client,
+        "update_recipe",
+        json!({
+            "project": PROJECT, "recipe": id, "expected": made["version"],
+            "time": [{ "kind": "freeze", "clip": 1, "at": 20, "frames": 12 }],
+            "changes": [
+                { "kind": "pose", "keys": [{ "clip": 0, "frame": 10, "ease": "out",
+                                              "pose": { "chest": [0.0, -18.0, 0.0] } }] },
+                { "kind": "pin", "bone": "leftFoot", "start": 0.1, "end": 0.5, "flat": "heel" },
+            ],
+        }),
+    )
+    .await;
+    let changes = keyed["changes"].as_array().expect("changes");
+    assert_eq!(changes[0]["mode"], "add", "pose keys add unless told");
+    assert!(changes[0].get("bone").is_none(), "{keyed}");
+    assert_eq!(changes[0]["keys"][0]["ease"], "out");
+    assert_eq!(changes[1]["flat"], "heel");
+    assert_eq!(keyed["time"][0]["kind"], "freeze");
+
+    // A change read back resends as it is.
+    let resent = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": keyed["version"],
+                "changes": keyed["changes"] }),
+    )
+    .await;
+    assert_eq!(resent["version"], keyed["version"], "nothing moved");
+
+    let past = raw_call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": keyed["version"],
+                "clips": [{ "keep": 0 }] }),
+    )
+    .await;
+    let past: Value = serde_json::from_str(&text(&past)).expect("json");
+    assert_eq!(
+        past["code"], "clip-in-use",
+        "the freeze sits on clip 2: {past}"
+    );
+
+    // Swapping the clips moves the key and the freeze with their clips, and
+    // each kept clip keeps its own trim.
+    let swapped = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": keyed["version"],
+                "clips": [{ "keep": 1 }, { "keep": 0 }] }),
+    )
+    .await;
+    assert_eq!(swapped["clips"][1]["trim"], json!([2, 30]), "{swapped}");
+    assert_eq!(swapped["changes"][0]["keys"][0]["clip"], 1, "{swapped}");
+    assert_eq!(swapped["time"][0]["clip"], 0, "{swapped}");
+    let keyed = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": swapped["version"],
+                "clips": [{ "keep": 1 }, { "keep": 0 }] }),
+    )
+    .await;
+
+    let bake = raw_call(
+        &client,
+        "bake_recipe",
+        json!({ "project": PROJECT, "recipe": id, "asset": "dummy" }),
+    )
+    .await;
+    assert_eq!(bake.is_error, Some(true));
+    let body: Value = serde_json::from_str(&text(&bake)).expect("json");
+    assert_eq!(body["code"], "not-bakeable-yet", "{body}");
+    assert_eq!(body["tryTool"], "update_recipe", "{body}");
+
+    let plain = call(
+        &client,
+        "update_recipe",
+        json!({ "project": PROJECT, "recipe": id, "expected": keyed["version"],
+                "clips": [{ "keep": 1 }], "time": [], "changes": [] }),
+    )
+    .await;
+    assert!(plain.get("format").is_none(), "back to format 1: {plain}");
+    let (root, _) = host.session.workspace().expect("ws");
+    let text =
+        std::fs::read_to_string(root.join(format!("projects/frostveil/recipes/{id}.recipe.json")))
+            .expect("file");
+    assert!(text.contains("\"version\": 1,"), "{text}");
+
+    client.cancel().await.expect("close");
+    server.stop();
+}

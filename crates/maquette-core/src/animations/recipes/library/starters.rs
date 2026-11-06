@@ -89,12 +89,7 @@ fn blank(id: &str, label: &str, point: Option<[f32; 3]>) -> RecipeBlank {
 }
 
 fn layer(id: &str, kind: LayerKind, bone: &str, settings: LayerSettings) -> RecipeLayer {
-    RecipeLayer {
-        id: id.into(),
-        kind,
-        bone: bone.into(),
-        settings,
-    }
+    RecipeLayer::new(id, kind, bone, settings)
 }
 
 fn span(start: f32, end: f32) -> LayerSettings {

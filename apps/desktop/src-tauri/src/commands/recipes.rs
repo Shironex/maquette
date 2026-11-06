@@ -4,15 +4,38 @@
 //! changing and removing them. Nothing here bakes or runs Blender. The
 //! helpers are shared with the MCP tools, so both make the same checks.
 
-use maquette_core::animations::recipes::{self as library_recipes, RecipeDoc};
+use maquette_core::CoreError;
+use maquette_core::animations::recipes::{self as library_recipes, ClipPick, RecipeDoc};
 use maquette_core::assets::remove::project_trash;
+use maquette_core::error::ErrorPayload;
 use maquette_core::project::{self, ProjectManifest};
-use maquette_core::recipes::{self, RecipeChange, RecipeSummary};
+use maquette_core::recipes::{self, RecipeBase, RecipeChange, RecipeSummary};
 use tauri::State;
 
 use super::CommandResult;
 use super::plans::project_dir;
 use crate::session::Session;
+
+/// The code of a recipe refused because its file would be too big to open
+/// again.
+pub(crate) const TOO_BIG: &str = "recipe-too-big";
+/// The code of clips refused because they take away a clip keys or time
+/// edits still sit on.
+pub(crate) const CLIP_IN_USE: &str = "clip-in-use";
+
+/// `err` as the view and agents get it, a recipe too big to write or clips
+/// that strand keys or time edits under their own codes.
+fn coded(err: CoreError) -> ErrorPayload {
+    let mut payload = err.payload();
+    if let CoreError::Invalid(message) = &err {
+        if message.starts_with(recipes::TOO_BIG) {
+            payload.code = TOO_BIG.to_string();
+        } else if message.starts_with(recipes::CLIP_IN_USE) {
+            payload.code = CLIP_IN_USE.to_string();
+        }
+    }
+    payload
+}
 
 /// The workspace root, the project's folder and its manifest, which prop
 /// blanks are read against.
@@ -47,6 +70,32 @@ pub(crate) fn create(
     Ok(library_recipes::create(&root, &dir, clip, name)?)
 }
 
+/// Makes a recipe on the library clips `picks` names, joined in order.
+pub(crate) fn create_joined(
+    session: &Session,
+    project: &str,
+    picks: &[ClipPick],
+    mirror: bool,
+    name: Option<&str>,
+) -> CommandResult<RecipeDoc> {
+    let (root, _) = session.workspace()?;
+    let dir = project_dir(session, project)?;
+    library_recipes::create_joined(&root, &dir, picks, mirror, name).map_err(coded)
+}
+
+/// The clips `picks` names for a change to the recipe `id`: library clips
+/// read from the library, kept ones from the recipe as its file holds it.
+pub(crate) fn picked_clips(
+    session: &Session,
+    project: &str,
+    id: &str,
+    picks: &[ClipPick],
+) -> CommandResult<Vec<RecipeBase>> {
+    let (root, dir, manifest) = opened(session, project)?;
+    let current = library_recipes::current(&dir, &manifest, id)?;
+    Ok(library_recipes::clips_of(&root, Some(&current), picks)?)
+}
+
 pub(crate) fn update(
     session: &Session,
     project: &str,
@@ -54,7 +103,7 @@ pub(crate) fn update(
     change: RecipeChange,
 ) -> CommandResult<RecipeDoc> {
     let (root, dir, manifest) = opened(session, project)?;
-    Ok(library_recipes::update(&root, &dir, &manifest, id, change)?)
+    library_recipes::update(&root, &dir, &manifest, id, change).map_err(coded)
 }
 
 pub(crate) fn remove(session: &Session, project: &str, id: &str) -> CommandResult<String> {

@@ -1,7 +1,7 @@
 import type { LayerKind, LayerSettings, RecipeLayer } from '@/ipc/client';
 import { boneWords, bonesFor } from '@/state/recipe-bones';
 import { checkDraft } from '@/state/recipe-check';
-import { KIND_WORDS, withKind } from '@/state/recipe-draft';
+import { EDITABLE_KINDS, KIND_WORDS, withKind } from '@/state/recipe-draft';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 
 type Triple = [number, number, number];
@@ -22,7 +22,7 @@ export function useRecipeChangeForm(id: string) {
     layer,
     frames,
     problem,
-    kinds: (Object.keys(KIND_WORDS) as LayerKind[]).map(k => ({ value: k, label: KIND_WORDS[k] })),
+    kinds: EDITABLE_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
     bones: layer ? bonesFor(layer.kind).map(b => ({ value: b, label: boneWords(b) })) : [],
     targets: [
       { value: '', label: blanks.length ? 'Pick a blank' : 'No blanks yet' },

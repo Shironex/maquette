@@ -1,11 +1,16 @@
 //! The checks a recipe passes before it is written or after it is read:
 //! its name, the base clip, the limits, each blank and each change by its
-//! kind, with the bones that kind may move. A refusal says what to fix.
+//! kind, with the bones that kind may move. A refusal says what to fix. The
+//! checks of what version 2 adds (joined clips, trims, blends, time edits,
+//! pose keys and grips) are in `check_edits`.
 
 use std::collections::BTreeSet;
 
 use maquette_glb::vrm::is_human_bone;
 
+use super::check_edits::{
+    check_clips, check_grip, check_pin, check_pose, check_time, check_totals,
+};
 use super::{
     BlankKind, GoneProp, HASH_MAX_CHARS, ID_MAX_CHARS, LABEL_MAX_CHARS, LayerKind, LayerSettings,
     MAX_BLANKS, MAX_CYCLES, MAX_FRAMES, MAX_LAYERS, MAX_OFFSET_METRES, MAX_POINT_METRES,
@@ -16,10 +21,12 @@ use crate::error::{CoreError, CoreResult};
 use crate::plans::{is_item_id, is_link_id, trimmed};
 use crate::project::ProjectManifest;
 
-/// The hands and feet a reach moves.
-const REACH_BONES: [&str; 4] = ["leftHand", "rightHand", "leftFoot", "rightFoot"];
+/// The hands and feet a reach or a pin moves.
+pub(super) const REACH_BONES: [&str; 4] = ["leftHand", "rightHand", "leftFoot", "rightFoot"];
 /// What turns to look.
 const LOOK_BONES: [&str; 2] = ["head", "neck"];
+/// The hands a grip holds with.
+const GRIP_BONES: [&str; 2] = ["leftHand", "rightHand"];
 /// The arm bones a wave swings.
 const WAVE_BONES: [&str; 6] = [
     "leftUpperArm",
@@ -30,7 +37,7 @@ const WAVE_BONES: [&str; 6] = [
     "rightHand",
 ];
 
-fn invalid<T>(message: String) -> CoreResult<T> {
+pub(super) fn invalid<T>(message: String) -> CoreResult<T> {
     Err(CoreError::Invalid(message))
 }
 
@@ -69,6 +76,9 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
         return invalid("A recipe's revision starts at 1.".into());
     }
     check_base(&recipe.base)?;
+    check_clips(recipe)?;
+    check_time(recipe)?;
+    check_totals(recipe)?;
     if let Some(from) = &recipe.from
         && (!super::is_recipe_id(&from.entry)
             || !super::is_entry_uid(&from.uid)
@@ -91,7 +101,7 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
     }
     let mut layer_ids = BTreeSet::new();
     for layer in &recipe.layers {
-        check_layer(layer, &recipe.blanks)?;
+        check_layer(layer, recipe)?;
         if !layer_ids.insert(layer.id.as_str()) {
             return invalid(format!("Two changes have the id {}.", layer.id));
         }
@@ -99,7 +109,13 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
     Ok(())
 }
 
-fn check_base(base: &RecipeBase) -> CoreResult<()> {
+pub(super) fn check_base(base: &RecipeBase) -> CoreResult<()> {
+    check_clip(base, "base clip")
+}
+
+/// Checks one clip's name, frames, length and hash, `what` naming it in a
+/// refusal ("base clip", "clip 2").
+pub(super) fn check_clip(base: &RecipeBase, what: &str) -> CoreResult<()> {
     if base.rest {
         if !(2..=MAX_REST_FRAMES).contains(&base.frames) {
             return invalid(format!(
@@ -114,23 +130,27 @@ fn check_base(base: &RecipeBase) -> CoreResult<()> {
         }
         return Ok(());
     }
-    check_line(&base.name, "base clip", NAME_MAX_CHARS)?;
+    check_line(&base.name, what, NAME_MAX_CHARS)?;
     if base.frames == 0 || base.frames > MAX_FRAMES {
         return invalid(format!(
-            "The base clip has {} frames; a recipe takes 1 to {MAX_FRAMES}.",
+            "The {what} has {} frames; a recipe takes 1 to {MAX_FRAMES}.",
             base.frames
         ));
     }
     if !base.length.is_finite() || base.length <= 0.0 {
-        return invalid("The base clip's length has to be more than 0 seconds.".into());
+        return invalid(format!(
+            "The {what}'s length has to be more than 0 seconds."
+        ));
     }
     if base.hash.chars().count() > HASH_MAX_CHARS || base.hash.chars().any(char::is_control) {
-        return invalid("The base clip's hash is not one the clip library writes.".into());
+        return invalid(format!(
+            "The {what}'s hash is not one the clip library writes."
+        ));
     }
     Ok(())
 }
 
-fn finite_within(values: &[f32], limit: f32) -> bool {
+pub(super) fn finite_within(values: &[f32], limit: f32) -> bool {
     values.iter().all(|v| v.is_finite() && v.abs() <= limit)
 }
 
@@ -177,6 +197,9 @@ fn kind_word(kind: LayerKind) -> &'static str {
         LayerKind::Nudge => "nudge",
         LayerKind::LookAt => "look at",
         LayerKind::Wave => "wave",
+        LayerKind::Pin => "pin",
+        LayerKind::Pose => "pose keys",
+        LayerKind::Grip => "grip",
     }
 }
 
@@ -186,11 +209,13 @@ fn bones_for(kind: LayerKind) -> Option<&'static [&'static str]> {
         LayerKind::Reach => Some(&REACH_BONES),
         LayerKind::LookAt => Some(&LOOK_BONES),
         LayerKind::Wave => Some(&WAVE_BONES),
-        LayerKind::Nudge => None,
+        LayerKind::Pin => Some(&REACH_BONES),
+        LayerKind::Grip => Some(&GRIP_BONES),
+        LayerKind::Nudge | LayerKind::Pose => None,
     }
 }
 
-fn check_layer(layer: &RecipeLayer, blanks: &[RecipeBlank]) -> CoreResult<()> {
+fn check_layer(layer: &RecipeLayer, recipe: &RecipeFile) -> CoreResult<()> {
     if !is_item_id(&layer.id) {
         return invalid(format!(
             "{:?} is not a change id. Use up to {ID_MAX_CHARS} letters, digits, dashes and underscores.",
@@ -198,6 +223,16 @@ fn check_layer(layer: &RecipeLayer, blanks: &[RecipeBlank]) -> CoreResult<()> {
         ));
     }
     let word = kind_word(layer.kind);
+    if layer.kind == LayerKind::Pose {
+        // Pose keys name their bones in each key.
+        if !layer.bone.is_empty() {
+            return invalid(format!(
+                "The pose keys {} name their bones in each key, so leave its bone empty.",
+                layer.id
+            ));
+        }
+        return check_settings(layer, word, recipe);
+    }
     match bones_for(layer.kind) {
         Some(bones) if !bones.contains(&layer.bone.as_str()) => {
             return invalid(format!(
@@ -214,10 +249,11 @@ fn check_layer(layer: &RecipeLayer, blanks: &[RecipeBlank]) -> CoreResult<()> {
         }
         _ => {}
     }
-    check_settings(layer, word, blanks)
+    check_settings(layer, word, recipe)
 }
 
-fn check_settings(layer: &RecipeLayer, word: &str, blanks: &[RecipeBlank]) -> CoreResult<()> {
+fn check_settings(layer: &RecipeLayer, word: &str, recipe: &RecipeFile) -> CoreResult<()> {
+    let blanks = &recipe.blanks;
     let LayerSettings {
         weight,
         start,
@@ -227,6 +263,7 @@ fn check_settings(layer: &RecipeLayer, word: &str, blanks: &[RecipeBlank]) -> Co
         offset,
         cycles,
         amount,
+        ..
     } = &layer.settings;
     let id = &layer.id;
     if !(weight.is_finite() && (0.0..=1.0).contains(weight)) {
@@ -280,8 +317,25 @@ fn check_settings(layer: &RecipeLayer, word: &str, blanks: &[RecipeBlank]) -> Co
                 ));
             }
         }
+        LayerKind::Pin => check_pin(layer, blanks)?,
+        LayerKind::Pose => check_pose(layer, recipe)?,
+        LayerKind::Grip => check_grip(layer, blanks)?,
     }
     Ok(())
+}
+
+/// A blank `target` names, refused when the recipe has none of that id.
+pub(super) fn check_target(
+    id: &str,
+    target: Option<&String>,
+    blanks: &[RecipeBlank],
+) -> CoreResult<()> {
+    match target {
+        Some(target) if !blanks.iter().any(|b| &b.id == target) => invalid(format!(
+            "The change {id} aims at the blank {target}, which the recipe does not have."
+        )),
+        _ => Ok(()),
+    }
 }
 
 /// Checks that every filled prop blank names an asset of `manifest`'s project.

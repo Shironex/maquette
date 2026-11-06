@@ -22,9 +22,11 @@ use crate::recipes::{BlankKind, LayerKind, RecipeLayer};
 use crate::workspace::WorkspaceConfig;
 
 mod clip_name;
+mod ready;
 mod rest;
 pub(crate) use clip_name::clip_name;
 use clip_name::clip_note;
+pub use ready::{NOT_BAKEABLE_YET, not_bakeable, open_blanks};
 use rest::RestSpec;
 
 const BAKE_FILE: &str = "bake_recipe.py";
@@ -159,16 +161,6 @@ pub struct Prepared {
     pub warnings: Vec<String>,
 }
 
-/// The blanks of a recipe nothing fills yet, by id.
-pub fn open_blanks(doc: &RecipeDoc) -> Vec<String> {
-    doc.recipe
-        .blanks
-        .iter()
-        .filter(|b| !b.filled())
-        .map(|b| b.id.clone())
-        .collect()
-}
-
 fn invalid<T>(message: String) -> CoreResult<T> {
     Err(CoreError::Invalid(message))
 }
@@ -196,6 +188,9 @@ pub fn prepare(
             "{} changed since it was read, so it was not baked. Read it again and bake what it holds now.",
             doc.recipe.name
         )));
+    }
+    if let Some(refusal) = not_bakeable(&doc) {
+        return invalid(refusal);
     }
     let open = open_blanks(&doc);
     if !open.is_empty() {

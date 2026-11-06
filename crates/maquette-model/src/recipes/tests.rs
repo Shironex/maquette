@@ -13,6 +13,8 @@ fn base() -> RecipeBase {
         mixamo: true,
         rest: false,
         by_name: false,
+        trim: None,
+        blend: None,
     }
 }
 
@@ -27,17 +29,17 @@ fn lantern() -> RecipeBlank {
 }
 
 fn reach(target: &str) -> RecipeLayer {
-    RecipeLayer {
-        id: String::new(),
-        kind: LayerKind::Reach,
-        bone: "rightHand".into(),
-        settings: LayerSettings {
+    RecipeLayer::new(
+        "",
+        LayerKind::Reach,
+        "rightHand",
+        LayerSettings {
             start: 0.2,
             end: 0.6,
             target: Some(target.into()),
             ..LayerSettings::default()
         },
-    }
+    )
 }
 
 fn manifest_with(asset: &str) -> ProjectManifest {

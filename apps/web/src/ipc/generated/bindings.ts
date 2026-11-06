@@ -396,19 +396,19 @@ export const commands = {
 	/**  Moves the canvas file into the workspace trash; returns where it went. */
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
 	recipeList: (project: string) => __TAURI_INVOKE<RecipeSummary[]>("recipe_list", { project }),
-	recipeGet: (project: string, id: string) => __TAURI_INVOKE<RecipeDoc>("recipe_get", { project, id }),
+	recipeGet: (project: string, id: string) => __TAURI_INVOKE<RecipeDoc_Serialize>("recipe_get", { project, id }),
 	/**
 	 *  Makes a recipe on the library clip `clip`, or on the model's rest pose
 	 *  when it is null, called `name` or after the clip.
 	 */
-	recipeCreate: (project: string, clip: string | null, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
+	recipeCreate: (project: string, clip: string | null, name: string | null) => __TAURI_INVOKE<RecipeDoc_Serialize>("recipe_create", { project, clip, name }),
 	/**  Renames a recipe; its file and id stay. */
 	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
 	/**
 	 *  Replaces a recipe's name, changes, blanks or any of them in one write,
 	 *  checked whole first.
 	 */
-	recipeUpdate: (project: string, id: string, change: RecipeChange) => __TAURI_INVOKE<RecipeDoc>("recipe_update", { project, id, change }),
+	recipeUpdate: (project: string, id: string, change: RecipeChange_Deserialize) => __TAURI_INVOKE<RecipeDoc_Serialize>("recipe_update", { project, id, change }),
 	/**  Moves the recipe file into the workspace trash; returns where it went. */
 	recipeRemove: (project: string, id: string) => __TAURI_INVOKE<string>("recipe_remove", { project, id }),
 	/**
@@ -463,16 +463,16 @@ export const commands = {
 	 *  The starter recipes built into the app, each matched against the clip
 	 *  library. Never written to the library by listing them.
 	 */
-	recipeStarterList: () => __TAURI_INVOKE<RecipeStarter[]>("recipe_starter_list"),
+	recipeStarterList: () => __TAURI_INVOKE<RecipeStarter_Serialize[]>("recipe_starter_list"),
 	/**
 	 *  Copies a starter recipe into the library as a new recipe at r1 the
 	 *  person can edit. Only the person's Save to library calls this.
 	 */
 	recipeLibraryCopyStarter: (id: string) => __TAURI_INVOKE<RecipeImported>("recipe_library_copy_starter", { id }),
 	/**  A library recipe's revision, the newest when none is given. */
-	recipeLibraryGet: (entry: string, revision: number | null) => __TAURI_INVOKE<LibraryRecipeDoc>("recipe_library_get", { entry, revision }),
+	recipeLibraryGet: (entry: string, revision: number | null) => __TAURI_INVOKE<LibraryRecipeDoc_Serialize>("recipe_library_get", { entry, revision }),
 	/**  Copies a library recipe's revision into a project as a new recipe. */
-	recipeLibraryUse: (request: UseRecipe) => __TAURI_INVOKE<RecipeUsed>("recipe_library_use", { request }),
+	recipeLibraryUse: (request: UseRecipe) => __TAURI_INVOKE<RecipeUsed_Serialize>("recipe_library_use", { request }),
 	/**
 	 *  What saving a project's recipe to the library would do, for the
 	 *  confirm sheet: a new library recipe, or the next revision of `entry`.
@@ -510,7 +510,7 @@ export const commands = {
 	 *  recipe. Null when cancelled.
 	 */
 	recipeImportToProject: (project: string) => __TAURI_INVOKE<{
-	doc: RecipeDoc,
+	doc: RecipeDoc_Serialize,
 	/**
 	 *  Plain lines: blanks that opened, the base clip missing or with other
 	 *  keys, an id that was taken.
@@ -2129,11 +2129,25 @@ export type BlankKind =
 /**  A point in the scene, in metres with Y up. */
 "point";
 
+/**  How a blend window eases from one clip into the next. */
+export type BlendCurve = "smooth" | "linear";
+
 export type BlendFile = {
 	/**  Path relative to the scanned folder, with `/` separators. */
 	file: string,
 	stem: string,
 	version: number | null,
+};
+
+/**  The blend from the clip before into a joined clip. */
+export type BlendWindow = {
+	/**
+	 *  How many frames the two clips overlap; 0 cuts straight. At most
+	 *  half the shorter of the two clips, as trimmed.
+	 */
+	frames: number,
+	curve?: BlendCurve,
+	lineUp?: LineUp,
 };
 
 export type BoneMap = {
@@ -3775,6 +3789,14 @@ export type GoneProp = {
 /**  How many parts the semantic model looks for. */
 export type Granularity = "simple" | "balanced" | "detailed";
 
+/**  The library grip and revision a grip change was copied from. */
+export type GripFrom = {
+	/**  The library grip's id. */
+	entry: string,
+	/**  Its revision, from 1. */
+	revision: number,
+};
+
 /**  What the By hand panel shows, with a copy button per row. */
 export type HandoffCard = {
 	service: ProviderId,
@@ -4207,6 +4229,19 @@ export type KeepNeed = {
 	parts: string[],
 };
 
+/**  How the motion eases into a pose key. */
+export type KeyEase = 
+/**  Slow out of the key before and slow into this one. */
+"smooth" | 
+/**  Slow out of the key before, fast into this one. */
+"in" | 
+/**  Fast out of the key before, slow into this one. */
+"out" | 
+/**  An even pace. */
+"linear" | 
+/**  Holds the key before until this frame, then jumps. */
+"step";
+
 /**  What Settings shows for one key. */
 export type KeyStatus = {
 	service: ProviderId,
@@ -4279,10 +4314,26 @@ export type LayerKind =
 /**  The head or neck turns to follow a target. */
 "look-at" | 
 /**  An arm waves, laid over the clip. */
-"wave";
+"wave" | 
+/**  A hand or foot stays put across part of the clip. Version 2. */
+"pin" | 
+/**  Sparse pose keys on the bones and frames a person set. Version 2. */
+"pose" | 
+/**  A hand pose from the grip library, a copy plus a link back. Version 2. */
+"grip";
+
+/**  How a pose key or a grip is laid on the clip. */
+export type LayerMode = 
+/**  Turned on top of the clip, which still shows through. */
+"add" | 
+/**  In place of the clip's own turn on those bones. */
+"replace";
 
 /**  A change's settings. Each kind reads its own fields; the rest are none. */
-export type LayerSettings = {
+export type LayerSettings = LayerSettings_Serialize | LayerSettings_Deserialize;
+
+/**  A change's settings. Each kind reads its own fields; the rest are none. */
+export type LayerSettings_Deserialize = {
 	/**  How much of the change shows, 0 to 1. */
 	weight: number | null,
 	/**  Where in the clip it starts and ends, as shares of its length, 0 to 1. */
@@ -4298,6 +4349,37 @@ export type LayerSettings = {
 	cycles: number | null,
 	/**  Wave: how far each wave swings, in degrees. */
 	amount: number | null,
+	/**  Pin and grip: frames it eases in over. Version 2. */
+	easeIn?: number | null,
+	/**  Pin and grip: frames it eases out over. Version 2. */
+	easeOut?: number | null,
+	/**  A foot pin: what of the foot stays flat. Version 2. */
+	flat?: PinFlat | null,
+};
+
+/**  A change's settings. Each kind reads its own fields; the rest are none. */
+export type LayerSettings_Serialize = {
+	/**  How much of the change shows, 0 to 1. */
+	weight: number | null,
+	/**  Where in the clip it starts and ends, as shares of its length, 0 to 1. */
+	start: number | null,
+	end: number | null,
+	/**  Reach and look at: the blank that holds the target. */
+	target: string | null,
+	/**  Nudge: degrees added to the bone's rotation, X then Y then Z. */
+	rotation: [(number | null), (number | null), (number | null)] | null,
+	/**  Nudge: metres added to the bone's position, Y up. */
+	offset: [(number | null), (number | null), (number | null)] | null,
+	/**  Wave: how many waves between start and end. */
+	cycles: number | null,
+	/**  Wave: how far each wave swings, in degrees. */
+	amount: number | null,
+	/**  Pin and grip: frames it eases in over. Version 2. */
+	easeIn?: number | null,
+	/**  Pin and grip: frames it eases out over. Version 2. */
+	easeOut?: number | null,
+	/**  A foot pin: what of the foot stays flat. Version 2. */
+	flat?: PinFlat | null,
 };
 
 /**
@@ -4456,13 +4538,30 @@ export type LibraryMerged = {
 };
 
 /**  A library recipe's revision as the view and agents read it. */
-export type LibraryRecipeDoc = {
+export type LibraryRecipeDoc = LibraryRecipeDoc_Serialize | LibraryRecipeDoc_Deserialize;
+
+/**  A library recipe's revision as the view and agents read it. */
+export type LibraryRecipeDoc_Deserialize = {
 	entry: LibraryRecipeEntry,
 	/**  A hash of `entry.json`, sent back as `expected` by a write. */
 	version: string,
 	/**  The revision read. */
 	revision: number,
-	recipe: RecipeFile,
+	recipe: RecipeFile_Deserialize,
+	/**  Its base clip in this computer's clip library. */
+	base: BaseMatch,
+	/**  A bake of it counts as Mixamo's. */
+	mixamo: boolean,
+};
+
+/**  A library recipe's revision as the view and agents read it. */
+export type LibraryRecipeDoc_Serialize = {
+	entry: LibraryRecipeEntry,
+	/**  A hash of `entry.json`, sent back as `expected` by a write. */
+	version: string,
+	/**  The revision read. */
+	revision: number,
+	recipe: RecipeFile_Serialize,
 	/**  Its base clip in this computer's clip library. */
 	base: BaseMatch,
 	/**  A bake of it counts as Mixamo's. */
@@ -4607,6 +4706,18 @@ export type LibraryView = {
 	/**  Every collection by name, each listing only entries in `items`. */
 	collections: LibraryCollection[],
 };
+
+/**
+ *  What a blend lines up between the end of one clip and the start of the
+ *  next, so the seam does not jump.
+ */
+export type LineUp = 
+/**  Where the hips are and which way they face. */
+"hips-and-facing" | 
+/**  Where the hips are only. */
+"hips" | 
+/**  Nothing: the next clip starts where it was made. */
+"off";
 
 export type LogEntry = {
 	runId: string,
@@ -5782,6 +5893,15 @@ export type PictureState =
 /**  The render or the comparison did not work out; the name ranks. */
 "failed";
 
+/**  What of a pinned foot stays flat on the ground. */
+export type PinFlat = 
+/**  The toe and the heel. */
+"toe-and-heel" | 
+/**  The heel only, the toe free to roll. */
+"heel" | 
+/**  Neither: only where the foot is stays. */
+"off";
+
 /**
  *  An agent saved a project's compression presets through the MCP server,
  *  so the Pipeline view reloads them.
@@ -6333,6 +6453,23 @@ export type PlannedAdd = {
 };
 
 export type PlannedState = "new" | "next-version" | "same-file" | "name-clash" | "looks-like" | "unreadable";
+
+/**  One pose key: the bones a person turned at one frame of one clip. */
+export type PoseKey = {
+	/**
+	 *  The clip it sits on: 0 the base, then the joined clips. On the rest
+	 *  pose, always 0.
+	 */
+	clip?: number,
+	/**
+	 *  The frame of that clip, before its trim (on the rest pose, the
+	 *  recipe's own frame), from 0.
+	 */
+	frame: number,
+	ease?: KeyEase,
+	/**  Only the bones turned at this frame. */
+	pose: { [key in string]: [(number | null), (number | null), (number | null)] },
+};
 
 /**  The rest pose as the script measured it, in glTF metres and degrees. */
 export type PoseMeasures = {
@@ -6905,7 +7042,25 @@ export type RecipeBakeUse = {
  *    frames. Any other base, an empty hash included, matches by name and
  *    frame count.
  */
-export type RecipeBase = {
+export type RecipeBase = RecipeBase_Serialize | RecipeBase_Deserialize;
+
+/**
+ *  The library clip a recipe starts from, by what matches it on another
+ *  computer: its name and frame count. The hash tells keys that changed.
+ * 
+ *  Two other shapes keep the same fields, so a version 1 reader that does
+ *  not know them still reads the file (as a base clip it cannot find):
+ * 
+ *  - `rest`: the recipe runs on the model's rest pose for `frames` frames
+ *    at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
+ *    its hash empty and it is never Mixamo's.
+ *  - `byName` (with an empty `hash`, not rest): a base known by its name
+ *    only, as a starter recipe names it when the clip library had no such
+ *    clip. It matches the first library clip of that name, whatever its
+ *    frames. Any other base, an empty hash included, matches by name and
+ *    frame count.
+ */
+export type RecipeBase_Deserialize = {
 	name: string,
 	frames: number,
 	/**  Seconds. */
@@ -6920,6 +7075,59 @@ export type RecipeBase = {
 	 *  before reads false.
 	 */
 	byName?: boolean,
+	/**
+	 *  The frames of the clip kept, in then out (`[6, 58]` keeps 52), cut
+	 *  before the clips are joined. None keeps it whole. Version 2.
+	 */
+	trim?: [number, number] | null,
+	/**
+	 *  A joined clip's blend from the clip before it. None on the base.
+	 *  Version 2.
+	 */
+	blend?: BlendWindow | null,
+};
+
+/**
+ *  The library clip a recipe starts from, by what matches it on another
+ *  computer: its name and frame count. The hash tells keys that changed.
+ * 
+ *  Two other shapes keep the same fields, so a version 1 reader that does
+ *  not know them still reads the file (as a base clip it cannot find):
+ * 
+ *  - `rest`: the recipe runs on the model's rest pose for `frames` frames
+ *    at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
+ *    its hash empty and it is never Mixamo's.
+ *  - `byName` (with an empty `hash`, not rest): a base known by its name
+ *    only, as a starter recipe names it when the clip library had no such
+ *    clip. It matches the first library clip of that name, whatever its
+ *    frames. Any other base, an empty hash included, matches by name and
+ *    frame count.
+ */
+export type RecipeBase_Serialize = {
+	name: string,
+	frames: number,
+	/**  Seconds. */
+	length: number | null,
+	hash: string,
+	/**  Read from a Mixamo rig: a bake counts as Mixamo's. */
+	mixamo: boolean,
+	/**  The model's rest pose, no base clip. A file from before reads false. */
+	rest?: boolean,
+	/**
+	 *  Known by its clip's name only, as a starter names it. A file from
+	 *  before reads false.
+	 */
+	byName?: boolean,
+	/**
+	 *  The frames of the clip kept, in then out (`[6, 58]` keeps 52), cut
+	 *  before the clips are joined. None keeps it whole. Version 2.
+	 */
+	trim?: [number, number] | null,
+	/**
+	 *  A joined clip's blend from the clip before it. None on the base.
+	 *  Version 2.
+	 */
+	blend?: BlendWindow | null,
 };
 
 /**  A target the person or an agent fills per project. */
@@ -6935,14 +7143,39 @@ export type RecipeBlank = {
 
 /**
  *  What a change to a recipe replaces: its name, the changes, the blanks,
- *  or any of them, each whole. A change with an empty id gets a free one
- *  (`l-1`, `l-2`).
+ *  the clips, the time edits, mirror, or any of them, each whole. A change
+ *  with an empty id gets a free one (`l-1`, `l-2`).
  */
-export type RecipeChange = {
+export type RecipeChange = RecipeChange_Serialize | RecipeChange_Deserialize;
+
+/**
+ *  What a change to a recipe replaces: its name, the changes, the blanks,
+ *  the clips, the time edits, mirror, or any of them, each whole. A change
+ *  with an empty id gets a free one (`l-1`, `l-2`).
+ */
+export type RecipeChange_Deserialize = {
 	/**  A new name; the file and id stay. */
 	name?: string | null,
-	layers: RecipeLayer[] | null,
+	layers: RecipeLayer_Deserialize[] | null,
 	blanks: RecipeBlank[] | null,
+	/**
+	 *  Every clip in order, the base first, each with its trim and (after
+	 *  the first) its blend window. The keys and time edits the recipe
+	 *  keeps (the lists not sent with it) follow their clip to its new
+	 *  place; taking away a clip one of them sits on is refused. Lists sent
+	 *  with it count clips in the new order.
+	 */
+	clips?: RecipeBase_Deserialize[] | null,
+	/**
+	 *  For each clip of `clips`, the index of the recipe's clip it keeps (0
+	 *  the base), or none for a new one. Left out, a clip sent keeps the
+	 *  first of the recipe's clips with its name, frames and hash.
+	 */
+	kept?: (number | null)[] | null,
+	/**  Every time edit. */
+	time?: TimeEdit_Deserialize[] | null,
+	/**  Left and right swapped across the whole recipe, or not. */
+	mirror?: boolean | null,
 	/**
 	 *  The `version` of the recipe as it was read (a hash of the file's
 	 *  bytes). Given, a file that changed since in any way is refused (code
@@ -6955,6 +7188,48 @@ export type RecipeChange = {
 	 *  sent with a prop keeps that prop.
 	 */
 	clear?: string[],
+};
+
+/**
+ *  What a change to a recipe replaces: its name, the changes, the blanks,
+ *  the clips, the time edits, mirror, or any of them, each whole. A change
+ *  with an empty id gets a free one (`l-1`, `l-2`).
+ */
+export type RecipeChange_Serialize = {
+	/**  A new name; the file and id stay. */
+	name: string | null,
+	layers: RecipeLayer_Serialize[] | null,
+	blanks: RecipeBlank[] | null,
+	/**
+	 *  Every clip in order, the base first, each with its trim and (after
+	 *  the first) its blend window. The keys and time edits the recipe
+	 *  keeps (the lists not sent with it) follow their clip to its new
+	 *  place; taking away a clip one of them sits on is refused. Lists sent
+	 *  with it count clips in the new order.
+	 */
+	clips?: RecipeBase_Serialize[] | null,
+	/**
+	 *  For each clip of `clips`, the index of the recipe's clip it keeps (0
+	 *  the base), or none for a new one. Left out, a clip sent keeps the
+	 *  first of the recipe's clips with its name, frames and hash.
+	 */
+	kept?: (number | null)[] | null,
+	/**  Every time edit. */
+	time?: TimeEdit_Serialize[] | null,
+	/**  Left and right swapped across the whole recipe, or not. */
+	mirror?: boolean | null,
+	/**
+	 *  The `version` of the recipe as it was read (a hash of the file's
+	 *  bytes). Given, a file that changed since in any way is refused (code
+	 *  `moved`) and nothing is written.
+	 */
+	expected: string | null,
+	/**
+	 *  Prop blanks to empty for good, even when the prop they name is no
+	 *  longer an asset (which a blank sent open otherwise keeps). A blank
+	 *  sent with a prop keeps that prop.
+	 */
+	clear: string[],
 };
 
 /**
@@ -6981,15 +7256,56 @@ export type RecipeCompare = {
 };
 
 /**  One recipe as the view and agents get it. */
-export type RecipeDoc = {
+export type RecipeDoc = RecipeDoc_Serialize | RecipeDoc_Deserialize;
+
+/**  One recipe as the view and agents get it. */
+export type RecipeDoc_Deserialize = {
 	id: string,
 	/**  `recipes/<id>.recipe.json`. */
 	file: string,
-	recipe: RecipeFile,
+	recipe: RecipeFile_Deserialize,
 	base: BaseMatch,
 	/**
-	 *  A bake counts as Mixamo's: the recipe says so, or its base clip in
-	 *  the library came from a Mixamo rig.
+	 *  Each joined clip in the library, in order (clip 2 first). Empty for
+	 *  a recipe on one clip.
+	 */
+	joined?: BaseMatch[],
+	/**
+	 *  A bake counts as Mixamo's: the recipe says so of any clip, or any of
+	 *  its clips in the library came from a Mixamo rig.
+	 */
+	mixamo: boolean,
+	/**
+	 *  Prop blanks that read open because the project no longer has their
+	 *  asset, a line each.
+	 */
+	warnings: string[],
+	/**  The same blanks, each with the asset id the file still holds. */
+	gone: GoneProp[],
+	/**  A hash of the file's bytes; a write sends it back as `expected`. */
+	version: string,
+	/**
+	 *  A hash of what the recipe does, without its library link and other
+	 *  bookkeeping; a bake is out of date when this changes, not `version`.
+	 */
+	motionVersion: string,
+};
+
+/**  One recipe as the view and agents get it. */
+export type RecipeDoc_Serialize = {
+	id: string,
+	/**  `recipes/<id>.recipe.json`. */
+	file: string,
+	recipe: RecipeFile_Serialize,
+	base: BaseMatch,
+	/**
+	 *  Each joined clip in the library, in order (clip 2 first). Empty for
+	 *  a recipe on one clip.
+	 */
+	joined?: BaseMatch[],
+	/**
+	 *  A bake counts as Mixamo's: the recipe says so of any clip, or any of
+	 *  its clips in the library came from a Mixamo rig.
 	 */
 	mixamo: boolean,
 	/**
@@ -7017,7 +7333,10 @@ export type RecipeExported = {
 };
 
 /**  `recipes/<id>.recipe.json`. */
-export type RecipeFile = {
+export type RecipeFile = RecipeFile_Serialize | RecipeFile_Deserialize;
+
+/**  `recipes/<id>.recipe.json`. */
+export type RecipeFile_Deserialize = {
 	version: number,
 	name: string,
 	revision: number,
@@ -7025,15 +7344,67 @@ export type RecipeFile = {
 	created: string,
 	/**  RFC 3339, the last write that changed something. */
 	edited: string,
-	base: RecipeBase,
+	/**  The first clip; in version 1 the only one. */
+	base: RecipeBase_Deserialize,
+	/**
+	 *  The clips joined after the base, in order, each across its blend
+	 *  window. Clip 1 is the first of these, clip 0 the base. Version 2.
+	 */
+	joined?: RecipeBase_Deserialize[],
+	/**
+	 *  Left and right swapped across the whole recipe, right after the
+	 *  clips are joined. Version 2.
+	 */
+	mirror?: boolean,
+	/**
+	 *  Retime ranges, freezes and holds over, each on a clip's own frames.
+	 *  Version 2.
+	 */
+	time?: TimeEdit_Deserialize[],
 	blanks: RecipeBlank[],
 	/**  In the order they are laid over the clip. */
-	layers: RecipeLayer[],
+	layers: RecipeLayer_Deserialize[],
 	/**
 	 *  The library recipe and revision it was copied from or last saved
 	 *  as; none for a recipe made here or imported. Never exported.
 	 */
 	from?: RecipeFrom | null,
+};
+
+/**  `recipes/<id>.recipe.json`. */
+export type RecipeFile_Serialize = {
+	version: number,
+	name: string,
+	revision: number,
+	/**  RFC 3339, when the recipe was made. */
+	created: string,
+	/**  RFC 3339, the last write that changed something. */
+	edited: string,
+	/**  The first clip; in version 1 the only one. */
+	base: RecipeBase_Serialize,
+	/**
+	 *  The clips joined after the base, in order, each across its blend
+	 *  window. Clip 1 is the first of these, clip 0 the base. Version 2.
+	 */
+	joined?: RecipeBase_Serialize[],
+	/**
+	 *  Left and right swapped across the whole recipe, right after the
+	 *  clips are joined. Version 2.
+	 */
+	mirror?: boolean,
+	/**
+	 *  Retime ranges, freezes and holds over, each on a clip's own frames.
+	 *  Version 2.
+	 */
+	time?: TimeEdit_Serialize[],
+	blanks: RecipeBlank[],
+	/**  In the order they are laid over the clip. */
+	layers: RecipeLayer_Serialize[],
+	/**
+	 *  The library recipe and revision it was copied from or last saved
+	 *  as; none for a recipe made here or imported. Never exported.
+	 */
+	from: RecipeFrom | null,
 };
 
 /**  The library recipe and revision a project's recipe came from. */
@@ -7059,12 +7430,72 @@ export type RecipeImported = {
 };
 
 /**  One change laid over the base clip, on one humanoid bone. */
-export type RecipeLayer = {
+export type RecipeLayer = RecipeLayer_Serialize | RecipeLayer_Deserialize;
+
+/**  One change laid over the base clip, on one humanoid bone. */
+export type RecipeLayer_Deserialize = {
 	id: string,
 	kind: LayerKind,
-	/**  A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`. */
+	/**
+	 *  A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`. A
+	 *  grip names the hand that holds; pose keys name their bones in each
+	 *  key, so theirs is empty.
+	 */
 	bone: string,
-	settings: LayerSettings,
+	settings: LayerSettings_Deserialize,
+	/**
+	 *  Pose keys and grips: laid over the clip (add) or in its place
+	 *  (replace). Pose keys add unless told, grips replace. Version 2.
+	 */
+	mode?: LayerMode | null,
+	/**
+	 *  Pose keys: only the bones and frames a person set, in clip and frame
+	 *  order. Version 2.
+	 */
+	keys?: PoseKey[],
+	/**
+	 *  A grip: the recipe's own copy of the grip's pose, degrees per bone,
+	 *  no frames. Version 2.
+	 */
+	pose?: { [key in string]: [(number | null), (number | null), (number | null)] } | null,
+	/**
+	 *  A grip: the library grip and revision it was copied from. Like the
+	 *  recipe's own `from`, it stays out of the motion version. Version 2.
+	 */
+	from?: GripFrom | null,
+};
+
+/**  One change laid over the base clip, on one humanoid bone. */
+export type RecipeLayer_Serialize = {
+	id: string,
+	kind: LayerKind,
+	/**
+	 *  A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`. A
+	 *  grip names the hand that holds; pose keys name their bones in each
+	 *  key, so theirs is empty.
+	 */
+	bone: string,
+	settings: LayerSettings_Serialize,
+	/**
+	 *  Pose keys and grips: laid over the clip (add) or in its place
+	 *  (replace). Pose keys add unless told, grips replace. Version 2.
+	 */
+	mode?: LayerMode | null,
+	/**
+	 *  Pose keys: only the bones and frames a person set, in clip and frame
+	 *  order. Version 2.
+	 */
+	keys?: PoseKey[],
+	/**
+	 *  A grip: the recipe's own copy of the grip's pose, degrees per bone,
+	 *  no frames. Version 2.
+	 */
+	pose?: { [key in string]: [(number | null), (number | null), (number | null)] } | null,
+	/**
+	 *  A grip: the library grip and revision it was copied from. Like the
+	 *  recipe's own `from`, it stays out of the motion version. Version 2.
+	 */
+	from?: GripFrom | null,
 };
 
 /**
@@ -7181,7 +7612,10 @@ export type RecipeSaved = {
 };
 
 /**  A starter recipe as the app and agents read it. */
-export type RecipeStarter = {
+export type RecipeStarter = RecipeStarter_Serialize | RecipeStarter_Deserialize;
+
+/**  A starter recipe as the app and agents read it. */
+export type RecipeStarter_Deserialize = {
 	/**  `starter:<key>`. */
 	id: string,
 	name: string,
@@ -7192,7 +7626,30 @@ export type RecipeStarter = {
 	/**  Runs on the model's rest pose, with no base clip. */
 	rest: boolean,
 	blanks: RecipeBlank[],
-	layers: RecipeLayer[],
+	layers: RecipeLayer_Deserialize[],
+	/**
+	 *  The clip it would take from this computer's clip library, or the
+	 *  first name it tries, or "Rest pose".
+	 */
+	baseName: string,
+	/**  How its base stands in the clip library: found, missing or rest. */
+	base: BaseMatch,
+	mixamo: boolean,
+};
+
+/**  A starter recipe as the app and agents read it. */
+export type RecipeStarter_Serialize = {
+	/**  `starter:<key>`. */
+	id: string,
+	name: string,
+	/**  One line on what it does. */
+	about: string,
+	/**  The clip names it runs on, tried in order; empty on the rest pose. */
+	clips: string[],
+	/**  Runs on the model's rest pose, with no base clip. */
+	rest: boolean,
+	blanks: RecipeBlank[],
+	layers: RecipeLayer_Serialize[],
 	/**
 	 *  The clip it would take from this computer's clip library, or the
 	 *  first name it tries, or "Rest pose".
@@ -7238,11 +7695,29 @@ export type RecipeSummary = {
 	problem: string | null,
 	/**  The library recipe and revision it came from or was last saved as. */
 	from: RecipeFrom | null,
+	/**
+	 *  The file's version: 1, or 2 once it uses something of version 2,
+	 *  which a bake cannot make yet. 0 when it could not be read.
+	 */
+	format?: number,
 };
 
 /**  A recipe brought into a project, with what to know about it. */
-export type RecipeUsed = {
-	doc: RecipeDoc,
+export type RecipeUsed = RecipeUsed_Serialize | RecipeUsed_Deserialize;
+
+/**  A recipe brought into a project, with what to know about it. */
+export type RecipeUsed_Deserialize = {
+	doc: RecipeDoc_Deserialize,
+	/**
+	 *  Plain lines: blanks that opened, the base clip missing or with other
+	 *  keys, an id that was taken.
+	 */
+	notes: string[],
+};
+
+/**  A recipe brought into a project, with what to know about it. */
+export type RecipeUsed_Serialize = {
+	doc: RecipeDoc_Serialize,
 	/**
 	 *  Plain lines: blanks that opened, the base clip missing or with other
 	 *  keys, an id that was taken.
@@ -9505,6 +9980,92 @@ export type ThumbnailReady = {
 	state: ThumbState,
 	project: ProjectManifest | null,
 };
+
+/**
+ *  A time edit on one clip's own frames, before its trim, so trimming or
+ *  joining carries it with the motion it belongs to. Each kind reads its
+ *  own fields; the rest are none.
+ */
+export type TimeEdit = TimeEdit_Serialize | TimeEdit_Deserialize;
+
+/**
+ *  A time edit on one clip's own frames, before its trim, so trimming or
+ *  joining carries it with the motion it belongs to. Each kind reads its
+ *  own fields; the rest are none.
+ */
+export type TimeEdit_Deserialize = {
+	kind: TimeKind,
+	/**  The clip it sits on: 0 the base, then the joined clips. */
+	clip: number,
+	/**  Retime: the first frame of the range. */
+	from?: number | null,
+	/**  Retime: the frame the range ends at, after `from`. */
+	to?: number | null,
+	/**  Retime: how fast the range plays, 0.25 to 4 (1.6 plays 14 frames in 9). */
+	speed?: number | null,
+	/**  Retime: frames it eases into and out of the new speed. */
+	ease?: number | null,
+	/**  Freeze and hold over: the frame whose pose is held. */
+	at?: number | null,
+	/**
+	 *  Freeze: how many frames it adds. Hold over: how many frames from
+	 *  `at` keep the pose.
+	 */
+	frames?: number | null,
+	/**
+	 *  Freeze and hold over: a little breathing so a long hold is not dead
+	 *  still, 0 to 1. None is 0.
+	 */
+	breathe?: number | null,
+	/**  Freeze and hold over: frames it eases into the held pose over. */
+	easeIn?: number | null,
+	/**  Freeze and hold over: frames it eases out of it over. */
+	easeOut?: number | null,
+};
+
+/**
+ *  A time edit on one clip's own frames, before its trim, so trimming or
+ *  joining carries it with the motion it belongs to. Each kind reads its
+ *  own fields; the rest are none.
+ */
+export type TimeEdit_Serialize = {
+	kind: TimeKind,
+	/**  The clip it sits on: 0 the base, then the joined clips. */
+	clip: number,
+	/**  Retime: the first frame of the range. */
+	from?: number | null,
+	/**  Retime: the frame the range ends at, after `from`. */
+	to?: number | null,
+	/**  Retime: how fast the range plays, 0.25 to 4 (1.6 plays 14 frames in 9). */
+	speed?: number | null,
+	/**  Retime: frames it eases into and out of the new speed. */
+	ease?: number | null,
+	/**  Freeze and hold over: the frame whose pose is held. */
+	at?: number | null,
+	/**
+	 *  Freeze: how many frames it adds. Hold over: how many frames from
+	 *  `at` keep the pose.
+	 */
+	frames?: number | null,
+	/**
+	 *  Freeze and hold over: a little breathing so a long hold is not dead
+	 *  still, 0 to 1. None is 0.
+	 */
+	breathe?: number | null,
+	/**  Freeze and hold over: frames it eases into the held pose over. */
+	easeIn?: number | null,
+	/**  Freeze and hold over: frames it eases out of it over. */
+	easeOut?: number | null,
+};
+
+/**  What a time edit does. */
+export type TimeKind = 
+/**  Plays a range of frames faster or slower. */
+"retime" | 
+/**  Stops on one frame and adds its length to the recipe. */
+"freeze" | 
+/**  Keeps one pose across a range, the length unchanged. */
+"hold-over";
 
 /**  The Timeline view's own tracks. */
 export type Timeline = {
