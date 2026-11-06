@@ -9,9 +9,9 @@ use maquette_glb::vrm::is_human_bone;
 
 use super::check::{REACH_BONES, check_clip, check_target, finite_within, invalid};
 use super::{
-    BonePose, MAX_CLIPS, MAX_FRAMES, MAX_GRIP_BONES, MAX_HOLD_FRAMES, MAX_KEY_BONES, MAX_KEYS,
-    MAX_SPEED, MAX_TIME_EDITS, MAX_TURN_DEGREES, MIN_SPEED, RecipeBase, RecipeBlank, RecipeFile,
-    RecipeLayer, TimeEdit, TimeKind,
+    BonePose, LayerKind, MAX_CLIPS, MAX_FRAMES, MAX_GRIP_BONES, MAX_HOLD_FRAMES, MAX_KEY_BONES,
+    MAX_KEYS, MAX_RECIPE_KEYS, MAX_RECIPE_TURNS, MAX_SPEED, MAX_TIME_EDITS, MAX_TURN_DEGREES,
+    MIN_SPEED, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, TimeEdit, TimeKind,
 };
 use crate::error::CoreResult;
 use crate::plans::is_item_id;
@@ -306,4 +306,36 @@ pub(super) fn check_grip(layer: &RecipeLayer, blanks: &[RecipeBlank]) -> CoreRes
         ));
     }
     check_eases(layer, "grip")
+}
+
+/// The recipe-wide caps: at most [`MAX_RECIPE_KEYS`] pose keys across its
+/// pose key changes and [`MAX_RECIPE_TURNS`] bone turns across those keys
+/// and its grips, so a recipe at every limit still fits in a file.
+pub(super) fn check_totals(recipe: &RecipeFile) -> CoreResult<()> {
+    let keys: usize = recipe
+        .layers
+        .iter()
+        .filter(|l| l.kind == LayerKind::Pose)
+        .map(|l| l.keys.len())
+        .sum();
+    if keys > MAX_RECIPE_KEYS {
+        return invalid(format!(
+            "The recipe holds {keys} pose keys; it holds at most {MAX_RECIPE_KEYS} across all its pose keys. Take some out."
+        ));
+    }
+    let turns: usize = recipe
+        .layers
+        .iter()
+        .map(|l| match l.kind {
+            LayerKind::Pose => l.keys.iter().map(|k| k.pose.len()).sum(),
+            LayerKind::Grip => l.pose.as_ref().map_or(0, BonePose::len),
+            _ => 0,
+        })
+        .sum();
+    if turns > MAX_RECIPE_TURNS {
+        return invalid(format!(
+            "The recipe turns {turns} bones across its pose keys and grips; it turns at most {MAX_RECIPE_TURNS}. Turn fewer bones per key or grip."
+        ));
+    }
+    Ok(())
 }

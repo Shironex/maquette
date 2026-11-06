@@ -8,7 +8,9 @@ use std::collections::BTreeSet;
 
 use maquette_glb::vrm::is_human_bone;
 
-use super::check_edits::{check_clips, check_grip, check_pin, check_pose, check_time};
+use super::check_edits::{
+    check_clips, check_grip, check_pin, check_pose, check_time, check_totals,
+};
 use super::{
     BlankKind, GoneProp, HASH_MAX_CHARS, ID_MAX_CHARS, LABEL_MAX_CHARS, LayerKind, LayerSettings,
     MAX_BLANKS, MAX_CYCLES, MAX_FRAMES, MAX_LAYERS, MAX_OFFSET_METRES, MAX_POINT_METRES,
@@ -76,6 +78,7 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
     check_base(&recipe.base)?;
     check_clips(recipe)?;
     check_time(recipe)?;
+    check_totals(recipe)?;
     if let Some(from) = &recipe.from
         && (!super::is_recipe_id(&from.entry)
             || !super::is_entry_uid(&from.uid)

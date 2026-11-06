@@ -5,13 +5,12 @@
 use std::fs;
 use std::path::Path;
 
-use super::files::{free_id, writing};
+use super::files::{free_id, write_recipe, writing};
 use super::{
     RecipeFile, RecipeFrom, check_name, dir, load_versioned, names, normalized, path, unique_name,
     validate,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::json::write_json;
 use crate::project::latin_slug;
 
 /// Writes `recipe` whole into the project at `project_dir` as a new recipe,
@@ -42,7 +41,7 @@ pub fn create_whole(
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
     let file = path(project_dir, &id)?;
-    write_json(&file, &recipe)?;
+    write_recipe(&file, &recipe)?;
     let version = load_versioned(&file)?.1;
     Ok((id, recipe, version))
 }
@@ -75,6 +74,6 @@ pub fn link(
     recipe.revision = from.revision;
     recipe.from = Some(from);
     validate(&recipe)?;
-    write_json(&file, &recipe)?;
+    write_recipe(&file, &recipe)?;
     Ok(load_versioned(&file)?.1)
 }

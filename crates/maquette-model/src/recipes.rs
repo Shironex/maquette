@@ -69,8 +69,8 @@ pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use copies::{create_whole, link};
 pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, bake_unsupported, uses_v2};
 pub use files::{
-    RecipeRead, RecipeSummary, create, create_joined, get, list, list_with, motion_version_of,
-    names, remove, rename, rename_with, version,
+    RecipeRead, RecipeSummary, TOO_BIG, create, create_joined, get, list, list_with,
+    motion_version_of, names, remove, rename, rename_with, version,
 };
 pub use keys::{BonePose, GripFrom, KeyEase, LayerMode, PinFlat, PoseKey};
 pub use normal::{load_versioned, normalized};
@@ -107,7 +107,10 @@ pub const REST_FPS: f32 = 30.0;
 pub const REST_FRAMES: u32 = 60;
 /// The longest a rest pose recipe runs, in frames (20 seconds).
 pub const MAX_REST_FRAMES: u32 = 600;
-/// The biggest recipe file read. A recipe at every limit is far under it.
+/// The biggest recipe file read or written. A recipe at every limit fits
+/// under it (the recipe-wide [`MAX_RECIPE_KEYS`] and [`MAX_RECIPE_TURNS`]
+/// keep pose keys and grips from filling it), and a write that would still
+/// go over is refused, since such a file would not open again.
 pub const MAX_FILE_BYTES: u64 = 256 * 1024;
 /// The most clips a recipe joins, the base included.
 pub const MAX_CLIPS: usize = 8;
@@ -115,6 +118,10 @@ pub const MAX_CLIPS: usize = 8;
 pub const MAX_KEYS: usize = 64;
 /// The most bones one pose key turns.
 pub const MAX_KEY_BONES: usize = 32;
+/// The most pose keys a recipe holds across all its pose key changes.
+pub const MAX_RECIPE_KEYS: usize = 256;
+/// The most bone turns a recipe holds across all its pose keys and grips.
+pub const MAX_RECIPE_TURNS: usize = 1024;
 /// The most bones a grip's pose turns: both hands, every finger, and the
 /// forearms.
 pub const MAX_GRIP_BONES: usize = 64;
@@ -596,3 +603,6 @@ mod tests_v2_limits;
 
 #[cfg(test)]
 mod tests_v2_motion;
+
+#[cfg(test)]
+mod tests_v2_size;

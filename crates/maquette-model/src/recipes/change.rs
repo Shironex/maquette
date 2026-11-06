@@ -5,13 +5,12 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::files::{RecipeRead, settled, version, writing};
+use super::files::{RecipeRead, settled, version, write_recipe, writing};
 use super::{
     BlankKind, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, TimeEdit, check_name, check_props,
     load_versioned, normalized, path, validate,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::json::write_json;
 use crate::plans::trimmed;
 use crate::project::{ProjectManifest, now_rfc3339};
 
@@ -143,7 +142,7 @@ fn check_expected(id: &str, current: &str, expected: Option<&str>) -> CoreResult
 ///
 /// Fails on a name [`check_name`] refuses, when the recipe is gone or
 /// changed since `expected`, `clear` names no prop blank, the result does
-/// not validate or the file cannot be written.
+/// not validate, would be too big to write, or the file cannot be written.
 pub fn update(
     project_dir: &Path,
     manifest: &ProjectManifest,
@@ -201,7 +200,7 @@ pub fn update(
         current_version
     } else {
         next.edited = now_rfc3339();
-        write_json(&file, &next)?;
+        write_recipe(&file, &next)?;
         version(project_dir, id)?
     };
     Ok(settled(next, version, manifest))

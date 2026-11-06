@@ -12,12 +12,11 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use serde::Serialize;
 
 use super::{
-    GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeFile, RecipeFrom,
-    check_name, dir, gone_props, is_recipe_id, load_versioned, motion_version, normalized, path,
-    settle_props, validate,
+    GoneProp, ID_MAX_CHARS, MAX_FILE_BYTES, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeFile,
+    RecipeFrom, check_name, dir, gone_props, is_recipe_id, load_versioned, motion_version,
+    normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::json::write_json;
 use crate::plans::trimmed;
 use crate::project::{ProjectManifest, latin_slug, now_rfc3339, windows_safe};
 
@@ -101,6 +100,25 @@ static WRITES: Mutex<()> = Mutex::new(());
 
 pub(super) fn writing() -> MutexGuard<'static, ()> {
     WRITES.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// How a refusal of a recipe too big to write starts, so an answer can
+/// carry its own code.
+pub const TOO_BIG: &str = "The recipe would be over";
+
+/// Writes a recipe file as [`write_json`] would, refused before anything is
+/// written when it would be over [`MAX_FILE_BYTES`], since such a file would
+/// not open again.
+pub(super) fn write_recipe(file: &Path, recipe: &RecipeFile) -> CoreResult<()> {
+    let mut text = serde_json::to_string_pretty(recipe).map_err(|e| CoreError::json(file, e))?;
+    text.push('\n');
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
+        return Err(CoreError::Invalid(format!(
+            "{TOO_BIG} {} KB, too big to save. Take out some pose keys, grips or changes.",
+            MAX_FILE_BYTES / 1024
+        )));
+    }
+    maquette_base::fs::write_atomic(file, text.as_bytes()).map_err(|e| CoreError::io(file, e))
 }
 
 fn count(n: usize) -> u32 {
@@ -314,7 +332,7 @@ pub fn create_joined(
     let id = free_id(project_dir, &recipe.name)?;
     let folder = dir(project_dir);
     fs::create_dir_all(&folder).map_err(|e| CoreError::io(&folder, e))?;
-    write_json(&path(project_dir, &id)?, &recipe)?;
+    write_recipe(&path(project_dir, &id)?, &recipe)?;
     Ok((id, recipe))
 }
 
@@ -348,7 +366,7 @@ pub fn rename_with(
     if recipe.name != name {
         recipe.name = name.to_string();
         recipe.edited = now_rfc3339();
-        write_json(&file, &recipe)?;
+        write_recipe(&file, &recipe)?;
         version = load_versioned(&file)?.1;
     }
     let read = RecipeRead {
