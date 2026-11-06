@@ -36,6 +36,16 @@
 //! saved back to the workspace's recipe library, never on an edit in the
 //! project. `from` names the library recipe and revision a project's recipe
 //! was copied from or last saved as; it is left out of every exported file.
+//!
+//! Version 2 adds what a recipe uses to make new motion, each written only
+//! when used, so a recipe that uses none of it is saved as version 1 and a
+//! Maquette from before still opens it: more clips `joined` after the base,
+//! each across a blend window, a `trim` on any clip, `mirror`, `time` edits
+//! (retime ranges, freezes and holds over) on a clip's own frames, and the
+//! pin, pose key and grip changes ([`LayerKind`]). Keys and time edits sit on
+//! the source clip's frames (a clip index and a frame), so a trim, a retime
+//! or a new blend carries them with the motion they belong to. A trim keeps
+//! what it hides: a key or edit outside the kept frames stays in the file.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -47,19 +57,28 @@ use crate::plans::trimmed;
 
 pub mod baked;
 mod check;
+mod check_edits;
 mod copies;
+mod edits;
 mod files;
+mod keys;
 
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use copies::{create_whole, link};
+pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, bake_unsupported, uses_v2};
 pub use files::{
-    RecipeChange, RecipeRead, RecipeSummary, create, get, list, list_with, motion_version_of,
-    names, remove, rename, rename_with, update, version,
+    RecipeChange, RecipeRead, RecipeSummary, create, create_joined, get, list, list_with,
+    motion_version_of, names, remove, rename, rename_with, update, version,
 };
+pub use keys::{BonePose, GripFrom, KeyEase, LayerMode, PinFlat, PoseKey};
 
 pub const RECIPES_DIR: &str = "recipes";
 pub const RECIPE_SUFFIX: &str = ".recipe.json";
-pub const RECIPE_VERSION: u32 = 1;
+/// The newest file version this Maquette reads and writes.
+pub const RECIPE_VERSION: u32 = 2;
+/// The version a recipe that uses nothing of version 2 is written as, so
+/// a Maquette from before still opens it.
+pub const RECIPE_VERSION_1: u32 = 1;
 pub const NAME_MAX_CHARS: usize = 120;
 /// A blank's label, saying what fills it.
 pub const LABEL_MAX_CHARS: usize = 120;
@@ -87,6 +106,26 @@ pub const REST_FRAMES: u32 = 60;
 pub const MAX_REST_FRAMES: u32 = 600;
 /// The biggest recipe file read. A recipe at every limit is far under it.
 pub const MAX_FILE_BYTES: u64 = 256 * 1024;
+/// The most clips a recipe joins, the base included.
+pub const MAX_CLIPS: usize = 8;
+/// The most keys a pose key change holds.
+pub const MAX_KEYS: usize = 64;
+/// The most bones one pose key turns.
+pub const MAX_KEY_BONES: usize = 32;
+/// The most bones a grip's pose turns: both hands, every finger, and the
+/// forearms.
+pub const MAX_GRIP_BONES: usize = 64;
+/// The most time edits a recipe holds.
+pub const MAX_TIME_EDITS: usize = 32;
+/// How far a retime slows down or speeds up a range.
+pub const MIN_SPEED: f32 = 0.25;
+pub const MAX_SPEED: f32 = 4.0;
+/// The longest a freeze or a hold over lasts, in frames (20 seconds at 30 fps).
+pub const MAX_HOLD_FRAMES: u32 = 600;
+/// How far a pose key or a grip turns a bone, in degrees each way.
+pub const MAX_TURN_DEGREES: f32 = 180.0;
+/// How long a blend window lasts unless told, in frames.
+pub const BLEND_FRAMES: u32 = 8;
 
 /// What a change does to the base clip.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -100,6 +139,19 @@ pub enum LayerKind {
     LookAt,
     /// An arm waves, laid over the clip.
     Wave,
+    /// A hand or foot stays put across part of the clip. Version 2.
+    Pin,
+    /// Sparse pose keys on the bones and frames a person set. Version 2.
+    Pose,
+    /// A hand pose from the grip library, a copy plus a link back. Version 2.
+    Grip,
+}
+
+impl LayerKind {
+    /// A change of version 2, which a file of version 1 cannot hold.
+    pub fn is_v2(self) -> bool {
+        matches!(self, Self::Pin | Self::Pose | Self::Grip)
+    }
 }
 
 /// What fills a blank.
@@ -145,6 +197,16 @@ pub struct RecipeBase {
     #[serde(default)]
     #[specta(optional)]
     pub by_name: bool,
+    /// The frames of the clip kept, in then out (`[6, 58]` keeps 52), cut
+    /// before the clips are joined. None keeps it whole. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub trim: Option<[u32; 2]>,
+    /// A joined clip's blend from the clip before it. None on the base.
+    /// Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub blend: Option<BlendWindow>,
 }
 
 impl RecipeBase {
@@ -159,6 +221,8 @@ impl RecipeBase {
             mixamo: false,
             rest: true,
             by_name: false,
+            trim: None,
+            blend: None,
         }
     }
 
@@ -173,6 +237,8 @@ impl RecipeBase {
             mixamo: false,
             rest: false,
             by_name: true,
+            trim: None,
+            blend: None,
         }
     }
 
@@ -180,6 +246,12 @@ impl RecipeBase {
     /// pose, and no hash.
     pub fn name_only(&self) -> bool {
         self.by_name && !self.rest && self.hash.is_empty()
+    }
+
+    /// How many of its frames the clip keeps after its trim.
+    pub fn kept(&self) -> u32 {
+        self.trim
+            .map_or(self.frames, |[from, to]| to.saturating_sub(from))
     }
 }
 
@@ -232,6 +304,18 @@ pub struct LayerSettings {
     pub cycles: Option<f32>,
     /// Wave: how far each wave swings, in degrees.
     pub amount: Option<f32>,
+    /// Pin and grip: frames it eases in over. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub ease_in: Option<u32>,
+    /// Pin and grip: frames it eases out over. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub ease_out: Option<u32>,
+    /// A foot pin: what of the foot stays flat. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub flat: Option<PinFlat>,
 }
 
 impl Default for LayerSettings {
@@ -245,6 +329,9 @@ impl Default for LayerSettings {
             offset: None,
             cycles: None,
             amount: None,
+            ease_in: None,
+            ease_out: None,
+            flat: None,
         }
     }
 }
@@ -255,9 +342,47 @@ impl Default for LayerSettings {
 pub struct RecipeLayer {
     pub id: String,
     pub kind: LayerKind,
-    /// A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`.
+    /// A VRM humanoid bone name: `rightHand`, `head`, `leftUpperArm`. A
+    /// grip names the hand that holds; pose keys name their bones in each
+    /// key, so theirs is empty.
     pub bone: String,
     pub settings: LayerSettings,
+    /// Pose keys and grips: laid over the clip (add) or in its place
+    /// (replace). Pose keys add unless told, grips replace. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub mode: Option<LayerMode>,
+    /// Pose keys: only the bones and frames a person set, in clip and frame
+    /// order. Version 2.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub keys: Vec<PoseKey>,
+    /// A grip: the recipe's own copy of the grip's pose, degrees per bone,
+    /// no frames. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub pose: Option<BonePose>,
+    /// A grip: the library grip and revision it was copied from. Like the
+    /// recipe's own `from`, it stays out of the motion version. Version 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub from: Option<GripFrom>,
+}
+
+impl RecipeLayer {
+    /// A change of `kind` on `bone` with `settings` and nothing of version 2.
+    pub fn new(id: &str, kind: LayerKind, bone: &str, settings: LayerSettings) -> Self {
+        Self {
+            id: id.to_string(),
+            kind,
+            bone: bone.to_string(),
+            settings,
+            mode: None,
+            keys: Vec::new(),
+            pose: None,
+            from: None,
+        }
+    }
 }
 
 /// A prop blank whose asset the project no longer has: it reads as open,
@@ -296,7 +421,23 @@ pub struct RecipeFile {
     pub created: String,
     /// RFC 3339, the last write that changed something.
     pub edited: String,
+    /// The first clip; in version 1 the only one.
     pub base: RecipeBase,
+    /// The clips joined after the base, in order, each across its blend
+    /// window. Clip 1 is the first of these, clip 0 the base. Version 2.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub joined: Vec<RecipeBase>,
+    /// Left and right swapped across the whole recipe, right after the
+    /// clips are joined. Version 2.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[specta(optional)]
+    pub mirror: bool,
+    /// Retime ranges, freezes and holds over, each on a clip's own frames.
+    /// Version 2.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub time: Vec<TimeEdit>,
     pub blanks: Vec<RecipeBlank>,
     /// In the order they are laid over the clip.
     pub layers: Vec<RecipeLayer>,
@@ -311,15 +452,31 @@ impl RecipeFile {
     pub fn new(name: &str, base: RecipeBase) -> Self {
         let now = crate::project::now_rfc3339();
         Self {
-            version: RECIPE_VERSION,
+            version: RECIPE_VERSION_1,
             name: trimmed(name).to_string(),
             revision: 1,
             created: now.clone(),
             edited: now,
             base,
+            joined: Vec::new(),
+            mirror: false,
+            time: Vec::new(),
             blanks: Vec::new(),
             layers: Vec::new(),
             from: None,
+        }
+    }
+
+    /// Every clip in order: the base, then the joined ones.
+    pub fn clips(&self) -> impl Iterator<Item = &RecipeBase> {
+        std::iter::once(&self.base).chain(&self.joined)
+    }
+
+    /// Clip `index`: 0 the base, then the joined ones.
+    pub fn clip(&self, index: u32) -> Option<&RecipeBase> {
+        match index {
+            0 => Some(&self.base),
+            n => self.joined.get(usize::try_from(n - 1).ok()?),
         }
     }
 }
@@ -371,12 +528,19 @@ pub fn version_of(text: &str) -> String {
 }
 
 /// A recipe's motion version: the [`version_of`] its file would have with
-/// the bookkeeping left out (`from`, `revision`, `edited`, `created`), so
-/// saving it to the recipe library, which writes the link into the file,
-/// does not read as a change to what a bake was made from.
+/// the bookkeeping left out (`from`, `revision`, `edited`, `created`, and a
+/// grip's library link), so saving it to the recipe library, which writes
+/// the link into the file, or linking a grip again, does not read as a
+/// change to what a bake was made from. Everything of version 2 that moves
+/// the model counts: clips, trims, blends, mirror, time edits, pins, keys
+/// and grip poses. A recipe that uses nothing of version 2 serializes as it
+/// did before, so its motion version stays the same.
 pub fn motion_version(recipe: &RecipeFile) -> String {
     let mut bare = recipe.clone();
     bare.from = None;
+    for layer in &mut bare.layers {
+        layer.from = None;
+    }
     bare.revision = 0;
     bare.edited = String::new();
     bare.created = String::new();
@@ -450,8 +614,11 @@ pub fn load_versioned(file: &Path) -> CoreResult<(RecipeFile, String)> {
     Ok((recipe, version))
 }
 
-/// The recipe as it is written: this version, a trimmed name, base name
-/// and labels, and each change holding only the settings its kind reads.
+/// The recipe as it is written: version 1 while it uses nothing of version
+/// 2 ([`uses_v2`]) and 2 once it does, a trimmed name, clip names and
+/// labels, each change holding only the settings and fields its kind reads,
+/// pose keys in clip and frame order, and each time edit only the fields
+/// its kind reads.
 pub fn normalized(recipe: &RecipeFile) -> RecipeFile {
     let blanks = recipe
         .blanks
@@ -472,51 +639,71 @@ pub fn normalized(recipe: &RecipeFile) -> RecipeFile {
             kind: b.kind,
         })
         .collect();
-    let layers = recipe
-        .layers
-        .iter()
-        .map(|l| RecipeLayer {
-            id: trimmed(&l.id).to_string(),
-            bone: trimmed(&l.bone).to_string(),
-            settings: settings_for(l.kind, &l.settings),
-            kind: l.kind,
-        })
-        .collect();
-    RecipeFile {
-        version: RECIPE_VERSION,
+    let layers = recipe.layers.iter().map(keys::layer_for).collect();
+    let mut out = RecipeFile {
+        version: RECIPE_VERSION_1,
         name: trimmed(&recipe.name).to_string(),
-        base: if recipe.base.rest {
-            RecipeBase {
-                name: REST_POSE_NAME.to_string(),
-                frames: recipe.base.frames,
-                length: rest_length(recipe.base.frames),
-                hash: String::new(),
-                mixamo: false,
-                rest: true,
-                by_name: false,
-            }
-        } else {
-            RecipeBase {
-                name: trimmed(&recipe.base.name).to_string(),
-                by_name: recipe.base.name_only(),
-                ..recipe.base.clone()
-            }
+        base: RecipeBase {
+            blend: None,
+            ..clip_for(&recipe.base)
         },
+        joined: recipe
+            .joined
+            .iter()
+            .map(|c| RecipeBase {
+                blend: Some(c.blend.clone().unwrap_or_default()),
+                ..clip_for(c)
+            })
+            .collect(),
+        time: recipe.time.iter().map(edits::time_for).collect(),
         blanks,
         layers,
         ..recipe.clone()
+    };
+    if uses_v2(&out) {
+        out.version = RECIPE_VERSION;
+    }
+    out
+}
+
+/// A clip as it is written: the rest pose's fixed name, length and hash, or
+/// a trimmed name and the by name mark only where it holds.
+fn clip_for(clip: &RecipeBase) -> RecipeBase {
+    if clip.rest {
+        RecipeBase {
+            name: REST_POSE_NAME.to_string(),
+            frames: clip.frames,
+            length: rest_length(clip.frames),
+            hash: String::new(),
+            mixamo: false,
+            rest: true,
+            by_name: false,
+            trim: clip.trim,
+            blend: clip.blend.clone(),
+        }
+    } else {
+        RecipeBase {
+            name: trimmed(&clip.name).to_string(),
+            by_name: clip.name_only(),
+            ..clip.clone()
+        }
     }
 }
 
 /// `settings` with only the fields `kind` reads.
 fn settings_for(kind: LayerKind, settings: &LayerSettings) -> LayerSettings {
-    let targeted = matches!(kind, LayerKind::Reach | LayerKind::LookAt);
+    let targeted = matches!(
+        kind,
+        LayerKind::Reach | LayerKind::LookAt | LayerKind::Pin | LayerKind::Grip
+    );
     let nudge = kind == LayerKind::Nudge;
     let wave = kind == LayerKind::Wave;
+    let eased = matches!(kind, LayerKind::Pin | LayerKind::Grip);
+    let whole = kind == LayerKind::Pose;
     LayerSettings {
         weight: settings.weight,
-        start: settings.start,
-        end: settings.end,
+        start: if whole { 0.0 } else { settings.start },
+        end: if whole { 1.0 } else { settings.end },
         target: settings
             .target
             .as_deref()
@@ -526,6 +713,9 @@ fn settings_for(kind: LayerKind, settings: &LayerSettings) -> LayerSettings {
         offset: settings.offset.filter(|_| nudge),
         cycles: settings.cycles.filter(|_| wave),
         amount: settings.amount.filter(|_| wave),
+        ease_in: settings.ease_in.filter(|_| eased),
+        ease_out: settings.ease_out.filter(|_| eased),
+        flat: settings.flat.filter(|_| kind == LayerKind::Pin),
     }
 }
 
@@ -535,7 +725,12 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<RecipeSummary>()
         .register::<RecipeChange>()
         .register::<RecipeFrom>()
+        .register::<TimeEdit>()
+        .register::<PoseKey>()
 }
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_v2;

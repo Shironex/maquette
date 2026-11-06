@@ -53,7 +53,7 @@ fn every_starter_is_a_valid_v1_recipe_naming_its_clip_and_never_its_keys() {
         let recipe = recipe_of(spec, &[]);
         let written = recipes::normalized(&recipe);
         recipes::validate(&written).unwrap_or_else(|e| panic!("{}: {e}", spec.name));
-        assert_eq!(written.version, recipes::RECIPE_VERSION);
+        assert_eq!(written.version, recipes::RECIPE_VERSION_1);
         assert!(written.base.hash.is_empty(), "{} carries a hash", spec.name);
         assert!(!written.base.mixamo);
         assert!(written.from.is_none());

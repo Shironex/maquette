@@ -19,3 +19,6 @@
 # same bytes into new projects.
 crates/maquette-core/starter/** text eol=lf
 crates/maquette-core/src/thumbs/*.py text eol=lf
+
+# Recipe file fixtures are compared byte for byte.
+crates/maquette-model/src/recipes/fixtures/*.json text eol=lf

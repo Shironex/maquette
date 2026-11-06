@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     BlankKind, GoneProp, ID_MAX_CHARS, RECIPE_SUFFIX, RECIPES_DIR, RecipeBase, RecipeBlank,
-    RecipeFile, RecipeFrom, RecipeLayer, check_name, check_props, dir, gone_props, is_recipe_id,
-    load_versioned, motion_version, normalized, path, settle_props, validate,
+    RecipeFile, RecipeFrom, RecipeLayer, TimeEdit, check_name, check_props, dir, gone_props,
+    is_recipe_id, load_versioned, motion_version, normalized, path, settle_props, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -54,11 +54,15 @@ pub struct RecipeSummary {
     pub problem: Option<String>,
     /// The library recipe and revision it came from or was last saved as.
     pub from: Option<RecipeFrom>,
+    /// The file's version: 1, or 2 once it uses something of version 2,
+    /// which a bake cannot make yet. 0 when it could not be read.
+    #[specta(optional)]
+    pub format: u32,
 }
 
 /// What a change to a recipe replaces: its name, the changes, the blanks,
-/// or any of them, each whole. A change with an empty id gets a free one
-/// (`l-1`, `l-2`).
+/// the clips, the time edits, mirror, or any of them, each whole. A change
+/// with an empty id gets a free one (`l-1`, `l-2`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeChange {
@@ -67,6 +71,20 @@ pub struct RecipeChange {
     pub name: Option<String>,
     pub layers: Option<Vec<RecipeLayer>>,
     pub blanks: Option<Vec<RecipeBlank>>,
+    /// Every clip in order, the base first, each with its trim and (after
+    /// the first) its blend window. Keys and time edits on a clip no longer
+    /// sent are refused, so send those lists too.
+    #[serde(default)]
+    #[specta(optional)]
+    pub clips: Option<Vec<RecipeBase>>,
+    /// Every time edit.
+    #[serde(default)]
+    #[specta(optional)]
+    pub time: Option<Vec<TimeEdit>>,
+    /// Left and right swapped across the whole recipe, or not.
+    #[serde(default)]
+    #[specta(optional)]
+    pub mirror: Option<bool>,
     /// The `version` of the recipe as it was read (a hash of the file's
     /// bytes). Given, a file that changed since in any way is refused (code
     /// `moved`) and nothing is written.
@@ -138,7 +156,7 @@ fn summary(
         name: recipe.name.clone(),
         base: recipe.base.name.clone(),
         frames: recipe.base.frames,
-        mixamo: recipe.base.mixamo || clip_mixamo(&recipe.base),
+        mixamo: recipe.clips().any(|c| c.mixamo || clip_mixamo(c)),
         layers: count(recipe.layers.len()),
         blanks: count(recipe.blanks.len()),
         open: count(recipe.blanks.iter().filter(|b| !b.filled()).count()),
@@ -148,6 +166,7 @@ fn summary(
         warnings: read.warnings.clone(),
         problem: None,
         from: recipe.from.clone(),
+        format: recipe.version,
     }
 }
 
@@ -168,6 +187,7 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         warnings: Vec::new(),
         problem: Some(problem),
         from: None,
+        format: 0,
     }
 }
 
@@ -296,8 +316,32 @@ pub fn create(
     name: &str,
     base: RecipeBase,
 ) -> CoreResult<(String, RecipeFile)> {
+    create_joined(project_dir, name, vec![base], false)
+}
+
+/// As [`create`], on `clips` joined in order (the first the base), mirrored
+/// or not. One clip that is not mirrored and has no trim writes version 1.
+///
+/// # Errors
+///
+/// As [`create`], and for no clips at all.
+pub fn create_joined(
+    project_dir: &Path,
+    name: &str,
+    clips: Vec<RecipeBase>,
+    mirror: bool,
+) -> CoreResult<(String, RecipeFile)> {
     check_name(name)?;
-    let recipe = normalized(&RecipeFile::new(name, base));
+    let mut clips = clips.into_iter();
+    let Some(base) = clips.next() else {
+        return Err(CoreError::Invalid(
+            "A recipe needs a clip to start from, or the rest pose.".into(),
+        ));
+    };
+    let mut recipe = RecipeFile::new(name, base);
+    recipe.joined = clips.collect();
+    recipe.mirror = mirror;
+    let recipe = normalized(&recipe);
     validate(&recipe)?;
     let _lock = writing();
     let id = free_id(project_dir, &recipe.name)?;
@@ -461,6 +505,22 @@ pub fn update(
     }
     if let Some(layers) = change.layers {
         next.layers = with_ids(layers);
+    }
+    if let Some(clips) = change.clips {
+        let mut clips = clips.into_iter();
+        let Some(base) = clips.next() else {
+            return Err(CoreError::Invalid(
+                "Send at least one clip: the first is the base.".into(),
+            ));
+        };
+        next.base = base;
+        next.joined = clips.collect();
+    }
+    if let Some(time) = change.time {
+        next.time = time;
+    }
+    if let Some(mirror) = change.mirror {
+        next.mirror = mirror;
     }
     let sent_blanks = change.blanks.is_some();
     if let Some(blanks) = change.blanks {
