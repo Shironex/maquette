@@ -25,8 +25,8 @@ interface RecipesStore {
   onChanged: (project: string) => void;
   openPicker: (project: string) => void;
   closePicker: () => void;
-  /** Makes a recipe on the library clip `clip` and closes the picker. */
-  create: (clip: string, name: string) => Promise<RecipeDoc | null>;
+  /** Makes a recipe on the library clip `clip` (the rest pose when null) and closes the picker. */
+  create: (clip: string | null, name: string) => Promise<RecipeDoc | null>;
   /** Picks a `.recipe.json` with the system dialog and imports it into `project`. */
   importFile: (project: string) => Promise<void>;
   dismissImported: () => void;

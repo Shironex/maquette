@@ -3,13 +3,15 @@ import { commands, errorMessage, type BonePair, type MapChoice } from '@/ipc/cli
 
 /**
  * The bone map one clip would play through on a model, as the plan reads
- * it. Read only, and read again when the clip, the model or the map changes.
+ * it, or with `rest` the model's own map with no clip. Read only, and read
+ * again when the clip, the model or the map changes.
  */
 export function useRoughMap(
   project: string | null,
   asset: string | null,
   clip: string | null,
-  picked: readonly MapChoice[]
+  picked: readonly MapChoice[],
+  rest = false
 ) {
   const [map, setMap] = useState<BonePair[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,10 +20,15 @@ export function useRoughMap(
   useEffect(() => {
     setMap(null);
     setError(null);
-    if (!project || !asset || !clip) return;
+    if (!project || !asset || (!clip && !rest)) return;
     let alive = true;
     commands
-      .animationsRetargetPlan(project, asset, [clip], JSON.parse(picks) as MapChoice[])
+      .animationsRetargetPlan(
+        project,
+        asset,
+        clip && !rest ? [clip] : [],
+        JSON.parse(picks) as MapChoice[]
+      )
       .then(plan => {
         if (alive) setMap(plan.map);
       })
@@ -31,6 +38,6 @@ export function useRoughMap(
     return () => {
       alive = false;
     };
-  }, [project, asset, clip, picks]);
+  }, [project, asset, clip, picks, rest]);
   return { map, problem: error ?? failed, setFailed };
 }

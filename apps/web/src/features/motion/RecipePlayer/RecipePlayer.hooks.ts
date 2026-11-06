@@ -26,7 +26,8 @@ export function useRecipePlayer() {
   const rigged = view?.models.filter(m => m.rig && !m.error) ?? [];
   const model = rigged.find(m => m.asset === asset) ?? rigged[0] ?? null;
   const base = editing?.doc.base;
-  const item = library?.items.find(i => i.clip.id === base?.clip) ?? null;
+  const rest = base?.status === 'rest';
+  const item = rest ? null : (library?.items.find(i => i.clip.id === base?.clip) ?? null);
   const length = num(editing?.doc.recipe.base.length, 1) || 1;
   const frames = editing?.doc.recipe.base.frames ?? 0;
   const blanks = editing?.draft.blanks;
@@ -52,7 +53,11 @@ export function useRecipePlayer() {
   return {
     project,
     model: model ? { asset: model.asset, name: model.name, file: model.file } : null,
-    clip: item ? { id: item.clip.id, name: item.clip.name, file: item.file } : null,
+    clip: rest
+      ? ('rest' as const)
+      : item
+        ? { id: item.clip.id, name: item.clip.name, file: item.file }
+        : null,
     layers: editing?.draft.layers ?? [],
     markers,
     blanks: blanks ?? [],

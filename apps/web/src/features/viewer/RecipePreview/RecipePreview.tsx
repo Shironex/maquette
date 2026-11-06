@@ -22,8 +22,8 @@ export interface RecipePreviewProps {
   project: string | null;
   /** The moving model's asset, its name and its newest file. */
   model: { asset: string; name: string; file: string } | null;
-  /** The base clip in the animation library. */
-  clip: { id: string; name: string; file: string } | null;
+  /** The base clip in the animation library, or `'rest'` for the model's rest pose. */
+  clip: { id: string; name: string; file: string } | 'rest' | null;
   layers: readonly RecipeLayer[];
   markers: readonly RecipeMarker[];
   share: number;
@@ -46,16 +46,20 @@ function why(props: RecipePreviewProps): string | null {
 }
 
 export default function RecipePreview(props: RecipePreviewProps) {
-  const { model, clip } = props;
+  const { model } = props;
+  const rest = props.clip === 'rest';
+  const clip = props.clip === 'rest' ? null : props.clip;
   const { map, problem, setFailed } = useRoughMap(
     props.project,
     model?.asset ?? null,
     clip?.id ?? null,
-    NO_PICKS
+    NO_PICKS,
+    rest
   );
   const modelUrl = fileUrl(model?.file);
-  const clipUrl = fileUrl(clip?.file);
-  const ready = modelUrl && clipUrl && map && !problem;
+  const clipUrl = rest ? null : fileUrl(clip?.file);
+  const ready = modelUrl && (rest || clipUrl) && map && !problem;
+  const base = rest ? 'The rest pose' : (clip?.name ?? 'The base clip');
   const waiting = why(props);
   return (
     <figure
@@ -68,7 +72,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
             <RecipeStage
               key={`${modelUrl}#${clipUrl}`}
               className="absolute! inset-0"
-              label={`${clip?.name ?? 'The base clip'} on ${model?.name ?? 'the model'} with the recipe's changes, rough preview`}
+              label={`${base} on ${model?.name ?? 'the model'} with the recipe's changes, rough preview`}
               modelUrl={modelUrl}
               clipUrl={clipUrl}
               pairs={map}

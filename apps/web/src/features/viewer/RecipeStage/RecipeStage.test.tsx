@@ -21,4 +21,23 @@ describe('the recipe stage', () => {
     );
     expect(screen.getByRole('img', { name: 'Reach on Clay, rough preview' })).toBeInTheDocument();
   });
+
+  it('draws the rest pose with no clip file', () => {
+    render(
+      <RecipeStage
+        modelUrl="/m.glb"
+        clipUrl={null}
+        pairs={[]}
+        layers={[]}
+        markers={[]}
+        share={0}
+        playing={false}
+        onTick={() => undefined}
+        label="The rest pose on Clay, rough preview"
+      />
+    );
+    expect(
+      screen.getByRole('img', { name: 'The rest pose on Clay, rough preview' })
+    ).toBeInTheDocument();
+  });
 });

@@ -3,7 +3,8 @@
  * rigged figure playing a clip, a prop's states, a rig without clips, a
  * project where nothing moves, the scene over its budget with the clips in
  * it, the bone map, and the Recipes tab (empty, with the library's demo
- * recipes and a finished bake, its New recipe base clip picker, Apply
+ * recipes and a finished bake, its New recipe base clip picker, a recipe
+ * made on the rest pose open in the editor, Apply
  * baking a recipe then showing its numbers, and the review of a finished
  * bake with pass and warn numbers, also with an agent's approval card
  * floating clear of its bar, and the recipe library's sheets, see
@@ -178,6 +179,22 @@ export async function motionShots({ open, shot }) {
   await picker.getByLabel('Recipe name').waitFor();
   await recipes.waitForTimeout(300);
   await shot(recipes, 'motion-recipe-picker');
+  // The rest pose as the base: no clip, and the rough preview holds the model's own pose.
+  await picker.getByRole('button', { name: 'Rest pose' }).click();
+  await picker.getByLabel('Recipe name').fill('Stand and wave');
+  await recipes.waitForTimeout(300);
+  await shot(recipes, 'motion-recipe-picker-rest');
+  await picker.getByRole('button', { name: 'Make recipe' }).click();
+  await picker.waitFor({ state: 'detached' });
+  await recipes
+    .getByRole('list', { name: 'Project recipes' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Stand and wave' })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+  await recipes.getByRole('img', { name: /^The rest pose on .* rough preview$/ }).waitFor();
+  await recipes.waitForTimeout(2500);
+  await shot(recipes, 'motion-recipe-rest');
   await recipes.context().close();
 
   // Apply: the mock bake steps through its frames, then shows its numbers.

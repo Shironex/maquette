@@ -44,9 +44,13 @@ export function useRecipeReview() {
   useEffect(() => {
     if (!useAnimationsStore.getState().view) void useAnimationsStore.getState().load();
   }, []);
-  const item =
-    library?.items.find(i => i.clip.id === result?.baseClip || i.clip.name === result?.baseClip) ??
-    null;
+  // A bake on the rest pose names no base clip.
+  const rest = result ? !result.baseClip : false;
+  const item = rest
+    ? null
+    : (library?.items.find(
+        i => i.clip.id === result?.baseClip || i.clip.name === result?.baseClip
+      ) ?? null);
   const frames = result?.frames ?? 0;
   const length = item?.clip.length || frames / FPS || 1;
   const stale = staleOf(record, {
@@ -65,6 +69,7 @@ export function useRecipeReview() {
     approval,
     model: model ? { asset: model.asset, name: model.name, file: model.file } : null,
     clip: item ? { id: item.clip.id, name: item.clip.name, file: item.file } : null,
+    rest,
     show,
     setShow,
     /** One playhead for both pictures, a share of the clip, looping while it plays. */

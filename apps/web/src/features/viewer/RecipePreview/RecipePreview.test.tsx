@@ -28,4 +28,17 @@ describe('the recipe preview', () => {
     );
     expect(screen.getByText(/not in the animation library/)).toBeVisible();
   });
+
+  it('needs no base clip on the rest pose', () => {
+    render(
+      <RecipePreview
+        {...base}
+        project={null}
+        model={{ asset: 'clay', name: 'Clay figure', file: '/m.glb' }}
+        clip="rest"
+      />
+    );
+    expect(screen.queryByText(/not in the animation library/)).not.toBeInTheDocument();
+    expect(screen.getByText(ROUGH_LABEL)).toBeVisible();
+  });
 });
