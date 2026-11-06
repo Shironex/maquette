@@ -9,7 +9,8 @@ use maquette_glb::vrm::is_human_bone;
 use super::{
     BlankKind, GoneProp, HASH_MAX_CHARS, ID_MAX_CHARS, LABEL_MAX_CHARS, LayerKind, LayerSettings,
     MAX_BLANKS, MAX_CYCLES, MAX_FRAMES, MAX_LAYERS, MAX_OFFSET_METRES, MAX_POINT_METRES,
-    MAX_WAVE_DEGREES, NAME_MAX_CHARS, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
+    MAX_REST_FRAMES, MAX_WAVE_DEGREES, NAME_MAX_CHARS, RecipeBase, RecipeBlank, RecipeFile,
+    RecipeLayer,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::plans::{is_item_id, is_link_id, trimmed};
@@ -99,6 +100,20 @@ pub fn validate(recipe: &RecipeFile) -> CoreResult<()> {
 }
 
 fn check_base(base: &RecipeBase) -> CoreResult<()> {
+    if base.rest {
+        if !(2..=MAX_REST_FRAMES).contains(&base.frames) {
+            return invalid(format!(
+                "A recipe on the rest pose runs 2 to {MAX_REST_FRAMES} frames, not {}.",
+                base.frames
+            ));
+        }
+        if !base.hash.is_empty() || base.mixamo {
+            return invalid(
+                "A recipe on the rest pose has no base clip hash and is never Mixamo's.".into(),
+            );
+        }
+        return Ok(());
+    }
     check_line(&base.name, "base clip", NAME_MAX_CHARS)?;
     if base.frames == 0 || base.frames > MAX_FRAMES {
         return invalid(format!(

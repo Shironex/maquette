@@ -11,6 +11,8 @@ fn base() -> RecipeBase {
         length: 4.0,
         hash: "abc123".into(),
         mixamo: true,
+        rest: false,
+        by_name: false,
     }
 }
 
@@ -686,4 +688,63 @@ fn a_library_link_that_cannot_be_one_is_refused() {
         revision: 1,
     });
     assert!(validate(&recipe).is_err(), "a uid that cannot be one");
+}
+
+#[test]
+fn a_rest_pose_base_writes_its_flag_and_an_older_file_reads_without_it() {
+    let rest = RecipeFile::new("Wave hello", RecipeBase::rest_pose(REST_FRAMES));
+    validate(&normalized(&rest)).expect("valid");
+    let text = serde_json::to_value(&rest).expect("json");
+    assert_eq!(text["base"]["rest"], true);
+    assert_eq!(text["base"]["name"], REST_POSE_NAME);
+    assert_eq!(text["base"]["hash"], "");
+
+    // A file written before the flag reads as a clip base.
+    let mut clip = serde_json::to_value(RecipeFile::new("Idle", base())).expect("json");
+    clip["base"].as_object_mut().expect("base").remove("rest");
+    let older: RecipeFile = serde_json::from_value(clip).expect("an older file reads");
+    assert!(!older.base.rest);
+
+    // Whatever a rest pose file says of its name, hash or Mixamo, it reads
+    // as the rest pose; its frames stay within the cap.
+    let mut odd = rest.clone();
+    odd.base.name = "Something".into();
+    odd.base.mixamo = true;
+    odd.base.hash = "abc".into();
+    let fixed = normalized(&odd);
+    assert_eq!(fixed.base, RecipeBase::rest_pose(REST_FRAMES));
+    let mut long = rest;
+    long.base.frames = MAX_REST_FRAMES + 1;
+    assert!(validate(&normalized(&long)).is_err());
+}
+
+#[test]
+fn a_base_known_by_name_only_is_valid_and_says_so() {
+    let named = RecipeBase::named("  Walking ");
+    assert!(named.name_only() && !named.rest);
+    assert_eq!(named.name, "Walking");
+    validate(&RecipeFile::new("Point", named)).expect("valid");
+    assert!(!base().name_only());
+    assert!(!RecipeBase::rest_pose(REST_FRAMES).name_only());
+    let kept = normalized(&RecipeFile::new("Point", RecipeBase::named("Walking")));
+    let text = serde_json::to_string(&kept).expect("json");
+    assert!(text.contains("\"byName\":true"), "{text}");
+}
+
+#[test]
+fn an_empty_hash_alone_is_not_a_base_known_by_name() {
+    let mut empty = base();
+    empty.hash.clear();
+    assert!(
+        !empty.name_only(),
+        "only a starter's marked base matches by name"
+    );
+    let mut stale = RecipeBase::named("Walking");
+    stale.hash = "h1".into();
+    assert!(!normalized(&RecipeFile::new("Point", stale)).base.by_name);
+    let old: RecipeBase = serde_json::from_str(
+        r#"{"name":"Walking","frames":32,"length":1.0,"hash":"","mixamo":false}"#,
+    )
+    .expect("v1 base");
+    assert!(!old.by_name && !old.name_only());
 }

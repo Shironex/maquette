@@ -11,6 +11,7 @@ import { useUseRecipeSheet, useUseTarget } from './UseRecipeSheet.hooks';
 
 function UseRecipe({ target }: { target: UseTarget }) {
   const v = useUseRecipeSheet(target);
+  const what = target.revision == null ? 'The starter' : `r${target.revision}`;
   const notes = v.used?.notes.map(n => <li key={n}>{n}</li>);
   const footer = v.used ? (
     <div className="flex items-center justify-end gap-3 border-t border-line px-5 py-3.5">
@@ -22,7 +23,7 @@ function UseRecipe({ target }: { target: UseTarget }) {
   ) : (
     <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
       <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
-        r{target.revision} into {v.projectName}
+        {what} into {v.projectName}
       </span>
       <Button onClick={v.close}>Cancel</Button>
       <Button
@@ -42,7 +43,9 @@ function UseRecipe({ target }: { target: UseTarget }) {
       id="use-recipe"
       icon="flask"
       title="Use in project"
-      meta={`${target.name}, r${target.revision}`}
+      meta={
+        target.revision == null ? `${target.name}, starter` : `${target.name}, r${target.revision}`
+      }
       onClose={v.close}
       footer={footer}
     >
@@ -74,15 +77,20 @@ function UseRecipe({ target }: { target: UseTarget }) {
             />
             <TextField
               label="Recipe name"
-              hint="Optional; the library recipe's name when left empty"
+              hint={
+                target.revision == null
+                  ? "Optional; the starter's name when left empty"
+                  : "Optional; the library recipe's name when left empty"
+              }
               placeholder={target.name}
               value={v.name}
               maxLength={120}
               onChange={e => v.setName(e.target.value)}
             />
             <p className="text-meta text-fg-mute">
-              The copy remembers r{target.revision}, so the Recipes tab says when the library has a
-              newer revision. Prop blanks the project does not have open.
+              {target.revision == null
+                ? 'The copy takes the first library clip with one of its names and is yours to edit. Its prop blanks start open.'
+                : `The copy remembers r${target.revision}, so the Recipes tab says when the library has a newer revision. Prop blanks the project does not have open.`}
             </p>
           </>
         )}

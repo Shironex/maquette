@@ -12,16 +12,36 @@ afterEach(() => {
 });
 
 describe('the library recipes', () => {
-  it('says there are none yet and how to get one', async () => {
+  it('says there are none yet and how to get one, with the first starter on show', async () => {
     await openMockLibrary();
     render(<LibraryRecipes />);
     expect(await screen.findByText('No library recipes yet')).toBeVisible();
     expect(
       screen.getByText(
-        "Save a recipe from the Motion view's Recipes tab, or import a .recipe.json."
+        "Save a recipe from the Motion view's Recipes tab, import a .recipe.json, or start from a starter below."
       )
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Import recipe' })).toBeVisible();
+    expect(screen.getByRole('complementary', { name: 'Selected starter' })).toHaveTextContent(
+      'Wave hello'
+    );
+  });
+
+  it('lists the starters under the library and saves one there as r1', async () => {
+    await openMockLibrary('demo');
+    render(<LibraryRecipes />);
+    const starters = await screen.findByRole('list', { name: 'Starter recipes' });
+    expect(screen.getByRole('complementary', { name: 'Selected recipe' })).toBeVisible();
+    await userEvent.click(within(starters).getByRole('button', { name: 'Wave hello, starter' }));
+    const panel = screen.getByRole('complementary', { name: 'Selected starter' });
+    expect(screen.queryByRole('complementary', { name: 'Selected recipe' })).toBeNull();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Save to library' }));
+    expect(await screen.findByText('Saved Wave hello to the library as r1')).toBeVisible();
+    expect(screen.getByText(/so this one is wave-hello-2/)).toBeVisible();
+    const library = screen.getByRole('list', { name: 'Library recipes' });
+    const copies = within(library).getAllByRole('button', { name: 'Wave hello' });
+    expect(copies.filter(b => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
+    expect(screen.getByText('4 recipes')).toBeVisible();
   });
 
   it('lists each entry with its line and Mixamo mark, the first on show', async () => {

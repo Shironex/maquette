@@ -73,7 +73,7 @@ pub(crate) fn snake(name: &str) -> String {
 }
 
 /// `name`, or `name_2` and on when the model or an earlier clip has it.
-fn free(name: &str, taken: &[String]) -> String {
+pub(crate) fn free(name: &str, taken: &[String]) -> String {
     if !taken.iter().any(|t| t == name) {
         return name.to_string();
     }

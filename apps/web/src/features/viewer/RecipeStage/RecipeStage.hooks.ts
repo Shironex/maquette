@@ -15,7 +15,7 @@ import {
 import { roughRetarget, type RoughPair } from '../rough-retarget';
 import type { LoadedMotion } from '../MotionStage/Scene/Scene.types';
 
-/** The model lined up to follow the clip, and what poses it at a share of the clip. */
+/** The model lined up to follow the clip (or in its rest pose), and what poses it at a share of the clip. */
 export interface RecipeSetup {
   rig: RecipeRig;
   /** Puts the clip's pose at `share` back on the model, with no change laid over. */
@@ -55,16 +55,32 @@ function unposed(root: THREE.Object3D) {
   root.updateWorldMatrix(true, true);
 }
 
-function setUp(
-  model: LoadedMotion,
-  skeleton: LoadedMotion,
-  pairs: readonly RoughPair[]
-): RecipeSetup | null {
+/** No clip to follow: the model holds its rest pose, as the bake does. */
+const REST_POSE = { frameAt: () => undefined, stop: () => undefined };
+
+/** The base clip of `skeleton` played on `model` through the bone pairs, or null. */
+function following(model: LoadedMotion, skeleton: LoadedMotion, pairs: readonly RoughPair[]) {
   const clip = skeleton.clips[0];
   if (!clip) return null;
+  unposed(skeleton.scene);
+  const pose = roughRetarget(skeleton.scene, model.scene, clip, pairs);
+  if (!pose) return null;
+  return {
+    frameAt: (share: number) => pose(share * clip.duration),
+    stop: () => {
+      pose.stop();
+      unposed(skeleton.scene);
+    },
+  };
+}
+
+function setUp(
+  model: LoadedMotion,
+  skeleton: LoadedMotion | 'rest',
+  pairs: readonly RoughPair[]
+): RecipeSetup | null {
   // A model or clip set up before (another clip, the same model) starts again as it came.
   unposed(model.scene);
-  unposed(skeleton.scene);
   const bone = (vrm: string) => {
     const name = mixamoName(vrm);
     const target = pairs.find(p => p.bone === name)?.target;
@@ -74,8 +90,8 @@ function setUp(
   };
   // Read from the rig as it came, before the retarget lines its limbs up.
   const forward = rigForward(bone);
-  const pose = roughRetarget(skeleton.scene, model.scene, clip, pairs);
-  if (!pose) return null;
+  const base = skeleton === 'rest' ? REST_POSE : following(model, skeleton, pairs);
+  if (!base) return null;
   // Every frame starts from the lined up rest, so a nudge's move never adds up.
   const rest = take(model.scene);
   const facings = new Map<THREE.Object3D, THREE.Vector3>();
@@ -99,20 +115,22 @@ function setUp(
     frameAt: share => {
       put(rest);
       model.scene.updateWorldMatrix(true, true);
-      pose(share * clip.duration);
+      base.frameAt(share);
     },
     stop: () => {
-      pose.stop();
+      base.stop();
       unposed(model.scene);
-      unposed(skeleton.scene);
     },
   };
 }
 
-/** Lines `model` up with the clip of `skeleton` through the bone pairs, afresh for each new one. */
+/**
+ * Lines `model` up with the clip of `skeleton` through the bone pairs, or
+ * holds its rest pose for `'rest'`, afresh for each new one.
+ */
 export function useRecipeSetup(
   model: LoadedMotion | null,
-  skeleton: LoadedMotion | null,
+  skeleton: LoadedMotion | 'rest' | null,
   pairs: readonly RoughPair[]
 ): RecipeSetup | null {
   const [setup, setSetup] = useState<RecipeSetup | null>(null);

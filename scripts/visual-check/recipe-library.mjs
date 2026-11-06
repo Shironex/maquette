@@ -1,6 +1,7 @@
 /**
  * The recipe library's shots for scripts/visual-check.mjs: the Animations
- * library's Recipes with an entry and its revisions on show (ONLY=animations),
+ * library's Recipes with an entry and its revisions on show, and the
+ * built-in starters under it with one starter on show (ONLY=animations),
  * and in the Motion view's Recipes tab (ONLY=motion) the save to library
  * sheet with what changes, the import warning under the header, and an
  * agent's proposed save as a card over the tab, then its Review in the
@@ -26,6 +27,20 @@ export async function libraryRecipesShot({ open, shot }) {
     .getByRole('list', { name: 'Changes' })
     .waitFor();
   await shot(page, 'animations-recipes');
+  await page.context().close();
+}
+
+/** The Starters under the library's recipes, the rest pose wave on show. */
+export async function starterRecipesShot({ open, shot }) {
+  const page = await open(DEMO, '#/animations');
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
+  const starters = page.getByRole('region', { name: 'Starters' });
+  await starters.getByRole('button', { name: 'Wave hello, starter' }).click();
+  const side = page.getByRole('complementary', { name: 'Selected starter' });
+  await side.getByRole('list', { name: 'Changes' }).waitFor();
+  await starters.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await shot(page, 'animations-recipe-starters');
   await page.context().close();
 }
 

@@ -229,7 +229,7 @@ The [MCP tools page](https://shironex.github.io/maquette/docs/agents/mcp-tools/)
 
 ### Agent skills
 
-Six skills teach Claude Code and Codex the Maquette workflows: concept rounds, by hand sends and landings, character rig fixes, VRM avatars (early), game export and planning on a canvas beside you. They live in [`plugins/maquette/skills`](plugins/maquette/skills), one source for both agents.
+Seven skills teach Claude Code and Codex the Maquette workflows: concept rounds, by hand sends and landings, character rig fixes, VRM avatars (early), game export, planning on a canvas beside you and animation recipes. They live in [`plugins/maquette/skills`](plugins/maquette/skills), one source for both agents.
 
 ```sh
 # Claude Code

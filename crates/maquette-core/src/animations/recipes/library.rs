@@ -27,7 +27,8 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
-use super::{BaseMatch, match_base};
+use super::{BaseMatch, base_mixamo, match_base};
+use crate::animations::AnimationClip;
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::project::{latin_slug, windows_safe};
@@ -37,6 +38,7 @@ mod diff;
 mod link;
 mod remove;
 mod save;
+pub mod starters;
 mod transfer;
 mod use_in;
 
@@ -314,7 +316,7 @@ fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
-fn summary(root: &Path, id: &str) -> LibraryRecipeSummary {
+fn summary(root: &Path, id: &str, clips: &[AnimationClip]) -> LibraryRecipeSummary {
     let mut line = LibraryRecipeSummary {
         id: id.to_string(),
         uid: String::new(),
@@ -344,9 +346,9 @@ fn summary(root: &Path, id: &str) -> LibraryRecipeSummary {
     match read_revision(root, &entry, None) {
         Ok(recipe) => {
             line.latest = recipe.revision;
+            line.mixamo = base_mixamo(clips, &recipe.base);
             line.base = recipe.base.name;
             line.frames = recipe.base.frames;
-            line.mixamo = recipe.base.mixamo;
             line.layers = count(recipe.layers.len());
             line.blanks = count(recipe.blanks.len());
         }
@@ -361,7 +363,8 @@ fn summary(root: &Path, id: &str) -> LibraryRecipeSummary {
 ///
 /// # Errors
 ///
-/// Fails only when the folder exists but cannot be read.
+/// Fails when the folder exists but cannot be read, or the clip library
+/// cannot be read (each Mixamo mark is read against it, as [`get`] does).
 pub fn list(root: &Path) -> CoreResult<Vec<LibraryRecipeSummary>> {
     let parent = dir(root);
     let read = match fs::read_dir(&parent) {
@@ -369,13 +372,14 @@ pub fn list(root: &Path) -> CoreResult<Vec<LibraryRecipeSummary>> {
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(err) => return Err(CoreError::io(&parent, err)),
     };
+    let clips = crate::animations::list(root)?;
     let mut found: Vec<LibraryRecipeSummary> = read
         .filter_map(Result::ok)
         .filter_map(|e| {
             let id = e.file_name().to_string_lossy().into_owned();
             (is_recipe_id(&id) && e.path().join(ENTRY_FILE).is_file()).then_some(id)
         })
-        .map(|id| summary(root, &id))
+        .map(|id| summary(root, &id, &clips))
         .collect();
     found.sort_by(|a, b| (a.name.to_lowercase(), &a.id).cmp(&(b.name.to_lowercase(), &b.id)));
     Ok(found)
@@ -391,9 +395,8 @@ pub fn get(root: &Path, id: &str, revision: Option<u32>) -> CoreResult<LibraryRe
     let (entry, version) = load_entry(root, id)?;
     let recipe = read_revision(root, &entry, revision)?;
     let clips = crate::animations::list(root)?;
-    let (base, clip) = match_base(&clips, &recipe.base);
-    let mixamo = recipe.base.mixamo
-        || clip.is_some_and(|c| c.rig.kind == crate::animations::SourceRig::Mixamo);
+    let (base, _) = match_base(&clips, &recipe.base);
+    let mixamo = base_mixamo(&clips, &recipe.base);
     Ok(LibraryRecipeDoc {
         revision: recipe.revision,
         entry,

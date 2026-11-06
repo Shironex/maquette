@@ -1,15 +1,42 @@
 /**
  * New recipe: pick the clip from the animation library a recipe starts
- * from, and name it. The recipe file keeps the clip's name, frames, length
- * and hash, never its keys. Opened from the Motion view's Recipes tab.
+ * from, or the model's rest pose (no clip), and name it. The recipe file
+ * keeps the clip's name, frames, length and hash, never its keys. Opened
+ * from the Motion view's Recipes tab.
  */
-import { Button, InlineBanner, Loader, TextField } from '@maquette/ui';
+import { Button, Icon, InlineBanner, Loader, TextField, cn } from '@maquette/ui';
 import { Sheet } from '@/features/common/Sheet';
 import { ClipRow } from '../ClipRow';
 import { useRecipeClipPicker } from './RecipeClipPicker.hooks';
 
 const MIXAMO_NOTE =
   'A Mixamo clip: the recipe file can be shared, but what it bakes counts as Mixamo, so export packs leave it out and it never goes into the clip library.';
+
+/** The rest pose as a base: the model's own pose held for two seconds, no clip. */
+function RestRow({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label="Rest pose"
+      onClick={onSelect}
+      className={cn(
+        'flex w-full cursor-pointer items-center gap-3 rounded-card border border-line px-3 py-2 text-left hover:bg-hover',
+        selected && 'border-clay/40 bg-clay-soft hover:bg-clay-soft'
+      )}
+    >
+      <Icon name="person-arms-spread" size={18} className="flex-none text-fg-dim" />
+      <span className="min-w-0 flex-1">
+        <b className="block font-semibold">Rest pose</b>
+        <span className="block text-meta text-fg-mute">
+          {
+            "No clip: the changes play over the model's own pose for 2 seconds, and what it bakes is never Mixamo's."
+          }
+        </span>
+      </span>
+    </button>
+  );
+}
 
 export default function RecipeClipPicker() {
   const v = useRecipeClipPicker();
@@ -27,20 +54,20 @@ export default function RecipeClipPicker() {
       id="recipe-clip"
       icon="flask"
       title="New recipe"
-      meta="Pick the base clip from the animation library"
+      meta="Pick the base clip from the animation library, or the rest pose"
       onClose={v.close}
       width={600}
       footer={
         <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
           <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
-            {v.clip ? `On ${v.clip.name}` : 'No clip picked yet'}
+            {v.rest ? 'On the rest pose' : v.clip ? `On ${v.clip.name}` : 'No clip picked yet'}
           </span>
           <Button onClick={v.close}>Cancel</Button>
           <Button
             variant="primary"
             icon="flask"
-            disabled={!v.clip || !v.name.trim() || v.creating}
-            disabledReason={!v.clip ? 'Pick a clip first' : 'Name the recipe'}
+            disabled={!v.picked || !v.name.trim() || v.creating}
+            disabledReason={!v.picked ? 'Pick a clip or the rest pose first' : 'Name the recipe'}
             loading={v.creating}
             onClick={v.make}
           >
@@ -60,6 +87,7 @@ export default function RecipeClipPicker() {
             detail={v.libraryError}
           />
         ) : null}
+        <RestRow selected={v.rest} onSelect={v.chooseRest} />
         <TextField
           label="Search clips"
           value={v.query}

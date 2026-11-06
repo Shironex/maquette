@@ -29,7 +29,7 @@ fn reaching(s: &Setup, which: &str) -> Project {
     let file = s.files.join(format!("{which}.glb"));
     fixture(&s.blender, &s.root.path().join("scripts"), which, &file);
     let model = std::fs::read(&file).expect("model");
-    let mut p = project_on(s.root.path(), &clip, model);
+    let mut p = project_on(s.root.path(), Some(&clip), model);
     p.change(
         vec![reach("l-1", "rightHand", "b-1")],
         vec![point("b-1", Some(TARGET))],
@@ -113,4 +113,27 @@ fn a_reach_bakes_within_two_centimetres_whichever_way_the_model_faces() {
         1,
         "nothing went to the library"
     );
+}
+
+#[test]
+fn a_reach_on_the_rest_pose_bakes_with_no_base_clip() {
+    let Some(s) = setup() else { return };
+    let file = s.files.join("model.glb");
+    fixture(&s.blender, &s.root.path().join("scripts"), "model", &file);
+    let mut p = project_on(s.root.path(), None, std::fs::read(&file).expect("model"));
+    p.change(
+        vec![reach("l-1", "rightHand", "b-1")],
+        vec![point("b-1", Some(TARGET))],
+    );
+    let record = baked(&s, &p);
+    assert_eq!(record.state, RecipeBakeState::Done, "{:?}", record.error);
+    let result = record.result.expect("result");
+    assert!(result.reaches[0].reached, "{:?}", result.reaches);
+    assert_eq!(result.frames, crate::recipes::REST_FRAMES);
+    assert!(!result.mixamo, "the rest pose is nobody's clip");
+    assert!(result.base_clip.is_empty());
+    assert!(result.base_slide_cm < 0.01, "the rest pose stands still");
+    let mut names = clip_names(Path::new(&result.file));
+    names.sort();
+    assert_eq!(names, ["idle", "reach_out"], "one new clip");
 }

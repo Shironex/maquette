@@ -26,7 +26,7 @@ import { checkDraft } from '@/state/recipe-check';
 import { fail, type Args } from './backend-options';
 import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
 import { createRecipeLibraryHandlers } from './create-recipe-library-handlers';
-import { baseOf, isMixamo, layer, matchBase, newRecipe, versionOf } from './recipe-files';
+import { baseOf, isMixamo, layer, matchBase, newRecipe, restBase, versionOf } from './recipe-files';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 
@@ -248,12 +248,14 @@ export function createRecipeHandlers(ctx: RecipeContext) {
         .sort((a, b) => a.id.localeCompare(b.id)),
     recipe_get: ({ project, id }: Args) => doc(String(project), String(id), existing(project, id)),
     recipe_create: ({ project, clip, name }: Args) => {
-      const found = ctx.clips().find(c => c.id === String(clip));
-      if (!found) fail('not_found', `Not found: the library clip ${String(clip)}`);
-      const named = typeof name === 'string' && name.trim() ? name.trim() : found.name;
+      // No clip: the recipe runs on the model's rest pose.
+      const found = clip == null ? null : ctx.clips().find(c => c.id === String(clip));
+      if (clip != null && !found) fail('not_found', `Not found: the library clip ${String(clip)}`);
+      const base = found ? baseOf(found) : restBase();
+      const named = typeof name === 'string' && name.trim() ? name.trim() : base.name;
       checkName(named);
       const id = freeId(project, named);
-      const recipe = newRecipe(named, baseOf(found));
+      const recipe = newRecipe(named, base);
       recipes(project).set(id, recipe);
       return doc(String(project), id, recipe);
     },

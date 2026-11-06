@@ -1,7 +1,8 @@
 /**
  * The Animations library's Recipes: recipes kept once outside any project,
  * each with its revisions, saved back from a project's Recipes tab or
- * imported from a `.recipe.json`. The selected one opens beside the list.
+ * imported from a `.recipe.json`, and under them the starters built into
+ * the app. The selected one opens beside the list.
  */
 import { Button, EmptyState, Icon, IconButton, InlineBanner, Loader, cn } from '@maquette/ui';
 import { MixamoBadge } from '@/features/common/MixamoBadge';
@@ -9,6 +10,8 @@ import type { LibraryRecipeSummary } from '@/ipc/client';
 import { counted } from '@/lib/format';
 import { libraryLine } from '@/state/recipe-library';
 import { LibraryRecipeDetail } from '../LibraryRecipeDetail';
+import { StarterDetail } from '../StarterDetail';
+import { StarterRecipes } from '../StarterRecipes';
 import { useLibraryRecipes } from './LibraryRecipes.hooks';
 
 function Row({
@@ -80,7 +83,11 @@ export default function LibraryRecipes() {
   const note = v.imported ? (
     <InlineBanner
       tone={v.imported.notes.length ? 'warning' : 'success'}
-      title={`Imported ${v.imported.name} as r1`}
+      title={
+        v.imported.starter
+          ? `Saved ${v.imported.name} to the library as r1`
+          : `Imported ${v.imported.name} as r1`
+      }
       detail={
         v.imported.notes.length ? (
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">{noteItems}</ul>
@@ -97,19 +104,20 @@ export default function LibraryRecipes() {
         </div>
       )
     ) : v.list.length === 0 ? (
-      <div className="grid flex-1 place-items-center">
-        <EmptyState
-          icon="flask"
-          title="No library recipes yet"
-          body="Save a recipe from the Motion view's Recipes tab, or import a .recipe.json."
-          action={importButton(true)}
-        />
-      </div>
+      <EmptyState
+        icon="flask"
+        title="No library recipes yet"
+        body="Save a recipe from the Motion view's Recipes tab, import a .recipe.json, or start from a starter below."
+        action={importButton(true)}
+      />
     ) : (
       <ul aria-label="Library recipes" className="flex list-none flex-col gap-2">
         {rows}
       </ul>
     );
+  const starters = v.starters?.length ? (
+    <StarterRecipes starters={v.starters} selected={v.starter?.id ?? null} onSelect={v.select} />
+  ) : null;
   return (
     <main className="flex min-h-0 flex-1" aria-busy={v.list === null && !v.error}>
       <section
@@ -141,8 +149,10 @@ export default function LibraryRecipes() {
           />
         ) : null}
         {body}
+        {starters}
       </section>
       {v.summary ? <LibraryRecipeDetail key={v.summary.id} summary={v.summary} /> : null}
+      {v.starter ? <StarterDetail key={v.starter.id} starter={v.starter} /> : null}
     </main>
   );
 }

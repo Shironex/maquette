@@ -53,7 +53,8 @@ mod files;
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use copies::{create_whole, link};
 pub use files::{
-    RecipeChange, RecipeRead, RecipeSummary, create, get, list, remove, rename, update, version,
+    RecipeChange, RecipeRead, RecipeSummary, create, get, list, list_with, remove, rename,
+    rename_with, update, version,
 };
 
 pub const RECIPES_DIR: &str = "recipes";
@@ -77,6 +78,13 @@ pub const MAX_POINT_METRES: f32 = 1_000.0;
 pub const MAX_WAVE_DEGREES: f32 = 90.0;
 /// How many waves fit in the part of the clip a wave layer covers.
 pub const MAX_CYCLES: f32 = 50.0;
+/// What a recipe on the rest pose calls its base.
+pub const REST_POSE_NAME: &str = "Rest pose";
+/// The rest pose's frame rate, and how many frames it holds unless told.
+pub const REST_FPS: f32 = 30.0;
+pub const REST_FRAMES: u32 = 60;
+/// The longest a rest pose recipe runs, in frames (20 seconds).
+pub const MAX_REST_FRAMES: u32 = 600;
 /// The biggest recipe file read. A recipe at every limit is far under it.
 pub const MAX_FILE_BYTES: u64 = 256 * 1024;
 
@@ -106,6 +114,18 @@ pub enum BlankKind {
 
 /// The library clip a recipe starts from, by what matches it on another
 /// computer: its name and frame count. The hash tells keys that changed.
+///
+/// Two other shapes keep the same fields, so a version 1 reader that does
+/// not know them still reads the file (as a base clip it cannot find):
+///
+/// - `rest`: the recipe runs on the model's rest pose for `frames` frames
+///   at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
+///   its hash empty and it is never Mixamo's.
+/// - `byName` (with an empty `hash`, not rest): a base known by its name
+///   only, as a starter recipe names it when the clip library had no such
+///   clip. It matches the first library clip of that name, whatever its
+///   frames. Any other base, an empty hash included, matches by name and
+///   frame count.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeBase {
@@ -116,6 +136,58 @@ pub struct RecipeBase {
     pub hash: String,
     /// Read from a Mixamo rig: a bake counts as Mixamo's.
     pub mixamo: bool,
+    /// The model's rest pose, no base clip. A file from before reads false.
+    #[serde(default)]
+    #[specta(optional)]
+    pub rest: bool,
+    /// Known by its clip's name only, as a starter names it. A file from
+    /// before reads false.
+    #[serde(default)]
+    #[specta(optional)]
+    pub by_name: bool,
+}
+
+impl RecipeBase {
+    /// The rest pose held for `frames` frames at [`REST_FPS`].
+    pub fn rest_pose(frames: u32) -> Self {
+        let frames = frames.clamp(2, MAX_REST_FRAMES);
+        Self {
+            name: REST_POSE_NAME.to_string(),
+            frames,
+            length: rest_length(frames),
+            hash: String::new(),
+            mixamo: false,
+            rest: true,
+            by_name: false,
+        }
+    }
+
+    /// A base known by its clip's name only (an empty hash), until the
+    /// clip library has a clip of that name.
+    pub fn named(name: &str) -> Self {
+        Self {
+            name: trimmed(name).to_string(),
+            frames: 1,
+            length: 1.0 / REST_FPS,
+            hash: String::new(),
+            mixamo: false,
+            rest: false,
+            by_name: true,
+        }
+    }
+
+    /// Known by name only: marked so (as a starter's base is), not the rest
+    /// pose, and no hash.
+    pub fn name_only(&self) -> bool {
+        self.by_name && !self.rest && self.hash.is_empty()
+    }
+}
+
+/// How long the rest pose lasts over `frames` frames, seconds.
+pub fn rest_length(frames: u32) -> f32 {
+    #[allow(clippy::cast_precision_loss)]
+    let frames = frames as f32;
+    frames / REST_FPS
 }
 
 /// A target the person or an agent fills per project.
@@ -375,9 +447,22 @@ pub fn normalized(recipe: &RecipeFile) -> RecipeFile {
     RecipeFile {
         version: RECIPE_VERSION,
         name: trimmed(&recipe.name).to_string(),
-        base: RecipeBase {
-            name: trimmed(&recipe.base.name).to_string(),
-            ..recipe.base.clone()
+        base: if recipe.base.rest {
+            RecipeBase {
+                name: REST_POSE_NAME.to_string(),
+                frames: recipe.base.frames,
+                length: rest_length(recipe.base.frames),
+                hash: String::new(),
+                mixamo: false,
+                rest: true,
+                by_name: false,
+            }
+        } else {
+            RecipeBase {
+                name: trimmed(&recipe.base.name).to_string(),
+                by_name: recipe.base.name_only(),
+                ..recipe.base.clone()
+            }
         },
         blanks,
         layers,

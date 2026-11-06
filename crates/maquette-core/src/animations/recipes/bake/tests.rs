@@ -118,13 +118,13 @@ pub(super) fn project_with(model: Vec<u8>) -> Project {
     )
     .expect("store");
     fs::write(clip_dir(root, "still").expect("dir").join(CLIP_GLB), b"glb").expect("clip");
-    let mut p = project_on(root, "still", model);
+    let mut p = project_on(root, Some("still"), model);
     p._tmp = Some(tmp);
     p
 }
 
 /// As [`project_with`], in the workspace at `root` on library clip `clip`.
-pub(super) fn project_on(root: &std::path::Path, clip: &str, model: Vec<u8>) -> Project {
+pub(super) fn project_on(root: &std::path::Path, clip: Option<&str>, model: Vec<u8>) -> Project {
     let config = WorkspaceConfig::default();
     let made = crate::project::create(
         root,

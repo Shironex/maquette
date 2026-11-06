@@ -1,8 +1,10 @@
 /**
  * The workspace's recipe library: the list the Animations library's
  * Recipes section and the Recipes tab's "Library has rN" notes read, kept
- * up to date by the recipe library changed event. Also the section's
- * selected entry, Import recipe, Use in project, Export and the removals.
+ * up to date by the recipe library changed event, with the starter recipes
+ * built into the app. Also the section's selected entry or starter, Import
+ * recipe, Save a starter to the library, Use in project, Export and the
+ * removals.
  * A removal sends the version the list read, so one that moved since is
  * refused rather than removing what the person did not see.
  */
@@ -13,23 +15,31 @@ import {
   type ExportSource,
   type LibraryRecipeSummary,
   type RecipeImported,
+  type RecipeStarter,
 } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 
-/** The revision Use in project copies, and the name it starts with. */
+/** The revision Use in project copies (none for a starter), and the name it starts with. */
 export interface UseTarget {
   entry: string;
-  revision: number;
+  revision: number | null;
   name: string;
 }
 
+/** The last recipe added to the library: imported from a file, or a starter saved there. */
+export type LibraryAdded = RecipeImported & { starter: boolean };
+
 interface RecipeLibraryStore {
   list: LibraryRecipeSummary[] | null;
+  /** The starter recipes built into the app, read with the list. */
+  starters: RecipeStarter[] | null;
   error: string | null;
-  /** The entry the Animations library's side panel shows. */
+  /** The entry (or starter id) the Animations library's side panel shows. */
   selected: string | null;
-  /** The last import into the library and what to know about it. */
-  imported: RecipeImported | null;
+  /** The last import or starter save into the library and what to know about it. */
+  imported: LibraryAdded | null;
+  /** The starter being saved to the library. */
+  copying: string | null;
   importing: boolean;
   importError: string | null;
   /** The Use in project sheet is open on this revision. */
@@ -41,6 +51,8 @@ interface RecipeLibraryStore {
   select: (entry: string | null) => void;
   /** Picks a `.recipe.json` with the system dialog and imports it as a new library recipe. */
   importFile: () => Promise<void>;
+  /** Saves a starter to the library as a new recipe at r1 the person can edit. */
+  copyStarter: (id: string) => Promise<void>;
   dismissImported: () => void;
   openUse: (target: UseTarget) => void;
   closeUse: () => void;
@@ -70,9 +82,11 @@ export const useRecipeLibraryStore = create<RecipeLibraryStore>((set, get) => {
   };
   return {
     list: null,
+    starters: null,
     error: null,
     selected: null,
     imported: null,
+    copying: null,
     importing: false,
     importError: null,
     using: null,
@@ -80,8 +94,11 @@ export const useRecipeLibraryStore = create<RecipeLibraryStore>((set, get) => {
     load: async () => {
       const read = ++reads;
       try {
-        const list = await commands.recipeLibraryList();
-        if (read === reads) set({ list, error: null });
+        const [list, starters] = await Promise.all([
+          commands.recipeLibraryList(),
+          commands.recipeStarterList(),
+        ]);
+        if (read === reads) set({ list, starters, error: null });
       } catch (error) {
         if (read === reads) set({ error: errorMessage(error) });
       }
@@ -98,12 +115,26 @@ export const useRecipeLibraryStore = create<RecipeLibraryStore>((set, get) => {
       set({ importing: true, importError: null });
       try {
         const imported = await commands.recipeImportToLibrary();
-        if (imported) set({ imported, selected: imported.entry });
+        if (imported) set({ imported: { ...imported, starter: false }, selected: imported.entry });
         await get().load();
       } catch (error) {
         set({ importError: errorMessage(error) });
       } finally {
         set({ importing: false });
+      }
+    },
+
+    copyStarter: async id => {
+      if (get().copying) return;
+      set({ copying: id, importError: null });
+      try {
+        const copied = await commands.recipeLibraryCopyStarter(id);
+        set({ imported: { ...copied, starter: true }, selected: copied.entry });
+        await get().load();
+      } catch (error) {
+        set({ importError: errorMessage(error) });
+      } finally {
+        set({ copying: null });
       }
     },
 

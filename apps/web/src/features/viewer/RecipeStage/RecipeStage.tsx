@@ -1,6 +1,6 @@
 /**
  * A recipe's rough preview: the base clip played live on the project's
- * moving model through the bone map, with the recipe's changes laid over it
+ * moving model through the bone map (or the model held in its rest pose), with the recipe's changes laid over it
  * and a small marker on each blank's target. Loaded lazily, with three.js.
  */
 import { Canvas } from '@react-three/fiber';
@@ -19,7 +19,8 @@ const MARKER_COLOURS = { prop: '#c47d60', point: '#98ae95' } as const;
 
 export interface RecipeStageProps {
   modelUrl: string;
-  clipUrl: string;
+  /** The base clip's file, or null to hold the model's rest pose. */
+  clipUrl: string | null;
   pairs: readonly RoughPair[];
   layers: readonly RecipeLayer[];
   markers: readonly RecipeMarker[];
@@ -62,7 +63,7 @@ function Scene(props: SceneProps) {
   const skeleton = useMotionModel(clipUrl, onError);
   const framing = useFraming(model, undefined);
   const rig = useStudioRig(framing);
-  const setup = useRecipeSetup(model, skeleton, pairs);
+  const setup = useRecipeSetup(model, clipUrl ? skeleton : 'rest', pairs);
   const targets = useTargets(markers, framing?.box ?? null, setup?.rig.forward ?? null);
   useRecipeFrame(setup, layers, targets, props, onChecks);
   return (

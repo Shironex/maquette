@@ -135,7 +135,7 @@ fn ws() -> Ws {
         lantern,
         moon,
     };
-    crate::animations::recipes::create(&w.root, &w.dir(&w.frost), "still", Some("Reach out"))
+    crate::animations::recipes::create(&w.root, &w.dir(&w.frost), Some("still"), Some("Reach out"))
         .expect("recipe");
     recipes::update(
         &w.dir(&w.frost),
@@ -695,7 +695,7 @@ fn a_recipe_behind_the_library_reads_what_the_newer_revision_changes() {
     assert_eq!((behind.revision, behind.latest), (1, 2));
     assert_eq!(behind.changes, ["Adds the look at on head (l-2)."]);
     let made_here =
-        crate::animations::recipes::create(&w.root, &w.dir(&w.moon), "still", Some("Own"))
+        crate::animations::recipes::create(&w.root, &w.dir(&w.moon), Some("still"), Some("Own"))
             .expect("own");
     assert!(compare(&w.root, &w.config.layout, &w.moon, &made_here.id).is_err());
 }

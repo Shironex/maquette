@@ -3,7 +3,13 @@ import { pickableClips } from '@/state/recipes';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 
-/** The base clip picker: the library's clips, a search, the chosen clip and the recipe name. */
+/** What a recipe on the rest pose is called until the person names it. */
+export const REST_POSE = 'Rest pose';
+
+/**
+ * The base clip picker: the library's clips, a search, the chosen clip (or
+ * the rest pose, no clip) and the recipe name.
+ */
 export function useRecipeClipPicker() {
   const picking = useRecipesStore(s => s.picking);
   const creating = useRecipesStore(s => s.creating);
@@ -12,6 +18,7 @@ export function useRecipeClipPicker() {
   const libraryError = useAnimationsStore(s => s.error);
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState<string | null>(null);
+  const [rest, setRest] = useState(false);
   const [name, setName] = useState('');
   useEffect(() => {
     if (picking && !useAnimationsStore.getState().view) void useAnimationsStore.getState().load();
@@ -20,11 +27,13 @@ export function useRecipeClipPicker() {
     if (picking) return;
     setQuery('');
     setChosen(null);
+    setRest(false);
     setName('');
   }, [picking]);
   const items = useMemo(() => view?.items ?? [], [view]);
   const shown = useMemo(() => pickableClips(items, query), [items, query]);
-  const clip = items.find(i => i.clip.id === chosen)?.clip ?? null;
+  const clip = rest ? null : (items.find(i => i.clip.id === chosen)?.clip ?? null);
+  const following = !name || name === (rest ? REST_POSE : clip?.name);
   const { closePicker, create } = useRecipesStore.getState();
   return {
     open: picking !== null,
@@ -37,15 +46,26 @@ export function useRecipeClipPicker() {
     query,
     setQuery,
     clip,
+    rest,
+    picked: rest || clip !== null,
     choose: (id: string) => {
       const next = items.find(i => i.clip.id === id)?.clip;
       // The name follows the clip until the person types their own.
-      if (next && (!name || name === clip?.name)) setName(next.name);
+      if (next && following) setName(next.name);
       setChosen(id);
+      setRest(false);
+    },
+    chooseRest: () => {
+      if (following) setName(REST_POSE);
+      setRest(true);
+      setChosen(null);
     },
     name,
     setName,
     close: closePicker,
-    make: () => (clip ? void create(clip.id, name) : undefined),
+    make: () => {
+      if (rest) void create(null, name);
+      else if (clip) void create(clip.id, name);
+    },
   };
 }

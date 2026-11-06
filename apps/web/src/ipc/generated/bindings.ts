@@ -397,8 +397,11 @@ export const commands = {
 	planRemove: (project: string, id: string) => __TAURI_INVOKE<string>("plan_remove", { project, id }),
 	recipeList: (project: string) => __TAURI_INVOKE<RecipeSummary[]>("recipe_list", { project }),
 	recipeGet: (project: string, id: string) => __TAURI_INVOKE<RecipeDoc>("recipe_get", { project, id }),
-	/**  Makes a recipe on the library clip `clip`, called `name` or after the clip. */
-	recipeCreate: (project: string, clip: string, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
+	/**
+	 *  Makes a recipe on the library clip `clip`, or on the model's rest pose
+	 *  when it is null, called `name` or after the clip.
+	 */
+	recipeCreate: (project: string, clip: string | null, name: string | null) => __TAURI_INVOKE<RecipeDoc>("recipe_create", { project, clip, name }),
 	/**  Renames a recipe; its file and id stay. */
 	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
 	/**
@@ -456,6 +459,16 @@ export const commands = {
 	 */
 	recipeBakeAdd: (project: string, recipe: string, finishedMs: number | null) => __TAURI_INVOKE<RecipeBakeRecord>("recipe_bake_add", { project, recipe, finishedMs }),
 	recipeLibraryList: () => __TAURI_INVOKE<LibraryRecipeSummary[]>("recipe_library_list"),
+	/**
+	 *  The starter recipes built into the app, each matched against the clip
+	 *  library. Never written to the library by listing them.
+	 */
+	recipeStarterList: () => __TAURI_INVOKE<RecipeStarter[]>("recipe_starter_list"),
+	/**
+	 *  Copies a starter recipe into the library as a new recipe at r1 the
+	 *  person can edit. Only the person's Save to library calls this.
+	 */
+	recipeLibraryCopyStarter: (id: string) => __TAURI_INVOKE<RecipeImported>("recipe_library_copy_starter", { id }),
 	/**  A library recipe's revision, the newest when none is given. */
 	recipeLibraryGet: (entry: string, revision: number | null) => __TAURI_INVOKE<LibraryRecipeDoc>("recipe_library_get", { entry, revision }),
 	/**  Copies a library recipe's revision into a project as a new recipe. */
@@ -2027,7 +2040,9 @@ export type BaseStatus =
 /**  A clip of the same name and frame count, with other keys. */
 "hash-differs" | 
 /**  No clip of that name and frame count. */
-"missing";
+"missing" | 
+/**  The recipe runs on the model's rest pose and needs no clip. */
+"rest";
 
 /**  An item of a batch that did not go out. */
 export type BatchFailure = {
@@ -6774,7 +6789,10 @@ export type RecipeBakeResult = {
 	recipeName: string,
 	/**  The recipe file's version (a hash of its bytes) it was baked from. */
 	recipeVersion: string,
-	/**  The library clip it started from, and the hash of its keys. */
+	/**
+	 *  The library clip it started from, and the hash of its keys; both
+	 *  empty for a bake on the rest pose.
+	 */
 	baseClip: string,
 	baseHash: string,
 	/**  The hash the recipe holds for its base, when the library's differs. */
@@ -6862,6 +6880,18 @@ export type RecipeBakeUse = {
 /**
  *  The library clip a recipe starts from, by what matches it on another
  *  computer: its name and frame count. The hash tells keys that changed.
+ * 
+ *  Two other shapes keep the same fields, so a version 1 reader that does
+ *  not know them still reads the file (as a base clip it cannot find):
+ * 
+ *  - `rest`: the recipe runs on the model's rest pose for `frames` frames
+ *    at [`REST_FPS`], with no base clip. Its name is [`REST_POSE_NAME`],
+ *    its hash empty and it is never Mixamo's.
+ *  - `byName` (with an empty `hash`, not rest): a base known by its name
+ *    only, as a starter recipe names it when the clip library had no such
+ *    clip. It matches the first library clip of that name, whatever its
+ *    frames. Any other base, an empty hash included, matches by name and
+ *    frame count.
  */
 export type RecipeBase = {
 	name: string,
@@ -6871,6 +6901,13 @@ export type RecipeBase = {
 	hash: string,
 	/**  Read from a Mixamo rig: a bake counts as Mixamo's. */
 	mixamo: boolean,
+	/**  The model's rest pose, no base clip. A file from before reads false. */
+	rest?: boolean,
+	/**
+	 *  Known by its clip's name only, as a starter names it. A file from
+	 *  before reads false.
+	 */
+	byName?: boolean,
 };
 
 /**  A target the person or an agent fills per project. */
@@ -7124,6 +7161,29 @@ export type RecipeSaved = {
 	 *  it changed between the save and that note (the revision is saved).
 	 */
 	linked: boolean,
+};
+
+/**  A starter recipe as the app and agents read it. */
+export type RecipeStarter = {
+	/**  `starter:<key>`. */
+	id: string,
+	name: string,
+	/**  One line on what it does. */
+	about: string,
+	/**  The clip names it runs on, tried in order; empty on the rest pose. */
+	clips: string[],
+	/**  Runs on the model's rest pose, with no base clip. */
+	rest: boolean,
+	blanks: RecipeBlank[],
+	layers: RecipeLayer[],
+	/**
+	 *  The clip it would take from this computer's clip library, or the
+	 *  first name it tries, or "Rest pose".
+	 */
+	baseName: string,
+	/**  How its base stands in the clip library: found, missing or rest. */
+	base: BaseMatch,
+	mixamo: boolean,
 };
 
 /**  A line in the list of a project's recipes. */
@@ -9693,7 +9753,7 @@ export type UseClips = {
 export type UseRecipe = {
 	/**  The project it lands in. */
 	project: string,
-	/**  The library recipe. */
+	/**  The library recipe, or a starter (`starter:...`). */
 	entry: string,
 	/**  Its revision; the newest when left out. */
 	revision: number | null,

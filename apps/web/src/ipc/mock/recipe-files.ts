@@ -28,10 +28,50 @@ export const baseOf = (clip: AnimationClip): RecipeBase => ({
   mixamo: clip.rig.kind === 'mixamo',
 });
 
+/** The rest pose's frame rate and how long a recipe on it runs unless told, as the core has them. */
+export const REST_FPS = 30;
+export const REST_FRAMES = 60;
+
+/** The rest pose held for `frames` frames, no base clip. */
+export const restBase = (frames = REST_FRAMES): RecipeBase => ({
+  name: 'Rest pose',
+  frames,
+  length: frames / REST_FPS,
+  hash: '',
+  mixamo: false,
+  rest: true,
+});
+
+/** A base known by its clip's name only (marked, with an empty hash), as a starter names it. */
+export const namedBase = (name: string): RecipeBase => ({
+  name,
+  frames: 1,
+  length: 1 / REST_FPS,
+  hash: '',
+  mixamo: false,
+  byName: true,
+});
+
+/** The first clip called `name`, case aside, whatever its frames. */
+export const clipNamed = (clips: readonly AnimationClip[], name: string) =>
+  clips.find(c => c.name.trim().toLowerCase() === name.trim().toLowerCase());
+
 export function matchBase(
   clips: readonly AnimationClip[],
   base: RecipeBase
 ): [BaseMatch, AnimationClip?] {
+  if (base.rest) return [{ status: 'rest', clip: null, warning: null }];
+  if (base.byName && !base.hash) {
+    const found = clipNamed(clips, base.name);
+    if (found) return [{ status: 'found', clip: found.id, warning: null }, found];
+    return [
+      {
+        status: 'missing',
+        clip: null,
+        warning: `The animation library has no clip called ${base.name}. Import one before baking.`,
+      },
+    ];
+  }
   const name = base.name.trim().toLowerCase();
   const same = clips.filter(c => c.frames === base.frames && c.name.trim().toLowerCase() === name);
   const exact = same.find(c => c.hash === base.hash);

@@ -8,6 +8,8 @@
  * project lacks and noting a base clip that is missing or has other keys.
  * Mock mode has no file dialogs: export answers a made up path and both
  * imports read the same canned file (see recipe-library-fixtures.ts).
+ * Starters (recipe-starters.ts) list, are used and are copied to the
+ * library as the core does, never written there by a list.
  */
 import type {
   AnimationClip,
@@ -37,6 +39,7 @@ import {
   type StoredEntry,
 } from './recipe-library-fixtures';
 import { currentSaveAsks } from './recipe-save-asks';
+import { STARTER_PREFIX, starterFile, starterList } from './recipe-starters';
 
 interface LibraryContext {
   clips: () => readonly AnimationClip[];
@@ -230,8 +233,32 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
         mixamo: isMixamo(ctx.clips(), file.base),
       };
     },
+    recipe_starter_list: () => starterList(ctx.clips()),
+    recipe_library_copy_starter: ({ id }: Args) => {
+      const file = starterFile(String(id), ctx.clips());
+      if (!file) fail('not_found', `Not found: the starter recipe ${String(id)}`);
+      const notes: string[] = [];
+      const wanted = slugOf(file.name);
+      const entry = freeEntryId(file.name);
+      if (entry !== wanted)
+        notes.push(`The library has a recipe ${wanted} already, so this one is ${entry}.`);
+      const base = matchBase(ctx.clips(), file.base)[0];
+      if (base.warning) notes.push(base.warning);
+      const at = clock.now().toISOString();
+      const source = revisionOf(1, at, { imported: `Starter: ${file.name}` });
+      entries().set(entry, storedEntry(entry, file.name, [[file, source]]));
+      changed();
+      return { entry, name: file.name, notes };
+    },
     recipe_library_use: ({ request }: Args) => {
       const { project, entry, revision, name } = request as UseRecipe;
+      if (entry.startsWith(STARTER_PREFIX)) {
+        if (revision != null)
+          fail('invalid', 'A starter recipe has no revisions. Leave revision out.');
+        const file = starterFile(entry, ctx.clips());
+        if (!file) fail('not_found', `Not found: the starter recipe ${entry}`);
+        return land(project, { ...file, name: name?.trim() || file.name }, []);
+      }
       const e = entryOf(entry);
       const { at, file } = fileAt(e, revision);
       const named = name?.trim() || file.name;
