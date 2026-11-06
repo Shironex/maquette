@@ -5,6 +5,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use super::clip_moves::replace_clips;
 use super::files::{RecipeRead, settled, version, write_recipe, writing};
 use super::{
     BlankKind, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, TimeEdit, check_name, check_props,
@@ -26,11 +27,19 @@ pub struct RecipeChange {
     pub layers: Option<Vec<RecipeLayer>>,
     pub blanks: Option<Vec<RecipeBlank>>,
     /// Every clip in order, the base first, each with its trim and (after
-    /// the first) its blend window. Keys and time edits on a clip no longer
-    /// sent are refused, so send those lists too.
+    /// the first) its blend window. The keys and time edits the recipe
+    /// keeps (the lists not sent with it) follow their clip to its new
+    /// place; taking away a clip one of them sits on is refused. Lists sent
+    /// with it count clips in the new order.
     #[serde(default)]
     #[specta(optional)]
     pub clips: Option<Vec<RecipeBase>>,
+    /// For each clip of `clips`, the index of the recipe's clip it keeps (0
+    /// the base), or none for a new one. Left out, a clip sent keeps the
+    /// first of the recipe's clips with its name, frames and hash.
+    #[serde(default)]
+    #[specta(optional)]
+    pub kept: Option<Vec<Option<u32>>>,
     /// Every time edit.
     #[serde(default)]
     #[specta(optional)]
@@ -141,8 +150,9 @@ fn check_expected(id: &str, current: &str, expected: Option<&str>) -> CoreResult
 /// # Errors
 ///
 /// Fails on a name [`check_name`] refuses, when the recipe is gone or
-/// changed since `expected`, `clear` names no prop blank, the result does
-/// not validate, would be too big to write, or the file cannot be written.
+/// changed since `expected`, `clips` take away a clip kept keys or time
+/// edits sit on, `clear` names no prop blank, the result does not validate,
+/// would be too big to write, or the file cannot be written.
 pub fn update(
     project_dir: &Path,
     manifest: &ProjectManifest,
@@ -160,18 +170,18 @@ pub fn update(
     if let Some(name) = change.name {
         next.name = trimmed(&name).to_string();
     }
+    if let Some(clips) = change.clips {
+        replace_clips(
+            &mut next,
+            &current,
+            clips,
+            change.kept.as_deref(),
+            change.layers.is_some(),
+            change.time.is_some(),
+        )?;
+    }
     if let Some(layers) = change.layers {
         next.layers = with_ids(layers);
-    }
-    if let Some(clips) = change.clips {
-        let mut clips = clips.into_iter();
-        let Some(base) = clips.next() else {
-            return Err(CoreError::Invalid(
-                "Send at least one clip: the first is the base.".into(),
-            ));
-        };
-        next.base = base;
-        next.joined = clips.collect();
     }
     if let Some(time) = change.time {
         next.time = time;

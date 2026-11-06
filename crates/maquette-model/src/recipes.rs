@@ -58,6 +58,7 @@ pub mod baked;
 mod change;
 mod check;
 mod check_edits;
+mod clip_moves;
 mod copies;
 mod edits;
 mod files;
@@ -66,6 +67,7 @@ mod normal;
 
 pub use change::{RecipeChange, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
+pub use clip_moves::CLIP_IN_USE;
 pub use copies::{create_whole, link};
 pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, bake_unsupported, uses_v2};
 pub use files::{
@@ -597,6 +599,9 @@ mod tests;
 
 #[cfg(test)]
 mod tests_v2;
+
+#[cfg(test)]
+mod tests_v2_clips;
 
 #[cfg(test)]
 mod tests_v2_limits;
