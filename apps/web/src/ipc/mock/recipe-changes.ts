@@ -65,13 +65,23 @@ function listChanges<T extends { id: string }>(
  * new library recipe), one line saying what it holds. Empty when both hold
  * the same name, base, blanks and changes.
  */
+/** The core's reading of two names: ` (2)` and on is a free name's number, not a rename. */
+const withoutNumber = (name: string) =>
+  name
+    .trim()
+    .replace(/ \(\d+\)$/, '')
+    .trimEnd();
+const sameName = (a: string, b: string) =>
+  a.trim() === b.trim() || withoutNumber(a) === withoutNumber(b);
+
 export function recipeChanges(before: RecipeFile | null, after: RecipeFile): string[] {
   if (!before)
     return [
       `A new library recipe on ${after.base.name} with ${counted(after.layers.length, 'change')} and ${counted(after.blanks.length, 'blank')}.`,
     ];
   const out: string[] = [];
-  if (before.name !== after.name) out.push(`Renames it from ${before.name} to ${after.name}.`);
+  if (!sameName(before.name, after.name))
+    out.push(`Renames it from ${before.name} to ${after.name}.`);
   const [b, a] = [before.base, after.base];
   if (b.name !== a.name || b.frames !== a.frames || b.hash !== a.hash)
     out.push(

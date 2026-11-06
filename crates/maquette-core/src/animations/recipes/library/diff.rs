@@ -78,9 +78,25 @@ fn plural(n: usize, one: &str, many: &str) -> String {
     }
 }
 
+/// `name` without a trailing ` (2)`, ` (3)` and on, which only a free name
+/// ([`crate::recipes::unique_name`]) adds.
+fn without_number(name: &str) -> &str {
+    let name = name.trim();
+    name.strip_suffix(')')
+        .and_then(|rest| rest.rsplit_once(" ("))
+        .filter(|(_, n)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+        .map_or(name, |(base, _)| base.trim_end())
+}
+
+/// Whether two names differ only by that number: a library recipe saved or
+/// copied as `X (2)` and the project's `X` are one name, not a rename.
+fn same_name(a: &str, b: &str) -> bool {
+    a.trim() == b.trim() || without_number(a) == without_number(b)
+}
+
 /// What `after` changes against `before`, a line each; for no `before` (a
 /// new library recipe), one line saying what it holds. Empty when they
-/// hold the same name, base, blanks and changes.
+/// hold the same name (a ` (2)` number aside), base, blanks and changes.
 pub fn changes(before: Option<&RecipeFile>, after: &RecipeFile) -> Vec<String> {
     let Some(before) = before else {
         return vec![format!(
@@ -91,7 +107,7 @@ pub fn changes(before: Option<&RecipeFile>, after: &RecipeFile) -> Vec<String> {
         )];
     };
     let mut out = Vec::new();
-    if before.name != after.name {
+    if !same_name(&before.name, &after.name) {
         out.push(format!(
             "Renames it from {} to {}.",
             before.name, after.name

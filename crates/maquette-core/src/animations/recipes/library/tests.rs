@@ -755,3 +755,45 @@ fn saving_a_project_recipe_as_a_new_entry_takes_a_free_name() {
     assert_eq!(name(&first.entry), "Reach out");
     assert_eq!(name(&second.entry), "Reach out (2)");
 }
+
+#[test]
+fn a_deduped_name_is_no_rename_and_the_saved_recipe_has_nothing_to_save() {
+    let w = ws();
+    w.save(&w.plan(None)).expect("first");
+    let second = w.save(&w.plan(None)).expect("second");
+    // The library says `Reach out (2)`, the project recipe `Reach out`.
+    assert_eq!(w.recipe("reach-out").name, "Reach out");
+    let again = w.plan(Some(&second.entry));
+    assert!(again.same, "{:?}", again.changes);
+    assert!(again.changes.is_empty(), "{:?}", again.changes);
+    let compared = compare(&w.root, &w.config.layout, &w.frost, "reach-out").expect("compare");
+    assert!(compared.changes.is_empty(), "{:?}", compared.changes);
+    let refused = w.save(&again).expect_err("nothing to save");
+    assert!(refused.to_string().contains("nothing to save"), "{refused}");
+    // A real rename still shows.
+    let mut renamed = w.recipe("reach-out");
+    renamed.name = "Something else".into();
+    let lines =
+        crate::animations::recipes::library::changes(Some(&w.recipe("reach-out")), &renamed);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+}
+
+#[test]
+fn a_project_copy_named_with_a_number_shows_no_rename_against_its_entry() {
+    let w = ws();
+    w.save(&w.plan(None)).expect("r1");
+    let used = use_recipe(
+        &w.root,
+        &w.config.layout,
+        &UseRecipe {
+            project: w.frost.clone(),
+            entry: "reach-out".into(),
+            revision: Some(1),
+            name: None,
+        },
+    )
+    .expect("use");
+    assert_eq!(used.doc.recipe.name, "Reach out (2)");
+    let compared = compare(&w.root, &w.config.layout, &w.frost, &used.doc.id).expect("compare");
+    assert!(compared.changes.is_empty(), "{:?}", compared.changes);
+}
