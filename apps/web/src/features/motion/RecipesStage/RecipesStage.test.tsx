@@ -76,6 +76,7 @@ describe('the recipes stage', () => {
         open: 1,
         edited: '2026-11-05T10:00:00.000Z',
         version: 'v1',
+        motionVersion: 'm1',
         warnings: [warning],
         problem: null,
         from: null,
@@ -144,7 +145,9 @@ describe('the recipes stage', () => {
     await openWithModels();
     const listed = await commands.recipeList('frostveil');
     vi.spyOn(commands, 'recipeList').mockResolvedValueOnce(
-      listed.map(r => (r.id === 'reach-for-the-lantern' ? { ...r, version: 'older' } : r))
+      listed.map(r =>
+        r.id === 'reach-for-the-lantern' ? { ...r, version: 'older', motionVersion: 'older' } : r
+      )
     );
     render(<RecipesStage />);
     const list = await screen.findByRole('list', { name: 'Project recipes' });

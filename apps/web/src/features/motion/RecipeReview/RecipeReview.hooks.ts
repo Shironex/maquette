@@ -54,7 +54,7 @@ export function useRecipeReview() {
   const frames = result?.frames ?? 0;
   const length = item?.clip.length || frames / FPS || 1;
   const stale = staleOf(record, {
-    recipeVersion: summary?.version || null,
+    motionVersion: summary?.motionVersion || null,
     model: model ? { name: model.name, version: model.version } : null,
   });
   const store = useRecipeBakesStore.getState();

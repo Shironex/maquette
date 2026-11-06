@@ -147,6 +147,7 @@ function resultOf(
     recipe: doc.id,
     recipeName: doc.recipe.name,
     recipeVersion: doc.version,
+    motionVersion: doc.motionVersion,
     baseClip: doc.base.clip ?? '',
     baseHash: doc.recipe.base.hash,
     recipeBaseHash: null,
@@ -323,7 +324,7 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       if (record.state !== 'done' || !record.result)
         fail('invalid', 'The last bake did not finish, so there is nothing to add. Bake it again.');
       const doc = ctx.doc(record.project, record.recipe);
-      if (doc.version !== record.result.recipeVersion)
+      if (doc.motionVersion !== (record.result.motionVersion || record.result.recipeVersion))
         fail('invalid', `${OUT_OF_DATE} The recipe changed since this bake. Bake it again.`);
       const onto = ctx.asset(record.project, record.asset);
       if (onto && onto.version !== record.result.fromVersion)

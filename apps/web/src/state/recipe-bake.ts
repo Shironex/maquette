@@ -35,19 +35,27 @@ export const RECIPE_CHANGED = 'The recipe changed since this bake. Bake it again
 
 /**
  * Why a finished bake is out of date by what the view knows now: the
- * recipe's `version` and the model's newest `version`, as the core works it
+ * recipe's `motionVersion` (its `version` for a record from before) and the model's newest `version`, as the core works it
  * out. Either unknown, the core's own `stale` from the last read stands.
  */
 export function staleOf(
   record: RecipeBakeRecord | null,
-  now: { recipeVersion?: string | null; model?: { name: string; version: number } | null }
+  now: {
+    recipeVersion?: string | null;
+    motionVersion?: string | null;
+    model?: { name: string; version: number } | null;
+  }
 ): string | null {
   const result = record?.state === 'done' ? record.result : null;
   if (!result) return null;
-  if (now.recipeVersion && now.recipeVersion !== result.recipeVersion) return RECIPE_CHANGED;
+  // The motion version leaves out the library link; a record from before has none.
+  const changed = result.motionVersion
+    ? Boolean(now.motionVersion) && now.motionVersion !== result.motionVersion
+    : Boolean(now.recipeVersion) && now.recipeVersion !== result.recipeVersion;
+  if (changed) return RECIPE_CHANGED;
   if (now.model && now.model.version !== result.fromVersion)
     return `${now.model.name} is at v${now.model.version} now, and this bake went onto v${result.fromVersion}. Bake it again.`;
-  if (now.recipeVersion && now.model) return null;
+  if ((now.motionVersion || now.recipeVersion) && now.model) return null;
   return record?.stale ?? null;
 }
 

@@ -20,6 +20,14 @@ export function versionOf(value: unknown): string {
   return hex(a) + hex(b);
 }
 
+/**
+ * A stand-in for the core's motion version: the file's hash without its
+ * library link and bookkeeping, so saving to the library changes nothing.
+ */
+export function motionVersionOf(file: RecipeFile): string {
+  return versionOf({ ...file, from: null, revision: 0, edited: '', created: '' });
+}
+
 export const baseOf = (clip: AnimationClip): RecipeBase => ({
   name: clip.name,
   frames: clip.frames,

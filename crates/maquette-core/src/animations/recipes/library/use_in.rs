@@ -87,6 +87,7 @@ pub(super) fn landed(
         ));
     }
     let gone = recipes::gone_props(&written, manifest);
+    let motion_version = recipes::motion_version(&written);
     let mut settled = written;
     let warnings = recipes::settle_props(&mut settled, manifest);
     let read = RecipeRead {
@@ -94,6 +95,7 @@ pub(super) fn landed(
         warnings,
         gone,
         version,
+        motion_version,
     };
     let doc = doc_of(&id, read, &crate::animations::list(root)?);
     if let Some(warning) = &doc.base.warning {

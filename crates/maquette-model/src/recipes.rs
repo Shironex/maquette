@@ -53,8 +53,8 @@ mod files;
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use copies::{create_whole, link};
 pub use files::{
-    RecipeChange, RecipeRead, RecipeSummary, create, get, list, list_with, remove, rename,
-    rename_with, update, version,
+    RecipeChange, RecipeRead, RecipeSummary, create, get, list, list_with, motion_version_of,
+    remove, rename, rename_with, update, version,
 };
 
 pub const RECIPES_DIR: &str = "recipes";
@@ -368,6 +368,19 @@ pub fn is_entry_uid(uid: &str) -> bool {
 pub fn version_of(text: &str) -> String {
     use sha2::{Digest, Sha256};
     hex::encode(Sha256::digest(text.as_bytes()))[..16].to_string()
+}
+
+/// A recipe's motion version: the [`version_of`] its file would have with
+/// the bookkeeping left out (`from`, `revision`, `edited`, `created`), so
+/// saving it to the recipe library, which writes the link into the file,
+/// does not read as a change to what a bake was made from.
+pub fn motion_version(recipe: &RecipeFile) -> String {
+    let mut bare = recipe.clone();
+    bare.from = None;
+    bare.revision = 0;
+    bare.edited = String::new();
+    bare.created = String::new();
+    version_of(&serde_json::to_string(&bare).unwrap_or_default())
 }
 
 /// [`load_file`], with the file's [`version_of`].

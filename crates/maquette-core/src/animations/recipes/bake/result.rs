@@ -107,6 +107,7 @@ pub(crate) fn result_of(
         recipe: doc.id.clone(),
         recipe_name: doc.recipe.name.clone(),
         recipe_version: doc.version.clone(),
+        motion_version: doc.motion_version.clone(),
         base_clip,
         base_hash,
         recipe_base_hash,

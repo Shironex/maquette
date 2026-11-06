@@ -6790,6 +6790,13 @@ export type RecipeBakeResult = {
 	/**  The recipe file's version (a hash of its bytes) it was baked from. */
 	recipeVersion: string,
 	/**
+	 *  The recipe's motion version it was baked from: the file's hash
+	 *  without its library link and other bookkeeping, which is what
+	 *  "out of date" reads. Empty in a record from before, which reads by
+	 *  `recipe_version` instead.
+	 */
+	motionVersion?: string,
+	/**
 	 *  The library clip it started from, and the hash of its keys; both
 	 *  empty for a bake on the rest pose.
 	 */
@@ -6989,6 +6996,11 @@ export type RecipeDoc = {
 	gone: GoneProp[],
 	/**  A hash of the file's bytes; a write sends it back as `expected`. */
 	version: string,
+	/**
+	 *  A hash of what the recipe does, without its library link and other
+	 *  bookkeeping; a bake is out of date when this changes, not `version`.
+	 */
+	motionVersion: string,
 };
 
 /**  Where an export went. */
@@ -7211,6 +7223,12 @@ export type RecipeSummary = {
 	 *  bake may send back as `expected`; empty when it could not be read.
 	 */
 	version: string,
+	/**
+	 *  A hash of what the recipe does, leaving out its library link and
+	 *  other bookkeeping ([`super::motion_version`]); what a bake's
+	 *  staleness is read by. Empty when it could not be read.
+	 */
+	motionVersion: string,
 	/**  Why the file could not be read, for a recipe that only lists. */
 	problem: string | null,
 	/**  The library recipe and revision it came from or was last saved as. */
