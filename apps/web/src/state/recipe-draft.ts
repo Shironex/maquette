@@ -8,17 +8,26 @@ import type {
   BlankKind,
   LayerKind,
   LayerSettings,
+  RecipeBase,
   RecipeBlank,
   RecipeFile,
   RecipeLayer,
+  TimeEdit,
 } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
 import { boneWords, bonesFor } from './recipe-bones';
 
-/** What the editor changes: the changes and the blanks, each sent whole. */
+/** What the editor changes, each list sent whole when it changed. */
 export interface RecipeDraft {
   layers: RecipeLayer[];
   blanks: RecipeBlank[];
+  /** Every clip, the base first, each with its trim and (after the base) its blend. */
+  clips: RecipeBase[];
+  /** For each clip, the index of the file's clip it keeps; null for one newly picked. */
+  kept: (number | null)[];
+  /** On each clip's own frames, before its trim. */
+  time: TimeEdit[];
+  mirror: boolean;
 }
 
 export const KIND_WORDS: Record<LayerKind, string> = {
@@ -47,15 +56,26 @@ export const KIND_ABOUT: Record<LayerKind, string> = {
  */
 export const EDITABLE_KINDS: readonly LayerKind[] = ['reach', 'nudge', 'look-at', 'wave'];
 
-/** Whether the editor can edit `recipe`: it uses nothing of file version 2. */
-export const editable = (recipe: RecipeFile) => recipe.version <= 1;
+/**
+ * Whether the editor can edit `recipe`: joined clips, trims, blends, the
+ * mirror and time edits it can; pins, pose keys and grips it only shows.
+ */
+export const editable = (recipe: RecipeFile) =>
+  recipe.layers.every(l => EDITABLE_KINDS.includes(l.kind));
 
 export const BLANK_WORDS: Record<BlankKind, string> = { prop: 'Prop', point: 'Point' };
 
-export const draftOf = (recipe: RecipeFile): RecipeDraft => ({
-  layers: recipe.layers,
-  blanks: recipe.blanks,
-});
+export const draftOf = (recipe: RecipeFile): RecipeDraft => {
+  const clips = [recipe.base, ...(recipe.joined ?? [])];
+  return {
+    layers: recipe.layers,
+    blanks: recipe.blanks,
+    clips,
+    kept: clips.map((_, i) => i),
+    time: recipe.time ?? [],
+    mirror: Boolean(recipe.mirror),
+  };
+};
 
 export const sameDraft = (a: RecipeDraft, b: RecipeDraft) => deepEqual(a, b);
 
@@ -174,6 +194,7 @@ export const withBlankKind = (blank: RecipeBlank, kind: BlankKind): RecipeBlank 
 /** The blanks without `id`, and changes that aimed at it aiming nowhere. */
 export function withoutBlank(draft: RecipeDraft, id: string): RecipeDraft {
   return {
+    ...draft,
     blanks: draft.blanks.filter(b => b.id !== id),
     layers: draft.layers.map(l =>
       l.settings.target === id ? { ...l, settings: { ...l.settings, target: null } } : l
@@ -190,11 +211,19 @@ export const frameOf = (share: number, frames: number) => Math.round(share * fra
 export const shareOf = (frame: number, frames: number) =>
   frames > 0 ? Math.min(Math.max(frame / frames, 0), 1) : 0;
 
-/** "Reach · Right hand → lantern · frames 24 to 72". */
-export function layerLine(layer: RecipeLayer, frames: number): string {
+/**
+ * "Reach · Right hand → lantern · frames 24 to 72": the frames of the bake,
+ * `frames` the clip's count or what turns a share into a frame of the
+ * timeline.
+ */
+export function layerLine(
+  layer: RecipeLayer,
+  frames: number | ((share: number) => number)
+): string {
   const s = layer.settings;
   const aim = s.target ? ` → ${s.target}` : '';
-  const span = `frames ${frameOf(num(s.start), frames)} to ${frameOf(num(s.end, 1), frames)}`;
+  const at = typeof frames === 'number' ? (share: number) => frameOf(share, frames) : frames;
+  const span = `frames ${at(num(s.start))} to ${at(num(s.end, 1))}`;
   return [`${KIND_WORDS[layer.kind]} · ${boneWords(layer.bone)}${aim}`, span].join(' · ');
 }
 

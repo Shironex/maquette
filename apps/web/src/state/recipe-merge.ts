@@ -1,13 +1,39 @@
 /**
  * A recipe changed outside (an agent's update_recipe) while the editor holds
  * unsaved edits: the three versions are merged change by change and blank by
- * blank, by id. What only one side touched comes through; what both changed
- * differently is a clash, answered Keep mine or Use theirs. An id both
- * sides added with different entries is two additions, never a clash: the
- * person's gets a fresh id (and the changes aiming at a renamed blank follow).
+ * blank, by id, and field by field for the clips and the mirror. What only
+ * one side touched comes through; what both changed differently is a clash,
+ * answered Keep mine or Use theirs. An id both sides added with different
+ * entries is two additions, never a clash: the person's gets a fresh id (and
+ * the changes aiming at a renamed blank follow).
+ *
+ * The clips and the time edits are one field: a time edit sits on a clip by
+ * its place, so clips moved on one side and time edits changed on the other
+ * could land a time edit on the wrong clip. Both sides touching them clash.
  */
 import { deepEqual } from '@/lib/deepEqual';
+import { rekeep } from './recipe-clips';
 import { freeId, type RecipeDraft } from './recipe-draft';
+
+/** The clash words of the clips field and of the mirror. */
+export const CLIPS_FIELD = 'the clips and time edits';
+export const MIRROR_FIELD = 'the mirror';
+
+type ClipsField = Pick<RecipeDraft, 'clips' | 'kept' | 'time'>;
+
+const clipsField = (d: RecipeDraft): ClipsField => ({ clips: d.clips, kept: d.kept, time: d.time });
+
+/**
+ * One field of three versions: theirs when mine did not touch it, mine
+ * otherwise, theirs on the `theirs` side of a clash.
+ */
+function mergeField<T>(base: T, mine: T, theirs: T) {
+  const mineChanged = !deepEqual(base, mine);
+  const theirsChanged = !deepEqual(base, theirs);
+  if (!mineChanged) return { mine: theirs, theirs, clash: false };
+  const clash = theirsChanged && !deepEqual(mine, theirs);
+  return { mine, theirs: clash ? theirs : mine, clash };
+}
 
 interface Keyed {
   id: string;
@@ -91,6 +117,7 @@ function apart(
   };
   if (!blankIds.size && !layerIds.size) return { draft: mine, renamed };
   const draft = {
+    ...mine,
     blanks: mine.blanks.map(b => ({ ...b, id: blankIds.get(b.id) ?? b.id })),
     layers: mine.layers.map(l => {
       const target = l.settings.target;
@@ -116,12 +143,31 @@ export function mergeDrafts(
   const { draft: mine, renamed } = apart(base, ownDraft, theirs);
   const layers = mergeList(base.layers, mine.layers, theirs.layers);
   const blanks = mergeList(base.blanks, mine.blanks, theirs.blanks);
+  const clips = mergeField(clipsField(base), clipsField(mine), clipsField(theirs));
+  const mirror = mergeField(base.mirror, mine.mirror, theirs.mirror);
+  // Mine counts its kept clips against the file as read; the merge lands on theirs.
+  const onTheirs = (c: ClipsField): ClipsField =>
+    c === clipsField(theirs) || deepEqual(c, clipsField(theirs))
+      ? c
+      : { ...c, kept: rekeep(c.clips, c.kept, base.clips, theirs.clips) };
   return {
-    mine: { layers: layers.mine, blanks: blanks.mine },
-    theirs: { layers: layers.theirs, blanks: blanks.theirs },
+    mine: {
+      layers: layers.mine,
+      blanks: blanks.mine,
+      ...onTheirs(clips.mine),
+      mirror: mirror.mine,
+    },
+    theirs: {
+      layers: layers.theirs,
+      blanks: blanks.theirs,
+      ...onTheirs(clips.theirs),
+      mirror: mirror.theirs,
+    },
     clashes: [
       ...layers.clashes.map(id => `change ${id}`),
       ...blanks.clashes.map(id => `blank ${id}`),
+      ...(clips.clash ? [CLIPS_FIELD] : []),
+      ...(mirror.clash ? [MIRROR_FIELD] : []),
     ],
     renamed,
   };

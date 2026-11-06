@@ -52,7 +52,10 @@ describe('recipe drafts', () => {
     expect(point.id).toMatch(/^point-[a-z0-9]{5}$/);
     expect(withBlankKind(lantern, 'point')).toMatchObject({ prop: null, point: null });
     const reach = newLayer('reach', [], [lantern]);
-    const left = withoutBlank({ layers: [reach], blanks: [lantern, point] }, 'lantern');
+    const left = withoutBlank(
+      { layers: [reach], blanks: [lantern, point], clips: [], kept: [], time: [], mirror: false },
+      'lantern'
+    );
     expect(left.blanks).toEqual([point]);
     expect(left.layers[0]!.settings.target).toBeNull();
   });

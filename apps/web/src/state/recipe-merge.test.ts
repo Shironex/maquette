@@ -12,7 +12,8 @@ const blank = (id: string, prop: string | null = null): RecipeBlank => ({
 });
 const reach = { ...newLayer('reach', [], [blank('lantern')]), id: 'l-1' };
 const wave = { ...newLayer('wave', [reach], []), id: 'l-2' };
-const base: RecipeDraft = { layers: [reach, wave], blanks: [blank('lantern')] };
+const noBase = { clips: [], kept: [], time: [], mirror: false };
+const base: RecipeDraft = { layers: [reach, wave], blanks: [blank('lantern')], ...noBase };
 
 describe('merging an outside change', () => {
   it('takes what only one side touched, from either side', () => {
@@ -21,6 +22,7 @@ describe('merging an outside change', () => {
       layers: [{ ...reach, settings: { ...reach.settings, weight: 0.5 } }, wave],
     };
     const theirs: RecipeDraft = {
+      ...noBase,
       layers: [reach],
       blanks: [blank('lantern', 'lantern-post'), blank('shelf')],
     };
@@ -54,9 +56,10 @@ describe('merging an outside change', () => {
   it('keeps an id both sides added with different entries as two additions, never a clash', () => {
     const torch = { ...blank('prop-k3x9q', 'torch'), label: 'Mine' };
     const mineAim = { ...reach, id: 'l-k3x9q', settings: { ...reach.settings, target: torch.id } };
-    const mine = { layers: [...base.layers, mineAim], blanks: [...base.blanks, torch] };
+    const mine = { ...noBase, layers: [...base.layers, mineAim], blanks: [...base.blanks, torch] };
     const theirsAim = { ...wave, id: 'l-k3x9q' };
     const theirs = {
+      ...noBase,
       layers: [...base.layers, theirsAim],
       blanks: [...base.blanks, { ...torch, label: 'Theirs', prop: 'barrel' }],
     };
@@ -85,5 +88,21 @@ describe('merging an outside change', () => {
     const merged = mergeDrafts(base, both, both);
     expect(merged.clashes).toEqual([]);
     expect(merged.mine.blanks.map(b => b.id)).toEqual(['lantern', 'prop-k3x9q']);
+  });
+
+  it('merges the clips and the mirror field by field, clips and time edits as one', () => {
+    const a = { name: 'A', frames: 30, length: 1, hash: 'a', mixamo: false };
+    const b = { ...a, name: 'B', hash: 'b', blend: { frames: 8 } };
+    const clipped = { ...base, clips: [a, b], kept: [0, 1] };
+    const mine = { ...clipped, mirror: true };
+    const theirs = { ...clipped, time: [{ kind: 'freeze' as const, clip: 1, at: 4, frames: 3 }] };
+    const merged = mergeDrafts(clipped, mine, theirs);
+    expect(merged.clashes).toEqual([]);
+    expect(merged.mine).toMatchObject({ mirror: true, time: theirs.time });
+    const moved = { ...clipped, clips: [b, a], kept: [1, 0] };
+    const clash = mergeDrafts(clipped, moved, theirs);
+    expect(clash.clashes).toEqual(['the clips and time edits']);
+    expect(clash.mine.clips.map(c => c.name)).toEqual(['B', 'A']);
+    expect(clash.theirs.time).toEqual(theirs.time);
   });
 });
