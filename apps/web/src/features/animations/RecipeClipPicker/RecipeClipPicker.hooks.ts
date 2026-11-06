@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { addClip, clipOfLibrary } from '@/state/recipe-clips';
 import { pickableClips } from '@/state/recipes';
 import { useAnimationsStore } from '@/state/use-animations-store';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 
 /** What a recipe on the rest pose is called until the person names it. */
@@ -8,10 +10,12 @@ export const REST_POSE = 'Rest pose';
 
 /**
  * The base clip picker: the library's clips, a search, the chosen clip (or
- * the rest pose, no clip) and the recipe name.
+ * the rest pose, no clip) and the recipe name. Joining, it adds the chosen
+ * clip to the end of the recipe open in the editor instead.
  */
 export function useRecipeClipPicker() {
   const picking = useRecipesStore(s => s.picking);
+  const joining = useRecipesStore(s => s.joining);
   const creating = useRecipesStore(s => s.creating);
   const error = useRecipesStore(s => s.pickError);
   const view = useAnimationsStore(s => s.view);
@@ -37,6 +41,7 @@ export function useRecipeClipPicker() {
   const { closePicker, create } = useRecipesStore.getState();
   return {
     open: picking !== null,
+    joining,
     loading: !view && !libraryError,
     libraryError,
     error,
@@ -63,6 +68,13 @@ export function useRecipeClipPicker() {
     name,
     setName,
     close: closePicker,
+    join: () => {
+      if (!clip) return;
+      const editor = useRecipeEditorStore.getState();
+      editor.edit(d => addClip(d, clipOfLibrary(clip)));
+      editor.pick({ what: 'clips', id: '' });
+      closePicker();
+    },
     make: () => {
       if (rest) void create(null, name);
       else if (clip) void create(clip.id, name);

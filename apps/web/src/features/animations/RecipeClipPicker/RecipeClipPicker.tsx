@@ -38,6 +38,27 @@ function RestRow({ selected, onSelect }: { selected: boolean; onSelect: () => vo
   );
 }
 
+/** The footer's line and button when the picker adds a clip to the recipe open in the editor. */
+function JoinFooter({ v }: { v: ReturnType<typeof useRecipeClipPicker> }) {
+  return (
+    <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+      <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
+        {v.clip ? `Joins ${v.clip.name} after the last clip` : 'No clip picked yet'}
+      </span>
+      <Button onClick={v.close}>Cancel</Button>
+      <Button
+        variant="primary"
+        icon="plus"
+        disabled={!v.clip}
+        disabledReason="Pick a clip first"
+        onClick={v.join}
+      >
+        Add clip
+      </Button>
+    </div>
+  );
+}
+
 export default function RecipeClipPicker() {
   const v = useRecipeClipPicker();
   if (!v.open) return null;
@@ -53,27 +74,35 @@ export default function RecipeClipPicker() {
     <Sheet
       id="recipe-clip"
       icon="flask"
-      title="New recipe"
-      meta="Pick the base clip from the animation library, or the rest pose"
+      title={v.joining ? 'Add a clip' : 'New recipe'}
+      meta={
+        v.joining
+          ? 'Pick a clip from the animation library to join after the last one'
+          : 'Pick the base clip from the animation library, or the rest pose'
+      }
       onClose={v.close}
       width={600}
       footer={
-        <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-          <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
-            {v.rest ? 'On the rest pose' : v.clip ? `On ${v.clip.name}` : 'No clip picked yet'}
-          </span>
-          <Button onClick={v.close}>Cancel</Button>
-          <Button
-            variant="primary"
-            icon="flask"
-            disabled={!v.picked || !v.name.trim() || v.creating}
-            disabledReason={!v.picked ? 'Pick a clip or the rest pose first' : 'Name the recipe'}
-            loading={v.creating}
-            onClick={v.make}
-          >
-            Make recipe
-          </Button>
-        </div>
+        v.joining ? (
+          <JoinFooter v={v} />
+        ) : (
+          <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+            <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
+              {v.rest ? 'On the rest pose' : v.clip ? `On ${v.clip.name}` : 'No clip picked yet'}
+            </span>
+            <Button onClick={v.close}>Cancel</Button>
+            <Button
+              variant="primary"
+              icon="flask"
+              disabled={!v.picked || !v.name.trim() || v.creating}
+              disabledReason={!v.picked ? 'Pick a clip or the rest pose first' : 'Name the recipe'}
+              loading={v.creating}
+              onClick={v.make}
+            >
+              Make recipe
+            </Button>
+          </div>
+        )
       }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
@@ -87,7 +116,7 @@ export default function RecipeClipPicker() {
             detail={v.libraryError}
           />
         ) : null}
-        <RestRow selected={v.rest} onSelect={v.chooseRest} />
+        {v.joining ? null : <RestRow selected={v.rest} onSelect={v.chooseRest} />}
         <TextField
           label="Search clips"
           value={v.query}
@@ -109,12 +138,14 @@ export default function RecipeClipPicker() {
           </ul>
         )}
         {v.clip?.rig.kind === 'mixamo' ? <InlineBanner tone="info" title={MIXAMO_NOTE} /> : null}
-        <TextField
-          label="Recipe name"
-          value={v.name}
-          maxLength={120}
-          onChange={e => v.setName(e.target.value)}
-        />
+        {v.joining ? null : (
+          <TextField
+            label="Recipe name"
+            value={v.name}
+            maxLength={120}
+            onChange={e => v.setName(e.target.value)}
+          />
+        )}
       </div>
     </Sheet>
   );
