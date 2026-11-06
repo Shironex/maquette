@@ -47,6 +47,10 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
     slugs: ['docs/views/library', 'docs/views/animations'],
   },
   {
+    label: 'Guides',
+    slugs: ['docs/guides/animation-recipes'],
+  },
+  {
     label: 'Pipeline steps',
     slugs: [
       'docs/pipeline/build-scene',

@@ -59,11 +59,13 @@ The side panel lists **Where it is used**: each model that baked the clip, with 
 
 ## Recipes
 
-Picking **Recipes** under **Show** in the top bar switches the view to the recipe library: recipes kept outside any project, saved from the [Motion view's Recipes tab](/docs/views/motion/#save-to-the-library) or imported from a `.recipe.json`. Each line shows the recipe's name, its base clip and frame count, its changes and blanks, its newest revision and **Mixamo** when its base clip is a Mixamo clip. A recipe that cannot be read lists with its problem, so it can be removed.
+Picking **Recipes** under **Show** in the top bar switches the view to the recipe library: recipes kept outside any project, saved from the [Motion view's Recipes tab](/docs/guides/animation-recipes/#save-back) or imported from a `.recipe.json`. Each line shows the recipe's name, its base clip and frame count, its changes and blanks, its newest revision and **Mixamo** when its base clip is a Mixamo clip. A recipe that cannot be read lists with its problem, so it can be removed.
 
-The side panel lists every revision, newest first, with where it came from (the project and recipe it was saved from, or the file it was imported from) and when. Pick one to see its changes and blanks. **Use in project** copies the picked revision into a project you choose as a new recipe that remembers it; point blanks keep their points, a prop blank whose asset that project lacks opens, and what to know shows after it. **Export** saves the picked revision as a `.recipe.json`. **Import recipe** adds a `.recipe.json` as a new library recipe at r1, checked whole first as in the Motion view. **Remove rN** and **Remove recipe** ask first; removed files move to `library/recipes/.removed/` and a revision number is never handed out again. The last revision goes only with the whole recipe.
+A **Starters** group above them lists five recipes built into the app. They are read only: **Use in project** copies one into a project, and **Save to library** makes an editable copy at r1.
 
-Revisions never change once saved: saving a project's recipe back always adds the next one. The library is `library/recipes/<id>/` in the workspace root: `entry.json` (the name, a uid made once with the recipe, and every revision with where it came from) and one `rN.recipe.json` per revision. Agents read it through [`list_library_recipes`](/docs/agents/mcp-tools/#list_library_recipes) and [`get_library_recipe`](/docs/agents/mcp-tools/#get_library_recipe), and copy a revision into a project with [`use_recipe`](/docs/agents/mcp-tools/#use_recipe).
+The side panel lists every revision, newest first, with where it came from and when. Pick one to see its changes and blanks. **Use in project** copies it into a project you choose, **Export** saves it as a `.recipe.json`, and **Import recipe** adds a file as a new library recipe at r1. **Remove rN** and **Remove recipe** ask first.
+
+The library is `library/recipes/<id>/` in the workspace root. Revisions, starters, import limits and the agent tools are covered in [Animation recipes](/docs/guides/animation-recipes/#the-recipe-library).
 
 ## Mixamo clips
 
