@@ -46,7 +46,7 @@ export default function RecipeEditor() {
         </Button>
         <Button
           size="sm"
-          variant="primary"
+          variant={v.saveBlocked ? 'secondary' : 'primary'}
           icon="check"
           loading={v.saving}
           disabled={Boolean(v.saveBlocked)}

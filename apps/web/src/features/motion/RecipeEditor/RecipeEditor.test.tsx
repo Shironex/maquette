@@ -22,11 +22,16 @@ describe('the recipe editor', () => {
   it('saves only with unsaved edits, then says saved', async () => {
     await openRecipe();
     render(<RecipeEditor />);
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-disabled', 'true');
+    const save = () => screen.getByRole('button', { name: 'Save' });
+    expect(save()).toHaveAttribute('aria-disabled', 'true');
+    // A Save with nothing to save looks as the other disabled buttons do, not primary.
+    expect(save()).not.toHaveClass('bg-clay');
     edit(0.5);
     expect(screen.getByText(/unsaved edits$/)).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(save()).toHaveClass('bg-clay');
+    await userEvent.click(save());
     expect(await screen.findByText(/· saved$/)).toBeVisible();
+    expect(save()).not.toHaveClass('bg-clay');
   });
 
   it('asks before Back drops unsaved edits, and stays when asked to', async () => {
