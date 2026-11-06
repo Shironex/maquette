@@ -88,6 +88,13 @@ fn check(s: &Setup, which: &str, facing: [f32; 3]) -> RecipeBakeResult {
         );
     }
     assert!(result.mixamo, "a bake of a Mixamo clip counts as Mixamo's");
+    // The library counts a clip's frames as its last key's frame (keys 0 to
+    // N), so the bake reports the same number as the clip it started from.
+    let base = list(s.root.path()).expect("clips").remove(0);
+    assert_eq!(
+        result.frames, base.frames,
+        "the bake is as long as its base"
+    );
     let file = Path::new(&result.file);
     assert!(file.starts_with(p.root().join(&p.config.layout.cache)));
     let mut names = clip_names(file);

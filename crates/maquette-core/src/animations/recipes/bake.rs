@@ -148,6 +148,9 @@ pub struct RecipeBakeResult {
     /// What a name clash with the model's clips came to, in a sentence.
     #[serde(default)]
     pub clip_note: Option<String>,
+    /// The clip's length in frames as the clip library counts it: the
+    /// frame of its last key (keys 0 to `frames`), so it equals the base
+    /// clip's frames. The reaches' `frame`s count the same way.
     pub frames: u32,
     /// The staged model, absolute.
     pub file: String,

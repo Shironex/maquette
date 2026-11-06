@@ -75,7 +75,8 @@ export function useRecipeReview() {
     /** One playhead for both pictures, a share of the clip, looping while it plays. */
     play: {
       share,
-      frame: Math.round(share * Math.max(frames - 1, 0)),
+      // Frames count as the library does: keys 0 to `frames`.
+      frame: Math.round(share * frames),
       frames,
       playing,
       toggle: () => setPlaying(p => !p),

@@ -6824,6 +6824,11 @@ export type RecipeBakeResult = {
 	replaced?: string[],
 	/**  What a name clash with the model's clips came to, in a sentence. */
 	clipNote?: string | null,
+	/**
+	 *  The clip's length in frames as the clip library counts it: the
+	 *  frame of its last key (keys 0 to `frames`), so it equals the base
+	 *  clip's frames. The reaches' `frame`s count the same way.
+	 */
 	frames: number,
 	/**  The staged model, absolute. */
 	file: string,
