@@ -6,7 +6,11 @@ import { act } from 'react';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
-import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import {
+  CHANGED_OUTSIDE,
+  MERGED_OUTSIDE,
+  useRecipeEditorStore,
+} from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 import { useRecipeCompareStore } from '@/state/use-recipe-compare-store';
 import { useRecipeLibraryStore } from '@/state/use-recipe-library-store';
@@ -61,6 +65,49 @@ describe('the recipes stage', () => {
       await Promise.resolve();
     });
     expect(list).toHaveBeenCalledWith('frostveil');
+  });
+
+  it('reads the open recipe again on focus, shown as it is or merged with unsaved edits', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    await screen.findByRole('list', { name: 'Project recipes' });
+    const editor = useRecipeEditorStore.getState;
+    await act(() => editor().open('frostveil', 'reach-for-the-lantern'));
+    const weights = () => editor().editing?.draft.layers.map(l => l.settings.weight);
+    /** A hand edit of the file: no recipe-changed event follows. */
+    const byHand = async (id: string, weight: number) => {
+      const doc = await commands.recipeGet('frostveil', 'reach-for-the-lantern');
+      await commands.recipeUpdate('frostveil', 'reach-for-the-lantern', {
+        name: null,
+        layers: doc.recipe.layers.map(l =>
+          l.id === id ? { ...l, settings: { ...l.settings, weight } } : l
+        ),
+        blanks: null,
+      });
+    };
+    const focus = () =>
+      act(async () => {
+        window.dispatchEvent(new Event('focus'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+    await byHand('l-2', 0.1);
+    await focus();
+    expect(weights()).toEqual([1, 0.1, 1]);
+    expect(editor().merged).toBe(CHANGED_OUTSIDE);
+
+    act(() =>
+      editor().edit(d => ({
+        ...d,
+        layers: d.layers.map(l =>
+          l.id === 'l-1' ? { ...l, settings: { ...l.settings, weight: 0.4 } } : l
+        ),
+      }))
+    );
+    await byHand('l-3', 0.2);
+    await focus();
+    expect(weights()).toEqual([0.4, 0.1, 0.2]);
+    expect(editor().merged).toBe(MERGED_OUTSIDE);
   });
 
   it('says there are no recipes yet and opens the base clip picker', async () => {
