@@ -183,3 +183,30 @@ fn kept_has_to_fit_the_clips_sent_and_the_recipe() {
         assert!(matches!(err, CoreError::Invalid(_)), "{err}");
     }
 }
+
+#[test]
+fn kept_has_to_name_the_clip_sent_in_its_place() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, c, at) = on_three(dir.path());
+    // Clip 2 sent is C, but kept says it keeps B.
+    let err = update(
+        dir.path(),
+        &project(),
+        &id,
+        clips_change(
+            vec![c[0].clone(), c[2].clone(), c[1].clone()],
+            Some(vec![Some(0), Some(1), Some(2)]),
+            &at,
+        ),
+    )
+    .expect_err("kept names another clip");
+    assert!(
+        matches!(&err, CoreError::Invalid(m) if m.contains("keeps clip 2")),
+        "{err}"
+    );
+    assert_eq!(
+        version(dir.path(), &id).expect("version"),
+        at,
+        "not written"
+    );
+}

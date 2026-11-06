@@ -39,17 +39,27 @@ fn places(
                 ));
             }
             kept.iter()
-                .map(|k| match k {
+                .zip(clips)
+                .enumerate()
+                .map(|(j, (k, clip))| match k {
                     None => Ok(None),
                     Some(i) => {
                         let i = usize::try_from(*i).unwrap_or(usize::MAX);
-                        if i < old.len() {
-                            Ok(Some(i))
-                        } else {
-                            Err(CoreError::Invalid(format!(
+                        match old.get(i) {
+                            None => Err(CoreError::Invalid(format!(
                                 "The recipe has no clip {} to keep.",
                                 i.saturating_add(1)
-                            )))
+                            ))),
+                            Some(was) if !same_clip(was, clip) => {
+                                Err(CoreError::Invalid(format!(
+                                    "Clip {} sent keeps clip {} ({}), but it is {}. Keep a clip as it is, or send it as a new one.",
+                                    j + 1,
+                                    i + 1,
+                                    was.name,
+                                    clip.name
+                                )))
+                            }
+                            Some(_) => Ok(Some(i)),
                         }
                     }
                 })
@@ -87,7 +97,8 @@ fn places(
 ///
 /// # Errors
 ///
-/// `invalid` for no clips, a `kept` that does not fit, or (starting
+/// `invalid` for no clips, a `kept` that does not fit or names a clip other
+/// than the one sent in its place, or (starting
 /// [`CLIP_IN_USE`]) a clip taken away that a kept key or time edit sits on.
 pub(super) fn replace_clips(
     next: &mut RecipeFile,
