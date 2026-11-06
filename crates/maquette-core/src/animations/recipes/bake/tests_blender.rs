@@ -144,3 +144,145 @@ fn a_reach_on_the_rest_pose_bakes_with_no_base_clip() {
     names.sort();
     assert_eq!(names, ["idle", "reach_out"], "one new clip");
 }
+
+/// The Blender processes running a bake script whose working folder is
+/// under `root` (the script is passed by a relative path, so the folder is
+/// the only mark of whose bake it is). Where the folder cannot be read
+/// (Windows) every bake script's process counts. Empty once Blender is gone.
+fn bake_processes(root: &Path) -> Vec<String> {
+    let folder = root
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let (program, args): (&str, &[&str]) = if cfg!(windows) {
+        (
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Process | ForEach-Object { \"$($_.ProcessId) $($_.CommandLine)\" }",
+            ],
+        )
+    } else {
+        ("ps", &["-axo", "pid=,command="])
+    };
+    let out = std::process::Command::new(program)
+        .args(args)
+        .output()
+        .expect("list the processes");
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter(|l| l.contains("bake_recipe.py"))
+        .filter(|l| {
+            if cfg!(windows) {
+                return true;
+            }
+            let pid = l.split_whitespace().next().unwrap_or_default();
+            let cwd = std::process::Command::new("lsof")
+                .args(["-a", "-d", "cwd", "-Fn", "-p", pid])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+                .unwrap_or_default();
+            cwd.contains(&folder)
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+/// Cancelling a bake in a real Blender while it solves ends it: the record
+/// reads cancelled, with no result, and the Blender process is gone.
+///
+/// The recipe is long on purpose (a rest pose at the 600 frame cap with
+/// four reaches) so that Cancel has time to land mid-solve. By hand, the
+/// same recipe makes a slow bake to try Cancel in the app.
+#[test]
+fn cancelling_a_long_bake_mid_solve_kills_blender_and_reads_cancelled() {
+    let Some(s) = setup() else { return };
+    let file = s.files.join("model.glb");
+    fixture(&s.blender, &s.root.path().join("scripts"), "model", &file);
+    let mut p = project_on(s.root.path(), None, std::fs::read(&file).expect("model"));
+    let reaches = [
+        ("l-1", "rightHand", [-0.3, 1.25, 0.3]),
+        ("l-2", "leftHand", [0.3, 1.25, 0.3]),
+        ("l-3", "rightFoot", [-0.15, 0.1, 0.25]),
+        ("l-4", "leftFoot", [0.15, 0.1, 0.25]),
+    ];
+    p.change(
+        reaches
+            .iter()
+            .map(|(id, bone, _)| reach(id, bone, &format!("b-{id}")))
+            .collect(),
+        reaches
+            .iter()
+            .map(|(id, _, at)| point(&format!("b-{id}"), Some(*at)))
+            .collect(),
+    );
+    // The recipe runs for the longest a rest pose does.
+    let file = crate::recipes::path(&p.dir, &p.recipe.id).expect("path");
+    let mut recipe = crate::recipes::load_file(&file).expect("recipe");
+    recipe.base = crate::recipes::RecipeBase::rest_pose(crate::recipes::MAX_REST_FRAMES);
+    crate::json::write_json(&file, &recipe).expect("write");
+
+    let runner = Arc::new(PipelineRunner::new(Arc::new(NullSink)));
+    let bakes = RecipeBakes::new(runner, |_: &RecipeBakeRecord| {});
+    bakes
+        .start(
+            p.root(),
+            &p.config,
+            s.tools.clone(),
+            &p.request(),
+            RecipeBakeStarter::Person,
+        )
+        .expect("start");
+    let get = || {
+        bakes
+            .get(p.root(), &p.config, &p.id, &p.recipe.id)
+            .expect("get")
+            .expect("record")
+    };
+    // Wait until Blender is solving, not just starting.
+    let started = Instant::now();
+    loop {
+        let record = get();
+        assert!(
+            record.running(),
+            "ended before it could be cancelled: {record:?}"
+        );
+        if record
+            .progress
+            .as_ref()
+            .is_some_and(|g| g.label.starts_with("Solving"))
+        {
+            break;
+        }
+        assert!(started.elapsed() < Duration::from_secs(120), "{record:?}");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        !bake_processes(p.root()).is_empty(),
+        "the bake's Blender should be running before Cancel"
+    );
+
+    bakes.cancel(&p.id, &p.recipe.id).expect("cancel");
+    let cancelled = Instant::now();
+    let record = loop {
+        let record = get();
+        if !record.running() {
+            break record;
+        }
+        assert!(cancelled.elapsed() < Duration::from_secs(60), "{record:?}");
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    assert_eq!(record.state, RecipeBakeState::Cancelled, "{record:?}");
+    assert!(record.result.is_none() && record.error.is_none());
+    // The process is gone, not just forgotten.
+    let gone = Instant::now();
+    while !bake_processes(p.root()).is_empty() {
+        assert!(
+            gone.elapsed() < Duration::from_secs(15),
+            "Blender still runs: {:?}",
+            bake_processes(p.root())
+        );
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
