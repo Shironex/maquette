@@ -23,7 +23,7 @@ use crate::workspace::FolderLayout;
 pub struct UseRecipe {
     /// The project it lands in.
     pub project: String,
-    /// The library recipe.
+    /// The library recipe, or a starter (`starter:...`).
     pub entry: String,
     /// Its revision; the newest when left out.
     pub revision: Option<u32>,
@@ -103,7 +103,8 @@ pub(super) fn landed(
 }
 
 /// Copies revision `request.revision` (the newest by default) of a library
-/// recipe into a project as a new recipe.
+/// recipe into a project as a new recipe. A starter id (`starter:...`)
+/// copies that starter instead ([`super::starters::use_starter`]).
 ///
 /// # Errors
 ///
@@ -114,6 +115,9 @@ pub fn use_recipe(
     layout: &FolderLayout,
     request: &UseRecipe,
 ) -> CoreResult<RecipeUsed> {
+    if super::starters::starter_key(&request.entry).is_some() {
+        return super::starters::use_starter(root, layout, request);
+    }
     let manifest = project::load(root, layout, &request.project)?;
     let project_dir = project::dir(root, layout, &request.project)?;
     let (entry, _) = load_entry(root, &request.entry)?;

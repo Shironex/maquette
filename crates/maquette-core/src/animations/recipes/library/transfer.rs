@@ -303,15 +303,28 @@ pub fn import_to_project(
 ///
 /// Fails for a file [`read_import`] refuses or when it cannot be written.
 pub fn import_to_library(root: &Path, file: &Path) -> CoreResult<RecipeImported> {
-    let mut recipe = read_import(file)?;
-    recipe.revision = 1;
+    let recipe = read_import(file)?;
     let seed = stem_of(file).unwrap_or_else(|| recipe.name.clone());
+    let imported = file.file_name().map(|n| n.to_string_lossy().into_owned());
+    add_entry(root, &seed, recipe, imported)
+}
+
+/// Writes `recipe` as revision 1 of a new library recipe whose id is made
+/// from `seed`, noting `imported` as where it came from.
+pub(super) fn add_entry(
+    root: &Path,
+    seed: &str,
+    mut recipe: RecipeFile,
+    imported: Option<String>,
+) -> CoreResult<RecipeImported> {
+    recipe.revision = 1;
+    recipe.from = None;
     let now = now_rfc3339();
     let mut notes = Vec::new();
     let entry = {
         let _turn = turn();
-        let id = free_entry_id(root, &seed)?;
-        if latin_slug(&seed).is_some_and(|s| s != id && id.starts_with(&s)) {
+        let id = free_entry_id(root, seed)?;
+        if latin_slug(seed).is_some_and(|s| s != id && id.starts_with(&s)) {
             notes.push(format!(
                 "The library has a recipe {seed} already, so this one is {id}."
             ));
@@ -330,7 +343,7 @@ pub fn import_to_library(root: &Path, file: &Path) -> CoreResult<RecipeImported>
                 saved_at: now,
                 project: None,
                 recipe: None,
-                imported: file.file_name().map(|n| n.to_string_lossy().into_owned()),
+                imported,
             }],
         };
         write_revision(root, &entry, &recipe)?;

@@ -37,6 +37,7 @@ mod diff;
 mod link;
 mod remove;
 mod save;
+pub mod starters;
 mod transfer;
 mod use_in;
 
