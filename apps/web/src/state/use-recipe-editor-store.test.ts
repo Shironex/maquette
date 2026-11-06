@@ -111,6 +111,31 @@ describe('the recipe editor store', () => {
     expect(await store().save()).toBe(true);
     const saved = (await commands.recipeGet('frostveil', REACH)).recipe.layers;
     expect(saved.map(l => l.settings.weight)).toEqual([0.4, 0.1, 1]);
+    expect(store().merged).toBeNull();
+  });
+
+  it('drops the merged note on Discard, and once a resolved clash is saved', async () => {
+    editLayers(weigh('l-1', 0.4));
+    await agentWrites(weigh('l-2', 0.1));
+    expect(store().merged).toBe(MERGED_OUTSIDE);
+    store().discard();
+    expect(store().merged).toBeNull();
+
+    editLayers(weigh('l-1', 0.4));
+    await agentWrites(weigh('l-3', 0.2));
+    await agentWrites(weigh('l-1', 0.9));
+    expect(store().outside).not.toBeNull();
+    store().useTheirs();
+    expect(store().merged).toBe(MERGED_OUTSIDE);
+    expect(await store().save()).toBe(true);
+    expect(store().merged).toBeNull();
+  });
+
+  it('drops the note of an outside change once Save finds nothing left to write', async () => {
+    await agentWrites(weigh('l-2', 0.1));
+    expect(store().merged).toBe(CHANGED_OUTSIDE);
+    expect(await store().save()).toBe(true);
+    expect(store().merged).toBeNull();
   });
 
   it('asks Keep mine or Use theirs on a clash, and saves nothing until answered', async () => {

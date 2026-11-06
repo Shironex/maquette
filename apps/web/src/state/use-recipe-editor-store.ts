@@ -126,7 +126,11 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
   const saveNow = async () => {
     const { editing, outside } = get();
     if (!editing) return false;
-    if (!isDirty(editing)) return true;
+    if (!isDirty(editing)) {
+      // Nothing left to write: whatever came in is what the file holds.
+      if (!outside) set({ merged: null });
+      return true;
+    }
     if (outside) {
       set({ saveError: ANSWER_FIRST });
       return false;
@@ -159,7 +163,8 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         // Edits made while it saved stay over the answer.
         const draft = sameDraft(latest.draft, sent) ? draftOf(doc.recipe) : latest.draft;
         const left = latest.cleared.filter(id => !cleared.includes(id));
-        set({ editing: onDoc({ ...latest, cleared: left }, doc, draft) });
+        // The merged edits are written now, so the note about them is done.
+        set({ editing: onDoc({ ...latest, cleared: left }, doc, draft), merged: null });
       }
       set({ saving: false });
       void useRecipesStore.getState().load(ready.project);
@@ -236,6 +241,7 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         set({
           editing: { ...editing, draft: draftOf(editing.doc.recipe), cleared: [] },
           saveError: null,
+          merged: null,
         });
     },
 
