@@ -155,6 +155,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Read the recipe again with get_recipe, keep what changed there, and send your change with its version as expected.",
             "get_recipe",
         )),
+        super::recipe_bake::NOT_BAKEABLE => Some(agent(
+            "Take the joined clips, trims, mirror, time edits, pins, pose keys and grips out with update_recipe to bake it now, or leave it for a later Maquette that bakes them.",
+            "update_recipe",
+        )),
         super::recipe_bake::OPEN_BLANKS => Some(agent(
             "Fill the open blanks with update_recipe (a prop's asset id or a point), then bake again.",
             "update_recipe",

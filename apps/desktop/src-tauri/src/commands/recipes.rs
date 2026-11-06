@@ -4,10 +4,10 @@
 //! changing and removing them. Nothing here bakes or runs Blender. The
 //! helpers are shared with the MCP tools, so both make the same checks.
 
-use maquette_core::animations::recipes::{self as library_recipes, RecipeDoc};
+use maquette_core::animations::recipes::{self as library_recipes, ClipPick, RecipeDoc};
 use maquette_core::assets::remove::project_trash;
 use maquette_core::project::{self, ProjectManifest};
-use maquette_core::recipes::{self, RecipeChange, RecipeSummary};
+use maquette_core::recipes::{self, RecipeBase, RecipeChange, RecipeSummary};
 use tauri::State;
 
 use super::CommandResult;
@@ -45,6 +45,34 @@ pub(crate) fn create(
     let (root, _) = session.workspace()?;
     let dir = project_dir(session, project)?;
     Ok(library_recipes::create(&root, &dir, clip, name)?)
+}
+
+/// Makes a recipe on the library clips `picks` names, joined in order.
+pub(crate) fn create_joined(
+    session: &Session,
+    project: &str,
+    picks: &[ClipPick],
+    mirror: bool,
+    name: Option<&str>,
+) -> CommandResult<RecipeDoc> {
+    let (root, _) = session.workspace()?;
+    let dir = project_dir(session, project)?;
+    Ok(library_recipes::create_joined(
+        &root, &dir, picks, mirror, name,
+    )?)
+}
+
+/// The clips `picks` names for a change to the recipe `id`: library clips
+/// read from the library, kept ones from the recipe as its file holds it.
+pub(crate) fn picked_clips(
+    session: &Session,
+    project: &str,
+    id: &str,
+    picks: &[ClipPick],
+) -> CommandResult<Vec<RecipeBase>> {
+    let (root, dir, manifest) = opened(session, project)?;
+    let current = library_recipes::current(&dir, &manifest, id)?;
+    Ok(library_recipes::clips_of(&root, Some(&current), picks)?)
 }
 
 pub(crate) fn update(
