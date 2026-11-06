@@ -77,7 +77,12 @@ in the app: agents may propose a tour, never apply one.
    - A blank is a `prop` (an asset id from `list_assets`) or a `point` ([x, y, z] in metres in the
      model's own frame: X to its left, Y up, Z ahead). Fill every blank the changes aim at.
    - `clear` empties a prop blank whose asset is gone for good.
-3. Tell the person in one line what the recipe does and which blanks you filled with what.
+3. Joined clips and base edits also go through `update_recipe`: `clips` (base first, each a
+   library `clip` or `keep` of an index, with `trim` [in, out] and `blend` `{ frames, curve,
+lineUp }`), `time` (`retime`, `freeze`, `hold-over` on a clip's own frames before its trim) and
+   `mirror`. They bake; pins, pose keys and grips are refused (`not-bakeable-yet`). `frames` in
+   `get_recipe` is how long the bake runs.
+4. Tell the person in one line what the recipe does and which blanks you filled with what.
 
 ## 3. Bake
 
