@@ -227,6 +227,28 @@ fn a_recipe_with_open_blanks_or_no_changes_is_refused_naming_what_to_fix() {
 }
 
 #[test]
+fn a_prop_blank_holding_the_model_it_bakes_onto_is_refused() {
+    let mut p = project_with(humanoid());
+    p.change(
+        vec![reach("l-1", "rightHand", "b-1")],
+        vec![RecipeBlank {
+            id: "b-1".into(),
+            label: "b-1".into(),
+            kind: BlankKind::Prop,
+            prop: Some("elsheria".into()),
+            point: None,
+        }],
+    );
+    let itself = refusal(&p, &p.request());
+    assert!(matches!(itself, CoreError::Invalid(_)));
+    let words = itself.to_string();
+    assert!(
+        words.contains("b-1 holds Elsheria, the model this bakes onto"),
+        "{words}"
+    );
+}
+
+#[test]
 fn a_recipe_that_changed_since_it_was_read_is_refused_as_moved() {
     let p = reaching();
     let mut request = p.request();

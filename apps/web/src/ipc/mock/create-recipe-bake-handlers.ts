@@ -285,6 +285,12 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
           'invalid',
           `${doc.recipe.name} has no changes yet. Add a reach, nudge, look at or wave first.`
         );
+      const itself = doc.recipe.blanks.find(b => b.kind === 'prop' && b.prop === r.asset);
+      if (itself)
+        fail(
+          'invalid',
+          `The blank ${itself.id} holds ${ctx.asset(r.project, r.asset)?.name ?? r.asset}, the model this bakes onto, which cannot reach for itself. Fill it with another prop.`
+        );
       const key = keyOf(r.project, r.recipe);
       if (bakes.get(key)?.state === 'running')
         fail('invalid', `${doc.recipe.name} is baking already. Wait for it, or cancel it first.`);
