@@ -198,5 +198,5 @@ export function outsideTrim(time: readonly TimeEdit[], index: number, trim: [num
     const last =
       t.kind === 'retime' ? (t.to ?? 0) : t.kind === 'freeze' ? first : first + (t.frames ?? 0);
     return first < a || last > b;
-  }).length;
+  });
 }

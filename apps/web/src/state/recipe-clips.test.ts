@@ -78,8 +78,8 @@ describe('the clips of a recipe draft', () => {
     const draft = patchClip(draftOf(file()), 0, { trim: [0, 72] });
     expect(draft.clips[0]).not.toHaveProperty('trim');
     expect(patchClip(draft, 0, { trim: [6, 58] }).clips[0]?.trim).toEqual([6, 58]);
-    expect(outsideTrim(file().time ?? [], 1, [4, 50])).toBe(1);
-    expect(outsideTrim(file().time ?? [], 1, [4, 60])).toBe(0);
+    expect(outsideTrim(file().time ?? [], 1, [4, 50])).toHaveLength(1);
+    expect(outsideTrim(file().time ?? [], 1, [4, 60])).toHaveLength(0);
   });
 
   it('finds again which clip each keeps once the file moved under it', () => {

@@ -14,6 +14,8 @@ interface RecipesStore {
   error: string | null;
   /** The base clip picker is open for this project. */
   picking: string | null;
+  /** The picker adds a clip to join to the recipe open in the editor, instead of making a recipe. */
+  joining: boolean;
   creating: boolean;
   pickError: string | null;
   /** The last import into a project and what to know about it (the import warning). */
@@ -23,7 +25,8 @@ interface RecipesStore {
   load: (project: string) => Promise<void>;
   /** Reloads when the list shown is the project's. */
   onChanged: (project: string) => void;
-  openPicker: (project: string) => void;
+  /** Opens the picker; with `join`, to add a clip to the recipe open in the editor. */
+  openPicker: (project: string, join?: boolean) => void;
   closePicker: () => void;
   /** Makes a recipe on the library clip `clip` (the rest pose when null) and closes the picker. */
   create: (clip: string | null, name: string) => Promise<RecipeDoc | null>;
@@ -48,6 +51,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
   list: null,
   error: null,
   picking: null,
+  joining: false,
   creating: false,
   pickError: null,
   imported: null,
@@ -69,8 +73,8 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
     if (get().project === project) void get().load(project);
   },
 
-  openPicker: project => set({ picking: project, pickError: null }),
-  closePicker: () => set({ picking: null, pickError: null }),
+  openPicker: (project, join = false) => set({ picking: project, joining: join, pickError: null }),
+  closePicker: () => set({ picking: null, joining: false, pickError: null }),
 
   create: async (clip, name) => {
     const project = get().picking;
