@@ -65,6 +65,13 @@ export default function RecipeEditor() {
           detail="It was removed outside. Copy anything you need; Save cannot bring it back."
         />
       ) : null}
+      {v.unreadable && !v.gone ? (
+        <InlineBanner
+          tone="info"
+          title="The file on disk cannot be read right now"
+          detail="Your edits are kept. It reads again when the window comes back or the file changes."
+        />
+      ) : null}
       {v.saveError ? (
         <InlineBanner tone="danger" title="The recipe was not saved" detail={v.saveError} />
       ) : null}

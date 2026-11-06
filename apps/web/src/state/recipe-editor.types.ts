@@ -36,8 +36,14 @@ export interface RecipeEditorStore {
   outside: RecipeOutside | null;
   /** A line saying an outside change came in, merged or shown. */
   merged: string | null;
-  /** The file went away outside while it was open. */
+  /** The file went away outside while it was open (the read answered not found). */
   gone: boolean;
+  /**
+   * The last outside read failed for another reason: a file half written or
+   * not valid JSON, or a one-off IPC error. The edits are kept; the next good
+   * read clears it.
+   */
+  unreadable: boolean;
   /** Unsaved edits stopped a leave; the question is open while set. */
   leaving: RecipeLeave | null;
   picked: RecipePick;

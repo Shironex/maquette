@@ -116,7 +116,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   };
   const existing = (project: unknown, id: unknown) => {
     const recipe = recipes(project).get(String(id));
-    if (!recipe) fail('not_found', `Not found: the recipe ${String(id)}`);
+    if (!recipe) fail('not-found', `Not found: the recipe ${String(id)}`);
     return recipe;
   };
   const checkName = (name: string) => {
@@ -222,7 +222,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       addVersion: (project, id) => {
         const p = ctx.project(project);
         const found = (p.assets ?? []).find(a => a.id === id);
-        if (!found) fail('not_found', `Not found: the asset ${id}`);
+        if (!found) fail('not-found', `Not found: the asset ${id}`);
         const last = found.versions[found.versions.length - 1];
         const number = (last?.version ?? 0) + 1;
         const file = `models/${id.replace(/-/g, '_')}_v${number}.glb`;
@@ -261,7 +261,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
     recipe_create: ({ project, clip, name }: Args) => {
       // No clip: the recipe runs on the model's rest pose.
       const found = clip == null ? null : ctx.clips().find(c => c.id === String(clip));
-      if (clip != null && !found) fail('not_found', `Not found: the library clip ${String(clip)}`);
+      if (clip != null && !found) fail('not-found', `Not found: the library clip ${String(clip)}`);
       const base = found ? baseOf(found) : restBase();
       const named = typeof name === 'string' && name.trim() ? name.trim() : base.name;
       checkName(named);

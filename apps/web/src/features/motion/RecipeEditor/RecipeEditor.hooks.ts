@@ -16,6 +16,7 @@ export function useRecipeEditor() {
   const saveError = useRecipeEditorStore(s => s.saveError);
   const merged = useRecipeEditorStore(s => s.merged);
   const gone = useRecipeEditorStore(s => s.gone);
+  const unreadable = useRecipeEditorStore(s => s.unreadable);
   const outside = useRecipeEditorStore(s => s.outside);
   const leaving = useRecipeEditorStore(s => s.leaving);
   // Escape closes the clash question without choosing; saves stay blocked until it is answered.
@@ -33,6 +34,7 @@ export function useRecipeEditor() {
     merged,
     gone,
     general: problems?.general ?? [],
+    unreadable,
     toFix,
     saveBlocked: outside
       ? 'Choose Keep mine or Use theirs first'

@@ -337,4 +337,35 @@ describe('the recipe editor store', () => {
     }));
     expect(await store().saveForQuit()).toBe(FIX_FIRST);
   });
+
+  it('reads gone only for a file that is not there, and clears it on a later good read', async () => {
+    const realGet = commands.recipeGet.bind(commands);
+    const get = vi.spyOn(commands, 'recipeGet');
+    get.mockRejectedValueOnce({ code: 'json', message: 'expected value at line 1' });
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(false);
+    expect(store().unreadable).toBe(true);
+    get.mockRejectedValueOnce(new Error('IPC went away'));
+    editLayers(weigh('l-1', 0.4));
+    await store().onChanged('frostveil');
+    expect(store().unreadable).toBe(true);
+    expect(layers()[0]?.settings.weight).toBe(0.4);
+    get.mockImplementation(realGet);
+    await store().onChanged('frostveil');
+    expect(store().unreadable).toBe(false);
+
+    get.mockRejectedValueOnce({ code: 'not-found', message: 'Not found: the recipe file' });
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(true);
+    expect(store().unreadable).toBe(false);
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(false);
+    expect(layers()[0]?.settings.weight).toBe(0.4);
+  });
+
+  it('reads gone when the mock backend no longer has the recipe, as the core answers', async () => {
+    await commands.recipeRemove('frostveil', REACH);
+    await store().onChanged('frostveil');
+    expect(store().gone).toBe(true);
+  });
 });
