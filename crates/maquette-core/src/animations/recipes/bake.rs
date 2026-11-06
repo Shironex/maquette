@@ -143,8 +143,7 @@ pub struct RecipeBakeResult {
     pub recipe_base_hash: Option<String>,
     /// The library clips joined after the base, in order (clip 2 first),
     /// each with the hash of its keys. Empty for a bake on one clip.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[specta(optional)]
+    #[serde(default)]
     pub joined_clips: Vec<RecipeBakedClip>,
     /// Counts as Mixamo's: left out of export packs, never saved to the
     /// clip library.
