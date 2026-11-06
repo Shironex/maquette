@@ -20,6 +20,7 @@ import type {
 } from '../client';
 import { events } from '../generated/bindings';
 import { clock } from '@/lib/clock';
+import { frameOfShare, plain, timeline } from '@/state/recipe-timeline';
 import { fail, type Args } from './backend-options';
 import { currentAsks } from './recipe-bake-asks';
 
@@ -40,6 +41,20 @@ interface BakeContext {
    */
   standInClip: (asset: string) => string | null;
   state: string | null;
+}
+
+/** The change kinds of file version 2 a bake cannot make yet. */
+const NOT_BAKEABLE: Record<string, string> = { pin: 'pins', pose: 'pose keys', grip: 'grips' };
+
+/**
+ * The core's `not-bakeable-yet`: what in the recipe this Maquette cannot
+ * bake yet, or null. Joined clips, trims, blends, the mirror and time edits
+ * bake; pins, pose keys and grips do not yet.
+ */
+export function notBakeable(doc: RecipeDoc): string | null {
+  const kinds = [...new Set(doc.recipe.layers.flatMap(l => NOT_BAKEABLE[l.kind] ?? []))];
+  if (!kinds.length) return null;
+  return `${doc.recipe.name} holds ${kinds.join(', ')}, which this Maquette cannot bake yet. Take them out to bake it, or bake it with a later Maquette.`;
 }
 
 /** The core's words for a bake that is out of date. */
@@ -156,7 +171,7 @@ function resultOf(
     assetName: onto.name,
     fromVersion: onto.version,
     clip: standIn ?? snake(doc.recipe.name),
-    frames: doc.recipe.base.frames,
+    frames: timeline(doc.recipe).frames,
     file: `/cache/recipes/${doc.id}/staged.glb`,
     facing: [0, 0, 1],
     // The planted left foot slides past its limit, so a review has a warn to show.
@@ -172,7 +187,9 @@ function resultOf(
       layer: l.id,
       bone: l.bone,
       gapCm: 0.3 + i * 0.4,
-      frame: Math.floor((l.settings.end ?? 1) * doc.recipe.base.frames),
+      frame: plain(doc.recipe)
+        ? Math.floor((l.settings.end ?? 1) * doc.recipe.base.frames)
+        : frameOfShare(timeline(doc.recipe), l.settings.end ?? 1),
       reached: true,
       flipFrame: null,
     })),
@@ -251,7 +268,7 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       });
       return;
     }
-    const frames = ctx.doc(record.project, record.recipe).recipe.base.frames;
+    const frames = timeline(ctx.doc(record.project, record.recipe).recipe).frames;
     const frame = Math.round(((done + 1) / STEPS) * frames);
     put({
       ...record,
@@ -274,6 +291,8 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       const doc = ctx.doc(r.project, r.recipe);
       if (r.expected != null && r.expected !== doc.version)
         fail('moved', `${doc.recipe.name} changed since it was read, so it was not baked.`);
+      const later = notBakeable(doc);
+      if (later) fail('not-bakeable-yet', later);
       const open = doc.recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point));
       if (open.length)
         fail(
