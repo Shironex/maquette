@@ -24,8 +24,14 @@ export interface RecipeOutside {
   merge: DraftMerge;
 }
 
-/** The change or blank whose settings show. */
-export type RecipePick = { what: 'layer' | 'blank'; id: string } | null;
+/**
+ * The change, blank or base edit whose settings show: a base edit's id is
+ * the clip's or time edit's index, or empty for the clips and the mirror.
+ */
+export type RecipePick = {
+  what: 'layer' | 'blank' | 'clips' | 'trim' | 'time' | 'mirror';
+  id: string;
+} | null;
 
 export interface RecipeEditorStore {
   editing: RecipeEditing | null;

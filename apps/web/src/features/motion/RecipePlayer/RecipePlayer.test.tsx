@@ -17,6 +17,14 @@ describe('the recipe player', () => {
     const frames = Number(playhead.getAttribute('max'));
     expect(frames).toBeGreaterThan(10);
     fireEvent.change(playhead, { target: { value: '10' } });
-    expect(screen.getByText(`frame 10 / ${frames}`)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`^10 / ${frames} f · `))).toBeInTheDocument();
+  });
+
+  it("runs the playhead over the joined recipe's frames, not its base clip's", async () => {
+    const store = await openRecipe('slash-into-block');
+    render(<RecipePlayer />);
+    const playhead = screen.getByRole('slider', { name: 'Playhead' });
+    expect(Number(playhead.getAttribute('max'))).not.toBe(store.editing?.doc.recipe.base.frames);
+    expect(screen.getByRole('region', { name: 'Timeline' })).toBeVisible();
   });
 });
