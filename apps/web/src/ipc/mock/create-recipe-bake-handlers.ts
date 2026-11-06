@@ -172,7 +172,7 @@ function resultOf(
       layer: l.id,
       bone: l.bone,
       gapCm: 0.3 + i * 0.4,
-      frame: Math.floor((l.settings.end ?? 1) * (doc.recipe.base.frames - 1)),
+      frame: Math.floor((l.settings.end ?? 1) * doc.recipe.base.frames),
       reached: true,
       flipFrame: null,
     })),
@@ -324,7 +324,10 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       if (record.state !== 'done' || !record.result)
         fail('invalid', 'The last bake did not finish, so there is nothing to add. Bake it again.');
       const doc = ctx.doc(record.project, record.recipe);
-      if (doc.motionVersion !== (record.result.motionVersion || record.result.recipeVersion))
+      const unchanged = record.result.motionVersion
+        ? doc.motionVersion === record.result.motionVersion
+        : doc.version === record.result.recipeVersion;
+      if (!unchanged)
         fail('invalid', `${OUT_OF_DATE} The recipe changed since this bake. Bake it again.`);
       const onto = ctx.asset(record.project, record.asset);
       if (onto && onto.version !== record.result.fromVersion)

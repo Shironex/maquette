@@ -100,7 +100,7 @@ function Row({
     project,
     recipe.id,
     { open: recipe.open, layers: recipe.layers },
-    recipe.motionVersion || null
+    { version: recipe.version || null, motionVersion: recipe.motionVersion || null }
   );
   if (recipe.problem) {
     return (

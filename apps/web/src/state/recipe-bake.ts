@@ -55,8 +55,13 @@ export function staleOf(
   if (changed) return RECIPE_CHANGED;
   if (now.model && now.model.version !== result.fromVersion)
     return `${now.model.name} is at v${now.model.version} now, and this bake went onto v${result.fromVersion}. Bake it again.`;
-  if ((now.motionVersion || now.recipeVersion) && now.model) return null;
-  return record?.stale ?? null;
+  // What the view judged just now (the recipe, the model's version) beats
+  // the core's last read of the same; any other reason of the core stands.
+  const judged =
+    record?.stale === RECIPE_CHANGED ||
+    /^.+ is at v\d+ now, and this bake went onto v\d+\./.test(record?.stale ?? '');
+  const known = Boolean(now.motionVersion || now.recipeVersion) && Boolean(now.model);
+  return known && judged ? null : (record?.stale ?? null);
 }
 
 /** "Solving frame 12 of 31", with how far as a share of the run. */

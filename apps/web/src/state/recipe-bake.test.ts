@@ -36,7 +36,14 @@ describe('a recipe bake', () => {
     );
     // What the view does not know, the core's last read says.
     expect(staleOf(record({ stale: 'Gone.' }), { motionVersion: 'm1' })).toBe('Gone.');
-    expect(staleOf(record({ stale: 'Gone.' }), { motionVersion: 'm1', model })).toBeNull();
+    // What the view judged itself drops the core's older word; any other reason stands.
+    expect(staleOf(record({ stale: RECIPE_CHANGED }), { motionVersion: 'm1', model })).toBeNull();
+    expect(
+      staleOf(record({ stale: 'The base clip Idle has other keys. Bake it again.' }), {
+        motionVersion: 'm1',
+        model,
+      })
+    ).toBe('The base clip Idle has other keys. Bake it again.');
     expect(staleOf(record({ state: 'running', result: null }), { motionVersion: 'm9' })).toBeNull();
   });
 

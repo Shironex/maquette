@@ -174,6 +174,28 @@ describe('the recipes stage', () => {
     expect(within(reach).queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
+  it('reads a bake record from before the motion version as out of date once the file changed', async () => {
+    await openWithModels();
+    const listed = await commands.recipeList('frostveil');
+    const reach = listed.find(r => r.id === 'reach-for-the-lantern')!;
+    const real = await commands.recipeBakeGet('frostveil', 'reach-for-the-lantern');
+    expect(real?.result).toBeTruthy();
+    // An old record holds only the file version, which the recipe does not have.
+    const old = {
+      ...real!,
+      stale: null,
+      result: { ...real!.result!, motionVersion: '', recipeVersion: 'older' },
+    };
+    vi.spyOn(commands, 'recipeBakeGet').mockResolvedValue(old);
+    vi.spyOn(commands, 'recipeList').mockResolvedValueOnce(
+      listed.map(r => (r.id === reach.id ? { ...r, version: 'newer' } : r))
+    );
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const row = within(list).getByText('Reach for the lantern').closest('li')!;
+    expect(await within(row).findByText('Out of date')).toBeVisible();
+  });
+
   it('keeps Apply off for a recipe with an open blank', async () => {
     await openWithModels();
     render(<RecipesStage />);
