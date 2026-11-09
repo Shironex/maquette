@@ -43,7 +43,7 @@ describe('the pin settings', () => {
     await pinned();
     render(<RecipePinForm id="l-9" />);
     expect(screen.getByRole('group', { name: 'Pin, left foot' })).toBeVisible();
-    expect(screen.getByText(/^\d+ to \d+$/)).toBeVisible();
+    expect(screen.getByText(/^holds \d+ to \d+$/)).toBeVisible();
     expect(screen.getByLabelText('Stays at')).toHaveDisplayValue(/^Where it is at frame \d+$/);
     expect(screen.getByRole('button', { name: 'Toe and heel' })).toHaveAttribute(
       'aria-pressed',

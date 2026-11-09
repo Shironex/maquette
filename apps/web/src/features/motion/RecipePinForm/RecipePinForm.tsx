@@ -3,6 +3,8 @@ import type { PinFlat } from '@/ipc/client';
 import { useRecipePinForm } from './RecipePinForm.hooks';
 
 const whole = (v: number) => String(Math.round(v));
+/** A field's words, as the inputs' own labels look. */
+const CAPTION = 'text-[12px] leading-4 font-medium text-fg-dim';
 
 /** A note box under the pin's settings. */
 function Note({
@@ -57,14 +59,19 @@ export default function RecipePinForm({ id }: { id: string }) {
       />
       <Select label="Stays at" size="sm" options={f.places} value={f.place} onChange={f.setPlace} />
       {f.foot ? (
-        <SegmentedControl
-          label="Keep flat"
-          tone="clay"
-          block
-          options={f.flats}
-          value={f.flat}
-          onChange={(v: PinFlat) => f.setFlat(v)}
-        />
+        <div className="flex flex-col gap-1">
+          <span aria-hidden className={CAPTION}>
+            Keep flat
+          </span>
+          <SegmentedControl
+            label="Keep flat"
+            tone="clay"
+            block
+            options={f.flats}
+            value={f.flat}
+            onChange={(v: PinFlat) => f.setFlat(v)}
+          />
+        </div>
       ) : null}
       <div className="grid grid-cols-2 gap-2">
         <NumberField

@@ -43,7 +43,7 @@ export function useRecipePinForm(id: string) {
   return {
     layer,
     title: `Pin, ${boneWords(layer.bone).toLowerCase()}`,
-    frames: span ? `${span.first} to ${span.last}` : 'no frames',
+    frames: span ? `holds ${span.first} to ${span.last}` : 'holds no frame',
     bones: PIN_BONES.map(b => ({ value: b, label: SHORT[b], hint: boneWords(b) })),
     setBone: (bone: string) => put(withPinBone(layer, bone)),
     staysAt: staysAtWords(layer, first, blanks),
