@@ -83,7 +83,7 @@ const positionOf = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()
 const rotationOf = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());
 
 /** Turns `bone` so its world rotation is `world`, under its parent as it stands. */
-function setWorldRotation(bone: THREE.Object3D, world: THREE.Quaternion) {
+export function setWorldRotation(bone: THREE.Object3D, world: THREE.Quaternion) {
   const parent = bone.parent ? rotationOf(bone.parent) : new THREE.Quaternion();
   bone.quaternion.copy(parent.invert().multiply(world));
   bone.updateWorldMatrix(false, true);
@@ -194,7 +194,8 @@ function wave(
 /**
  * Lays `layers` over the pose the model has now, in order, at `share` of
  * the clip. A change whose bone the model lacks or whose blank is open
- * leaves the pose alone.
+ * leaves the pose alone. Pins are held after, on the bake's frames
+ * (recipe-pins.ts).
  */
 export function poseRecipe(
   rig: RecipeRig,
@@ -204,6 +205,7 @@ export function poseRecipe(
 ) {
   for (const layer of layers) {
     const s = layer.settings;
+    if (layer.kind === 'pin') continue;
     const amount = num(s.weight, 1) * envelope(layer.kind, num(s.start), num(s.end, 1), share);
     const bone = rig.bone(layer.bone);
     if (amount <= 0 || !bone) continue;

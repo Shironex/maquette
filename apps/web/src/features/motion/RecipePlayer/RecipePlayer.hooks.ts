@@ -10,6 +10,7 @@ import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clipFps, clipsOf } from '@/state/recipe-timeline';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
+import { usePreviewPins } from './use-preview-pins';
 
 /** The library clip a recipe's clip names: the same name and frames, the same keys first. */
 export function libraryClip(items: readonly AnimationItem[], clip: RecipeBase) {
@@ -96,5 +97,6 @@ export function useRecipePlayer() {
     tick: (delta: number) => setPosition(p => (frames > 0 ? (p + delta * fps) % frames : 0)),
     checks,
     setChecks,
+    pins: usePreviewPins(dt, editing?.draft.layers),
   };
 }

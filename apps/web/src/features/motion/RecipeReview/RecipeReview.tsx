@@ -169,9 +169,11 @@ export default function RecipeReview() {
               clip={r.rest ? 'rest' : r.clip}
               layers={NO_LAYERS}
               markers={[]}
-              share={r.play.share}
-              playing={r.show === 'base' && r.play.playing}
-              onTick={r.play.tick}
+              play={{
+                share: r.play.share,
+                playing: r.show === 'base' && r.play.playing,
+                onTick: r.play.tick,
+              }}
               label={`${r.rest ? 'Rest pose' : 'Base clip'} on ${r.model?.name ?? result.assetName} as it is now, rough preview`}
               name="Base clip"
             />

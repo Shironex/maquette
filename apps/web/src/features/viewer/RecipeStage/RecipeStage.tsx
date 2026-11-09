@@ -7,6 +7,7 @@ import { Canvas } from '@react-three/fiber';
 import type * as THREE from 'three';
 import type { RecipeLayer } from '@/ipc/client';
 import type { ReachCheck } from '@/state/recipe-review';
+import type { StagePins } from '../recipe-pins';
 import type { RecipeMarker } from '../recipe-pose';
 import type { RoughPair } from '../rough-retarget';
 import { Controls } from '../ModelPreview/Controls';
@@ -39,6 +40,8 @@ export interface RecipeStageProps {
   /** A recipe that joins, trims, retimes or mirrors: each clip's file and rate, and the timeline. */
   joined?: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null;
   onChecks?: (checks: ReachCheck[]) => void;
+  /** The pins to hold last, on the bake's frames. */
+  pins?: StagePins | null;
   onError?: (message: string) => void;
   label: string;
   className?: string;
@@ -67,7 +70,7 @@ function Markers({
 }
 
 function Scene(props: SceneProps) {
-  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined } = props;
+  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined, pins } = props;
   const model = useMotionModel(modelUrl, onError);
   const skeleton = useMotionModel(clipUrl, onError);
   const framing = useFraming(model, undefined);
@@ -76,7 +79,7 @@ function Scene(props: SceneProps) {
   const setup = useRecipeSetup(model, clipUrl ? skeleton : 'rest', pairs, play);
   const origin = framing && model ? model.scene.position : null;
   const targets = useTargets(markers, framing?.box ?? null, setup?.rig.forward ?? null, origin);
-  useRecipeFrame(setup, layers, targets, props.play, onChecks);
+  useRecipeFrame(setup, layers, targets, props.play, onChecks, pins ?? null);
   const loads = extra.map(url => (
     <SkeletonLoad key={url} url={url} onLoad={onLoad} onError={onError} />
   ));
