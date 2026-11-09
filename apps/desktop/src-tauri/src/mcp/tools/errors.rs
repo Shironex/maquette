@@ -180,7 +180,7 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "update_recipe",
         )),
         crate::commands::recipes::CLIP_IN_USE => Some(agent(
-            "Keep the clip the message names (clips with keep), or send changes and time without the keys and time edits on it, then send the clips again.",
+            "Keep the clip the message names (clips with keep) and the clips a change runs across together in order, or send changes and time without what sits on it, then send the clips again.",
             "get_recipe",
         )),
         super::recipes::NEEDS_VERSION => Some(agent(

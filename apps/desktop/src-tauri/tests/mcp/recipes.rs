@@ -373,6 +373,9 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them()
     assert_eq!(swapped["clips"][1]["trim"], json!([2, 30]), "{swapped}");
     assert_eq!(swapped["changes"][0]["keys"][0]["clip"], 1, "{swapped}");
     assert_eq!(swapped["time"][0]["clip"], 0, "{swapped}");
+    // The pin stays on the frames of clip 1 it covered, now the second clip.
+    assert_eq!(swapped["changes"][1]["start"], json!(0.6), "{swapped}");
+    assert_eq!(swapped["changes"][1]["end"], json!(1.0), "{swapped}");
     let keyed = call(
         &client,
         "update_recipe",
