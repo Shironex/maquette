@@ -93,12 +93,31 @@ fn an_update_replaces_clips_and_refuses_keys_left_on_a_clip_taken_out() {
     )
     .expect_err("a freeze sits on clip 2");
     assert!(err.to_string().contains("clip 2"), "{err}");
+    let err = update(
+        dir.path(),
+        &project(),
+        &id,
+        RecipeChange {
+            clips: Some(two.clone()),
+            expected: Some(version.clone()),
+            ..RecipeChange::default()
+        },
+    )
+    .expect_err("the grip runs over clip 3 too");
+    assert!(err.to_string().contains("the change l-3"), "{err}");
+    let kept: Vec<RecipeLayer> = written
+        .layers
+        .iter()
+        .filter(|l| l.id != "l-3")
+        .cloned()
+        .collect();
     let read = update(
         dir.path(),
         &project(),
         &id,
         RecipeChange {
             clips: Some(two),
+            layers: Some(kept),
             expected: Some(version.clone()),
             ..RecipeChange::default()
         },

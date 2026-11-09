@@ -615,3 +615,6 @@ mod tests_v2_size;
 
 #[cfg(test)]
 mod tests_timeline;
+
+#[cfg(test)]
+mod tests_clip_shares;

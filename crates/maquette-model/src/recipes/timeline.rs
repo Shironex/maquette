@@ -15,7 +15,8 @@
 //! Round 1's changes keep their start and end as shares, read on the clips'
 //! own frames laid end to end (`share`): on one clip with no edits that is the
 //! share of its length, as before, and a trim, retime or freeze carries a
-//! change with the motion it sat on.
+//! change with the motion it sat on. Joining, taking out or moving a clip
+//! changes what the shares are read on, so `clip_moves` moves them too.
 
 use serde::Serialize;
 
@@ -111,7 +112,7 @@ pub struct Timeline {
 
 /// `x` as the decimal it is written as, so the web app, reading the file's
 /// number, steps by the same amount.
-fn wide(x: f32) -> f64 {
+pub(super) fn wide(x: f32) -> f64 {
     x.to_string().parse().unwrap_or_else(|_| f64::from(x))
 }
 

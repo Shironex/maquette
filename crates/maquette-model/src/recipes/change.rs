@@ -27,10 +27,12 @@ pub struct RecipeChange {
     pub layers: Option<Vec<RecipeLayer>>,
     pub blanks: Option<Vec<RecipeBlank>>,
     /// Every clip in order, the base first, each with its trim and (after
-    /// the first) its blend window. The keys and time edits the recipe
-    /// keeps (the lists not sent with it) follow their clip to its new
-    /// place; taking away a clip one of them sits on is refused. Lists sent
-    /// with it count clips in the new order.
+    /// the first) its blend window. The keys, changes and time edits the
+    /// recipe keeps (the lists not sent with it) follow their clip to its
+    /// new place, a change's start and end moved to cover the same motion;
+    /// taking away a clip one of them sits on, or splitting the clips a
+    /// change runs across, is refused. Lists sent with it count clips, and
+    /// read shares, in the new order.
     #[serde(default)]
     #[specta(optional)]
     pub clips: Option<Vec<RecipeBase>>,
