@@ -54,18 +54,53 @@ describe('joined recipes in mock mode', () => {
     ]);
   });
 
-  it('still refuses pose keys and grips as not bakeable yet', async () => {
+  it('bakes pose keys on a joined clip and judges their joint limits', async () => {
     const doc = await commands.recipeGet('frostveil', JOINED);
     const keys: RecipeLayer = {
       id: 'l-9',
       kind: 'pose',
       bone: '',
       settings: { ...doc.recipe.layers[0]!.settings, rotation: null, start: 0, end: 1 },
-      keys: [{ clip: 1, frame: 4, pose: { chest: [0, -18, 0] } }],
+      keys: [
+        { clip: 1, frame: 4, pose: { chest: [0, -18, 0] } },
+        { clip: 1, frame: 12, pose: { chest: [0, -52, 0] } },
+      ],
+    };
+    const keyed = await commands.recipeUpdate('frostveil', JOINED, {
+      name: null,
+      layers: [...doc.recipe.layers, keys],
+      blanks: null,
+      expected: doc.version,
+    });
+    await commands.recipeBakeStart({
+      project: 'frostveil',
+      recipe: JOINED,
+      asset: 'clay-figure',
+      expected: keyed.version,
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    const done = await commands.recipeBakeGet('frostveil', JOINED);
+    expect(done?.result?.joints?.judged).toBe(2);
+    expect(done?.result?.joints?.hits.map(h => [h.hit.bone, h.hit.word, h.hit.limit])).toEqual([
+      ['chest', 'twist', -45],
+    ]);
+    const line = done?.review?.lines.find(l => l.id === 'joints');
+    expect(line).toMatchObject({ status: 'warn', value: 'chest twist 52 deg', max: 45 });
+  });
+
+  it('still refuses grips as not bakeable yet', async () => {
+    const doc = await commands.recipeGet('frostveil', JOINED);
+    const grip: RecipeLayer = {
+      id: 'l-9',
+      kind: 'grip',
+      bone: 'rightHand',
+      settings: { ...doc.recipe.layers[0]!.settings, rotation: null, start: 0, end: 1 },
+      mode: 'replace',
+      pose: { rightIndexProximal: [62, 0, 0] },
     };
     await commands.recipeUpdate('frostveil', JOINED, {
       name: null,
-      layers: [...doc.recipe.layers, keys],
+      layers: [...doc.recipe.layers, grip],
       blanks: null,
       expected: doc.version,
     });
@@ -73,7 +108,7 @@ describe('joined recipes in mock mode', () => {
       commands.recipeBakeStart({ project: 'frostveil', recipe: JOINED, asset: 'clay-figure' })
     ).rejects.toMatchObject({
       code: 'not-bakeable-yet',
-      message: expect.stringMatching(/pose keys/),
+      message: expect.stringMatching(/grips/),
     });
   });
 });

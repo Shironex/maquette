@@ -6,9 +6,8 @@
  * recipe with open blanks or no changes is refused as the core refuses it.
  * A finished bake carries its review as the core works it out, and Add
  * makes it the model's next version (refused once out of date). With
- * `?library=demo`, Frostveil's lantern recipe opens with a finished bake,
- * for headless shots of the result; `?agents=recipe` also has an agent ask
- * to add it.
+ * `?library=demo`, Frostveil's lantern recipe opens with a finished bake for
+ * headless shots; `?agents=recipe` also has an agent ask to add it.
  */
 import type {
   RecipeBakeRecord,
@@ -24,6 +23,7 @@ import { frameOfShare, plain, timeline } from '@/state/recipe-timeline';
 import { fail, type Args } from './backend-options';
 import { currentAsks } from './recipe-bake-asks';
 import { pinLines, pinResultsOf } from './recipe-pins';
+import { jointLines, jointsOf } from './recipe-key-review';
 
 interface BakeContext {
   /** The recipe as `recipe_get` reads it; fails for one that is gone. */
@@ -45,12 +45,12 @@ interface BakeContext {
 }
 
 /** The change kinds of file version 2 a bake cannot make yet. */
-const NOT_BAKEABLE: Record<string, string> = { pose: 'pose keys', grip: 'grips' };
+const NOT_BAKEABLE: Record<string, string> = { grip: 'grips' };
 
 /**
  * The core's `not-bakeable-yet`: what in the recipe this Maquette cannot
  * bake yet, or null. Joined clips, trims, blends, the mirror and time edits
- * bake, and so do pins; pose keys and grips do not yet.
+ * bake, and so do pins and pose keys; grips do not yet.
  */
 export function notBakeable(doc: RecipeDoc): string | null {
   const kinds = [...new Set(doc.recipe.layers.flatMap(l => NOT_BAKEABLE[l.kind] ?? []))];
@@ -102,7 +102,7 @@ export function reviewOf(result: RecipeBakeResult): RecipeBakeReview {
           : `The ${joint.toLowerCase()} bends the other way than the clip has it from there.`,
     });
   }
-  lines.push(...pinLines(result));
+  lines.push(...pinLines(result), ...jointLines(result));
   const slideMax = round((result.baseSlideCm ?? 0) + 1.5);
   lines.push({
     id: 'feet',
@@ -215,6 +215,7 @@ function resultOf(
       flipFrame: null,
     })),
     pins: pinResultsOf(doc),
+    joints: jointsOf(doc),
     blenderSeconds: 2.1,
     seconds: 2.6,
     warnings: doc.base.warning ? [doc.base.warning] : [],

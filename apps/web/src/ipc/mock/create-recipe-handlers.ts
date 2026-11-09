@@ -10,7 +10,8 @@
  * point, and one whose base clip the library has with other keys and whose
  * torch prop is gone. The lantern recipe came from r1 of a library recipe
  * whose newest is r3 (see create-recipe-library-handlers.ts). A third joins
- * three clips with trims, a retime, a freeze and blends.
+ * three clips with trims, a retime, a freeze and blends; a fourth lays
+ * pose keys over a slash and a block (demo-pose-keys.ts).
  */
 import type {
   AnimationClip,
@@ -40,6 +41,7 @@ import {
 import { checkSize, followClips, v2Problem, withVersion } from './recipe-v2';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
+import { POSE_KEYS_DEMO, poseKeysRecipe } from './demo-pose-keys';
 
 interface RecipeContext {
   clips: () => readonly AnimationClip[];
@@ -96,6 +98,8 @@ function demoRecipes(
   }
   const joined = joinedRecipe(clips);
   if (joined) out.set('slash-into-block', joined);
+  const keyed = poseKeysRecipe(clips);
+  if (keyed) out.set(POSE_KEYS_DEMO, keyed);
   return out;
 }
 
