@@ -48,7 +48,7 @@ A recipe can play more than its one base clip. Its clip strip lists the clips in
 - **Freeze.** Stops on a frame and adds frames. **Hold over** keeps a pose across a range with the length unchanged. Both can breathe, so a long hold is not dead still.
 - **Mirror.** Swaps left and right for the whole recipe, so a right handed slash becomes a left handed one.
 
-The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with pins, pose keys or grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
+The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with pose keys or grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
 
 ## Blanks
 
@@ -69,6 +69,16 @@ A recipe with an open blank cannot bake. A prop blank whose asset the project no
 | **Wave**    | an upper arm, a lower arm or a hand, left or right | Swings the arm on a sine: you set how many waves and how far each swings, in degrees.       |
 
 A limb held straight is pre-bent 10 degrees before the bake solves a reach, so IK can bend it.
+
+## Pins
+
+A **pin** keeps a hand or a foot in one place across part of the recipe, so a foot stops sliding or a hand stays on a shaft. It stays where the bone is at the pin's first frame, or on a point or prop blank. A hand pin wants a blank, so the recipe travels to another project.
+
+- **Keep flat.** A pinned foot keeps toe and heel flat by default. **Heel** keeps only which way the foot points, so the toe can roll. **Off** lets the foot turn as the clip has it. A hand keeps the turn it had.
+- **Eases.** A pin eases in and out over 3 frames unless you set other numbers. 0 holds at once.
+- **On the lanes.** Pins have a Pin lane of their own, with overlapping pins stacked on rows. Their settings say whether the leg or arm can stay on the spot as the hips move.
+
+Pins are solved last, after every other change, base edit and join: roughly in the preview and exactly in the bake. The review adds a **Pin drift** line per pin: how far the hand or foot leaves its spot while the pin holds whole, against 1 cm, and how far it would have moved without it.
 
 ## Rough preview and exact bake
 
