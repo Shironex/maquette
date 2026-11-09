@@ -607,8 +607,8 @@ to a library of recipes), `created`, `edited`, `base` (the clip's name, frames, 
 (`reach`, `nudge`, `look-at` or `wave`, each on a VRM humanoid bone name with its settings). It
 never holds keys, frames, a mesh, a skeleton or a render, so it can be shared. Reading normalises
 it (trimmed text, each change keeping only the settings its kind reads) and checks it whole; a file
-over 256 KB is refused unread, like a canvas over its cap, and a write that would make one is refused
-(`recipe-too-big`).
+over 256 KB is refused unread, like a canvas over its cap, and a write that would make one is
+refused (`recipe-too-big`).
 `animations::recipes` (library layer) makes a recipe from a clip and matches a recipe's base
 against the library by name and frame count: `found`, `hash-differs` (a warning, not a refusal)
 or `missing`. A bake counts as Mixamo's when the recipe says so or its matched clip came from a
@@ -659,9 +659,11 @@ draft over it, so leaving the tab keeps the edits. Leaving the recipe with unsav
 as a canvas does. `state/recipe-check.ts` runs the core's checks on the draft as it is typed;
 `state/recipe-merge.ts` merges an outside write with unsaved edits by change and blank id and asks
 only on a clash (an id both sides added with different entries is two additions: the person's is
-renamed). Every side's changes are moved onto the clips the merge lands on before they are compared,
-and one that cannot sit on them is a clash, with the clips. Save reads the file first, sends only the lists that changed with `expected`, and on
-`moved` reads and merges again for the person to save once more. The rough preview is
+renamed). Every side's changes are moved onto the clips the merge lands on before they are
+compared, and one that cannot sit on them is a clash, and so are the clips: Keep mine keeps the
+person's clips with it. Save reads the file first, sends only the lists that changed with
+`expected`, and on `moved` reads and merges again for the person to save once more. The rough
+preview is
 `features/viewer/RecipePreview` (lazy `RecipeStage`): the base clip through the rough retarget, then
 `features/viewer/recipe-pose.ts` lays the changes over (two-bone IK for reach, an aim for look at,
 an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
