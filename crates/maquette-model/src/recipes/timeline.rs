@@ -355,20 +355,32 @@ fn layout(recipe: &RecipeFile, lens: &[usize]) -> (Vec<usize>, Vec<usize>, usize
 }
 
 /// How many frames `recipe`'s timeline runs (its last frame, as
-/// [`Timeline::frames`]), counted without making them, or none when it
-/// runs over `most`.
+/// [`Timeline::frames`]), counted without making them and stopping once
+/// it runs over `most`, or none when it does. Each clip ends the recipe
+/// later than the one before (a blend is never longer than its clip), so
+/// the running end only grows.
 pub fn length_within(recipe: &RecipeFile, most: u32) -> Option<u32> {
     let fps = clip_fps(&recipe.base);
-    let limit = most as usize + 2;
-    let count = u32::try_from(recipe.joined.len() + 1).unwrap_or(1);
-    let lens: Vec<usize> = (0..count)
-        .map(|i| clip_count(recipe, i, fps, limit).saturating_sub(1))
-        .collect();
-    if lens.iter().any(|&n| n > most as usize) {
-        return None;
+    let most = most as usize;
+    let (mut end, mut prev_len, mut prev_window) = (0usize, 0usize, 0usize);
+    for (i, clip) in recipe.clips().enumerate() {
+        let index = u32::try_from(i).ok()?;
+        let wanted = if i == 0 {
+            0
+        } else {
+            clip.blend.as_ref().map_or(0, |b| b.frames as usize)
+        };
+        // Its blend takes back at most `wanted` frames, so counting stops
+        // as soon as this clip alone runs the recipe over `most`.
+        let len = clip_count(recipe, index, fps, most - end + wanted + 2).saturating_sub(1);
+        let window = wanted.min(prev_len.saturating_sub(prev_window)).min(len);
+        end = end + len - window;
+        if end > most {
+            return None;
+        }
+        (prev_len, prev_window) = (len, window);
     }
-    let (_, _, total) = layout(recipe, &lens);
-    u32::try_from(total).ok().filter(|&n| n <= most)
+    u32::try_from(end).ok()
 }
 
 fn curve(kind: BlendCurve, x: f64) -> f64 {
