@@ -12,7 +12,14 @@ import type { RoughPair } from '../rough-retarget';
 import { Controls } from '../ModelPreview/Controls';
 import { useFraming, useStudioRig } from '../ModelPreview/Studio/Studio.hooks';
 import { useMotionModel } from '../MotionStage/Scene/Scene.hooks';
-import { useRecipeFrame, useRecipeSetup, useTargets } from './RecipeStage.hooks';
+import type { Timeline } from '@/state/recipe-timeline';
+import {
+  useJoinedSkeletons,
+  useRecipeFrame,
+  useRecipeSetup,
+  useTargets,
+} from './RecipeStage.hooks';
+import { SkeletonLoad } from './SkeletonLoad';
 
 /** Marker colours, the theme's clay for a prop and sage for a point, as the editor's blank rows. */
 const MARKER_COLOURS = { prop: '#c47d60', point: '#98ae95' } as const;
@@ -24,11 +31,13 @@ export interface RecipeStageProps {
   pairs: readonly RoughPair[];
   layers: readonly RecipeLayer[];
   markers: readonly RecipeMarker[];
-  /** Where the playhead is, as a share of the clip. */
-  share: number;
-  playing: boolean;
-  /** Seconds since the last frame, while it plays. */
-  onTick: (delta: number) => void;
+  /**
+   * Where the playhead is (a share of the clip, or of the bake's frames for
+   * joined clips), whether it plays, and what moves it: seconds since the last frame.
+   */
+  play: { share: number; playing: boolean; onTick: (delta: number) => void };
+  /** A recipe that joins, trims, retimes or mirrors: each clip's file and rate, and the timeline. */
+  joined?: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null;
   onChecks?: (checks: ReachCheck[]) => void;
   onError?: (message: string) => void;
   label: string;
@@ -58,17 +67,22 @@ function Markers({
 }
 
 function Scene(props: SceneProps) {
-  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks } = props;
+  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined } = props;
   const model = useMotionModel(modelUrl, onError);
   const skeleton = useMotionModel(clipUrl, onError);
   const framing = useFraming(model, undefined);
   const rig = useStudioRig(framing);
-  const setup = useRecipeSetup(model, clipUrl ? skeleton : 'rest', pairs);
+  const { extra, onLoad, play } = useJoinedSkeletons(clipUrl, skeleton, joined ?? null);
+  const setup = useRecipeSetup(model, clipUrl ? skeleton : 'rest', pairs, play);
   const origin = framing && model ? model.scene.position : null;
   const targets = useTargets(markers, framing?.box ?? null, setup?.rig.forward ?? null, origin);
-  useRecipeFrame(setup, layers, targets, props, onChecks);
+  useRecipeFrame(setup, layers, targets, props.play, onChecks);
+  const loads = extra.map(url => (
+    <SkeletonLoad key={url} url={url} onLoad={onLoad} onError={onError} />
+  ));
   return (
     <>
+      {loads}
       {rig ? <primitive object={rig} /> : null}
       {model ? <primitive object={model.scene} /> : null}
       <Markers markers={markers} targets={targets} />

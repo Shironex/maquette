@@ -133,6 +133,68 @@ async function recipeEditorShots(open, shot) {
   await page.context().close();
 }
 
+/** The joined demo recipe: its lanes and base edits, a blend, a retime, the mirror question, and adding a clip from the picker. */
+async function joinedRecipeShots(open, shot) {
+  const page = await motion(open, 'demo&library=demo');
+  await page.getByRole('tab', { name: 'Recipes' }).click();
+  await page
+    .getByRole('list', { name: 'Project recipes' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Slash into block' })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+  await page.getByRole('img', { name: /rough preview$/ }).waitFor();
+  await page.waitForTimeout(2500);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  const playhead = page.getByRole('slider', { name: 'Playhead' });
+  const frames = Number(await playhead.getAttribute('max'));
+  await playhead.fill(String(Math.round(frames * 0.45)));
+  const edits = page.getByRole('list', { name: 'Recipe base edits' });
+  await edits.getByRole('button', { name: /^3 clips, joined/ }).click();
+  await page.waitForTimeout(600);
+  await shot(page, 'motion-recipe-joined');
+
+  await edits.getByRole('button', { name: /^Retime/ }).click();
+  await page.getByRole('group', { name: 'Time edit 1 settings' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'motion-recipe-retime');
+
+  await edits.getByRole('button', { name: /^Freeze/ }).click();
+  await page.getByRole('group', { name: 'Time edit 2 settings' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'motion-recipe-freeze');
+
+  await edits.getByRole('button', { name: /^Trim/ }).click();
+  await page.getByRole('group', { name: 'Trim settings' }).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, 'motion-recipe-trim');
+
+  await edits.getByRole('button', { name: /^Mirror/ }).click();
+  await page.getByRole('button', { name: 'Left handed' }).click();
+  await page.waitForTimeout(800);
+  await shot(page, 'motion-recipe-mirror');
+
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('menuitem', { name: /Add a clip/ }).click();
+  const picker = page.getByRole('dialog', { name: 'Add a clip' });
+  await picker.waitFor();
+  await page.waitForTimeout(600);
+  await shot(page, 'motion-recipe-add-clip');
+
+  // Joined from the picker: a fourth clip at the end, and the nudge still
+  // over the frames it covered before.
+  await picker
+    .getByRole('list', { name: 'Library clips' })
+    .getByRole('button', { name: 'Standing Dodge Left', exact: true })
+    .click();
+  await picker.getByRole('button', { name: 'Add clip', exact: true }).click();
+  await picker.waitFor({ state: 'hidden' });
+  await edits.getByRole('button', { name: /^4 clips, joined/ }).waitFor();
+  await page.waitForTimeout(800);
+  await shot(page, 'motion-recipe-clip-joined');
+  await page.context().close();
+}
+
 export async function motionShots({ open, shot }) {
   const main = await motion(open, 'demo');
   // The sets before this one leave their pages open, each with a live
@@ -215,6 +277,7 @@ export async function motionShots({ open, shot }) {
 
   await recipeReviewShots(open, shot);
   await recipeEditorShots(open, shot);
+  await joinedRecipeShots(open, shot);
   await recipeLibraryShots({ open, shot });
 
   const rest = await motion(open, 'rest');

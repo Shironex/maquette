@@ -154,7 +154,8 @@ pub(super) struct ChangeArg {
     pub bone: Option<String>,
     /// How much shows, 0 to 1. Defaults to 1.
     pub weight: Option<f32>,
-    /// Where in the clip it starts, as a share of its length from 0 to 1. Defaults to 0.
+    /// Where it starts, as a share from 0 to 1 of all the clips' own frames
+    /// laid end to end (on one clip, of its length). Defaults to 0.
     pub start: Option<f32>,
     /// Where it ends, 0 to 1 and after start. Defaults to 1.
     pub end: Option<f32>,
@@ -217,10 +218,12 @@ pub(super) struct UpdateRecipeArgs {
     pub blanks: Option<Vec<BlankArg>>,
     /// Every clip in order, the base first, each a library clip id or the
     /// index of a clip the recipe has (keep), with its trim and blend.
-    /// Replaces them whole; up to 8. Keys and time edits not sent with it
-    /// follow their kept clip to its new place; changes and time sent with
-    /// it count clips in the new order. Dropping or replacing a clip that
-    /// kept keys or time edits sit on is refused (clip-in-use).
+    /// Replaces them whole; up to 8. Keys, changes and time edits not sent
+    /// with it follow their kept clip to its new place (a change's start and
+    /// end move to cover the same motion); changes and time sent with it
+    /// count clips in the new order. Dropping or replacing a clip that kept
+    /// keys, changes or time edits sit on, or moving a clip away from the
+    /// clip a kept change runs across from, is refused (clip-in-use).
     pub clips: Option<Vec<ClipArg>>,
     /// Every time edit. Replaces them whole.
     pub time: Option<Vec<TimeArg>>,

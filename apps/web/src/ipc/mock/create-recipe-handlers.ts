@@ -9,7 +9,8 @@
  * recipes: one with a reach, a look and a wave on its first prop and a
  * point, and one whose base clip the library has with other keys and whose
  * torch prop is gone. The lantern recipe came from r1 of a library recipe
- * whose newest is r3 (see create-recipe-library-handlers.ts).
+ * whose newest is r3 (see create-recipe-library-handlers.ts). A third joins
+ * three clips with trims, a retime, a freeze and blends.
  */
 import type {
   AnimationClip,
@@ -36,7 +37,7 @@ import {
   restBase,
   versionOf,
 } from './recipe-files';
-import { followClips, v2Problem, withVersion } from './recipe-v2';
+import { checkSize, followClips, v2Problem, withVersion } from './recipe-v2';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 
@@ -93,7 +94,43 @@ function demoRecipes(
     look.layers = [layer('l-1', 'look-at', 'head', { start: 0.2, end: 0.8, target: 'torch' })];
     out.set('look-around', look);
   }
+  const joined = joinedRecipe(clips);
+  if (joined) out.set('slash-into-block', joined);
   return out;
+}
+
+/**
+ * Frostveil's demo of joined clips: a slash trimmed and sped up in the
+ * middle, blended into a block that freezes on its guard (the library has
+ * the block with other keys), then an idle, with a nudge laid over.
+ */
+function joinedRecipe(clips: readonly AnimationClip[]): RecipeFile | null {
+  const named = (name: string) => clips.find(c => c.name === name);
+  const [slash, block, idle] = [
+    named('Sword And Shield Slash'),
+    named('Sword And Shield Block'),
+    named('Sword And Shield Idle'),
+  ];
+  if (!slash || !block || !idle) return null;
+  const recipe = newRecipe('Slash into block', { ...baseOf(slash), trim: [4, 44] });
+  recipe.version = 2;
+  recipe.joined = [
+    {
+      ...baseOf(block),
+      hash: 'old',
+      trim: [2, 28],
+      blend: { frames: 6, curve: 'smooth', lineUp: 'hips-and-facing' },
+    },
+    { ...baseOf(idle), trim: [0, 40], blend: { frames: 8, curve: 'smooth', lineUp: 'hips' } },
+  ];
+  recipe.time = [
+    { kind: 'retime', clip: 0, from: 14, to: 26, speed: 1.6, ease: 2 },
+    { kind: 'freeze', clip: 1, at: 20, frames: 12, breathe: 0.4, easeIn: 3, easeOut: 3 },
+  ];
+  recipe.layers = [
+    layer('l-1', 'nudge', 'spine', { start: 0.3, end: 0.7, rotation: [8, 0, 0], weight: 0.8 }),
+  ];
+  return recipe;
 }
 
 export function createRecipeHandlers(ctx: RecipeContext) {
@@ -278,6 +315,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
     recipe_rename: ({ project, id, name }: Args) => {
       checkName(String(name));
       const recipe = { ...existing(project, id), name: String(name).trim() };
+      checkSize(recipe);
       recipes(project).set(String(id), recipe);
       return summary(String(project), String(id), recipe);
     },
@@ -331,6 +369,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       ].filter(Boolean)[0];
       if (first) fail('invalid', first);
       const recipe = { ...next, edited: clock.now().toISOString() };
+      checkSize(recipe);
       recipes(project).set(String(id), recipe);
       return doc(String(project), String(id), recipe);
     },

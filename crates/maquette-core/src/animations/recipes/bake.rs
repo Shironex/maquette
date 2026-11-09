@@ -42,6 +42,8 @@ pub use stale::{RECIPE_CHANGED, stale_of};
 
 /// The bake script.
 pub const BAKE_SCRIPT: &str = include_str!("../bake_recipe.py");
+/// The part of the bake that builds a recipe's motion from its clips.
+pub const MOTION_SCRIPT: &str = include_str!("../recipe_motion.py");
 /// The workspace cache folder recipe bakes are staged in, per project and
 /// recipe: `<cache>/recipes/<project>/<recipe>/`.
 pub const WORK_DIR: &str = crate::workspace::RECIPE_BAKES_DIR;
@@ -110,6 +112,15 @@ pub struct RecipeReachResult {
     pub flip_frame: Option<u32>,
 }
 
+/// A library clip a bake used, with the hash of its keys then.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeBakedClip {
+    pub clip: String,
+    pub name: String,
+    pub hash: String,
+}
+
 /// A finished bake: what it was baked from and what the review reads.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -130,6 +141,10 @@ pub struct RecipeBakeResult {
     pub base_hash: String,
     /// The hash the recipe holds for its base, when the library's differs.
     pub recipe_base_hash: Option<String>,
+    /// The library clips joined after the base, in order (clip 2 first),
+    /// each with the hash of its keys. Empty for a bake on one clip.
+    #[serde(default)]
+    pub joined_clips: Vec<RecipeBakedClip>,
     /// Counts as Mixamo's: left out of export packs, never saved to the
     /// clip library.
     pub mixamo: bool,
@@ -220,6 +235,10 @@ mod tests;
 mod tests_add;
 #[cfg(test)]
 mod tests_blender;
+#[cfg(test)]
+mod tests_blender_joined;
+#[cfg(test)]
+mod tests_joined;
 #[cfg(test)]
 mod tests_mark;
 #[cfg(test)]

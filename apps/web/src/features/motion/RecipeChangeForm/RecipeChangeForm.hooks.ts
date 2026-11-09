@@ -3,13 +3,14 @@ import { boneWords, bonesFor } from '@/state/recipe-bones';
 import { checkDraft } from '@/state/recipe-check';
 import { EDITABLE_KINDS, KIND_WORDS, withKind } from '@/state/recipe-draft';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 
 type Triple = [number, number, number];
 
 /** One change's settings, edited into the open recipe's draft. */
 export function useRecipeChangeForm(id: string) {
   const draft = useRecipeEditorStore(s => s.editing?.draft ?? null);
-  const frames = useRecipeEditorStore(s => s.editing?.doc.recipe.base.frames ?? 0);
+  const dt = useRecipeTimeline();
   const { edit, pick } = useRecipeEditorStore.getState();
   const layer = draft?.layers.find(l => l.id === id) ?? null;
   const problem = draft && layer ? (checkDraft(draft).layers[id] ?? null) : null;
@@ -20,7 +21,9 @@ export function useRecipeChangeForm(id: string) {
   const blanks = draft?.blanks ?? [];
   return {
     layer,
-    frames,
+    /** The bake's frames, and a change's shares on them through the base edits. */
+    frames: dt?.timeline.frames ?? 0,
+    convert: dt ? { toFrame: dt.toFrame, toShare: dt.toShare } : undefined,
     problem,
     kinds: EDITABLE_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
     bones: layer ? bonesFor(layer.kind).map(b => ({ value: b, label: boneWords(b) })) : [],

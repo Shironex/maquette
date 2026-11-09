@@ -37,7 +37,7 @@ fn reaching(s: &Setup, which: &str) -> Project {
     p
 }
 
-fn baked(s: &Setup, p: &Project) -> RecipeBakeRecord {
+pub(super) fn baked(s: &Setup, p: &Project) -> RecipeBakeRecord {
     let runner = Arc::new(PipelineRunner::new(Arc::new(NullSink)));
     let bakes = RecipeBakes::new(runner, |_: &RecipeBakeRecord| {});
     bakes

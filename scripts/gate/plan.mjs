@@ -32,6 +32,10 @@ const WHOLE_GATE = [
   'crates/maquette-model/src/plans/overlap/cases.json',
   // Vitest (features/viewer/recipe-layout.test.ts) composes these placements as the core does.
   'crates/maquette-model/src/layout/placement_cases.json',
+  // Vitest (state/recipe-timeline.test.ts) plays these timeline cases as the core does.
+  'crates/maquette-model/src/recipes/fixtures/timeline.json',
+  // Vitest (state/recipe-shares.test.ts) moves these change spans as the core does.
+  'crates/maquette-model/src/recipes/fixtures/clip_moves.json',
   // The site's copy and docs read the app's version; so do the release scripts.
   'apps/desktop/src-tauri/tauri.conf.json',
   // Written by the Rust tests; the script tests, the meta lint and Vitest

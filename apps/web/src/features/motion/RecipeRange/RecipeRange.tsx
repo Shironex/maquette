@@ -3,8 +3,13 @@ import { NumberField } from '@maquette/ui';
 import { frameOf, shareOf } from '@/state/recipe-draft';
 
 export interface RecipeRangeProps {
-  /** The base clip's frame count. */
+  /** The bake's frame count. */
   frames: number;
+  /**
+   * A share to its bake frame and back, through the recipe's base edits;
+   * plain shares of `frames` when left out.
+   */
+  convert?: { toFrame: (share: number) => number; toShare: (frame: number) => number };
   /** Shares of the clip, 0 to 1. */
   start: number;
   end: number;
@@ -24,12 +29,15 @@ const KEY_STEP: Record<string, number> = {
  * the part it covers, handles to drag or move with the arrow keys a frame at
  * a time, and the frames typed. The end always stays after the start.
  */
-export default function RecipeRange({ frames, start, end, onChange }: RecipeRangeProps) {
-  const from = frameOf(start, frames);
-  const to = frameOf(end, frames);
+export default function RecipeRange({ frames, convert, start, end, onChange }: RecipeRangeProps) {
+  const toFrame = convert?.toFrame ?? ((share: number) => frameOf(share, frames));
+  const toShare = convert?.toShare ?? ((frame: number) => shareOf(frame, frames));
+  const from = toFrame(start);
+  const to = toFrame(end);
+  const along = (frame: number) => (frames > 0 ? frame / frames : 0);
   const set = (which: 'start' | 'end', frame: number) => {
-    if (which === 'start') onChange(shareOf(Math.min(Math.max(frame, 0), to - 1), frames), end);
-    else onChange(start, shareOf(Math.max(Math.min(frame, frames), from + 1), frames));
+    if (which === 'start') onChange(toShare(Math.min(Math.max(frame, 0), to - 1)), end);
+    else onChange(start, toShare(Math.max(Math.min(frame, frames), from + 1)));
   };
   const drag = (which: 'start' | 'end') => (e: PointerEvent<HTMLButtonElement>) => {
     const lane = e.currentTarget.parentElement;
@@ -56,7 +64,7 @@ export default function RecipeRange({ frames, start, end, onChange }: RecipeRang
       onPointerMove={drag(which)}
       onKeyDown={key(which)}
       className="absolute top-0 h-5 w-2 -translate-x-1/2 cursor-ew-resize rounded-[3px] bg-fg focus-visible:outline-2 focus-visible:outline-focus"
-      style={{ left: pct(which === 'start' ? start : end) }}
+      style={{ left: pct(along(which === 'start' ? from : to)) }}
     />
   ));
   return (
@@ -65,7 +73,7 @@ export default function RecipeRange({ frames, start, end, onChange }: RecipeRang
         <span className="absolute inset-x-0 top-2 h-1 rounded-pill bg-line" />
         <span
           className="absolute top-1.5 h-2 rounded-pill bg-clay"
-          style={{ left: pct(start), width: pct(end - start) }}
+          style={{ left: pct(along(from)), width: pct(along(to - from)) }}
         />
         {handles}
       </div>

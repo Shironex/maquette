@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RecipeBase, RecipeFile, RecipeLayer } from '../client';
 import { layer, motionVersionOf, newRecipe } from './recipe-files';
-import { followClips, usesV2, v2Problem, V2_LIMITS, withVersion } from './recipe-v2';
+import { checkSize, followClips, usesV2, v2Problem, V2_LIMITS, withVersion } from './recipe-v2';
 
 const clip = (name: string, frames = 60): RecipeBase => ({
   name,
@@ -97,5 +97,42 @@ describe('the mock recipe file version 2', () => {
     );
     const sent = followClips(recipe, [a, c], [0, 2], true, true);
     expect(sent.layers).toBe(recipe.layers);
+  });
+
+  it('keeps a change on the frames it covered as the core does, and refuses stranding it', () => {
+    // A reach over 0.5 to 0.8 of one 60 frame clip: its frames 30 to 48.
+    const reach = layer('l-1', 'nudge', 'rightHand', { start: 0.5, end: 0.8, rotation: [0, 0, 9] });
+    const one = withVersion({ ...newRecipe('Reach', clip('Idle')), layers: [reach] });
+    const joined = followClips(one, [clip('Idle'), clip('Wave')], [0, null], false, false);
+    expect(joined.layers[0]?.settings).toMatchObject({ start: 0.25, end: 0.4 });
+    const two = withVersion({ ...one, joined: [clip('Wave')], layers: joined.layers });
+    const front = followClips(two, [clip('Wave'), clip('Idle')], [1, 0], false, false);
+    expect(front.layers[0]?.settings).toMatchObject({ start: 0.75, end: 0.9 });
+    expect(() => followClips(two, [clip('Wave')], [1], false, false)).toThrow(
+      /Taking out clip 1 \(Idle\) would leave the change l-1 on no clip/
+    );
+    const across = withVersion({
+      ...two,
+      layers: [{ ...reach, settings: { ...reach.settings, start: 0.4, end: 0.6 } }],
+    });
+    expect(() => followClips(across, [clip('Wave'), clip('Idle')], [1, 0], false, false)).toThrow(
+      /Taking out clip 2 \(Wave\) away from clip 1 would put other motion under the change l-1/
+    );
+  });
+});
+
+describe('the mock recipe write checks', () => {
+  it('refuses a kept index that names another clip than the one sent', () => {
+    const r = onThree();
+    const [a, b, c] = [r.base, ...(r.joined ?? [])] as RecipeBase[];
+    expect(() => followClips(r, [a, c, b] as RecipeBase[], [0, 1, 2], false, false)).toThrow(
+      /keeps clip 2/
+    );
+  });
+
+  it('refuses a recipe too big to open again, as the core does', () => {
+    const big = { ...newRecipe('Big', clip('A')), name: 'x'.repeat(300 * 1024) };
+    expect(() => checkSize(big)).toThrow(/too big to save/);
+    expect(() => checkSize(onThree())).not.toThrow();
   });
 });

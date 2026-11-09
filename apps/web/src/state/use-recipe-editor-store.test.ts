@@ -405,4 +405,66 @@ describe('the recipe editor store', () => {
     expect(update).not.toHaveBeenCalled();
     useMotionStore.setState(useMotionStore.getInitialState(), true);
   });
+
+  it('sends only what it sent before for a plain recipe, with nothing of version 2', async () => {
+    editLayers(weigh('l-1', 0.5));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    await store().save();
+    expect(Object.keys(update.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      'blanks',
+      'clear',
+      'expected',
+      'layers',
+      'name',
+    ]);
+  });
+
+  it('sends the clips with which clip each keeps, the time edits and the mirror when changed', async () => {
+    await store().open('frostveil', 'slash-into-block');
+    store().edit(d => ({
+      ...d,
+      clips: [d.clips[0]!, d.clips[2]!, d.clips[1]!],
+      kept: [0, 2, 1],
+      time: d.time.map(t => (t.clip === 1 ? { ...t, clip: 2 } : t)),
+      // The nudge runs across the block into the idle, which a swap would part.
+      layers: [],
+    }));
+    const update = vi.spyOn(commands, 'recipeUpdate');
+    expect(await store().save()).toBe(true);
+    const sent = update.mock.calls[0]?.[2];
+    expect(sent?.kept).toEqual([0, 2, 1]);
+    expect(sent?.clips?.map(c => c.name)).toEqual([
+      'Sword And Shield Slash',
+      'Sword And Shield Idle',
+      'Sword And Shield Block',
+    ]);
+    expect(sent?.time).toBeDefined();
+    expect(sent).not.toHaveProperty('mirror');
+    expect(store().editing?.doc.recipe.time?.find(t => t.kind === 'freeze')?.clip).toBe(2);
+    store().edit(d => ({ ...d, mirror: true }));
+    await store().save();
+    expect(update.mock.calls[1]?.[2]).toMatchObject({ mirror: true });
+    expect(update.mock.calls[1]?.[2]).not.toHaveProperty('clips');
+  });
+
+  it("takes an agent's new clip under unsaved changes of the mirror", async () => {
+    await store().open('frostveil', 'slash-into-block');
+    store().edit(d => ({ ...d, mirror: true }));
+    const doc = await commands.recipeGet('frostveil', 'slash-into-block');
+    const clips = [doc.recipe.base, ...(doc.recipe.joined ?? []), doc.recipe.base];
+    await commands.recipeUpdate('frostveil', 'slash-into-block', {
+      name: null,
+      layers: null,
+      blanks: null,
+      clips,
+      kept: [0, 1, 2, null],
+      expected: doc.version,
+    });
+    await store().onChanged('frostveil');
+    expect(store().merged).toBe(MERGED_OUTSIDE);
+    expect(store().editing?.draft.clips).toHaveLength(4);
+    expect(store().editing?.draft.kept).toEqual([0, 1, 2, 3]);
+    expect(await store().save()).toBe(true);
+    expect((await commands.recipeGet('frostveil', 'slash-into-block')).recipe.mirror).toBe(true);
+  });
 });

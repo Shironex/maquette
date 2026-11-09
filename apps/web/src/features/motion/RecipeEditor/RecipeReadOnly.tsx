@@ -43,10 +43,13 @@ function Section({ label, lines }: { label: string; lines: string[] }) {
   );
 }
 
+/** Why Apply waits on a recipe holding pins, pose keys or grips. */
+export const NOT_BAKEABLE = 'This Maquette cannot bake pins, pose keys or grips yet';
+
 /**
- * A recipe of file version 2 (joined clips, trims, mirror, time edits,
- * pins, pose keys or grips), shown read only until the editor and the bake
- * learn those: what it holds, with no Save and no Apply.
+ * A recipe holding pins, pose keys or grips, shown read only until the
+ * editor and the bake learn those: what it holds, with no Save and Apply
+ * off with its reason.
  */
 export default function RecipeReadOnly({
   doc,
@@ -79,12 +82,15 @@ export default function RecipeReadOnly({
             {counted(clips.length, 'clip')} · {doc.file} · read only
           </p>
         </div>
+        <Button size="sm" variant="primary" icon="play" disabled disabledReason={NOT_BAKEABLE}>
+          Apply
+        </Button>
       </div>
       {pending}
       <InlineBanner
         tone="info"
         title="This recipe uses what this Maquette cannot edit or bake yet"
-        detail="It joins clips, trims, mirrors or times them, or holds pins, pose keys or grips. It shows here as it is; an agent can still change it, and a later Maquette edits and bakes it."
+        detail="It holds pins, pose keys or grips. It shows here as it is; an agent can still change it, and a later Maquette edits and bakes it."
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-card border border-line bg-raised p-3">
         <Section label="Clips" lines={clips.map(clipLine)} />

@@ -64,6 +64,7 @@ mod edits;
 mod files;
 mod keys;
 mod normal;
+pub mod timeline;
 
 pub use change::{RecipeChange, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
@@ -94,6 +95,11 @@ pub const MAX_LAYERS: usize = 32;
 pub const MAX_BLANKS: usize = 16;
 /// The longest base clip a recipe takes, in frames.
 pub const MAX_FRAMES: u32 = 100_000;
+/// The longest a whole recipe runs once its clips are joined and its time
+/// edits played, in frames: no longer than the longest clip it takes, so a
+/// file of eight long clips, slow retimes and long freezes cannot make a
+/// timeline too big to preview or bake.
+pub const MAX_TIMELINE_FRAMES: u32 = MAX_FRAMES;
 /// How far a nudge may move a bone, in metres along each axis.
 pub const MAX_OFFSET_METRES: f32 = 2.0;
 /// How far from the origin a point blank may sit, in metres.
@@ -611,3 +617,9 @@ mod tests_v2_motion;
 
 #[cfg(test)]
 mod tests_v2_size;
+
+#[cfg(test)]
+mod tests_timeline;
+
+#[cfg(test)]
+mod tests_clip_shares;

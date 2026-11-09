@@ -6942,6 +6942,11 @@ export type RecipeBakeResult = {
 	/**  The hash the recipe holds for its base, when the library's differs. */
 	recipeBaseHash: string | null,
 	/**
+	 *  The library clips joined after the base, in order (clip 2 first),
+	 *  each with the hash of its keys. Empty for a bake on one clip.
+	 */
+	joinedClips?: RecipeBakedClip[],
+	/**
 	 *  Counts as Mixamo's: left out of export packs, never saved to the
 	 *  clip library.
 	 */
@@ -7024,6 +7029,13 @@ export type RecipeBakeUse = {
 	mixamo: boolean,
 	/**  The asset version it came in as. */
 	version: number,
+};
+
+/**  A library clip a bake used, with the hash of its keys then. */
+export type RecipeBakedClip = {
+	clip: string,
+	name: string,
+	hash: string,
 };
 
 /**
@@ -7160,10 +7172,12 @@ export type RecipeChange_Deserialize = {
 	blanks: RecipeBlank[] | null,
 	/**
 	 *  Every clip in order, the base first, each with its trim and (after
-	 *  the first) its blend window. The keys and time edits the recipe
-	 *  keeps (the lists not sent with it) follow their clip to its new
-	 *  place; taking away a clip one of them sits on is refused. Lists sent
-	 *  with it count clips in the new order.
+	 *  the first) its blend window. The keys, changes and time edits the
+	 *  recipe keeps (the lists not sent with it) follow their clip to its
+	 *  new place, a change's start and end moved to cover the same motion;
+	 *  taking away a clip one of them sits on, or splitting the clips a
+	 *  change runs across, is refused. Lists sent with it count clips, and
+	 *  read shares, in the new order.
 	 */
 	clips?: RecipeBase_Deserialize[] | null,
 	/**
@@ -7202,10 +7216,12 @@ export type RecipeChange_Serialize = {
 	blanks: RecipeBlank[] | null,
 	/**
 	 *  Every clip in order, the base first, each with its trim and (after
-	 *  the first) its blend window. The keys and time edits the recipe
-	 *  keeps (the lists not sent with it) follow their clip to its new
-	 *  place; taking away a clip one of them sits on is refused. Lists sent
-	 *  with it count clips in the new order.
+	 *  the first) its blend window. The keys, changes and time edits the
+	 *  recipe keeps (the lists not sent with it) follow their clip to its
+	 *  new place, a change's start and end moved to cover the same motion;
+	 *  taking away a clip one of them sits on, or splitting the clips a
+	 *  change runs across, is refused. Lists sent with it count clips, and
+	 *  read shares, in the new order.
 	 */
 	clips?: RecipeBase_Serialize[] | null,
 	/**

@@ -173,6 +173,10 @@ describe('the quit dialog', () => {
         draft: {
           layers: [],
           blanks: [{ id: 'b', label: 'b', kind: 'point', prop: null, point: null }],
+          clips: [],
+          kept: [],
+          time: [],
+          mirror: false,
         },
         cleared: [],
         assets: [],

@@ -25,7 +25,7 @@ pub(crate) const CLIP_IN_USE: &str = "clip-in-use";
 
 /// `err` as the view and agents get it, a recipe too big to write or clips
 /// that strand keys or time edits under their own codes.
-fn coded(err: CoreError) -> ErrorPayload {
+pub(crate) fn coded(err: CoreError) -> ErrorPayload {
     let mut payload = err.payload();
     if let CoreError::Invalid(message) = &err {
         if message.starts_with(recipes::TOO_BIG) {
@@ -155,7 +155,7 @@ pub fn recipe_rename(
     name: String,
 ) -> CommandResult<RecipeSummary> {
     let (root, dir, _) = opened(&session, &project)?;
-    Ok(library_recipes::rename(&root, &dir, &id, &name)?)
+    library_recipes::rename(&root, &dir, &id, &name).map_err(coded)
 }
 
 /// Replaces a recipe's name, changes, blanks or any of them in one write,

@@ -31,7 +31,7 @@ export default function RecipeChanges() {
           <Icon name={KIND_ICON[layer.kind]} size={16} className="flex-none text-fg-dim" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium">
-              {layerLine(layer, c.frames)}
+              {layerLine(layer, c.toFrame)}
             </span>
             {problem && !open ? (
               <span className="block truncate text-meta text-danger">{problem}</span>

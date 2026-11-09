@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { RecipeLayer } from '@/ipc/client';
@@ -12,7 +12,9 @@ import {
   type RecipeMarker,
   type RecipeRig,
 } from '../recipe-pose';
+import { joinComposer } from '../recipe-join';
 import { roughRetarget, type RoughPair } from '../rough-retarget';
+import { frameOfShare, type Timeline } from '@/state/recipe-timeline';
 import type { LoadedMotion } from '../MotionStage/Scene/Scene.types';
 
 /** The model lined up to follow the clip (or in its rest pose), and what poses it at a share of the clip. */
@@ -20,8 +22,20 @@ export interface RecipeSetup {
   rig: RecipeRig;
   /** Puts the clip's pose at `share` back on the model, with no change laid over. */
   frameAt: (share: number) => void;
+  /**
+   * Joined clips only: poses the bake at `playhead` (a share of its
+   * frames), with no change laid over, and answers where the changes stand there.
+   */
+  playAt?: (playhead: number) => number;
   /** Stops the clip's mixer and puts the model and skeleton back as they came. */
   stop: () => void;
+}
+
+/** A recipe of joined clips: each clip's skeleton, its rate and the timeline they play. */
+export interface JoinedPlay {
+  skeletons: readonly LoadedMotion[];
+  fps: readonly number[];
+  timeline: Timeline;
 }
 
 const rotationOf = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());
@@ -56,7 +70,7 @@ function unposed(root: THREE.Object3D) {
 }
 
 /** No clip to follow: the model holds its rest pose, as the bake does. */
-const REST_POSE = { frameAt: () => undefined, stop: () => undefined };
+const REST_POSE = { frameAt: () => undefined, timeAt: () => undefined, stop: () => undefined };
 
 /** The base clip of `skeleton` played on `model` through the bone pairs, or null. */
 function following(model: LoadedMotion, skeleton: LoadedMotion, pairs: readonly RoughPair[]) {
@@ -67,6 +81,7 @@ function following(model: LoadedMotion, skeleton: LoadedMotion, pairs: readonly 
   if (!pose) return null;
   return {
     frameAt: (share: number) => pose(share * clip.duration),
+    timeAt: (time: number) => pose(Math.min(Math.max(time, 0), clip.duration)),
     stop: () => {
       pose.stop();
       unposed(skeleton.scene);
@@ -77,8 +92,16 @@ function following(model: LoadedMotion, skeleton: LoadedMotion, pairs: readonly 
 function setUp(
   model: LoadedMotion,
   skeleton: LoadedMotion | 'rest',
-  pairs: readonly RoughPair[]
+  pairs: readonly RoughPair[],
+  joined: JoinedPlay | null = null
 ): RecipeSetup | null {
+  // Each joined clip's own retarget, made before the base's so the base's lined up rest stays.
+  const others = new Map<LoadedMotion, ReturnType<typeof following>>();
+  for (const other of joined?.skeletons ?? []) {
+    if (other === skeleton || others.has(other)) continue;
+    unposed(model.scene);
+    others.set(other, following(model, other, pairs));
+  }
   // A model or clip set up before (another clip, the same model) starts again as it came.
   unposed(model.scene);
   const bone = (vrm: string) => {
@@ -110,19 +133,69 @@ function setUp(
     forward,
     facing: b => facings.get(b) ?? new THREE.Vector3(0, 0, 1),
   };
+  const atRest = () => {
+    put(rest);
+    model.scene.updateWorldMatrix(true, true);
+  };
+  const stop = () => {
+    base.stop();
+    for (const other of others.values()) other?.stop();
+    unposed(model.scene);
+  };
+  if (!joined) {
+    return {
+      rig,
+      frameAt: share => {
+        atRest();
+        base.frameAt(share);
+      },
+      stop,
+    };
+  }
+  const posers = joined.skeletons.map(k => (k === skeleton ? base : others.get(k)));
+  const bones = pairs.flatMap(p => {
+    const b = p.target ? named(model.scene, p.target) : undefined;
+    return b ? [b] : [];
+  });
+  const byName = new Map(pairs.flatMap(p => (p.target ? [[p.bone, p.target] as const] : [])));
+  const { poseFrame } = joinComposer(
+    {
+      bones,
+      hips: bone('hips') ?? null,
+      partner: b => {
+        const pair = pairs.find(p => p.target && named(model.scene, p.target) === b);
+        const other = pair ? byName.get(otherSideOf(pair.bone)) : undefined;
+        return (other ? named(model.scene, other) : undefined) ?? b;
+      },
+      chest: bone('chest') ?? null,
+      spine: bone('spine') ?? null,
+      forward,
+      origin: model.scene.position.clone(),
+      rest: atRest,
+      put: (clip, at) => posers[clip]?.timeAt(at / (joined.fps[clip] || 30)),
+    },
+    joined.timeline
+  );
   return {
     rig,
     frameAt: share => {
-      put(rest);
-      model.scene.updateWorldMatrix(true, true);
-      base.frameAt(share);
+      poseFrame(frameOfShare(joined.timeline, share));
     },
-    stop: () => {
-      base.stop();
-      unposed(model.scene);
-    },
+    playAt: playhead => poseFrame(playhead * joined.timeline.frames),
+    stop,
   };
 }
+
+const named = (root: THREE.Object3D, name: string) =>
+  root.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(name));
+
+/** A humanoid (Mixamo) bone name's partner on the other side: LeftArm and RightArm. */
+const otherSideOf = (name: string) =>
+  name.startsWith('Left')
+    ? `Right${name.slice(4)}`
+    : name.startsWith('Right')
+      ? `Left${name.slice(5)}`
+      : name;
 
 /**
  * Lines `model` up with the clip of `skeleton` through the bone pairs, or
@@ -131,14 +204,15 @@ function setUp(
 export function useRecipeSetup(
   model: LoadedMotion | null,
   skeleton: LoadedMotion | 'rest' | null,
-  pairs: readonly RoughPair[]
+  pairs: readonly RoughPair[],
+  joined: JoinedPlay | null = null
 ): RecipeSetup | null {
   const [setup, setSetup] = useState<RecipeSetup | null>(null);
   useEffect(() => {
-    const next = model && skeleton ? setUp(model, skeleton, pairs) : null;
+    const next = model && skeleton ? setUp(model, skeleton, pairs, joined) : null;
     setSetup(next);
     return () => next?.stop();
-  }, [model, skeleton, pairs]);
+  }, [model, skeleton, pairs, joined]);
   return setup;
 }
 
@@ -191,7 +265,39 @@ export function useRecipeFrame(
   useFrame((_, delta) => {
     if (!setup) return;
     if (play.playing) play.onTick(delta);
-    setup.frameAt(play.share);
-    poseRecipe(setup.rig, layers, targets, play.share);
+    let share = play.share;
+    if (setup.playAt) share = setup.playAt(play.share);
+    else setup.frameAt(play.share);
+    poseRecipe(setup.rig, layers, targets, share);
   });
+}
+
+/**
+ * The other clips' skeletons of a joined recipe: which files still load
+ * (`extra`, each once), what to call as each comes in, and once every one
+ * is in, what the setup plays.
+ */
+export function useJoinedSkeletons(
+  clipUrl: string | null,
+  skeleton: LoadedMotion | null,
+  joined: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null
+) {
+  const [loaded, setLoaded] = useState<Readonly<Record<string, LoadedMotion>>>({});
+  const urls = joined?.urls;
+  const extra = useMemo(() => [...new Set(urls ?? [])].filter(u => u !== clipUrl), [urls, clipUrl]);
+  const onLoad = useCallback((url: string, next: LoadedMotion | null) => {
+    setLoaded(was => {
+      const out = { ...was };
+      if (next) out[url] = next;
+      else delete out[url];
+      return out;
+    });
+  }, []);
+  const play = useMemo<JoinedPlay | null>(() => {
+    if (!joined || !skeleton) return null;
+    const skeletons = joined.urls.map(u => (u === clipUrl ? skeleton : loaded[u]));
+    if (!skeletons.every(Boolean)) return null;
+    return { skeletons: skeletons as LoadedMotion[], fps: joined.fps, timeline: joined.timeline };
+  }, [joined, skeleton, loaded, clipUrl]);
+  return { extra, onLoad, play };
 }

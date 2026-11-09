@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RecipeBlank } from '@/ipc/client';
+import { addClip } from './recipe-clips';
 import { newLayer, type RecipeDraft } from './recipe-draft';
 import { mergeDrafts } from './recipe-merge';
 
@@ -12,7 +13,8 @@ const blank = (id: string, prop: string | null = null): RecipeBlank => ({
 });
 const reach = { ...newLayer('reach', [], [blank('lantern')]), id: 'l-1' };
 const wave = { ...newLayer('wave', [reach], []), id: 'l-2' };
-const base: RecipeDraft = { layers: [reach, wave], blanks: [blank('lantern')] };
+const noBase = { clips: [], kept: [], time: [], mirror: false };
+const base: RecipeDraft = { layers: [reach, wave], blanks: [blank('lantern')], ...noBase };
 
 describe('merging an outside change', () => {
   it('takes what only one side touched, from either side', () => {
@@ -21,6 +23,7 @@ describe('merging an outside change', () => {
       layers: [{ ...reach, settings: { ...reach.settings, weight: 0.5 } }, wave],
     };
     const theirs: RecipeDraft = {
+      ...noBase,
       layers: [reach],
       blanks: [blank('lantern', 'lantern-post'), blank('shelf')],
     };
@@ -54,9 +57,10 @@ describe('merging an outside change', () => {
   it('keeps an id both sides added with different entries as two additions, never a clash', () => {
     const torch = { ...blank('prop-k3x9q', 'torch'), label: 'Mine' };
     const mineAim = { ...reach, id: 'l-k3x9q', settings: { ...reach.settings, target: torch.id } };
-    const mine = { layers: [...base.layers, mineAim], blanks: [...base.blanks, torch] };
+    const mine = { ...noBase, layers: [...base.layers, mineAim], blanks: [...base.blanks, torch] };
     const theirsAim = { ...wave, id: 'l-k3x9q' };
     const theirs = {
+      ...noBase,
       layers: [...base.layers, theirsAim],
       blanks: [...base.blanks, { ...torch, label: 'Theirs', prop: 'barrel' }],
     };
@@ -85,5 +89,128 @@ describe('merging an outside change', () => {
     const merged = mergeDrafts(base, both, both);
     expect(merged.clashes).toEqual([]);
     expect(merged.mine.blanks.map(b => b.id)).toEqual(['lantern', 'prop-k3x9q']);
+  });
+
+  it('merges the clips and the mirror field by field, clips and time edits as one', () => {
+    const a = { name: 'A', frames: 30, length: 1, hash: 'a', mixamo: false };
+    const b = { ...a, name: 'B', hash: 'b', blend: { frames: 8 } };
+    const clipped = { ...base, layers: [], clips: [a, b], kept: [0, 1] };
+    const mine = { ...clipped, mirror: true };
+    const theirs = { ...clipped, time: [{ kind: 'freeze' as const, clip: 1, at: 4, frames: 3 }] };
+    const merged = mergeDrafts(clipped, mine, theirs);
+    expect(merged.clashes).toEqual([]);
+    expect(merged.mine).toMatchObject({ mirror: true, time: theirs.time });
+    const moved = { ...clipped, clips: [b, a], kept: [1, 0] };
+    const clash = mergeDrafts(clipped, moved, theirs);
+    expect(clash.clashes).toEqual(['the clips and time edits']);
+    expect(clash.mine.clips.map(c => c.name)).toEqual(['B', 'A']);
+    expect(clash.theirs.time).toEqual(theirs.time);
+  });
+});
+
+describe('merging changes read on other clips', () => {
+  const clip = (name: string, frames = 60) => ({
+    name,
+    frames,
+    length: 2,
+    hash: name,
+    mixamo: false,
+  });
+  const span = (id: string, start: number, end: number) => ({
+    ...wave,
+    id,
+    settings: { ...wave.settings, start, end },
+  });
+  // One 60 frame clip with a change over its frames 30 to 48.
+  const one: RecipeDraft = {
+    ...noBase,
+    layers: [span('l-1', 0.5, 0.8)],
+    blanks: [],
+    clips: [clip('Idle')],
+    kept: [0],
+  };
+  const shares = (d: RecipeDraft) => d.layers.map(l => [l.id, l.settings.start, l.settings.end]);
+
+  it("moves theirs' edit onto the clip mine joined", () => {
+    const mine = addClip(one, clip('Wave'));
+    const theirs = {
+      ...one,
+      layers: [
+        { ...span('l-1', 0.5, 0.8), settings: { ...span('l-1', 0.5, 0.8).settings, weight: 0.3 } },
+      ],
+    };
+    const merged = mergeDrafts(one, mine, theirs);
+    expect(merged.clashes).toEqual([]);
+    expect(merged.mine.layers[0]?.settings).toMatchObject({ start: 0.25, end: 0.4, weight: 0.3 });
+  });
+
+  it('moves a change mine added onto the clip theirs joined in front', () => {
+    const mine = { ...one, layers: [...one.layers, span('l-k3x9q', 0.1, 0.2)] };
+    // The core moved theirs' l-1 when it joined Wave before Idle.
+    const theirs = {
+      ...one,
+      clips: [clip('Wave'), { ...clip('Idle'), blend: { frames: 8 } }],
+      kept: [0, 1],
+      layers: [span('l-1', 0.75, 0.9)],
+    };
+    const merged = mergeDrafts(one, mine, theirs);
+    expect(merged.clashes).toEqual([]);
+    expect(shares(merged.mine)).toEqual([
+      ['l-1', 0.75, 0.9],
+      ['l-k3x9q', 0.55, 0.6],
+    ]);
+  });
+
+  it("keeps mine's new change and mine's clips under Keep mine when theirs took its clip out", () => {
+    const two = {
+      ...one,
+      layers: [],
+      clips: [clip('Idle'), { ...clip('Wave'), blend: { frames: 8 } }],
+      kept: [0, 1],
+    };
+    const mine = { ...two, layers: [span('l-mine', 0.6, 0.7)] };
+    const theirs = { ...two, clips: [clip('Idle')], kept: [0] };
+    const merged = mergeDrafts(two, mine, theirs);
+    expect(merged.clashes).toEqual(['change l-mine', 'the clips and time edits']);
+    expect(merged.mine.clips.map(c => c.name)).toEqual(['Idle', 'Wave']);
+    expect(shares(merged.mine)).toEqual([['l-mine', 0.6, 0.7]]);
+    expect(merged.theirs.clips.map(c => c.name)).toEqual(['Idle']);
+    expect(merged.theirs.layers).toEqual([]);
+  });
+
+  it("keeps mine's edit of a change theirs deleted with its clip under Keep mine", () => {
+    const x = span('l-x', 0.6, 0.7);
+    const two = {
+      ...one,
+      layers: [x],
+      clips: [clip('Idle'), { ...clip('Wave'), blend: { frames: 8 } }],
+      kept: [0, 1],
+    };
+    const edited = { ...x, settings: { ...x.settings, weight: 0.3 } };
+    const mine = { ...two, layers: [edited] };
+    const theirs = { ...two, clips: [clip('Idle')], kept: [0], layers: [] };
+    const merged = mergeDrafts(two, mine, theirs);
+    expect(merged.clashes).toContain('change l-x');
+    expect(merged.clashes).toContain('the clips and time edits');
+    expect(merged.mine.clips).toHaveLength(2);
+    expect(merged.mine.layers).toEqual([edited]);
+    expect(merged.theirs.layers).toEqual([]);
+    expect(merged.theirs.clips).toHaveLength(1);
+  });
+
+  it('calls a change on a clip mine took out a clash, with the clips', () => {
+    const two = {
+      ...one,
+      layers: [],
+      clips: [clip('Idle'), { ...clip('Wave'), blend: { frames: 8 } }],
+      kept: [0, 1],
+    };
+    const mine = { ...two, clips: [clip('Idle')], kept: [0] };
+    const theirs = { ...two, layers: [span('l-2', 0.6, 0.7)] };
+    const merged = mergeDrafts(two, mine, theirs);
+    expect(merged.clashes).toEqual(['change l-2', 'the clips and time edits']);
+    expect(merged.mine.layers).toEqual([]);
+    expect(merged.theirs.clips).toHaveLength(2);
+    expect(shares(merged.theirs)).toEqual([['l-2', 0.6, 0.7]]);
   });
 });

@@ -601,13 +601,14 @@ A recipe is a base clip from the library with changes laid over it, baked later 
 model's next version. The file is model data (`maquette_model::recipes`, re-exported as
 `maquette_core::recipes`): one JSON file per recipe at `<project>/recipes/<id>.recipe.json`, the id
 made from the name and fixed for its life (Rename only changes `name`, Remove moves the file into
-the project's trash). It holds `version` (1; a newer one is refused), `name`, `revision` (1, moved
-only by a later save back to a library of recipes), `created`, `edited`, `base` (the clip's name,
-frames, length, hash and `mixamo`), `blanks` (targets filled per project: a `prop` asset id or a
-`point`) and `layers` (`reach`, `nudge`, `look-at` or `wave`, each on a VRM humanoid bone name with
-its settings). It never holds keys, frames, a mesh, a skeleton or a render, so it can be shared.
-Reading normalises it (trimmed text, each change keeping only the settings its kind reads) and
-checks it whole; a file over 256 KB is refused unread, like a canvas over its cap.
+the project's trash). It holds `version`, `name`, `revision` (1, moved only by a later save back
+to a library of recipes), `created`, `edited`, `base` (the clip's name, frames, length, hash and
+`mixamo`), `blanks` (targets filled per project: a `prop` asset id or a `point`) and `layers`
+(`reach`, `nudge`, `look-at` or `wave`, each on a VRM humanoid bone name with its settings). It
+never holds keys, frames, a mesh, a skeleton or a render, so it can be shared. Reading normalises
+it (trimmed text, each change keeping only the settings its kind reads) and checks it whole; a file
+over 256 KB is refused unread, like a canvas over its cap, and a write that would make one is
+refused (`recipe-too-big`).
 `animations::recipes` (library layer) makes a recipe from a clip and matches a recipe's base
 against the library by name and frame count: `found`, `hash-differs` (a warning, not a refusal)
 or `missing`. A bake counts as Mixamo's when the recipe says so or its matched clip came from a
@@ -615,6 +616,32 @@ Mixamo rig. The Motion view's Recipes tab lists them, and New recipe opens the b
 (`features/animations/RecipeClipPicker`, mounted by the shell with the other animation sheets).
 Agents use `list_recipes`, `get_recipe`, `create_recipe` and `update_recipe` in the animation
 group; each write ends in `Host::recipe_changed`, which emits `RecipeChanged`.
+
+Version 2 adds `joined` clips after the base (each with a `blend` window and its line up), a `trim`
+on any clip, `mirror`, `time` edits (retime, freeze, hold over) on a clip's own frames, and the pin,
+pose key and grip changes. Each is written only when used: a save writes version 1 while a recipe
+uses none of it, so an older Maquette still opens it, and version 2 once it does; a version past 2
+is refused. Pins, pose keys and grips do not bake yet (`not-bakeable-yet`). Keys and time edits sit
+on a clip by its index and its own frame. A change's `start` and `end` are shares of all the clips'
+own frames laid end to end (on one clip, of its length), so a trim, retime or freeze leaves it on
+the motion it covered; `recipes/clip_moves.rs` moves every share, key and time edit with its clip
+when clips are joined, moved or taken out, and refuses (`clip-in-use`) taking out a clip one sits
+on or parting the clips a change runs across. `recipes/timeline.rs` is the one source of frame
+math: which frame of which clip each frame of the bake shows (trims and time edits on each clip,
+then the clips joined across their windows), the seams and what each lines up, and where each share
+stands. A recipe whose whole timeline runs over `MAX_TIMELINE_FRAMES` is refused by the checks,
+counted without building it. The web app keeps step for step copies in `state/recipe-timeline.ts`
+and `state/recipe-shares.ts`; `recipes/fixtures/timeline.json` and `fixtures/clip_moves.json` hold
+the cases both must agree on.
+
+`animations::recipes::bake` bakes a recipe onto a rigged model in one headless run of
+`bake_recipe.py`, staged under the workspace cache and added as the model's next version only after
+a review. A recipe that plays its one clip whole goes onto the model through the retarget, as Use
+on model does. Any other carries its timeline in the job: each clip is retargeted whole as an
+action of its own, and `recipe_motion.py` builds the new clip frame by frame from them (each clip's
+pose at its frame, holds turned toward their frame, a joined clip lined up with the clip before at
+its seam, blend windows, then mirror) before the changes are laid over it at the frames their
+shares stand on.
 
 A write that leaves the blanks out keeps them as stored, and a prop blank sent open whose stored prop
 is no longer an asset keeps that prop: only reads open it (`RecipeRead::gone` lists them), so
@@ -632,11 +659,16 @@ draft over it, so leaving the tab keeps the edits. Leaving the recipe with unsav
 as a canvas does. `state/recipe-check.ts` runs the core's checks on the draft as it is typed;
 `state/recipe-merge.ts` merges an outside write with unsaved edits by change and blank id and asks
 only on a clash (an id both sides added with different entries is two additions: the person's is
-renamed). Save reads the file first, sends only the lists that changed with `expected`, and on
-`moved` reads and merges again for the person to save once more. The rough preview is
+renamed). Every side's changes are moved onto the clips the merge lands on before they are
+compared, and one that cannot sit on them is a clash, and so are the clips: Keep mine keeps the
+person's clips with it. Save reads the file first, sends only the lists that changed with
+`expected`, and on `moved` reads and merges again for the person to save once more. The rough
+preview is
 `features/viewer/RecipePreview` (lazy `RecipeStage`): the base clip through the rough retarget, then
 `features/viewer/recipe-pose.ts` lays the changes over (two-bone IK for reach, an aim for look at,
 an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
+A joined recipe plays the timeline: each frame poses the clip frames it names, blends across a
+window and holds a frozen pose, the same frames the bake makes.
 Facing comes from the rig (`rigForward`: up crossed with left to right upper arm, else upper leg,
 else +Z) and drives the wave axis, the look bones, where markers sit and so the gap check. The rough
 retarget itself works in world space, so a model facing +X under a +Z clip has its limbs turned to

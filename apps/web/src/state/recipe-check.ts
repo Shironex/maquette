@@ -7,6 +7,7 @@
 import type { RecipeBlank, RecipeLayer } from '@/ipc/client';
 import { HUMAN_BONES, bonesFor } from './recipe-bones';
 import { KIND_WORDS, num, type RecipeDraft } from './recipe-draft';
+import { baseProblems } from './recipe-v2-check';
 
 export const LIMITS = {
   layers: 32,
@@ -20,12 +21,24 @@ export const LIMITS = {
   cycles: 50,
 } as const;
 
-/** What to fix, by change id and blank id, plus lines about the whole recipe. */
+/** What to fix, by change id and blank id, by clip and time edit, plus lines about the whole recipe. */
 export interface DraftProblems {
   layers: Record<string, string>;
   blanks: Record<string, string>;
+  /** By clip: its trim, or the blend into it. */
+  clips: Record<number, string>;
+  /** By time edit. */
+  time: Record<number, string>;
   general: string[];
 }
+
+/** What the checks read: the changes and blanks, and the clips and time edits when there are. */
+export type CheckedDraft = Pick<RecipeDraft, 'layers' | 'blanks'> &
+  Partial<Pick<RecipeDraft, 'clips' | 'time'>>;
+
+/** The non-null entries of `list`, by index. */
+const byIndex = (list: readonly (string | null)[]) =>
+  Object.fromEntries(list.flatMap((p, i) => (p ? [[i, p] as const] : [])));
 
 const ITEM_ID = /^[A-Za-z0-9_-]+$/;
 const isItemId = (id: string) => id.length > 0 && id.length <= LIMITS.id && ITEM_ID.test(id);
@@ -114,10 +127,17 @@ function layerProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): strin
  * do for an open blank.
  */
 export function checkDraft(
-  draft: RecipeDraft,
+  draft: CheckedDraft,
   animated: { asset: string; name: string } | null = null
 ): DraftProblems {
-  const out: DraftProblems = { layers: {}, blanks: {}, general: [] };
+  const base = draft.clips ? baseProblems(draft.clips, draft.time ?? []) : null;
+  const out: DraftProblems = {
+    layers: {},
+    blanks: {},
+    clips: base ? byIndex(base.clips) : {},
+    time: base ? byIndex(base.time) : {},
+    general: base ? [...base.general] : [],
+  };
   if (draft.layers.length > LIMITS.layers)
     out.general.push(`A recipe holds at most ${LIMITS.layers} changes.`);
   if (draft.blanks.length > LIMITS.blanks)
@@ -143,4 +163,8 @@ export function checkDraft(
 
 /** How many things wait to be fixed. */
 export const problemCount = (p: DraftProblems) =>
-  Object.keys(p.layers).length + Object.keys(p.blanks).length + p.general.length;
+  Object.keys(p.layers).length +
+  Object.keys(p.blanks).length +
+  Object.keys(p.clips).length +
+  Object.keys(p.time).length +
+  p.general.length;

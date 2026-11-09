@@ -38,6 +38,18 @@ Website and game projects both take recipes.
 
 When an agent changes the recipe while it is open, the editor shows the new version if you have nothing unsaved. Otherwise it merges the two change by change. Only when both sides changed the same change or blank does it ask **Keep mine** or **Use theirs**. Save also reads the file first and saves only against the version it read. If something wrote in between, nothing is overwritten: it merges and you save again.
 
+## Joined clips and base edits
+
+A recipe can play more than its one base clip. Its clip strip lists the clips in order, and the Base lanes edit each:
+
+- **Join.** Each clip after the first blends in from the one before over a window of frames, smooth or linear. At the seam its hips are lined up with the clip before, level and facing the same way (**Hips and facing**), level only (**Hips**) or not at all (**Off**).
+- **Trim.** Keeps a range of a clip's frames.
+- **Retime.** Plays a range of a clip faster or slower, from 0.25 to 4 times, eased in and out if you like.
+- **Freeze.** Stops on a frame and adds frames. **Hold over** keeps a pose across a range with the length unchanged. Both can breathe, so a long hold is not dead still.
+- **Mirror.** Swaps left and right for the whole recipe, so a right handed slash becomes a left handed one.
+
+The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with pins, pose keys or grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
+
 ## Blanks
 
 A blank holds a target for a reach or a look at. It is either:

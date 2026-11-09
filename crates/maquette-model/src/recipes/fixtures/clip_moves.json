@@ -1,0 +1,19 @@
+{
+  "about": "A change's start and end following its clips when they are joined, taken out or moved: from and to are each clip's frames, places each old clip's new place (null when it goes). want is the moved start and end; dropped or split names the clip (0 the base) that stops it.",
+  "cases": [
+    { "name": "Join a second clip", "from": [60], "to": [60, 60], "places": [0], "change": [0.5, 0.8], "want": [0.25, 0.4] },
+    { "name": "Join one of another length", "from": [72], "to": [72, 48], "places": [0], "change": [0.2, 0.6], "want": [0.12, 0.36] },
+    { "name": "Move the clip after to the front", "from": [60, 60], "to": [60, 60], "places": [1, 0], "change": [0.25, 0.4], "want": [0.75, 0.9] },
+    { "name": "Take out the clip after", "from": [60, 60], "to": [60], "places": [0, null], "change": [0.25, 0.4], "want": [0.5, 0.8] },
+    { "name": "Take out the clip before", "from": [30, 60], "to": [60], "places": [null, 0], "change": [0.5, 0.9], "want": [0.25, 0.85] },
+    { "name": "Swap clips of two lengths", "from": [60, 30], "to": [30, 60], "places": [1, 0], "change": [0.1, 0.5], "want": [0.433333, 0.833333] },
+    { "name": "An end on the seam stays on the clip before", "from": [60, 60], "to": [60, 60], "places": [1, 0], "change": [0.25, 0.5], "want": [0.75, 1.0] },
+    { "name": "A start on the seam stays on the clip after", "from": [60, 60], "to": [60, 60], "places": [1, 0], "change": [0.5, 0.75], "want": [0.0, 0.25] },
+    { "name": "Across a seam, kept together", "from": [60, 60, 30], "to": [30, 60, 60], "places": [1, 2, 0], "change": [0.3, 0.6], "want": [0.5, 0.8] },
+    { "name": "Nothing moves", "from": [60, 60], "to": [60, 60], "places": [0, 1], "change": [0.123457, 0.654321], "want": [0.123457, 0.654321] },
+    { "name": "On the clip taken out", "from": [60, 60], "to": [60], "places": [0, null], "change": [0.6, 0.7], "dropped": 1 },
+    { "name": "Partly on the clip taken out", "from": [60, 60], "to": [60], "places": [0, null], "change": [0.4, 0.6], "dropped": 1 },
+    { "name": "Across a seam, a clip put between", "from": [60, 60], "to": [60, 30, 60], "places": [0, 2], "change": [0.4, 0.6], "split": 1 },
+    { "name": "Across a seam, the clips swapped", "from": [60, 60], "to": [60, 60], "places": [1, 0], "change": [0.4, 0.6], "split": 1 }
+  ]
+}

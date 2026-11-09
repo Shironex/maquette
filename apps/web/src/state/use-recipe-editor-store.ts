@@ -19,12 +19,13 @@
  * clash) and the person saves once more. Only the lists that changed are sent.
  */
 import { create } from 'zustand';
-import { commands, errorMessage, type RecipeDoc } from '@/ipc/client';
+import { commands, errorMessage, type RecipeDoc, type RecipeFile } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 import { deepEqual } from '@/lib/deepEqual';
 import { bakeModelOf } from './recipe-bake';
 import { checkDraft, problemCount } from './recipe-check';
-import { draftOf, sameDraft } from './recipe-draft';
+import { clipsChanged, rekeep } from './recipe-clips';
+import { draftOf, sameDraft, type RecipeDraft } from './recipe-draft';
 import type {
   RecipeEditing,
   RecipeEditorStore,
@@ -59,6 +60,18 @@ export const clearsOf = (e: RecipeEditing) =>
 export const isDirty = (e: RecipeEditing | null) =>
   Boolean(e && (clearsOf(e).length > 0 || !sameDraft(e.draft, draftOf(e.doc.recipe))));
 
+/**
+ * The clips (with which clip each keeps), time edits and mirror of `draft`
+ * that differ from `stored`, as the write sends them.
+ */
+export function baseChange(draft: RecipeDraft, stored: RecipeFile) {
+  return {
+    ...(clipsChanged(draft, stored) ? { clips: draft.clips, kept: draft.kept } : {}),
+    ...(deepEqual(draft.time, stored.time ?? []) ? {} : { time: draft.time }),
+    ...(draft.mirror === Boolean(stored.mirror) ? {} : { mirror: draft.mirror }),
+  };
+}
+
 /** The error code the core answers a write with when the file moved since it was read. */
 const MOVED_CODE = 'moved';
 /** The error code the core answers a read of a file that is not there with. */
@@ -79,7 +92,9 @@ const onDoc = (editing: RecipeEditing, doc: RecipeDoc, draft: RecipeEditing['dra
 
 /** `picked` after a merge renamed the person's entries, so its settings stay open on the same one. */
 const follow = (picked: RecipePick, renamed: Renamed): RecipePick =>
-  picked ? { ...picked, id: renamed[picked.what][picked.id] ?? picked.id } : picked;
+  picked && (picked.what === 'layer' || picked.what === 'blank')
+    ? { ...picked, id: renamed[picked.what][picked.id] ?? picked.id }
+    : picked;
 
 export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
   const fresh = {
@@ -163,6 +178,8 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
         name: null,
         layers: deepEqual(sent.layers, stored.layers) ? null : sent.layers,
         blanks: deepEqual(sent.blanks, stored.blanks) && !cleared.length ? null : sent.blanks,
+        // The parts of file version 2 go only when they changed, so a plain recipe sends what it did.
+        ...baseChange(sent, stored),
         expected: ready.doc.version,
         clear: cleared,
       });
@@ -171,7 +188,17 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
       const latest = get().editing;
       if (latest?.id === ready.id) {
         // Edits made while it saved stay over the answer.
-        const draft = sameDraft(latest.draft, sent) ? draftOf(doc.recipe) : latest.draft;
+        const draft = sameDraft(latest.draft, sent)
+          ? draftOf(doc.recipe)
+          : {
+              ...latest.draft,
+              kept: rekeep(
+                latest.draft.clips,
+                latest.draft.kept,
+                draftOf(stored).clips,
+                draftOf(doc.recipe).clips
+              ),
+            };
         const left = latest.cleared.filter(id => !cleared.includes(id));
         // The merged edits are written now, so the note about them is done.
         set({ editing: onDoc({ ...latest, cleared: left }, doc, draft), merged: null });

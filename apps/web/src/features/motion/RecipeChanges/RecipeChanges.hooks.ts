@@ -3,11 +3,12 @@ import type { LayerKind } from '@/ipc/client';
 import { LIMITS, checkDraft } from '@/state/recipe-check';
 import { EDITABLE_KINDS, KIND_ABOUT, KIND_WORDS, newLayer } from '@/state/recipe-draft';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 
 /** The open recipe's changes in order, the one whose settings show, and adding one. */
 export function useRecipeChanges() {
   const draft = useRecipeEditorStore(s => s.editing?.draft ?? null);
-  const frames = useRecipeEditorStore(s => s.editing?.doc.recipe.base.frames ?? 0);
+  const dt = useRecipeTimeline();
   const picked = useRecipeEditorStore(s => (s.picked?.what === 'layer' ? s.picked.id : null));
   const { edit, pick } = useRecipeEditorStore.getState();
   const [kind, setKind] = useState<LayerKind>('reach');
@@ -16,7 +17,8 @@ export function useRecipeChanges() {
   const full = layers.length >= LIMITS.layers;
   return {
     layers,
-    frames,
+    /** A change's place on the bake's frames, through the base edits. */
+    toFrame: dt?.toFrame ?? (() => 0),
     problems,
     picked,
     toggle: (id: string) => pick(picked === id ? null : { what: 'layer', id }),

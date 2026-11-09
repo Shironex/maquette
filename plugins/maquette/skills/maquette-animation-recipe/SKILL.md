@@ -73,11 +73,19 @@ in the app: agents may propose a tour, never apply one.
    - Kinds and bones: `reach` (`leftHand`, `rightHand`, `leftFoot`, `rightFoot`, to a blank),
      `look-at` (`head` or `neck`, to a blank, clamped to 80 degrees), `nudge` (any humanoid bone,
      `rotation` in degrees and `offset` in metres), `wave` (arm bones, `cycles` and `amount`).
-   - `start` and `end` are shares of the clip from 0 to 1, `weight` from 0 to 1.
+   - `start` and `end` are shares from 0 to 1 of all the clips' frames end to end (on one clip,
+     of its length), `weight` from 0 to 1.
    - A blank is a `prop` (an asset id from `list_assets`) or a `point` ([x, y, z] in metres in the
      model's own frame: X to its left, Y up, Z ahead). Fill every blank the changes aim at.
    - `clear` empties a prop blank whose asset is gone for good.
-3. Tell the person in one line what the recipe does and which blanks you filled with what.
+3. Joined clips and base edits also go through `update_recipe`: `clips` (base first, each a
+   library `clip` or `keep` of an index, with `trim` [in, out] and `blend`
+   `{ frames, curve, lineUp }`), `time` (`retime`, `freeze`, `hold-over` on a clip's own frames
+   before its trim) and `mirror`. They bake; pins, pose keys and grips are refused
+   (`not-bakeable-yet`). `frames` in `get_recipe` is how long the bake runs.
+   - Changes not sent with `clips` move with their clip. Taking out a clip a change sits on, or
+     moving a clip away from the clip a change runs across from, is refused (`clip-in-use`).
+4. Tell the person in one line what the recipe does and which blanks you filled with what.
 
 ## 3. Bake
 

@@ -3,6 +3,7 @@
 
 use maquette_core::animations::recipes::bake::not_bakeable;
 use maquette_core::animations::recipes::{BaseMatch, BaseStatus, RecipeDoc};
+use maquette_core::recipes::timeline::timeline;
 use maquette_core::recipes::{LayerKind, RecipeBase, RecipeLayer};
 use serde_json::{Map, Value, json};
 
@@ -95,6 +96,7 @@ pub(in crate::mcp::tools) fn recipe_view(doc: &RecipeDoc) -> Value {
         out["clips"] = json!(clips);
         out["mirror"] = json!(recipe.mirror);
         out["time"] = to_short_value(&recipe.time);
+        out["frames"] = json!(timeline(recipe).frames);
         if let Some(refusal) = not_bakeable(doc) {
             out["bakeable"] = json!(false);
             out["notBakeable"] = json!(refusal);

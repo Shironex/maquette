@@ -1,8 +1,9 @@
 //! Whether a finished bake is out of date: the recipe changed since (its
-//! version is a hash of the file), its base clip's keys changed in the
-//! animation library (imported again), or the model has another newest
-//! version than the one it was baked onto. Read each time a bake is read, never
-//! saved, so it always says how things stand now.
+//! version is a hash of the file), the keys of its base clip or of a clip it
+//! joins changed in the animation library (imported again), naming that
+//! clip, or the model has another newest version than the one it was baked
+//! onto. Read each time a bake is read, never saved, so it always says how
+//! things stand now.
 
 use std::path::Path;
 
@@ -57,6 +58,17 @@ pub fn stale_of(
             "The base clip {} has other keys in the animation library than this bake used (its hash changed). Bake it again.",
             clip.name
         ));
+    }
+    for (i, joined) in result.joined_clips.iter().enumerate() {
+        if let Ok(clip) = crate::animations::load(root, &joined.clip)
+            && clip.hash != joined.hash
+        {
+            return Some(format!(
+                "{} (clip {}) has other keys in the animation library than this bake used (its hash changed). Bake it again.",
+                clip.name,
+                i + 2
+            ));
+        }
     }
     let manifest = project::load(root, &config.layout, &record.project).ok()?;
     let Ok(asset) = assets::find(&manifest, &result.asset) else {

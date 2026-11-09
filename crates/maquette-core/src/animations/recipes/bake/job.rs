@@ -14,24 +14,31 @@ use crate::animations::retarget::{self, BonePair, ClipSetting, Model, Staged, bo
 use crate::animations::{AnimationClip, load as load_clip};
 use crate::base::ports::{ScriptRunner, Watch};
 use crate::error::{CoreError, CoreResult};
-use crate::inbox::analyse::bare_joint_name;
 use crate::json::write_json;
 use crate::pipeline::tools::Toolbox;
 use crate::project::{self, ProjectManifest};
-use crate::recipes::{BlankKind, LayerKind, RecipeLayer};
+use crate::recipes::timeline::{self, Timeline};
+use crate::recipes::{BlankKind, RecipeLayer};
 use crate::workspace::WorkspaceConfig;
 
 mod clip_name;
+mod parts;
 mod ready;
 mod rest;
+mod vrm;
 pub(crate) use clip_name::clip_name;
 use clip_name::clip_note;
 pub use ready::{NOT_BAKEABLE_YET, not_bakeable, open_blanks};
 use rest::RestSpec;
+use vrm::bones_for;
+pub(crate) use vrm::model_bone;
+#[cfg(test)]
+pub(crate) use vrm::{limb_of, mixamo_name};
 
 const BAKE_FILE: &str = "bake_recipe.py";
 const RETARGET_FILE: &str = "retarget_clips.py";
 const SURFACE_FILE: &str = "surface.py";
+const MOTION_FILE: &str = "recipe_motion.py";
 pub(super) const JOB_FILE: &str = "recipe.json";
 pub(super) const REPORT_FILE: &str = "result.json";
 pub(super) const PROGRESS_FILE: &str = "progress.json";
@@ -39,86 +46,6 @@ pub(super) const PROGRESS_FILE: &str = "progress.json";
 const STEP: &str = "Recipe bake";
 /// How many frames the rig's stretch is measured on, besides each reach's end.
 const STRETCH_FRAMES: u32 = 10;
-
-/// VRM body bones with the humanoid (Mixamo) name the bone map lists each
-/// under; `{side}` reads `left` or `right`, `{Side}` `Left` or `Right`.
-const BODY: [(&str, &str); 14] = [
-    ("hips", "Hips"),
-    ("spine", "Spine"),
-    ("chest", "Spine1"),
-    ("upperChest", "Spine2"),
-    ("neck", "Neck"),
-    ("head", "Head"),
-    ("{side}UpperLeg", "{Side}UpLeg"),
-    ("{side}LowerLeg", "{Side}Leg"),
-    ("{side}Foot", "{Side}Foot"),
-    ("{side}Toes", "{Side}ToeBase"),
-    ("{side}Shoulder", "{Side}Shoulder"),
-    ("{side}UpperArm", "{Side}Arm"),
-    ("{side}LowerArm", "{Side}ForeArm"),
-    ("{side}Hand", "{Side}Hand"),
-];
-
-/// VRM fingers, their three segments, and Mixamo's finger name (joints 1 to 3).
-const FINGERS: [(&str, [&str; 3], &str); 5] = [
-    ("Thumb", ["Metacarpal", "Proximal", "Distal"], "Thumb"),
-    ("Index", ["Proximal", "Intermediate", "Distal"], "Index"),
-    ("Middle", ["Proximal", "Intermediate", "Distal"], "Middle"),
-    ("Ring", ["Proximal", "Intermediate", "Distal"], "Ring"),
-    ("Little", ["Proximal", "Intermediate", "Distal"], "Pinky"),
-];
-
-/// The bones a model's facing is read from, when it has them.
-const FACING: [&str; 4] = [
-    "leftUpperArm",
-    "rightUpperArm",
-    "leftUpperLeg",
-    "rightUpperLeg",
-];
-
-/// The humanoid (Mixamo) name of VRM bone `vrm`: `rightHand` reads
-/// `RightHand`, `leftIndexProximal` reads `LeftHandIndex1`.
-pub(super) fn mixamo_name(vrm: &str) -> Option<String> {
-    for (side, upper) in [("left", "Left"), ("right", "Right")] {
-        for (pattern, mixamo) in BODY {
-            if pattern.replace("{side}", side) == vrm {
-                return Some(mixamo.replace("{Side}", upper));
-            }
-        }
-        for (finger, segments, mixamo) in FINGERS {
-            for (i, segment) in segments.iter().enumerate() {
-                if format!("{side}{finger}{segment}") == vrm {
-                    return Some(format!("{upper}Hand{mixamo}{}", i + 1));
-                }
-            }
-        }
-    }
-    None
-}
-
-/// The upper and lower bones a reach of `end` solves.
-pub(super) fn limb_of(end: &str) -> Option<(&'static str, &'static str)> {
-    match end {
-        "leftHand" => Some(("leftUpperArm", "leftLowerArm")),
-        "rightHand" => Some(("rightUpperArm", "rightLowerArm")),
-        "leftFoot" => Some(("leftUpperLeg", "leftLowerLeg")),
-        "rightFoot" => Some(("rightUpperLeg", "rightLowerLeg")),
-        _ => None,
-    }
-}
-
-/// The model bone for VRM bone `vrm`: the bone map's choice, else a joint
-/// with the Mixamo name itself (fingers, which the map leaves out).
-pub(super) fn model_bone(vrm: &str, map: &[BonePair], joints: &[String]) -> Option<String> {
-    let mixamo = mixamo_name(vrm)?;
-    if let Some(pair) = map.iter().find(|p| p.bone == mixamo) {
-        return pair.target.clone();
-    }
-    joints
-        .iter()
-        .find(|j| bare_joint_name(j).eq_ignore_ascii_case(&mixamo))
-        .cloned()
-}
 
 /// Where a blank's target sits, as the bake script reads it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -143,6 +70,13 @@ pub struct Prepared {
     pub doc: RecipeDoc,
     /// The base clip; none for a recipe on the rest pose.
     pub clip: Option<AnimationClip>,
+    /// The joined clips, in order (clip 2 first).
+    pub joined: Vec<AnimationClip>,
+    /// The frames the bake builds from its clips, for a recipe that joins
+    /// clips or edits its base; none for one that plays its clip whole.
+    pub(crate) timeline: Option<Timeline>,
+    /// The model's left and right bones a mirror swaps.
+    pub(crate) mirror_pairs: Vec<[String; 2]>,
     pub asset: String,
     pub(crate) model: Model,
     pub(crate) setting: ClipSetting,
@@ -215,6 +149,7 @@ pub fn prepare(
             }));
         }
     };
+    let joined = parts::joined_clips(root, &doc)?;
     let model = retarget::model(root, config, &request.project, &request.asset)?;
     if let Some(blank) =
         doc.recipe.blanks.iter().find(|b| {
@@ -251,15 +186,24 @@ pub fn prepare(
     })?;
     let bones = bones_for(&doc.recipe.layers, &map, &model)?;
     let (targets, props) = targets_of(&doc, &manifest, &dir, &request.asset)?;
-    let mut warnings = Vec::new();
-    if let Some(warning) = &doc.base.warning {
-        warnings.push(warning.clone());
-    }
+    let warnings = std::iter::once(&doc.base)
+        .chain(&doc.joined)
+        .filter_map(|m| m.warning.clone())
+        .collect();
+    let timeline = (!timeline::plain(&doc.recipe)).then(|| timeline::timeline(&doc.recipe));
+    let mirror_pairs = if doc.recipe.mirror {
+        vrm::mirror_pairs(&map, &model.joints)
+    } else {
+        Vec::new()
+    };
     Ok(Prepared {
         asset: request.asset.clone(),
         follow: entry.follow,
         doc,
         clip,
+        joined,
+        timeline,
+        mirror_pairs,
         model,
         setting,
         map,
@@ -271,47 +215,6 @@ pub fn prepare(
         clip_note: note,
         warnings,
     })
-}
-
-/// Every bone the changes move, by VRM name, with the limbs a reach solves
-/// and the bones the facing is read from.
-fn bones_for(
-    layers: &[RecipeLayer],
-    map: &[BonePair],
-    model: &Model,
-) -> CoreResult<BTreeMap<String, String>> {
-    let mut out = BTreeMap::new();
-    let mut missing = Vec::new();
-    for layer in layers {
-        let mut wanted = vec![layer.bone.as_str()];
-        if layer.kind == LayerKind::Reach
-            && let Some((upper, lower)) = limb_of(&layer.bone)
-        {
-            wanted.extend([upper, lower]);
-        }
-        for vrm in wanted {
-            match model_bone(vrm, map, &model.joints) {
-                Some(bone) => {
-                    out.insert(vrm.to_string(), bone);
-                }
-                None => missing.push(format!("{vrm} ({})", layer.id)),
-            }
-        }
-    }
-    if !missing.is_empty() {
-        missing.dedup();
-        return invalid(format!(
-            "{} has no bone for {}. Map it in Use on model's bone map, or take that change out.",
-            model.name,
-            missing.join(", ")
-        ));
-    }
-    for vrm in FACING {
-        if let Some(bone) = model_bone(vrm, map, &model.joints) {
-            out.insert(vrm.to_string(), bone);
-        }
-    }
-    Ok(out)
 }
 
 fn flat(m: &crate::layout::Mat4) -> [f32; 16] {
@@ -375,6 +278,14 @@ struct RecipeSpec<'a> {
     layers: &'a [RecipeLayer],
     targets: &'a BTreeMap<String, TargetSpec>,
     stretch_frames: u32,
+    /// The new clip's name.
+    name: &'a str,
+    /// What to build the motion from, frame by frame, when the recipe joins
+    /// clips or edits its base; none plays its clip whole.
+    timeline: Option<&'a Timeline>,
+    /// Each recipe clip's part, in order.
+    parts: Vec<parts::PartSpec>,
+    mirror_pairs: &'a [[String; 2]],
 }
 
 #[derive(Serialize)]
@@ -394,17 +305,18 @@ struct RecipeJob<'a> {
 ///
 /// Fails when a file cannot be copied or written.
 pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult<()> {
+    let (clips, settings, parts) = if prepared.timeline.is_some() {
+        parts::parts_of(prepared.clip.as_ref(), &prepared.joined)
+    } else {
+        let clips: Vec<AnimationClip> = prepared.clip.iter().cloned().collect();
+        let settings = clips.iter().map(|_| prepared.setting.clone()).collect();
+        (clips, settings, Vec::new())
+    };
     let job = retarget::script_job(
         root,
         work,
         &prepared.model,
-        match &prepared.clip {
-            Some(clip) => (
-                std::slice::from_ref(clip),
-                std::slice::from_ref(&prepared.setting),
-            ),
-            None => (&[], &[]),
-        },
+        (&clips, &settings),
         &prepared.map,
         Staged {
             replace: prepared.replace.clone(),
@@ -422,6 +334,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
     for (name, text) in [
         (RETARGET_FILE, retarget::RETARGET_SCRIPT),
         (SURFACE_FILE, surface),
+        (MOTION_FILE, super::MOTION_SCRIPT),
     ] {
         let path = work.join(name);
         crate::fs::write_atomic(&path, text.as_bytes()).map_err(|e| CoreError::io(&path, e))?;
@@ -441,6 +354,10 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
                 layers: &prepared.doc.recipe.layers,
                 targets: &prepared.targets,
                 stretch_frames: STRETCH_FRAMES,
+                name: &prepared.setting.name,
+                timeline: prepared.timeline.as_ref(),
+                parts,
+                mirror_pairs: &prepared.mirror_pairs,
             },
             out: super::STAGED_FILE,
             report: REPORT_FILE,
