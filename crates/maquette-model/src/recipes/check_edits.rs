@@ -10,8 +10,9 @@ use maquette_glb::vrm::is_human_bone;
 use super::check::{REACH_BONES, check_clip, check_target, finite_within, invalid};
 use super::{
     BonePose, LayerKind, MAX_CLIPS, MAX_FRAMES, MAX_GRIP_BONES, MAX_HOLD_FRAMES, MAX_KEY_BONES,
-    MAX_KEYS, MAX_RECIPE_KEYS, MAX_RECIPE_TURNS, MAX_SPEED, MAX_TIME_EDITS, MAX_TURN_DEGREES,
-    MIN_SPEED, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, TimeEdit, TimeKind,
+    MAX_KEYS, MAX_RECIPE_KEYS, MAX_RECIPE_TURNS, MAX_SPEED, MAX_TIME_EDITS, MAX_TIMELINE_FRAMES,
+    MAX_TURN_DEGREES, MIN_SPEED, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer, TimeEdit,
+    TimeKind,
 };
 use crate::error::CoreResult;
 use crate::plans::is_item_id;
@@ -311,6 +312,19 @@ pub(super) fn check_grip(layer: &RecipeLayer, blanks: &[RecipeBlank]) -> CoreRes
 /// The recipe-wide caps: at most [`MAX_RECIPE_KEYS`] pose keys across its
 /// pose key changes and [`MAX_RECIPE_TURNS`] bone turns across those keys
 /// and its grips, so a recipe at every limit still fits in a file.
+/// Checks the whole timeline runs at most [`MAX_TIMELINE_FRAMES`], counted
+/// without making it, so a file never builds one too big to preview or
+/// bake. Run after the clips and time edits check, which keep the count
+/// finite.
+pub(super) fn check_length(recipe: &RecipeFile) -> CoreResult<()> {
+    if super::timeline::length_within(recipe, MAX_TIMELINE_FRAMES).is_none() {
+        return invalid(format!(
+            "The recipe runs over {MAX_TIMELINE_FRAMES} frames once its clips are joined and its time edits played. Trim a clip, speed it up, shorten a freeze or take a clip out."
+        ));
+    }
+    Ok(())
+}
+
 pub(super) fn check_totals(recipe: &RecipeFile) -> CoreResult<()> {
     let keys: usize = recipe
         .layers

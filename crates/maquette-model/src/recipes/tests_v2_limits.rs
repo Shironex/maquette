@@ -33,6 +33,33 @@ fn refused(recipe: &RecipeFile, says: &str) {
 }
 
 #[test]
+fn the_whole_timeline_keeps_to_its_length() {
+    let long = |name: &str| RecipeBase {
+        frames: MAX_FRAMES,
+        length: 3_333.333,
+        ..clip(name, 60)
+    };
+    // One clip as long as a recipe takes plays whole.
+    let one = RecipeFile::new("Long", long("A"));
+    assert!(validate(&normalized(&one)).is_ok());
+    // Each clip within its limit, the whole far over.
+    let mut many = one.clone();
+    many.joined = (1..MAX_CLIPS)
+        .map(|i| RecipeBase {
+            blend: Some(BlendWindow::default()),
+            ..long(&format!("Clip {i}"))
+        })
+        .collect();
+    refused(&many, "runs over 100000 frames");
+    // A slow retime stretches one clip past it too.
+    let mut slow = RecipeFile::new("Slow", clip("A", 30_000));
+    slow.time = vec![TimeEdit::retime(0, 0, 30_000, MIN_SPEED)];
+    refused(&slow, "runs over");
+    slow.time = vec![TimeEdit::retime(0, 0, 20_000, MIN_SPEED)];
+    assert!(validate(&normalized(&slow)).is_ok(), "90000 frames");
+}
+
+#[test]
 fn clips_trims_and_blends_keep_to_their_limits() {
     let good = slash();
     let mut r = good.clone();

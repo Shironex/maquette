@@ -20,14 +20,15 @@
 
 use serde::Serialize;
 
-use super::{LineUp, REST_FPS, RecipeBase, RecipeFile, TimeEdit, TimeKind};
+use super::{LineUp, MAX_TIMELINE_FRAMES, REST_FPS, RecipeBase, RecipeFile, TimeEdit, TimeKind};
 use crate::recipes::BlendCurve;
 
 /// How long one breath of a held pose lasts, seconds.
 pub const BREATHE_SECONDS: f64 = 3.0;
 const EPS: f64 = 1e-6;
-/// The most frames a timeline makes, so a bad file cannot run away.
-const MAX_KEYS: usize = 200_000;
+/// The most frames one clip makes, so a file that skipped the checks cannot
+/// run away: past what a whole recipe may run ([`MAX_TIMELINE_FRAMES`]).
+const MAX_KEYS: usize = MAX_TIMELINE_FRAMES as usize + 2;
 
 /// A frame of one clip, as one frame of the timeline shows it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -216,73 +217,158 @@ fn hold_weight(h: &TimeEdit, at: f64, n: f64, p: f64) -> f64 {
     }
 }
 
-/// One clip's frames once trimmed and its time edits played out.
-fn clip_samples(recipe: &RecipeFile, index: u32, fps: f64) -> Vec<ClipSample> {
-    let Some(clip) = recipe.clip(index) else {
-        return Vec::new();
-    };
-    let [a, b] = clip.trim.unwrap_or([0, clip.frames]);
-    let (a, b) = (f64::from(a), f64::from(b));
-    let rate = (clip_fps(clip) / fps).clamp(0.1, 10.0);
-    let mine = recipe.time.iter().filter(|t| t.clip == index);
-    let edits = ClipEdits {
-        retimes: mine
+/// One clip as it plays: its kept frames, its rate against the base clip's,
+/// its time edits and its freezes in order.
+struct ClipWalk<'a> {
+    index: u32,
+    a: f64,
+    b: f64,
+    rate: f64,
+    edits: ClipEdits<'a>,
+    freezes: Vec<(f64, u32, &'a TimeEdit)>,
+}
+
+impl<'a> ClipWalk<'a> {
+    fn of(recipe: &'a RecipeFile, index: u32, fps: f64) -> Option<Self> {
+        let clip = recipe.clip(index)?;
+        let [a, b] = clip.trim.unwrap_or([0, clip.frames]);
+        let (a, b) = (f64::from(a), f64::from(b));
+        let mine = recipe.time.iter().filter(|t| t.clip == index);
+        let mut freezes: Vec<(f64, u32, &TimeEdit)> = mine
             .clone()
-            .filter(|t| t.kind == TimeKind::Retime)
-            .collect(),
-        holds: mine
-            .clone()
-            .filter(|t| t.kind != TimeKind::Retime)
-            .collect(),
-    };
-    let mut freezes: Vec<(f64, u32, &TimeEdit)> = mine
-        .filter(|t| t.kind == TimeKind::Freeze)
-        .filter_map(|t| Some((f64::from(t.at?), t.frames?, t)))
-        .filter(|(at, _, _)| *at >= a && *at <= b)
-        .collect();
-    freezes.sort_by(|x, y| x.0.total_cmp(&y.0));
-    let mut out = Vec::new();
-    let mut emitted = vec![false; freezes.len()];
-    let push = |out: &mut Vec<ClipSample>, p: f64, emitted: &mut Vec<bool>| {
-        out.push(ClipSample {
-            clip: index,
-            at: p,
-            hold: edits.hold_at(p),
-        });
-        for (k, (at, frames, edit)) in freezes.iter().enumerate() {
-            if !emitted[k] && (p - at).abs() < EPS {
-                emitted[k] = true;
-                let hold = HoldSample {
-                    at: edit.at.unwrap_or(0),
-                    weight: 1.0,
-                    breathe: edit.breathe.map_or(0.0, wide),
-                };
-                for _ in 0..*frames {
-                    out.push(ClipSample {
-                        clip: index,
-                        at: *at,
-                        hold: Some(hold.clone()),
-                    });
+            .filter(|t| t.kind == TimeKind::Freeze)
+            .filter_map(|t| Some((f64::from(t.at?), t.frames?, t)))
+            .filter(|(at, _, _)| *at >= a && *at <= b)
+            .collect();
+        freezes.sort_by(|x, y| x.0.total_cmp(&y.0));
+        Some(Self {
+            index,
+            a,
+            b,
+            rate: (clip_fps(clip) / fps).clamp(0.1, 10.0),
+            edits: ClipEdits {
+                retimes: mine
+                    .clone()
+                    .filter(|t| t.kind == TimeKind::Retime)
+                    .collect(),
+                holds: mine.filter(|t| t.kind != TimeKind::Retime).collect(),
+            },
+            freezes,
+        })
+    }
+
+    /// Steps through the clip's moving frames, up to about `limit` frames:
+    /// `each` gets every moving frame, and after a freeze's frame the
+    /// freeze, whose added frames count too.
+    fn steps(&self, limit: usize, mut each: impl FnMut(f64, Option<&(f64, u32, &'a TimeEdit)>)) {
+        let mut count = 0usize;
+        let mut emitted = vec![false; self.freezes.len()];
+        let mut visit = |p: f64, emitted: &mut Vec<bool>, count: &mut usize| {
+            each(p, None);
+            *count += 1;
+            for (k, freeze) in self.freezes.iter().enumerate() {
+                if !emitted[k] && (p - freeze.0).abs() < EPS {
+                    emitted[k] = true;
+                    each(freeze.0, Some(freeze));
+                    *count += freeze.1 as usize;
                 }
             }
+        };
+        let mut p = self.a;
+        visit(p, &mut emitted, &mut count);
+        while p < self.b - EPS && count < limit {
+            let mut next = p + self.edits.speed(p) * self.rate;
+            if let Some((at, _, _)) = self
+                .freezes
+                .iter()
+                .zip(&emitted)
+                .find(|((at, _, _), done)| !**done && p + EPS < *at && *at < next - EPS)
+                .map(|(f, _)| f)
+            {
+                next = *at;
+            }
+            p = next.min(self.b);
+            visit(p, &mut emitted, &mut count);
         }
-    };
-    let mut p = a;
-    push(&mut out, p, &mut emitted);
-    while p < b - EPS && out.len() < MAX_KEYS {
-        let mut next = p + edits.speed(p) * rate;
-        if let Some((at, _, _)) = freezes
-            .iter()
-            .zip(&emitted)
-            .find(|((at, _, _), done)| !**done && p + EPS < *at && *at < next - EPS)
-            .map(|(f, _)| f)
-        {
-            next = *at;
-        }
-        p = next.min(b);
-        push(&mut out, p, &mut emitted);
     }
+}
+
+/// One clip's frames once trimmed and its time edits played out.
+fn clip_samples(recipe: &RecipeFile, index: u32, fps: f64) -> Vec<ClipSample> {
+    let Some(walk) = ClipWalk::of(recipe, index, fps) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    walk.steps(MAX_KEYS, |p, freeze| match freeze {
+        None => out.push(ClipSample {
+            clip: index,
+            at: p,
+            hold: walk.edits.hold_at(p),
+        }),
+        Some((at, frames, edit)) => {
+            let hold = HoldSample {
+                at: edit.at.unwrap_or(0),
+                weight: 1.0,
+                breathe: edit.breathe.map_or(0.0, wide),
+            };
+            for _ in 0..*frames {
+                out.push(ClipSample {
+                    clip: walk.index,
+                    at: *at,
+                    hold: Some(hold.clone()),
+                });
+            }
+        }
+    });
     out
+}
+
+/// How many frames one clip makes, counted without making them, up to
+/// about `limit`.
+fn clip_count(recipe: &RecipeFile, index: u32, fps: f64, limit: usize) -> usize {
+    let Some(walk) = ClipWalk::of(recipe, index, fps) else {
+        return 0;
+    };
+    let mut count = 0usize;
+    walk.steps(limit, |_, freeze| {
+        count += freeze.map_or(1, |f| f.1 as usize);
+    });
+    count
+}
+
+/// Where each clip starts on the timeline and how long its blend window is,
+/// from each clip's frame count (`lens`, its samples less one), and the
+/// last frame.
+fn layout(recipe: &RecipeFile, lens: &[usize]) -> (Vec<usize>, Vec<usize>, usize) {
+    let clips: Vec<&RecipeBase> = recipe.clips().collect();
+    let mut starts = vec![0usize; lens.len()];
+    let mut windows = vec![0usize; lens.len()];
+    for i in 1..lens.len() {
+        let wanted = clips[i].blend.as_ref().map_or(0, |b| b.frames) as usize;
+        let room = lens[i - 1].saturating_sub(windows[i - 1]);
+        windows[i] = wanted.min(room).min(lens[i]);
+        starts[i] = starts[i - 1] + lens[i - 1] - windows[i];
+    }
+    let last = lens.len() - 1;
+    let total = starts[last] + lens[last];
+    (starts, windows, total)
+}
+
+/// How many frames `recipe`'s timeline runs (its last frame, as
+/// [`Timeline::frames`]), counted without making them, or none when it
+/// runs over `most`.
+pub fn length_within(recipe: &RecipeFile, most: u32) -> Option<u32> {
+    let fps = clip_fps(&recipe.base);
+    let limit = most as usize + 2;
+    let count = u32::try_from(recipe.joined.len() + 1).unwrap_or(1);
+    let lens: Vec<usize> = (0..count)
+        .map(|i| clip_count(recipe, i, fps, limit).saturating_sub(1))
+        .collect();
+    if lens.iter().any(|&n| n > most as usize) {
+        return None;
+    }
+    let (_, _, total) = layout(recipe, &lens);
+    u32::try_from(total).ok().filter(|&n| n <= most)
 }
 
 fn curve(kind: BlendCurve, x: f64) -> f64 {
@@ -306,16 +392,8 @@ pub fn timeline(recipe: &RecipeFile) -> Timeline {
     let count = u32::try_from(recipe.joined.len() + 1).unwrap_or(1);
     let parts: Vec<Vec<ClipSample>> = (0..count).map(|i| clip_samples(recipe, i, fps)).collect();
     let clips: Vec<&RecipeBase> = recipe.clips().collect();
-    let mut starts = vec![0usize; parts.len()];
-    let mut windows = vec![0usize; parts.len()];
-    for i in 1..parts.len() {
-        let wanted = clips[i].blend.as_ref().map_or(0, |b| b.frames) as usize;
-        let room = len(&parts[i - 1]).saturating_sub(windows[i - 1]);
-        windows[i] = wanted.min(room).min(len(&parts[i]));
-        starts[i] = starts[i - 1] + len(&parts[i - 1]) - windows[i];
-    }
-    let last = parts.len() - 1;
-    let total = starts[last] + len(&parts[last]);
+    let lens: Vec<usize> = parts.iter().map(|p| len(p)).collect();
+    let (starts, windows, total) = layout(recipe, &lens);
     let before: Vec<f64> = clips
         .iter()
         .scan(0.0, |sum, c| {

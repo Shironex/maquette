@@ -149,6 +149,18 @@ fn the_timeline_matches_the_fixture_the_web_app_reads_too() {
 }
 
 #[test]
+fn the_count_the_checks_make_is_the_timeline_s_length() {
+    for case in cases() {
+        assert_eq!(
+            super::timeline::length_within(&case, MAX_TIMELINE_FRAMES),
+            Some(timeline(&case).frames),
+            "{}",
+            case.name
+        );
+    }
+}
+
+#[test]
 fn the_design_combo_runs_147_frames() {
     let t = timeline(&slash_into_thrust());
     // 52 + 56 + 40 kept, less blends of 8 and 6, less 5 for the retime,
