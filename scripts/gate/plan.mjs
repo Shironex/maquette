@@ -38,6 +38,8 @@ const WHOLE_GATE = [
   'crates/maquette-model/src/recipes/fixtures/clip_moves.json',
   // Vitest (state/recipe-pins.test.ts) holds these pins as the core does.
   'crates/maquette-model/src/recipes/fixtures/pins.json',
+  // Vitest (state/recipe-keys.test.ts) blends these pose keys as the core does.
+  'crates/maquette-model/src/recipes/fixtures/pose_keys.json',
   // The site's copy and docs read the app's version; so do the release scripts.
   'apps/desktop/src-tauri/tauri.conf.json',
   // Written by the Rust tests; the script tests, the meta lint and Vitest
