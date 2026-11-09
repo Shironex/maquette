@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 mod add;
 mod job;
+mod pins;
 mod result;
 mod review;
 mod service;
@@ -31,6 +32,7 @@ pub use crate::recipes::baked::{
 };
 pub use add::{AddClaim, BAKE_CHANGED, OUT_OF_DATE, ready_to_add};
 pub use job::{NOT_BAKEABLE_YET, Prepared, not_bakeable, open_blanks, prepare};
+pub use pins::{PIN_DRIFT_LIMIT_CM, RecipePinResult};
 pub use result::GAP_LIMIT_CM;
 pub use result::mark_for;
 pub use review::{
@@ -44,6 +46,8 @@ pub use stale::{RECIPE_CHANGED, stale_of};
 pub const BAKE_SCRIPT: &str = include_str!("../bake_recipe.py");
 /// The part of the bake that builds a recipe's motion from its clips.
 pub const MOTION_SCRIPT: &str = include_str!("../recipe_motion.py");
+/// The part of the bake that holds a recipe's pins, last.
+pub const PINS_SCRIPT: &str = include_str!("../recipe_pins.py");
 /// The workspace cache folder recipe bakes are staged in, per project and
 /// recipe: `<cache>/recipes/<project>/<recipe>/`.
 pub const WORK_DIR: &str = crate::workspace::RECIPE_BAKES_DIR;
@@ -185,6 +189,9 @@ pub struct RecipeBakeResult {
     pub base_stretch_mm: Option<f32>,
     pub stretch_note: Option<String>,
     pub reaches: Vec<RecipeReachResult>,
+    /// Each pin as the bake measured it. Empty in a record from before.
+    #[serde(default)]
+    pub pins: Vec<RecipePinResult>,
     /// How long Blender took, and the whole bake, seconds.
     pub blender_seconds: f32,
     pub seconds: f32,
@@ -238,8 +245,12 @@ mod tests_blender;
 #[cfg(test)]
 mod tests_blender_joined;
 #[cfg(test)]
+mod tests_blender_pins;
+#[cfg(test)]
 mod tests_joined;
 #[cfg(test)]
 mod tests_mark;
+#[cfg(test)]
+mod tests_pins;
 #[cfg(test)]
 mod tests_rest;

@@ -39,6 +39,7 @@ const BAKE_FILE: &str = "bake_recipe.py";
 const RETARGET_FILE: &str = "retarget_clips.py";
 const SURFACE_FILE: &str = "surface.py";
 const MOTION_FILE: &str = "recipe_motion.py";
+const PINS_FILE: &str = "recipe_pins.py";
 pub(super) const JOB_FILE: &str = "recipe.json";
 pub(super) const REPORT_FILE: &str = "result.json";
 pub(super) const PROGRESS_FILE: &str = "progress.json";
@@ -77,6 +78,8 @@ pub struct Prepared {
     pub(crate) timeline: Option<Timeline>,
     /// The model's left and right bones a mirror swaps.
     pub(crate) mirror_pairs: Vec<[String; 2]>,
+    /// The pins on the bake's frames, solved last.
+    pub(crate) pins: Vec<crate::recipes::pins::PinSpan>,
     pub asset: String,
     pub(crate) model: Model,
     pub(crate) setting: ClipSetting,
@@ -191,6 +194,7 @@ pub fn prepare(
         .filter_map(|m| m.warning.clone())
         .collect();
     let timeline = (!timeline::plain(&doc.recipe)).then(|| timeline::timeline(&doc.recipe));
+    let pins = crate::recipes::pins::spans(&doc.recipe, &timeline::timeline(&doc.recipe));
     let mirror_pairs = if doc.recipe.mirror {
         vrm::mirror_pairs(&map, &model.joints)
     } else {
@@ -204,6 +208,7 @@ pub fn prepare(
         joined,
         timeline,
         mirror_pairs,
+        pins,
         model,
         setting,
         map,
@@ -286,6 +291,8 @@ struct RecipeSpec<'a> {
     /// Each recipe clip's part, in order.
     parts: Vec<parts::PartSpec>,
     mirror_pairs: &'a [[String; 2]],
+    /// The pins on the bake's frames, solved after everything else.
+    pins: &'a [crate::recipes::pins::PinSpan],
 }
 
 #[derive(Serialize)]
@@ -335,6 +342,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
         (RETARGET_FILE, retarget::RETARGET_SCRIPT),
         (SURFACE_FILE, surface),
         (MOTION_FILE, super::MOTION_SCRIPT),
+        (PINS_FILE, super::PINS_SCRIPT),
     ] {
         let path = work.join(name);
         crate::fs::write_atomic(&path, text.as_bytes()).map_err(|e| CoreError::io(&path, e))?;
@@ -358,6 +366,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
                 timeline: prepared.timeline.as_ref(),
                 parts,
                 mirror_pairs: &prepared.mirror_pairs,
+                pins: &prepared.pins,
             },
             out: super::STAGED_FILE,
             report: REPORT_FILE,

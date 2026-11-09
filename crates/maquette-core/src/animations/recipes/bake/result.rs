@@ -47,6 +47,7 @@ pub(crate) struct BakeRun {
     pub stretch: Option<StretchRun>,
     pub stretch_note: Option<String>,
     pub reaches: Vec<ReachRun>,
+    pub pins: Vec<super::pins::PinRun>,
     pub seconds: f32,
 }
 
@@ -143,6 +144,7 @@ pub(crate) fn result_of(
         base_stretch_mm: stretch.base.map(|v| round(v, 1)),
         stretch_note: run.stretch_note.clone(),
         reaches: run.reaches.iter().map(reach).collect(),
+        pins: run.pins.iter().map(super::pins::pin_result).collect(),
         blender_seconds: round(run.seconds, 2),
         seconds: round(seconds, 2),
         warnings: prepared.warnings.clone(),

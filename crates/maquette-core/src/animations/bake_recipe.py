@@ -42,7 +42,10 @@ half of its range and held to its end, the others over a quarter each way):
 - reach puts an IK constraint on the hand or foot, aimed at an empty on its
   target, up through its upper arm or leg, its influence keyed by the ease;
   a limb the clip holds dead straight is first bent a few degrees the way
-  an elbow or knee bends, so the solver knows which way to fold it.
+  an elbow or knee bends, so the solver knows which way to fold it;
+- pins come last, after every other change (recipe_pins.py): a hand or foot
+  held on its spot (where it is at the pin's first frame, or a blank's
+  target) by IK, a foot kept flat and a hand kept turned as it was.
 
 Targets sit in the model's own frame, read from the rig as the preview reads
 it: the model faces up crossed with the line from its left upper arm to its
@@ -58,7 +61,8 @@ its own clips and this one. The report measures what the review needs: each
 foot's world position per frame (the base clip's and the recipe's), the
 rig's worst stretch past a healthy skin on a few frames (surface.py), and
 per reach the gap to its target at its end and the first frame its elbow or
-knee bends the other way than the clip has it.
+knee bends the other way than the clip has it, and per pin how far its hand
+or foot drifts from its spot while it holds whole.
 """
 
 import argparse
@@ -457,13 +461,15 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
         if target is None:
             raise RuntimeError(f"the reach {layer['id']} has no target")
         reaches[layer["id"]] = Reach(rig, layer, target, scene)
+    folder = os.path.dirname(at(job["out"]))
+    pins = load_sibling(folder, "recipe_pins").Pins(rig, recipe.get("pins") or [], targets, scene)
 
     rt.play(arm, action)
     count = int(job["frames"])
     # A built motion keeps the model's rate, which can differ from its own.
     times = rt.key_frames(count, clip_spec, job.get("sceneFps") or rt.clip_fps(clip_spec))
     order = rt.hierarchy_order(arm.data)
-    measure, stretch_note = stretch_reader(os.path.dirname(at(job["out"])), objects, arm)
+    measure, stretch_note = stretch_reader(folder, objects, arm)
     shares = job.get("shares")
     breaths = job.get("breaths")
     ends = {key: end_frame(r.layer, count, shares) for key, r in reaches.items()}
@@ -482,6 +488,7 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             pb.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
         for reach in reaches.values():
             reach.constraint.influence = 0.0
+        pins.reset()
         rt.set_frame(scene, t)
         bpy.context.view_layer.update()
         share = shares[i] if shares else (i / (count - 1) if count > 1 else 0.0)
@@ -507,6 +514,8 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             lay_over(rig, layer, amount, share, targets.get(s.get("target")))
             bpy.context.view_layer.update()
         bpy.context.view_layer.update()
+        pins.hold(rig, i)
+        bpy.context.view_layer.update()
         for b in order:
             pb = arm.pose.bones[b.name]
             basis = arm.convert_space(pose_bone=pb, matrix=pb.matrix, from_space="POSE", to_space="LOCAL")
@@ -519,6 +528,7 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             loc_samples[b.name].append(loc)
         for side, bone in sides.items():
             feet[side].append(rig.head(arm.pose.bones[bone]))
+        pins.measure(rig, i)
         for key, reach in reaches.items():
             s = reach.layer["settings"]
             if i == ends[key]:
@@ -539,6 +549,7 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
 
     for reach in reaches.values():
         reach.remove()
+    pins.remove()
     return rig, height, {
         "rot": rot_samples,
         "loc": loc_samples,
@@ -557,6 +568,7 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             }
             for r in reaches.values()
         ],
+        "pins": pins.report(),
     }
 
 
@@ -705,6 +717,7 @@ def main():
             "stretch": solved["stretch"] if solved["stretch"]["mm"] is not None else None,
             "stretchNote": solved["stretchNote"],
             "reaches": solved["reaches"],
+            "pins": solved["pins"],
             "travel": entry.get("travel", 0.0),
             "seconds": round(time.time() - started, 2),
         }
