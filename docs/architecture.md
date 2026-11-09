@@ -621,7 +621,7 @@ Version 2 adds `joined` clips after the base (each with a `blend` window and its
 on any clip, `mirror`, `time` edits (retime, freeze, hold over) on a clip's own frames, and the pin,
 pose key and grip changes. Each is written only when used: a save writes version 1 while a recipe
 uses none of it, so an older Maquette still opens it, and version 2 once it does; a version past 2
-is refused. Pins, pose keys and grips do not bake yet (`not-bakeable-yet`). Keys and time edits sit
+is refused. Pose keys and grips do not bake yet (`not-bakeable-yet`); pins do. Keys and time edits sit
 on a clip by its index and its own frame. A change's `start` and `end` are shares of all the clips'
 own frames laid end to end (on one clip, of its length), so a trim, retime or freeze leaves it on
 the motion it covered; `recipes/clip_moves.rs` moves every share, key and time edit with its clip
@@ -642,6 +642,17 @@ action of its own, and `recipe_motion.py` builds the new clip frame by frame fro
 pose at its frame, holds turned toward their frame, a joined clip lined up with the clip before at
 its seam, blend windows, then mirror) before the changes are laid over it at the frames their
 shares stand on.
+
+Pins are held last, after every other change on each frame. `recipes/pins.rs` puts each on the
+timeline's frames (from the first key its `start` reaches to the last within its `end`), eases it
+in and out (`easeIn` and `easeOut`, 3 frames unless set, 0 holding at once) and says what of a foot
+stays flat (`flat`: toe and heel unless set, heel keeps only its heading, off none; a hand keeps the
+turn it had). A pin stays where the bone is at its first frame, else on its blank's target. The job
+carries the spans, and `recipe_pins.py` holds each with an IK constraint to an empty on the spot,
+chained to the upper limb, and a copy rotation for the turn, then measures how far the bone drifts
+from the spot over the frames it holds whole and how far it would move without the pin. The review
+reads that as a Pin drift line per pin (`pin-<layer>`, 1 cm). The web app's step for step copy is
+`state/recipe-pins.ts`, held to `recipes/fixtures/pins.json`.
 
 A write that leaves the blanks out keeps them as stored, and a prop blank sent open whose stored prop
 is no longer an asset keeps that prop: only reads open it (`RecipeRead::gone` lists them), so
@@ -667,6 +678,9 @@ preview is
 `features/viewer/RecipePreview` (lazy `RecipeStage`): the base clip through the rough retarget, then
 `features/viewer/recipe-pose.ts` lays the changes over (two-bone IK for reach, an aim for look at,
 an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
+`features/viewer/recipe-pins.ts` then holds the pins roughly with the same two-bone IK, from spots
+taken at each pin's first frame, and checks how far the hips move against the limb's reach for the
+pin's settings. Pins have a Pin lane of their own in the editor; pose keys and grips stay read only.
 A joined recipe plays the timeline: each frame poses the clip frames it names, blends across a
 window and holds a frozen pose, the same frames the bake makes.
 Facing comes from the rig (`rigForward`: up crossed with left to right upper arm, else upper leg,

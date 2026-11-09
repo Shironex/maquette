@@ -6994,6 +6994,8 @@ export type RecipeBakeResult = {
 	baseStretchMm: number | null,
 	stretchNote: string | null,
 	reaches: RecipeReachResult[],
+	/**  Each pin as the bake measured it. Empty in a record from before. */
+	pins?: RecipePinResult[],
 	/**  How long Blender took, and the whole bake, seconds. */
 	blenderSeconds: number | null,
 	seconds: number | null,
@@ -7520,6 +7522,28 @@ export type RecipeLayer_Serialize = {
  *  tab's "library has a newer revision" notes reload.
  */
 export type RecipeLibraryChanged = null;
+
+/**  One pin as the bake measured it. */
+export type RecipePinResult = {
+	/**  The change's id. */
+	layer: string,
+	/**  The hand or foot, by VRM name. */
+	bone: string,
+	/**  The bake frames it holds on, first and last. */
+	first: number,
+	last: number,
+	/**
+	 *  The worst drift from its spot while it holds whole, cm, and the frame
+	 *  of it; none when its eases leave no frame held whole.
+	 */
+	driftCm: number | null,
+	frame: number | null,
+	/**
+	 *  How far the bone moves from the spot over those frames without the
+	 *  pin, cm.
+	 */
+	baseDriftCm: number | null,
+};
 
 /**  One reach as the bake measured it. */
 export type RecipeReachResult = {

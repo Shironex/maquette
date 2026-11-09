@@ -81,8 +81,12 @@ in the app: agents may propose a tour, never apply one.
 3. Joined clips and base edits also go through `update_recipe`: `clips` (base first, each a
    library `clip` or `keep` of an index, with `trim` [in, out] and `blend`
    `{ frames, curve, lineUp }`), `time` (`retime`, `freeze`, `hold-over` on a clip's own frames
-   before its trim) and `mirror`. They bake; pins, pose keys and grips are refused
+   before its trim) and `mirror`. They bake, and so do pins; pose keys and grips are refused
    (`not-bakeable-yet`). `frames` in `get_recipe` is how long the bake runs.
+   - A `pin` keeps `leftFoot`, `rightFoot`, `leftHand` or `rightHand` in place from `start` to
+     `end`: where the bone is at its first frame, or on a blank in `target` (give a hand one).
+     `easeIn` and `easeOut` are whole frames (3 unless set). A foot's `flat` is `toe-and-heel`
+     (default), `heel` or `off`. Pins are solved last, after every other change.
    - Changes not sent with `clips` move with their clip. Taking out a clip a change sits on, or
      moving a clip away from the clip a change runs across from, is refused (`clip-in-use`).
 4. Tell the person in one line what the recipe does and which blanks you filled with what.
@@ -94,9 +98,9 @@ in the app: agents may propose a tour, never apply one.
    It needs a rigged model in the project.
 2. `get_recipe_bake` `{ project, recipe }`: poll `state` (`running`, `done`, `failed`,
    `cancelled`) and `progress`. When done, read `review`: hand or foot gap (2 cm), elbow or knee
-   flip, foot slide (1.5 cm over the base clip's own), rig stretch (5 mm over the base clip's own),
-   each `pass`, `warn` or `not-measured`, and how many warn. Also read `clipNote`: whether the clip
-   replaced this recipe's older ones or took a `_2` name.
+   flip, pin drift (1 cm, per pin), foot slide (1.5 cm over the base clip's own), rig stretch
+   (5 mm over the base clip's own), each `pass`, `warn` or `not-measured`, and how many warn.
+   Also read `clipNote`: whether the clip replaced this recipe's older ones or took a `_2` name.
 3. `stale` on a finished bake means the recipe or the model changed since: call `bake_recipe`
    again. A failed bake says why in `error`; fix that, then bake again.
 4. The numbers measure only the four things above, at the reach ends and sampled frames. They do not

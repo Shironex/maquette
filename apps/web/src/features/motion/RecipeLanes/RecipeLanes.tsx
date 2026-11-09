@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { IconButton, cn } from '@maquette/ui';
 import { KIND_WORDS } from '@/state/recipe-draft';
 import { STATUS_WORDS, across, at, frameReadout, type LaneBlock } from '@/state/recipe-lanes';
+import { pinLabel } from '@/state/recipe-pins';
 import { ChangeBar } from './ChangeBar';
 import { useRecipeLanes } from './RecipeLanes.hooks';
 
@@ -163,6 +164,26 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
       />
     </Lane>
   ));
+  const pinLanes = v.pins.map((row, i) => {
+    const bars = row.map(layer => (
+      <ChangeBar
+        key={layer.id}
+        layer={layer}
+        label={pinLabel(layer)}
+        look="bg-sage/70 text-fg"
+        frames={frames}
+        toFrame={toFrame}
+        toShare={toShare}
+        picked={v.isPicked('layer', layer.id)}
+        onPick={() => v.toggle('layer', layer.id)}
+      />
+    ));
+    return (
+      <Lane key={`pin-${i}`} label={i === 0 ? 'Pin' : ''}>
+        {bars}
+      </Lane>
+    );
+  });
   return (
     <section
       aria-label="Timeline"
@@ -179,7 +200,7 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
           {frameReadout(frame, frames, fps)}
         </span>
         <span className="flex-1" />
-        {v.layers.length ? (
+        {v.layers.length || v.pins.length ? (
           <span className="hidden truncate text-meta text-fg-mute 2xl:inline">
             Drag a bar to move it. Drag its ends to change the range.
           </span>
@@ -231,6 +252,8 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
             }
           />
         </Lane>
+        {pinLanes.length ? <Lane label="Pins" group /> : null}
+        {pinLanes}
         {changes.length ? <Lane label="Changes" group /> : null}
         {changes}
         <i

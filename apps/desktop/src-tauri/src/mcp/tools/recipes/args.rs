@@ -159,7 +159,9 @@ pub(super) struct ChangeArg {
     pub start: Option<f32>,
     /// Where it ends, 0 to 1 and after start. Defaults to 1.
     pub end: Option<f32>,
-    /// reach and look-at: the id of the blank holding the target.
+    /// reach and look-at: the id of the blank holding the target. pin: the
+    /// blank it stays on; left out, it stays where the bone is at its first
+    /// frame.
     pub target: Option<String>,
     /// nudge: degrees added to the bone's rotation, [x, y, z], within 180 each way.
     pub rotation: Option<[f32; 3]>,
@@ -169,11 +171,12 @@ pub(super) struct ChangeArg {
     pub cycles: Option<f32>,
     /// wave: how far each wave swings in degrees, more than 0 and at most 90.
     pub amount: Option<f32>,
-    /// pin and grip: frames it eases in over.
+    /// pin and grip: frames it eases in over (a pin: 3 unless told).
     pub ease_in: Option<u32>,
-    /// pin and grip: frames it eases out over.
+    /// pin and grip: frames it eases out over (a pin: 3 unless told).
     pub ease_out: Option<u32>,
-    /// A foot pin: what stays flat, toe-and-heel, heel or off.
+    /// A foot pin: what stays flat, toe-and-heel (unless told), heel (the toe
+    /// may roll) or off.
     pub flat: Option<String>,
     /// pose and grip: add (on top of the clip, pose's default) or replace
     /// (in place of it, grip's default).

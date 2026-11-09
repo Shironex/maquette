@@ -92,7 +92,7 @@ pub(crate) fn model_bone(vrm: &str, map: &[BonePair], joints: &[String]) -> Opti
         .cloned()
 }
 
-/// Every bone the changes move, by VRM name, with the limbs a reach solves
+/// Every bone the changes move, by VRM name, with the limbs a reach or pin solves
 /// and the bones the facing is read from.
 pub(super) fn bones_for(
     layers: &[RecipeLayer],
@@ -103,7 +103,7 @@ pub(super) fn bones_for(
     let mut missing = Vec::new();
     for layer in layers {
         let mut wanted = vec![layer.bone.as_str()];
-        if layer.kind == LayerKind::Reach
+        if matches!(layer.kind, LayerKind::Reach | LayerKind::Pin)
             && let Some((upper, lower)) = limb_of(&layer.bone)
         {
             wanted.extend([upper, lower]);

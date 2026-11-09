@@ -7,6 +7,7 @@
 import type { RecipeBlank, RecipeLayer } from '@/ipc/client';
 import { HUMAN_BONES, bonesFor } from './recipe-bones';
 import { KIND_WORDS, num, type RecipeDraft } from './recipe-draft';
+import { pinProblem } from './recipe-pins';
 import { baseProblems } from './recipe-v2-check';
 
 export const LIMITS = {
@@ -98,9 +99,10 @@ function settingsProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): st
         return `Amount: more than 0 and at most ${LIMITS.amount} degrees.`;
       return null;
     }
+    case 'pin':
+      return pinProblem(layer, blanks);
     // Recipe file version 2 kinds: the editor shows them read only and the
     // core checks them on every write.
-    case 'pin':
     case 'pose':
     case 'grip':
       return null;

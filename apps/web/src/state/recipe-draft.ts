@@ -16,6 +16,7 @@ import type {
 } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
 import { boneWords, bonesFor } from './recipe-bones';
+import { pinSettings } from './recipe-pins';
 
 /** What the editor changes, each list sent whole when it changed. */
 export interface RecipeDraft {
@@ -51,14 +52,14 @@ export const KIND_ABOUT: Record<LayerKind, string> = {
 };
 
 /**
- * The kinds the editor makes and edits. Pins, pose keys and grips (recipe
- * file version 2) only show, read only, until the editor learns them.
+ * The kinds the editor makes and edits. Pose keys and grips (recipe file
+ * version 2) only show, read only, until the editor learns them.
  */
-export const EDITABLE_KINDS: readonly LayerKind[] = ['reach', 'nudge', 'look-at', 'wave'];
+export const EDITABLE_KINDS: readonly LayerKind[] = ['reach', 'nudge', 'look-at', 'wave', 'pin'];
 
 /**
  * Whether the editor can edit `recipe`: joined clips, trims, blends, the
- * mirror and time edits it can; pins, pose keys and grips it only shows.
+ * mirror, time edits and pins it can; pose keys and grips it only shows.
  */
 export const editable = (recipe: RecipeFile) =>
   recipe.layers.every(l => EDITABLE_KINDS.includes(l.kind));
@@ -146,15 +147,18 @@ export function newLayer(
   blanks: readonly RecipeBlank[]
 ): RecipeLayer {
   const bone = kind === 'nudge' ? 'spine' : (bonesFor(kind)[0] ?? 'hips');
-  const preferred = kind === 'reach' || kind === 'wave' ? 'rightHand' : bone;
+  const preferred =
+    kind === 'reach' || kind === 'wave' ? 'rightHand' : kind === 'pin' ? 'leftFoot' : bone;
+  const picked = bonesFor(kind).includes(preferred) ? preferred : bone;
+  const settings = settingsFor(kind, EMPTY, blanks);
   return {
     id: freeId(
       'l',
       layers.map(l => l.id)
     ),
     kind,
-    bone: bonesFor(kind).includes(preferred) ? preferred : bone,
-    settings: settingsFor(kind, EMPTY, blanks),
+    bone: picked,
+    settings: kind === 'pin' ? pinSettings(settings, picked) : settings,
   };
 }
 
@@ -165,11 +169,13 @@ export function withKind(
   blanks: readonly RecipeBlank[]
 ): RecipeLayer {
   const bones = bonesFor(kind);
+  const bone = bones.includes(layer.bone) ? layer.bone : (bones[0] ?? layer.bone);
+  const settings = settingsFor(kind, layer.settings, blanks);
   return {
     ...layer,
     kind,
-    bone: bones.includes(layer.bone) ? layer.bone : (bones[0] ?? layer.bone),
-    settings: settingsFor(kind, layer.settings, blanks),
+    bone,
+    settings: kind === 'pin' ? pinSettings(settings, bone) : settings,
   };
 }
 

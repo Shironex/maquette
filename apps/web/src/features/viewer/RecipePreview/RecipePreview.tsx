@@ -12,6 +12,7 @@ import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { fileUrl } from '@/ipc/files';
 import type { RecipeLayer } from '@/ipc/client';
 import type { ReachCheck } from '@/state/recipe-review';
+import type { StagePins } from '../recipe-pins';
 import type { RecipeMarker } from '../recipe-pose';
 import { useRoughMap } from '../RoughPreview/RoughPreview.hooks';
 import { useRecipePreview } from './RecipePreview.hooks';
@@ -44,11 +45,14 @@ export interface RecipePreviewProps {
   clip: { id: string; name: string; file: string } | 'rest' | JoinedClips | null;
   layers: readonly RecipeLayer[];
   markers: readonly RecipeMarker[];
-  /** Where the playhead is: a share of the clip, or of the bake's frames for joined clips. */
-  share: number;
-  playing: boolean;
-  onTick: (delta: number) => void;
+  /**
+   * Where the playhead is (a share of the clip, or of the bake's frames for
+   * joined clips), whether it plays, and who moves it on.
+   */
+  play: { share: number; playing: boolean; onTick: (delta: number) => void };
   onChecks?: (checks: ReachCheck[]) => void;
+  /** The pins to hold last, on the bake's frames. */
+  pins?: StagePins | null;
   /** The words on the picture; the rough preview's own without. */
   label?: string;
   /** The figure's accessible name. */
@@ -101,8 +105,9 @@ export default function RecipePreview(props: RecipePreviewProps) {
               pairs={map}
               layers={props.layers}
               markers={props.markers}
-              play={{ share: props.share, playing: props.playing, onTick: props.onTick }}
+              play={props.play}
               onChecks={props.onChecks}
+              pins={props.pins}
               onError={setFailed}
             />
           </Suspense>

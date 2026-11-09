@@ -1,8 +1,8 @@
 //! A finished bake's numbers against their limits, as the review shows
 //! them and agents read them: each reach's gap to its target (2 cm) and its
-//! elbow or knee (no flip), the planted feet's slide (1.5 cm over the base
-//! clip's own on this model) and the rig's stretch (5 mm over the base
-//! clip's). A warn asks for a look; it never stops the bake being added.
+//! elbow or knee (no flip), each pin's drift from its spot (1 cm), the
+//! planted feet's slide (1.5 cm over the base clip's own on this model) and
+//! the rig's stretch (5 mm over the base clip's). A warn asks for a look; it never stops the bake being added.
 
 use serde::{Deserialize, Serialize};
 
@@ -175,10 +175,11 @@ fn stretch_line(result: &RecipeBakeResult) -> RecipeReviewLine {
     }
 }
 
-/// The review of `result`: each reach's gap and joint, then the feet and
-/// the rig.
+/// The review of `result`: each reach's gap and joint, each pin's drift,
+/// then the feet and the rig.
 pub fn review_of(result: &RecipeBakeResult) -> RecipeBakeReview {
     let mut lines = reach_lines(result);
+    lines.extend(super::pins::pin_lines(result));
     lines.push(feet_line(result));
     lines.push(stretch_line(result));
     let warns = lines

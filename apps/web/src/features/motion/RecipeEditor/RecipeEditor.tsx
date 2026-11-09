@@ -14,7 +14,7 @@ import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
  * blanks. Edits stay here until Save, through leaving the tab; leaving the
  * recipe with unsaved edits asks first, and an agent's edit made meanwhile
  * merges or asks which side wins. Base edits (joined clips, trims, time
- * edits, the mirror) sit above the changes. A recipe holding pins, pose
+ * edits, the mirror) sit above the changes. A recipe holding pose
  * keys or grips, which the editor cannot edit yet, shows read only, with
  * the same questions and a way to save or discard edits made before an
  * agent changed it.

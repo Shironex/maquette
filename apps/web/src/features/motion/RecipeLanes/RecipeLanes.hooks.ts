@@ -9,6 +9,7 @@ import {
   trimBlocks,
 } from '@/state/recipe-lanes';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { pinRows } from '@/state/recipe-pins';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 
 /**
@@ -35,13 +36,16 @@ export function useRecipeLanes() {
       marks: rulerMarks(t.frames, t.fps),
     };
   }, [dt, draft, doc]);
+  const pins = useMemo(() => (dt && draft ? pinRows(draft.layers, dt.toFrame) : []), [dt, draft]);
   const { pick } = useRecipeEditorStore.getState();
   const isPicked = (what: NonNullable<RecipePick>['what'], id = '') =>
     picked?.what === what && picked.id === id;
   return {
     dt,
     lanes,
-    layers: draft?.layers ?? [],
+    /** Every change but the pins, which have a lane of their own. */
+    layers: (draft?.layers ?? []).filter(l => l.kind !== 'pin'),
+    pins,
     mirror: draft?.mirror ?? false,
     isPicked,
     /** Shows the settings of `what`, or hides them when they show. */

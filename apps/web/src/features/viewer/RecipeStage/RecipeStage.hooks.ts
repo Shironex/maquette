@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { RecipeLayer } from '@/ipc/client';
 import { LOOK_BONES, limbOf, mixamoName } from '@/state/recipe-bones';
+import type { PinCheck } from '@/state/recipe-pins';
 import type { ReachCheck } from '@/state/recipe-review';
 import { checkReaches } from '../check-reaches';
+import {
+  checkPins,
+  holdPins,
+  pinSpots,
+  poseAtOf,
+  type PinSpot,
+  type StagePins,
+} from '../recipe-pins';
 import {
   poseRecipe,
   rigForward,
@@ -247,21 +256,30 @@ export function useTargets(
 }
 
 /**
- * Poses the clip at `share` each frame with the changes laid over it,
- * moving the playhead while it plays, and measures each reach's end again
- * whenever the changes or targets change.
+ * Poses the clip at `share` each frame with the changes laid over it and
+ * the pins held last, moving the playhead while it plays, and measures each
+ * reach's end, takes each pin's spot and checks it again whenever the
+ * changes or targets change.
  */
 export function useRecipeFrame(
   setup: RecipeSetup | null,
   layers: readonly RecipeLayer[],
   targets: ReadonlyMap<string, THREE.Vector3>,
   play: { share: number; playing: boolean; onTick: (delta: number) => void },
-  onChecks?: (checks: ReachCheck[]) => void
+  onChecks?: (checks: ReachCheck[]) => void,
+  pins: StagePins | null = null
 ) {
   const report = useEffectEvent((checks: ReachCheck[]) => onChecks?.(checks));
+  const spots = useRef<ReadonlyMap<string, PinSpot>>(new Map());
+  const reportPins = useEffectEvent((checks: PinCheck[]) => pins?.onChecks?.(checks));
   useEffect(() => {
-    if (setup) report(checkReaches(setup.frameAt, setup.rig, layers, targets));
-  }, [setup, layers, targets]);
+    if (!setup) return;
+    report(checkReaches(setup.frameAt, setup.rig, layers, targets));
+    const spans = pins?.spans ?? [];
+    const poseAt = poseAtOf(setup, pins?.frames ?? 0);
+    spots.current = pinSpots(poseAt, setup.rig, layers, targets, spans);
+    reportPins(checkPins(poseAt, setup.rig, layers, targets, spans, spots.current));
+  }, [setup, layers, targets, pins]);
   useFrame((_, delta) => {
     if (!setup) return;
     if (play.playing) play.onTick(delta);
@@ -269,6 +287,8 @@ export function useRecipeFrame(
     if (setup.playAt) share = setup.playAt(play.share);
     else setup.frameAt(play.share);
     poseRecipe(setup.rig, layers, targets, share);
+    if (pins?.spans.length)
+      holdPins(setup.rig, pins.spans, spots.current, play.share * pins.frames);
   });
 }
 

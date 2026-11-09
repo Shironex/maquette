@@ -6,9 +6,7 @@ const base = {
   project: 'p',
   layers: [],
   markers: [],
-  share: 0,
-  playing: false,
-  onTick: () => undefined,
+  play: { share: 0, playing: false, onTick: () => undefined },
 };
 
 describe('the recipe preview', () => {

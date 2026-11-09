@@ -26,10 +26,9 @@ export default function RecipePlayer() {
         clip={p.joined ?? p.clip}
         layers={p.layers}
         markers={p.markers}
-        share={p.share}
-        playing={p.playing}
-        onTick={p.tick}
+        play={{ share: p.share, playing: p.playing, onTick: p.tick }}
         onChecks={p.setChecks}
+        pins={p.pins}
       />
       <RecipeLanes frame={p.frame} playing={p.playing} onToggle={p.toggle} onScrub={p.scrub} />
       {lines.length ? (

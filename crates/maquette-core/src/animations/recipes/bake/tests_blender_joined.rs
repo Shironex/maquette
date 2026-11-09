@@ -27,13 +27,13 @@ use crate::workspace::WorkspaceConfig;
 type Keys = (Vec<f64>, Vec<Vec<f64>>);
 
 /// The staged model's JSON and binary chunk.
-struct Glb {
+pub(super) struct Glb {
     json: Value,
     bin: Vec<u8>,
 }
 
 impl Glb {
-    fn read(file: &Path) -> Self {
+    pub(super) fn read(file: &Path) -> Self {
         let bytes = std::fs::read(file).expect("glb");
         let len = u32::from_le_bytes(bytes[12..16].try_into().expect("len")) as usize;
         let json = test_blender::glb_json(file);
@@ -70,7 +70,7 @@ impl Glb {
             .collect()
     }
 
-    fn node(&self, name: &str) -> usize {
+    pub(super) fn node(&self, name: &str) -> usize {
         self.json["nodes"]
             .as_array()
             .expect("nodes")
@@ -167,7 +167,7 @@ fn trs(t: &[f64], q: &[f64], s: &[f64]) -> M {
 }
 
 /// Where node `node` is in the scene at `t` seconds of clip `clip`.
-fn world(glb: &Glb, clip: &str, node: usize, t: f64) -> [f64; 3] {
+pub(super) fn world(glb: &Glb, clip: &str, node: usize, t: f64) -> [f64; 3] {
     let nodes = glb.json["nodes"].as_array().expect("nodes");
     let mut parent = BTreeMap::new();
     for (i, n) in nodes.iter().enumerate() {
@@ -252,7 +252,7 @@ fn bake_of(s: &Setup, p: &Project, vrm: &[&str]) -> (RecipeBakeResult, Glb, Vec<
     (result, glb, nodes)
 }
 
-fn fps_of(glb: &Glb, result: &RecipeBakeResult) -> f64 {
+pub(super) fn fps_of(glb: &Glb, result: &RecipeBakeResult) -> f64 {
     f64::from(result.frames) / test_blender::animation_seconds(&glb.json, &result.clip)
 }
 
