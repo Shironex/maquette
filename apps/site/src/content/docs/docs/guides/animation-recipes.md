@@ -48,7 +48,7 @@ A recipe can play more than its one base clip. Its clip strip lists the clips in
 - **Freeze.** Stops on a frame and adds frames. **Hold over** keeps a pose across a range with the length unchanged. Both can breathe, so a long hold is not dead still.
 - **Mirror.** Swaps left and right for the whole recipe, so a right handed slash becomes a left handed one.
 
-The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on. A recipe with pins, pose keys or grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
+The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with pins, pose keys or grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
 
 ## Blanks
 
