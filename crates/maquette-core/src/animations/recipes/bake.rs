@@ -48,6 +48,8 @@ pub const BAKE_SCRIPT: &str = include_str!("../bake_recipe.py");
 pub const MOTION_SCRIPT: &str = include_str!("../recipe_motion.py");
 /// The part of the bake that holds a recipe's pins, last.
 pub const PINS_SCRIPT: &str = include_str!("../recipe_pins.py");
+/// Blends pose keys and lays them on, imported by the bake script.
+pub const KEYS_SCRIPT: &str = include_str!("../recipe_keys.py");
 /// The workspace cache folder recipe bakes are staged in, per project and
 /// recipe: `<cache>/recipes/<project>/<recipe>/`.
 pub const WORK_DIR: &str = crate::workspace::RECIPE_BAKES_DIR;
@@ -192,6 +194,11 @@ pub struct RecipeBakeResult {
     /// Each pin as the bake measured it. Empty in a record from before.
     #[serde(default)]
     pub pins: Vec<RecipePinResult>,
+    /// The keyed poses judged against the humanoid joint limits; none for a
+    /// recipe with no pose keys (and in a record from before).
+    #[serde(default)]
+    #[specta(optional)]
+    pub joints: Option<crate::recipes::joint_limits::KeyedLimits>,
     /// How long Blender took, and the whole bake, seconds.
     pub blender_seconds: f32,
     pub seconds: f32,
@@ -244,6 +251,8 @@ mod tests_add;
 mod tests_blender;
 #[cfg(test)]
 mod tests_blender_joined;
+#[cfg(test)]
+mod tests_blender_keys;
 #[cfg(test)]
 mod tests_blender_pins;
 #[cfg(test)]

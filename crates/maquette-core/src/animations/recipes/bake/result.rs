@@ -145,6 +145,12 @@ pub(crate) fn result_of(
         stretch_note: run.stretch_note.clone(),
         reaches: run.reaches.iter().map(reach).collect(),
         pins: run.pins.iter().map(super::pins::pin_result).collect(),
+        joints: doc
+            .recipe
+            .layers
+            .iter()
+            .any(|l| l.kind == crate::recipes::LayerKind::Pose)
+            .then(|| crate::recipes::joint_limits::keyed_limits(&doc.recipe)),
         blender_seconds: round(run.seconds, 2),
         seconds: round(seconds, 2),
         warnings: prepared.warnings.clone(),

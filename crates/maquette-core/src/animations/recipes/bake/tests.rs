@@ -238,18 +238,30 @@ fn a_recipe_using_what_the_bake_cannot_make_yet_is_refused_naming_it() {
         RecipeChange {
             layers: Some(vec![
                 reach("l-1", "rightHand", "b-1"),
-                RecipeLayer::new("l-2", LayerKind::Pose, "", LayerSettings::default()),
+                RecipeLayer {
+                    pose: Some(
+                        [("rightIndexProximal".to_string(), [62.0, 0.0, 0.0])]
+                            .into_iter()
+                            .collect(),
+                    ),
+                    ..RecipeLayer::new(
+                        "l-2",
+                        LayerKind::Grip,
+                        "rightHand",
+                        LayerSettings::default(),
+                    )
+                },
             ]),
             expected: Some(p.recipe.version.clone()),
             ..RecipeChange::default()
         },
     )
-    .expect("pose keys");
+    .expect("a grip");
     let refused = refusal(&p, &p.request());
     assert!(matches!(refused, CoreError::Invalid(_)));
     let words = refused.to_string();
     assert!(words.starts_with(NOT_BAKEABLE_YET), "{words}");
-    assert!(words.contains("it uses pose keys"), "{words}");
+    assert!(words.contains("it uses grips"), "{words}");
     assert_eq!(not_bakeable(&p.recipe), Some(words));
     assert_eq!(not_bakeable(&reaching().recipe), None);
 }

@@ -4242,6 +4242,18 @@ export type KeyEase =
 /**  Holds the key before until this frame, then jumps. */
 "step";
 
+/**  A pose key that turns a bone past its limit. */
+export type KeyLimitHit = {
+	/**  The pose key change. */
+	layer: string,
+	/**  The key's clip and its own frame. */
+	clip: number,
+	frame: number,
+	/**  Where it shows in the bake; none when a trim cuts it out. */
+	bakeFrame: number | null,
+	hit: LimitHit,
+};
+
 /**  What Settings shows for one key. */
 export type KeyStatus = {
 	service: ProviderId,
@@ -4257,6 +4269,14 @@ export type KeyTest = {
 	/**  Credits left, when the key works. */
 	balance: number | null,
 	message: string,
+};
+
+/**  Every keyed pose of `recipe` judged against the table. */
+export type KeyedLimits = {
+	/**  How many keyed bone turns were judged. */
+	judged: number,
+	/**  The turns past a limit, the furthest past first. */
+	hits: KeyLimitHit[],
 };
 
 /**  The triangle budget of one kind; `None` leaves that kind as it is. */
@@ -4705,6 +4725,18 @@ export type LibraryView = {
 	items: LibraryItem[],
 	/**  Every collection by name, each listing only entries in `items`. */
 	collections: LibraryCollection[],
+};
+
+/**  One axis of a bone turned past its limit. */
+export type LimitHit = {
+	bone: string,
+	/**  `x`, `y` or `z`. */
+	axis: string,
+	/**  What the axis does to the bone: "twist", "bend", "raise". */
+	word: string,
+	/**  The turn, and the limit on that side, degrees. */
+	degrees: number | null,
+	limit: number | null,
 };
 
 /**
@@ -6996,6 +7028,11 @@ export type RecipeBakeResult = {
 	reaches: RecipeReachResult[],
 	/**  Each pin as the bake measured it. Empty in a record from before. */
 	pins?: RecipePinResult[],
+	/**
+	 *  The keyed poses judged against the humanoid joint limits; none for a
+	 *  recipe with no pose keys (and in a record from before).
+	 */
+	joints?: KeyedLimits | null,
 	/**  How long Blender took, and the whole bake, seconds. */
 	blenderSeconds: number | null,
 	seconds: number | null,

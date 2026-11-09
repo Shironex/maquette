@@ -1,8 +1,10 @@
 //! A finished bake's numbers against their limits, as the review shows
 //! them and agents read them: each reach's gap to its target (2 cm) and its
 //! elbow or knee (no flip), each pin's drift from its spot (1 cm), the
-//! planted feet's slide (1.5 cm over the base clip's own on this model) and
-//! the rig's stretch (5 mm over the base clip's). A warn asks for a look; it never stops the bake being added.
+//! planted feet's slide (1.5 cm over the base clip's own on this model),
+//! the rig's stretch (5 mm over the base clip's) and, with pose keys, each
+//! keyed turn against the humanoid joint limits. A warn asks for a look; it
+//! never stops the bake being added.
 
 use serde::{Deserialize, Serialize};
 
@@ -175,11 +177,67 @@ fn stretch_line(result: &RecipeBakeResult) -> RecipeReviewLine {
     }
 }
 
+/// The keyed poses against the humanoid joint limits: the turn furthest
+/// past its limit, or how many keyed turns stay inside. Only keys are
+/// judged; the clips break limits on purpose now and then.
+fn joints_line(result: &RecipeBakeResult) -> Option<RecipeReviewLine> {
+    let joints = result.joints.as_ref()?;
+    let Some(worst) = joints.hits.first() else {
+        return Some(RecipeReviewLine {
+            id: "joints".to_string(),
+            label: "Joint limits".to_string(),
+            about: None,
+            value: "inside".to_string(),
+            limit: "the humanoid table".to_string(),
+            measured: None,
+            max: None,
+            unit: None,
+            status: RecipeReviewStatus::Pass,
+            note: Some(format!(
+                "{} keyed turns, all inside. Keyed poses only.",
+                joints.judged
+            )),
+        });
+    };
+    let hit = &worst.hit;
+    let at = worst.bake_frame.map_or_else(
+        || {
+            format!(
+                "frame {} of clip {}, cut out by its trim",
+                worst.frame,
+                worst.clip + 1
+            )
+        },
+        |f| format!("frame {f}"),
+    );
+    let more = joints.hits.len() - 1;
+    Some(RecipeReviewLine {
+        id: "joints".to_string(),
+        label: "Joint limits".to_string(),
+        about: Some(format!("{} ({})", hit.bone, worst.layer)),
+        value: format!("{} {} {:.0} deg", hit.bone, hit.word, hit.degrees.abs()),
+        limit: format!("{:.0} deg", hit.limit.abs()),
+        measured: Some(round(hit.degrees.abs())),
+        max: Some(hit.limit.abs()),
+        unit: Some("deg".to_string()),
+        status: RecipeReviewStatus::Warn,
+        note: Some(format!(
+            "The key at {at} turns past the humanoid limit{}. Keyed poses only; it can still be added.",
+            if more > 0 {
+                format!(", and {more} more")
+            } else {
+                String::new()
+            }
+        )),
+    })
+}
+
 /// The review of `result`: each reach's gap and joint, each pin's drift,
-/// then the feet and the rig.
+/// the keyed poses against the joint limits, then the feet and the rig.
 pub fn review_of(result: &RecipeBakeResult) -> RecipeBakeReview {
     let mut lines = reach_lines(result);
     lines.extend(super::pins::pin_lines(result));
+    lines.extend(joints_line(result));
     lines.push(feet_line(result));
     lines.push(stretch_line(result));
     let warns = lines
