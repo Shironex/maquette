@@ -34,8 +34,14 @@ export function useClipList() {
     general: problems?.general ?? [],
     canAdd: count < V2_LIMITS.clips && !draft?.clips[0]?.rest,
     move: (from: number, to: number) => {
+      if (!draft) return;
+      const out = moveClip(draft, from, to);
+      if ('problem' in out) {
+        setProblem(out.problem);
+        return;
+      }
       setProblem(null);
-      edit(d => moveClip(d, from, to));
+      edit(() => out.draft);
     },
     remove: (index: number) => {
       if (!draft) return;

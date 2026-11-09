@@ -51,7 +51,9 @@ describe('the clips of a recipe draft', () => {
   });
 
   it('moves the time edits with their clip, and the base never keeps a blend', () => {
-    const moved = moveClip(draftOf(file()), 1, 0);
+    const out = moveClip(draftOf(file()), 1, 0);
+    if (!('draft' in out)) throw new Error(out.problem);
+    const moved = out.draft;
     expect(moved.clips.map(c => c.name)).toEqual(['Thrust', 'Slash']);
     expect(moved.clips[0]).not.toHaveProperty('blend');
     expect(moved.clips[1]?.blend?.frames).toBe(8);
@@ -72,6 +74,53 @@ describe('the clips of a recipe draft', () => {
     const out = removeClip(freezeOnIdle, 1);
     expect('draft' in out && out.draft.time[0]?.clip).toBe(1);
     expect('draft' in out && out.draft.kept).toEqual([0, null]);
+  });
+
+  it('keeps a change on the frames it covered when a clip joins, moves or goes', () => {
+    // A reach over 0.5 to 0.8 of one 60 frame clip covers its frames 30 to 48.
+    const reach = {
+      ...newLayer('reach', [], []),
+      bone: 'rightHand',
+      settings: { ...newLayer('reach', [], []).settings, start: 0.5, end: 0.8 },
+    } as RecipeLayer;
+    const one = { ...draftOf(file({ base: clip('Idle'), joined: [], time: [] })), layers: [reach] };
+    const joined = addClip(one, clip('Wave'));
+    // Still clip 1 frames 30 to 48 of 120, not clip 2 frames 4 to 36.
+    expect(joined.layers[0]?.settings).toMatchObject({ start: 0.25, end: 0.4 });
+    const front = moveClip(joined, 1, 0);
+    expect('draft' in front && front.draft.layers[0]?.settings).toMatchObject({
+      start: 0.75,
+      end: 0.9,
+    });
+    expect(removeClip(joined, 0)).toEqual({
+      problem:
+        'Clip 1 (Idle) cannot go: the change Reach on Right hand sits on it. Take those out first.',
+    });
+    const back = removeClip(joined, 1);
+    expect('draft' in back && back.draft.layers[0]?.settings).toMatchObject({
+      start: 0.5,
+      end: 0.8,
+    });
+  });
+
+  it('refuses to move a clip away from the clip a change runs across from', () => {
+    const across = {
+      ...newLayer('wave', [], []),
+      bone: 'rightUpperArm',
+      settings: { ...newLayer('wave', [], []).settings, start: 0.4, end: 0.6 },
+    } as RecipeLayer;
+    const two = {
+      ...draftOf(file({ base: clip('A'), joined: [], time: [] })),
+      layers: [across],
+    };
+    const joined = addClip(two, clip('B'));
+    expect(joined.layers[0]?.settings).toMatchObject({ start: 0.2, end: 0.3 });
+    const wide = {
+      ...joined,
+      layers: [{ ...across, settings: { ...across.settings, start: 0.4, end: 0.6 } }],
+    };
+    const out = moveClip(wide, 1, 0);
+    expect('problem' in out && out.problem).toMatch(/Clip 2 \(B\) cannot move away from clip 1/);
   });
 
   it('drops a trim of the whole clip, and counts edits the trim leaves out', () => {

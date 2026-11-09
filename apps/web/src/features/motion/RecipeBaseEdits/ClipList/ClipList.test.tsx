@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
@@ -29,7 +29,13 @@ describe('the recipe clip list', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Take Sword And Shield Slash out' }));
     expect(screen.getByRole('alert')).toHaveTextContent('cannot go');
     expect(draft().clips).toHaveLength(3);
-    await userEvent.click(screen.getByRole('button', { name: 'Move Sword And Shield Idle up' }));
+    // The nudge runs across the block into the idle, so those two stay together.
+    const up = screen.getByRole('button', { name: 'Move Sword And Shield Idle up' });
+    await userEvent.click(up);
+    expect(screen.getByRole('alert')).toHaveTextContent('cannot move away from clip 2');
+    expect(draft().clips.map(c => c.name)[1]).toMatch(/Block/);
+    act(() => useRecipeEditorStore.getState().edit(d => ({ ...d, layers: [] })));
+    await userEvent.click(up);
     expect(draft().clips.map(c => c.name)[1]).toMatch(/Idle/);
     expect(draft().kept).toEqual([0, 2, 1]);
   });

@@ -3,8 +3,10 @@
  * taking one out, moving one, trimming and blending, and the mirror's
  * swap of sides. Each keeps the draft whole: the base has no blend, every
  * joined clip has one, `kept` says which clip of the file as read each one
- * keeps (null for a clip newly picked) and the time edits follow their
- * clip's place. Pure helpers; the store is use-recipe-editor-store.ts.
+ * keeps (null for a clip newly picked), and the time edits and changes
+ * follow their clip's place (recipe-shares.ts moves a change's start and
+ * end, so it stays on the motion it was placed on). Pure helpers; the store
+ * is use-recipe-editor-store.ts.
  */
 import type {
   AnimationClip,
@@ -15,7 +17,9 @@ import type {
   TimeEdit,
 } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
-import type { RecipeDraft } from './recipe-draft';
+import { boneWords } from './recipe-bones';
+import { KIND_WORDS, type RecipeDraft } from './recipe-draft';
+import { followLayers, placesOfMove, type StrandedChange } from './recipe-shares';
 import { DEFAULT_BLEND, blendMost } from './recipe-v2-check';
 
 /** A library clip as a recipe keeps it: its name, frames, length and hash, never its keys. */
@@ -58,22 +62,56 @@ export const clipsChanged = (draft: RecipeDraft, file: RecipeFile) =>
   !deepEqual(draft.clips, [file.base, ...(file.joined ?? [])]) ||
   draft.kept.some((k, i) => k !== i);
 
-/** Joins `clip` after the last one. */
+const framesOf = (clips: readonly RecipeBase[]) => clips.map(c => c.frames);
+
+/** A change as the clip list names it: "Reach on Right hand". */
+const changeWords = (layer: RecipeLayer) =>
+  layer.kind === 'pose' ? KIND_WORDS.pose : `${KIND_WORDS[layer.kind]} on ${boneWords(layer.bone)}`;
+
+/** The draft's changes moved onto `clips`, each clip `i` of the draft now at `places[i]`. */
+function follow(
+  draft: RecipeDraft,
+  clips: readonly RecipeBase[],
+  places: readonly (number | null)[]
+) {
+  return followLayers(draft.layers, framesOf(draft.clips), framesOf(clips), places);
+}
+
+/** Joins `clip` after the last one; every change keeps the frames it covered. */
 export function addClip(draft: RecipeDraft, clip: RecipeBase): RecipeDraft {
+  const clips = blended([...draft.clips, clip]);
   return {
     ...draft,
-    clips: blended([...draft.clips, clip]),
+    clips,
     kept: [...draft.kept, null],
+    layers: follow(
+      draft,
+      clips,
+      draft.clips.map((_, i) => i)
+    ).layers,
   };
 }
 
-/** What the core says when a clip taken out still holds time edits. */
-export function inUse(draft: RecipeDraft, index: number): string | null {
+/** Why clip `index` cannot go: the time edits and changes that sit on it, if any. */
+function inUseBy(draft: RecipeDraft, index: number, stranded: readonly StrandedChange[]) {
   const count = draft.time.filter(t => t.clip === index).length;
-  if (!count) return null;
+  const changes = stranded.map(s => changeWords(s.layer));
+  const things = [
+    ...(count === 1 ? ['a time edit'] : count > 1 ? [`${count} time edits`] : []),
+    ...(changes.length === 1 ? [`the change ${changes[0]}`] : []),
+    ...(changes.length > 1 ? [`the changes ${changes.join(', ')}`] : []),
+  ];
+  if (!things.length) return null;
+  const one = things.length === 1 && (count === 1 || changes.length === 1);
   const clip = draft.clips[index];
-  const edits = count === 1 ? 'a time edit sits on it' : `${count} time edits sit on it`;
-  return `Clip ${index + 1} (${clip?.name ?? ''}) cannot go: ${edits}. Take those out first.`;
+  return `Clip ${index + 1} (${clip?.name ?? ''}) cannot go: ${things.join(' and ')} ${one ? 'sits' : 'sit'} on it. Take those out first.`;
+}
+
+/** What the core says when a clip taken out still holds time edits or changes. */
+export function inUse(draft: RecipeDraft, index: number): string | null {
+  const clips = draft.clips.filter((_, i) => i !== index);
+  const places = draft.clips.map((_, i) => (i === index ? null : i - Number(i > index)));
+  return inUseBy(draft, index, follow(draft, clips, places).stranded);
 }
 
 /** The draft without clip `index`, or why it cannot go. */
@@ -82,30 +120,56 @@ export function removeClip(
   index: number
 ): { draft: RecipeDraft } | { problem: string } {
   if (draft.clips.length < 2) return { problem: 'A recipe needs a clip.' };
-  const problem = inUse(draft, index);
+  const clips = blended(draft.clips.filter((_, i) => i !== index));
+  const places = draft.clips.map((_, i) => (i === index ? null : i - Number(i > index)));
+  const moved = follow(draft, clips, places);
+  const problem = inUseBy(draft, index, moved.stranded);
   if (problem) return { problem };
   return {
     draft: {
       ...draft,
-      clips: blended(draft.clips.filter((_, i) => i !== index)),
+      clips,
       kept: draft.kept.filter((_, i) => i !== index),
       time: draft.time.map(t => (t.clip > index ? { ...t, clip: t.clip - 1 } : t)),
+      layers: moved.layers,
     },
   };
 }
 
-/** The draft with clip `from` moved to place `to`; its time edits go with it. */
-export function moveClip(draft: RecipeDraft, from: number, to: number): RecipeDraft {
+/**
+ * The draft with clip `from` moved to place `to`; its time edits and changes
+ * go with it. A change that runs across a seam keeps its clips together, so
+ * a move that would part them says why instead.
+ */
+export function moveClip(
+  draft: RecipeDraft,
+  from: number,
+  to: number
+): { draft: RecipeDraft } | { problem: string } {
   const n = draft.clips.length;
-  if (from === to || from < 0 || to < 0 || from >= n || to >= n) return draft;
-  const order = draft.clips.map((_, i) => i);
-  order.splice(to, 0, ...order.splice(from, 1));
-  const placeOf = new Map(order.map((old, place) => [old, place]));
+  if (from === to || from < 0 || to < 0 || from >= n || to >= n) return { draft };
+  const places = placesOfMove(n, from, to);
+  const order = places.map(() => 0);
+  places.forEach((place, old) => {
+    order[place] = old;
+  });
+  const clips = blended(order.map(i => draft.clips[i] as RecipeBase));
+  const moved = follow(draft, clips, places);
+  const split = moved.stranded[0];
+  if (split && 'split' in split.why) {
+    const i = split.why.split;
+    return {
+      problem: `Clip ${i + 1} (${draft.clips[i]?.name ?? ''}) cannot move away from clip ${i}: the change ${changeWords(split.layer)} runs across both. Shorten it to one clip first.`,
+    };
+  }
   return {
-    ...draft,
-    clips: blended(order.map(i => draft.clips[i] as RecipeBase)),
-    kept: order.map(i => draft.kept[i] ?? null),
-    time: draft.time.map(t => ({ ...t, clip: placeOf.get(t.clip) ?? t.clip })),
+    draft: {
+      ...draft,
+      clips,
+      kept: order.map(i => draft.kept[i] ?? null),
+      time: draft.time.map(t => ({ ...t, clip: places[t.clip] ?? t.clip })),
+      layers: moved.layers,
+    },
   };
 }
 
