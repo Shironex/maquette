@@ -54,7 +54,7 @@ describe('joined recipes in mock mode', () => {
     ]);
   });
 
-  it('still refuses pins, pose keys and grips as not bakeable yet', async () => {
+  it('still refuses pose keys and grips as not bakeable yet', async () => {
     const doc = await commands.recipeGet('frostveil', JOINED);
     const keys: RecipeLayer = {
       id: 'l-9',
