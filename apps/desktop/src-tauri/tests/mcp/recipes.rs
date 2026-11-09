@@ -290,7 +290,7 @@ async fn the_recipe_tools_are_hidden_and_refused_while_the_animation_group_is_of
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them() {
+async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_takes_them() {
     let dir = tempfile::tempdir().expect("temp dir");
     let (client, server, host) = serve(fixture(dir.path())).await;
 
@@ -335,7 +335,10 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them()
     assert_eq!(changes[0]["keys"][0]["ease"], "out");
     assert_eq!(changes[1]["flat"], "heel");
     assert_eq!(keyed["time"][0]["kind"], "freeze");
-    assert_eq!(keyed["bakeable"], false, "pose keys and pins wait: {keyed}");
+    assert!(
+        keyed.get("bakeable").is_none(),
+        "pins and pose keys bake: {keyed}"
+    );
     assert_eq!(keyed["frames"], 72, "the freeze adds its 12");
 
     // A change read back resends as it is.
@@ -390,10 +393,10 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_waits_for_them()
         json!({ "project": PROJECT, "recipe": id, "asset": "dummy" }),
     )
     .await;
+    // Refused only for the made up model, never as not bakeable yet.
     assert_eq!(bake.is_error, Some(true));
     let body: Value = serde_json::from_str(&text(&bake)).expect("json");
-    assert_eq!(body["code"], "not-bakeable-yet", "{body}");
-    assert_eq!(body["tryTool"], "update_recipe", "{body}");
+    assert_ne!(body["code"], "not-bakeable-yet", "{body}");
 
     let plain = call(
         &client,

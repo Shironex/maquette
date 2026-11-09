@@ -55,6 +55,7 @@ get_provider_job
 get_real_size
 get_recipe
 get_recipe_bake
+get_recipe_pose
 get_ref_views
 get_render
 get_retarget_review
@@ -126,6 +127,7 @@ set_material_tweaks
 set_pad_edges
 set_parts
 set_real_size
+set_recipe_keys
 set_ref_views
 set_ship_settings
 set_skip_bake

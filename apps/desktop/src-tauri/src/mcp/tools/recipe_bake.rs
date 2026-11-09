@@ -22,8 +22,8 @@ use crate::mcp::hub::Hub;
 
 /// The code of a bake refused for a recipe with open blanks.
 pub(super) const OPEN_BLANKS: &str = "open-blanks";
-/// The code of a bake refused for a recipe using format 2 features (pose
-/// keys or grips) that this Maquette cannot bake yet.
+/// The code of a bake refused for a recipe using format 2 features (grips)
+/// that this Maquette cannot bake yet.
 pub(super) const NOT_BAKEABLE: &str = "not-bakeable-yet";
 /// The code of an add refused for a bake that is out of date.
 pub(super) const STALE_BAKE: &str = "stale-bake";
@@ -125,14 +125,17 @@ impl McpTools {
     /// Every recipe tool: making and changing recipes, baking them, and the
     /// recipe library.
     pub(super) fn recipe_routers() -> ToolRouter<Self> {
-        Self::recipes_router() + Self::recipe_bake_router() + Self::recipe_library_router()
+        Self::recipes_router()
+            + Self::recipe_bake_router()
+            + Self::recipe_library_router()
+            + Self::recipe_keys_router()
     }
 }
 
 #[tool_router(router = recipe_bake_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Bake an animation recipe onto a rigged model of its project in headless Blender, as Apply does: its clips go on through the retarget and play as the preview plays them (trims and time edits, blends lined up at each seam, then mirror), then the recipe's changes are solved over it exactly (reach by IK, look-at clamped to 80 degrees, nudge and wave eased) then pins held last by IK, into one new clip named after the recipe. It answers at once; poll get_recipe_bake. The model is staged in the workspace cache, not added to the project: add_recipe_bake asks a person to review it and add it as the next version in the app. A recipe with open blanks is refused (open-blanks) naming them. Pose keys and grips are refused (not-bakeable-yet). A bake counts as Mixamo's when any of its clips is: its model carries a mark, recorded on the asset when a marked file comes in as a version, so export packs leave its clips out and save_model_clips skips its clip, and add_model_file refuses the staged file (staged-bake). Every clip an earlier bake of this recipe made is replaced, whatever its name; another same-named clip stays and the new one takes _2. One bake per recipe runs at a time and replaces the staged one. Spends no credits."
+        description = "Bake an animation recipe onto a rigged model of its project in headless Blender, as Apply does: its clips go on through the retarget and play as the preview plays them (trims and time edits, blends lined up at each seam, then mirror), then the recipe's changes are solved over it exactly (reach by IK, look-at clamped to 80 degrees, nudge and wave eased) then pins held last by IK, into one new clip named after the recipe. It answers at once; poll get_recipe_bake. The model is staged in the workspace cache, not added to the project: add_recipe_bake asks a person to review it and add it as the next version in the app. A recipe with open blanks is refused (open-blanks) naming them. Pose keys bake; grips are refused (not-bakeable-yet). A bake counts as Mixamo's when any of its clips is: its model carries a mark, recorded on the asset when a marked file comes in as a version, so export packs leave its clips out and save_model_clips skips its clip, and add_model_file refuses the staged file (staged-bake). Every clip an earlier bake of this recipe made is replaced, whatever its name; another same-named clip stays and the new one takes _2. One bake per recipe runs at a time and replaces the staged one. Spends no credits."
     )]
     async fn bake_recipe(&self, Parameters(args): Parameters<BakeRecipeArgs>) -> Out {
         let found = self
