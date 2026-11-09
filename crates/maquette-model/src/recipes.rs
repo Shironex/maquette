@@ -62,9 +62,12 @@ mod clip_moves;
 mod copies;
 mod edits;
 mod files;
+pub mod joint_limits;
+mod key_edits;
 mod keys;
 mod normal;
 pub mod pins;
+pub mod pose_keys;
 pub mod timeline;
 
 pub use change::{RecipeChange, update};
@@ -76,6 +79,7 @@ pub use files::{
     RecipeRead, RecipeSummary, TOO_BIG, create, create_joined, get, list, list_with,
     motion_version_of, names, remove, rename, rename_with, version,
 };
+pub use key_edits::{KeyEdits, KeyMove, KeyRemove, KeySet, edit_keys, empty_pose_layer};
 pub use keys::{BonePose, GripFrom, KeyEase, LayerMode, PinFlat, PoseKey};
 pub use normal::{load_versioned, normalized};
 
@@ -627,3 +631,6 @@ mod tests_clip_shares;
 
 #[cfg(test)]
 mod tests_pins;
+
+#[cfg(test)]
+mod tests_pose_keys;

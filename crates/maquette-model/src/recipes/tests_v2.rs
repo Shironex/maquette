@@ -258,11 +258,11 @@ fn each_new_thing_alone_needs_version_2() {
             motion_version(&one),
             "{word} moves"
         );
-        let layered = matches!(word, "pose" | "grip");
+        let layered = matches!(word, "grip");
         assert_eq!(
             !bake_unsupported(&recipe).is_empty(),
             layered,
-            "only pose keys and grips cannot bake yet ({word})"
+            "only grips cannot bake yet ({word})"
         );
     }
     assert!(bake_unsupported(&one).is_empty());
@@ -294,7 +294,7 @@ fn a_version_2_recipe_round_trips_whole() {
         Some(LayerMode::Replace),
         "grips replace"
     );
-    assert_eq!(bake_unsupported(&read), vec!["pose keys", "grips"]);
+    assert_eq!(bake_unsupported(&read), vec!["grips"]);
 }
 
 #[test]

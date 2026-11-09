@@ -212,11 +212,11 @@ pub fn uses_v2(recipe: &RecipeFile) -> bool {
 }
 
 /// What of version 2 `recipe` uses that a bake cannot make yet, in words
-/// ("pose keys", "grips"), none for a recipe a bake takes. Joined clips,
-/// trims, mirror, time edits and pins bake.
+/// ("grips"), none for a recipe a bake takes. Joined clips, trims, mirror,
+/// time edits, pins and pose keys bake.
 pub fn bake_unsupported(recipe: &RecipeFile) -> Vec<&'static str> {
     use super::LayerKind;
-    [(LayerKind::Pose, "pose keys"), (LayerKind::Grip, "grips")]
+    [(LayerKind::Grip, "grips")]
         .into_iter()
         .filter(|(kind, _)| recipe.layers.iter().any(|l| l.kind == *kind))
         .map(|(_, word)| word)
