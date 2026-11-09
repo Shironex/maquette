@@ -25,7 +25,7 @@ export function useRecipeChangeForm(id: string) {
     frames: dt?.timeline.frames ?? 0,
     convert: dt ? { toFrame: dt.toFrame, toShare: dt.toShare } : undefined,
     problem,
-    kinds: EDITABLE_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
+    kinds: EDITABLE_KINDS.filter(k => k !== 'pose').map(k => ({ value: k, label: KIND_WORDS[k] })),
     bones: layer ? bonesFor(layer.kind).map(b => ({ value: b, label: boneWords(b) })) : [],
     targets: [
       { value: '', label: blanks.length ? 'Pick a blank' : 'No blanks yet' },

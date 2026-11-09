@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
 import { IconButton, cn } from '@maquette/ui';
+import { boneWords } from '@/state/recipe-bones';
 import { KIND_WORDS } from '@/state/recipe-draft';
+import { keyedBones } from '@/state/recipe-keys';
 import { STATUS_WORDS, across, at, frameReadout, type LaneBlock } from '@/state/recipe-lanes';
 import { pinLabel } from '@/state/recipe-pins';
 import { ChangeBar } from './ChangeBar';
+import { PoseKeyLane } from './PoseKeyLane';
 import { useRecipeLanes } from './RecipeLanes.hooks';
 
 export interface RecipeLanesProps {
@@ -16,6 +19,12 @@ export interface RecipeLanesProps {
 
 /** The label column's width; the playhead line sits past it. */
 const LABEL = 104;
+
+/** A bone's lane label, short: "R upper arm". */
+const laneWords = (bone: string) =>
+  boneWords(bone)
+    .replace(/^Right /, 'R ')
+    .replace(/^Left /, 'L ');
 
 const STATUS_LOOK = {
   found: 'border-line',
@@ -152,18 +161,46 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
   );
   const retimes = lanes.retimes.map(b => timeBlock(b, 'bg-sage/35 text-fg'));
   const holds = lanes.holds.map(b => timeBlock(b, 'bg-amber/30 text-fg'));
-  const changes = v.layers.map(layer => (
-    <Lane key={layer.id} label={KIND_WORDS[layer.kind]}>
-      <ChangeBar
-        layer={layer}
-        frames={frames}
-        toFrame={toFrame}
-        toShare={toShare}
-        picked={v.isPicked('layer', layer.id)}
-        onPick={() => v.toggle('layer', layer.id)}
-      />
-    </Lane>
-  ));
+  const poseLanes = (layer: (typeof v.layers)[number]) => {
+    const picked = v.isPicked('layer', layer.id);
+    const bones = picked ? keyedBones(layer) : [];
+    return [
+      <Lane key={layer.id} label={KIND_WORDS.pose}>
+        <button
+          type="button"
+          aria-label={`Pose keys ${layer.id}`}
+          aria-pressed={picked}
+          onClick={() => v.toggle('layer', layer.id)}
+          className={cn(
+            'absolute inset-y-1 inset-x-0 rounded-[5px] bg-clay/15 focus-visible:outline-2 focus-visible:outline-focus',
+            picked && 'outline-2 outline-fg'
+          )}
+        />
+        <PoseKeyLane id={layer.id} bone={null} frames={frames} />
+      </Lane>,
+      ...bones.map(bone => (
+        <Lane key={`${layer.id}-${bone}`} label={laneWords(bone)}>
+          <PoseKeyLane id={layer.id} bone={bone} frames={frames} />
+        </Lane>
+      )),
+    ];
+  };
+  const changes = v.layers.flatMap(layer =>
+    layer.kind === 'pose'
+      ? poseLanes(layer)
+      : [
+          <Lane key={layer.id} label={KIND_WORDS[layer.kind]}>
+            <ChangeBar
+              layer={layer}
+              frames={frames}
+              toFrame={toFrame}
+              toShare={toShare}
+              picked={v.isPicked('layer', layer.id)}
+              onPick={() => v.toggle('layer', layer.id)}
+            />
+          </Lane>,
+        ]
+  );
   const pinLanes = v.pins.map((row, i) => {
     const bars = row.map(layer => (
       <ChangeBar
@@ -202,7 +239,9 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
         <span className="flex-1" />
         {v.layers.length || v.pins.length ? (
           <span className="hidden truncate text-meta text-fg-mute 2xl:inline">
-            Drag a bar to move it. Drag its ends to change the range.
+            {v.layers.some(l => l.kind === 'pose')
+              ? 'Drag a diamond to move a key. Alt drag to copy it.'
+              : 'Drag a bar to move it. Drag its ends to change the range.'}
           </span>
         ) : null}
       </div>

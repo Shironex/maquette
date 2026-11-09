@@ -33,6 +33,7 @@ describe('the recipe changes', () => {
       'Look at',
       'Wave',
       'Pin',
+      'Pose keys',
     ]);
     expect(picker).toHaveAttribute('title', 'A hand or foot reaches a blank');
     await userEvent.selectOptions(picker, 'nudge');
