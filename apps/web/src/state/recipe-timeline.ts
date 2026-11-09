@@ -238,16 +238,27 @@ function layout(clips: readonly RecipeBase[], lens: readonly number[]) {
 
 /**
  * How many frames `recipe`'s timeline runs (its last frame), counted
- * without making it, or null when it runs over `most`: the core's
- * `length_within`.
+ * without making it and stopping once it runs over `most`, or null when
+ * it does: the core's `length_within`.
  */
 export function lengthWithin(recipe: Playable, most = MAX_TIMELINE_FRAMES): number | null {
   const clips = clipsOf(recipe);
   const fps = clipFps(recipe.base);
-  const lens = clips.map((_, i) => Math.max(clipCount(recipe, i, fps, most + 2) - 1, 0));
-  if (lens.some(n => n > most)) return null;
-  const { total } = layout(clips, lens);
-  return total <= most ? total : null;
+  let end = 0;
+  let prevLen = 0;
+  let prevWindow = 0;
+  for (let i = 0; i < clips.length; i += 1) {
+    const wanted = i === 0 ? 0 : (clips[i]?.blend?.frames ?? 0);
+    // Its blend takes back at most `wanted` frames, so counting stops as
+    // soon as this clip alone runs the recipe over `most`.
+    const len = Math.max(clipCount(recipe, i, fps, most - end + wanted + 2) - 1, 0);
+    const window = Math.min(wanted, Math.max(prevLen - prevWindow, 0), len);
+    end += len - window;
+    if (end > most) return null;
+    prevLen = len;
+    prevWindow = window;
+  }
+  return end;
 }
 
 const curve = (kind: BlendCurve, x: number) =>
