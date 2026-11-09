@@ -8,6 +8,9 @@
  */
 import * as THREE from 'three';
 import type { LayerKind, RecipeLayer } from '@/ipc/client';
+import { layerTurns } from '@/state/recipe-keys';
+import type { Playable } from '@/state/recipe-timeline';
+import { layKeys } from './recipe-keys-pose';
 
 /** The share of a change's range it eases in over, and out over. */
 export const RAMP = 0.25;
@@ -113,6 +116,8 @@ export interface RecipeRig {
   forward: THREE.Vector3;
   /** Each look bone's facing in its own space, read from the rest pose. */
   facing: (bone: THREE.Object3D) => THREE.Vector3;
+  /** Pose keys: a bone's world rotation in the model's rest pose, before any lining up. */
+  rest?: (bone: THREE.Object3D) => THREE.Quaternion | undefined;
 }
 
 const num = (v: number | null | undefined, or = 0) =>
@@ -194,18 +199,31 @@ function wave(
 /**
  * Lays `layers` over the pose the model has now, in order, at `share` of
  * the clip. A change whose bone the model lacks or whose blank is open
- * leaves the pose alone. Pins are held after, on the bake's frames
+ * leaves the pose alone. Pose keys blend between their keys on the clips
+ * of `keysOn` (recipe-keys.ts), at their weight with no ramp; without it
+ * they are left out. Pins are held after, on the bake's frames
  * (recipe-pins.ts).
  */
 export function poseRecipe(
   rig: RecipeRig,
   layers: readonly RecipeLayer[],
   targets: ReadonlyMap<string, THREE.Vector3>,
-  share: number
+  share: number,
+  keysOn?: Playable | null
 ) {
   for (const layer of layers) {
     const s = layer.settings;
     if (layer.kind === 'pin') continue;
+    if (layer.kind === 'pose') {
+      if (keysOn && rig.rest)
+        layKeys(
+          { bone: rig.bone, forward: rig.forward, rest: rig.rest },
+          layerTurns(keysOn, layer, share),
+          layer.mode ?? 'add',
+          num(s.weight, 1)
+        );
+      continue;
+    }
     const amount = num(s.weight, 1) * envelope(layer.kind, num(s.start), num(s.end, 1), share);
     const bone = rig.bone(layer.bone);
     if (amount <= 0 || !bone) continue;
