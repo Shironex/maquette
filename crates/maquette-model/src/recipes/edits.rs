@@ -198,7 +198,7 @@ pub fn uses_v2(recipe: &RecipeFile) -> bool {
         || recipe.clips().any(|c| c.trim.is_some())
         || recipe.mirror
         || !recipe.time.is_empty()
-        || !bake_unsupported(recipe).is_empty()
+        || recipe.layers.iter().any(|l| l.kind.is_v2())
         || recipe.base.blend.is_some()
         || recipe.layers.iter().any(|l| {
             l.mode.is_some()
@@ -212,17 +212,13 @@ pub fn uses_v2(recipe: &RecipeFile) -> bool {
 }
 
 /// What of version 2 `recipe` uses that a bake cannot make yet, in words
-/// ("pins", "pose keys", "grips"), none for a recipe a bake takes. Joined
-/// clips, trims, mirror and time edits bake.
+/// ("pose keys", "grips"), none for a recipe a bake takes. Joined clips,
+/// trims, mirror, time edits and pins bake.
 pub fn bake_unsupported(recipe: &RecipeFile) -> Vec<&'static str> {
     use super::LayerKind;
-    [
-        (LayerKind::Pin, "pins"),
-        (LayerKind::Pose, "pose keys"),
-        (LayerKind::Grip, "grips"),
-    ]
-    .into_iter()
-    .filter(|(kind, _)| recipe.layers.iter().any(|l| l.kind == *kind))
-    .map(|(_, word)| word)
-    .collect()
+    [(LayerKind::Pose, "pose keys"), (LayerKind::Grip, "grips")]
+        .into_iter()
+        .filter(|(kind, _)| recipe.layers.iter().any(|l| l.kind == *kind))
+        .map(|(_, word)| word)
+        .collect()
 }

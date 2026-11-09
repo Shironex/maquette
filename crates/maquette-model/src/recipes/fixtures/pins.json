@@ -1,0 +1,543 @@
+{
+  "cases": [
+    {
+      "amounts": [
+        {
+          "amount": 0.0,
+          "frame": 11,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 12,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.259259,
+          "frame": 13,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 15,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 27,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 39,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.259259,
+          "frame": 41,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 42,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 43,
+          "layer": "l-1"
+        }
+      ],
+      "held": [
+        [
+          15,
+          39
+        ]
+      ],
+      "name": "Plain foot",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "standing-idle-hash",
+          "length": 2.0,
+          "mixamo": true,
+          "name": "Standing Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "leftFoot",
+            "id": "l-1",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 0.7,
+              "offset": null,
+              "rotation": null,
+              "start": 0.2,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Plain foot",
+        "revision": 1,
+        "version": 1
+      },
+      "spans": [
+        {
+          "bone": "leftFoot",
+          "easeIn": 3,
+          "easeOut": 3,
+          "first": 12,
+          "flat": "toe-and-heel",
+          "last": 42,
+          "layer": "l-1",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "amounts": [
+        {
+          "amount": 0.0,
+          "frame": 12,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 13,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.259259,
+          "frame": 14,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 16,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 49,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 82,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.259259,
+          "frame": 84,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 85,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 86,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 75,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 76,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 77,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 111,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 141,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.037037,
+          "frame": 146,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.0,
+          "frame": 147,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.0,
+          "frame": 148,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.0,
+          "frame": 110,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.0,
+          "frame": 111,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.259259,
+          "frame": 112,
+          "layer": "l-6"
+        },
+        {
+          "amount": 1.0,
+          "frame": 114,
+          "layer": "l-6"
+        },
+        {
+          "amount": 1.0,
+          "frame": 129,
+          "layer": "l-6"
+        },
+        {
+          "amount": 1.0,
+          "frame": 144,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.259259,
+          "frame": 146,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.0,
+          "frame": 147,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.0,
+          "frame": 148,
+          "layer": "l-6"
+        }
+      ],
+      "held": [
+        [
+          16,
+          82
+        ],
+        [
+          76,
+          141
+        ],
+        [
+          114,
+          144
+        ]
+      ],
+      "name": "Slash, both pins",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 72,
+          "hash": "great-sword-slash-hash",
+          "length": 2.4,
+          "mixamo": true,
+          "name": "Great Sword Slash",
+          "rest": false,
+          "trim": [
+            6,
+            58
+          ]
+        },
+        "blanks": [
+          {
+            "id": "shaft",
+            "kind": "point",
+            "label": "The shaft the hand stays on",
+            "point": [
+              0.2,
+              1.1,
+              0.3
+            ],
+            "prop": null
+          }
+        ],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "joined": [
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 8,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 64,
+            "hash": "great-sword-thrust-hash",
+            "length": 2.1333334,
+            "mixamo": true,
+            "name": "Great Sword Thrust",
+            "rest": false,
+            "trim": [
+              4,
+              60
+            ]
+          },
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 6,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 90,
+            "hash": "sword-idle-hash",
+            "length": 3.0,
+            "mixamo": true,
+            "name": "Sword Idle",
+            "rest": false,
+            "trim": [
+              0,
+              40
+            ]
+          }
+        ],
+        "layers": [
+          {
+            "bone": "leftFoot",
+            "id": "l-1",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 0.54,
+              "offset": null,
+              "rotation": null,
+              "start": 0.08,
+              "target": null,
+              "weight": 1.0
+            }
+          },
+          {
+            "bone": "rightHand",
+            "id": "l-5",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 0,
+              "easeOut": 6,
+              "end": 0.9,
+              "offset": null,
+              "rotation": null,
+              "start": 0.5,
+              "target": "shaft",
+              "weight": 0.5
+            }
+          },
+          {
+            "bone": "rightFoot",
+            "id": "l-6",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "flat": "heel",
+              "offset": null,
+              "rotation": null,
+              "start": 0.6,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Slash, both pins",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 0,
+            "from": 20,
+            "kind": "retime",
+            "speed": 1.6,
+            "to": 34
+          },
+          {
+            "at": 56,
+            "clip": 1,
+            "frames": 18,
+            "kind": "freeze"
+          }
+        ],
+        "version": 2
+      },
+      "spans": [
+        {
+          "bone": "leftFoot",
+          "easeIn": 3,
+          "easeOut": 3,
+          "first": 13,
+          "flat": "toe-and-heel",
+          "last": 85,
+          "layer": "l-1",
+          "weight": 1.0
+        },
+        {
+          "bone": "rightHand",
+          "easeIn": 0,
+          "easeOut": 6,
+          "first": 76,
+          "last": 147,
+          "layer": "l-5",
+          "target": "shaft",
+          "weight": 0.5
+        },
+        {
+          "bone": "rightFoot",
+          "easeIn": 3,
+          "easeOut": 3,
+          "first": 111,
+          "flat": "heel",
+          "last": 147,
+          "layer": "l-6",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "amounts": [
+        {
+          "amount": 0.0,
+          "frame": 23,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 24,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.028,
+          "frame": 25,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.5,
+          "frame": 29,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 34,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 36,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 38,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.028,
+          "frame": 47,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 48,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 49,
+          "layer": "l-1"
+        }
+      ],
+      "held": [
+        [
+          34,
+          38
+        ]
+      ],
+      "name": "Rest freeze",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "",
+          "length": 2.0,
+          "mixamo": false,
+          "name": "Rest pose",
+          "rest": true
+        },
+        "blanks": [],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "leftFoot",
+            "id": "l-1",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 10,
+              "easeOut": 10,
+              "end": 0.6,
+              "offset": null,
+              "rotation": null,
+              "start": 0.4,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Rest freeze",
+        "revision": 1,
+        "time": [
+          {
+            "at": 30,
+            "clip": 0,
+            "frames": 12,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      },
+      "spans": [
+        {
+          "bone": "leftFoot",
+          "easeIn": 10,
+          "easeOut": 10,
+          "first": 24,
+          "flat": "toe-and-heel",
+          "last": 48,
+          "layer": "l-1",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

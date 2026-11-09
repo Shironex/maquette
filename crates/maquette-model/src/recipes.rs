@@ -64,6 +64,7 @@ mod edits;
 mod files;
 mod keys;
 mod normal;
+pub mod pins;
 pub mod timeline;
 
 pub use change::{RecipeChange, update};
@@ -623,3 +624,6 @@ mod tests_timeline;
 
 #[cfg(test)]
 mod tests_clip_shares;
+
+#[cfg(test)]
+mod tests_pins;
