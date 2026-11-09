@@ -5,6 +5,7 @@
  * reads the first problem of the same lists, so both say the same words.
  */
 import type { BlendWindow, RecipeBase, TimeEdit } from '@/ipc/client';
+import { MAX_TIMELINE_FRAMES, lengthWithin } from './recipe-timeline';
 
 /** The core's limits of version 2. */
 export const V2_LIMITS = {
@@ -151,6 +152,22 @@ export const clipsProblem = (clips: readonly RecipeBase[]): string | null =>
 export const timeProblem = (time: readonly TimeEdit[], clips: readonly RecipeBase[]) =>
   timeGeneral(time) ?? firstOf(editProblems(time, clips)) ?? firstOf(overlapProblems(time, clips));
 
+/**
+ * What is wrong with how long the whole recipe runs: over the core's
+ * `MAX_TIMELINE_FRAMES` once the clips are joined and the time edits
+ * played. Checked, as the core does, only once the clips and time edits
+ * are fine on their own.
+ */
+export function lengthProblem(
+  clips: readonly RecipeBase[],
+  time: readonly TimeEdit[]
+): string | null {
+  const [base, ...joined] = clips;
+  if (!base) return null;
+  if (lengthWithin({ base, joined, time: [...time] }) != null) return null;
+  return `The recipe runs over ${MAX_TIMELINE_FRAMES} frames once its clips are joined and its time edits played. Trim a clip, speed it up, shorten a freeze or take a clip out.`;
+}
+
 /** What to fix per clip and per time edit, for the editor's fields. */
 export interface BaseProblems {
   general: string[];
@@ -167,8 +184,11 @@ export function baseProblems(
   const blends = blendProblems(clips);
   const edits = editProblems(time, clips);
   const overlaps = overlapProblems(time, clips);
+  const general = [clipsGeneral(clips), timeGeneral(time)].filter((p): p is string => Boolean(p));
+  const fine = !general.length && [...trims, ...blends, ...edits, ...overlaps].every(p => !p);
+  const length = fine ? lengthProblem(clips, time) : null;
   return {
-    general: [clipsGeneral(clips), timeGeneral(time)].filter((p): p is string => Boolean(p)),
+    general: length ? [length] : general,
     clips: clips.map((_, i) => trims[i] ?? blends[i] ?? null),
     time: time.map((_, i) => edits[i] ?? overlaps[i] ?? null),
   };

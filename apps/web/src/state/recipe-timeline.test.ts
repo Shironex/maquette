@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { RecipeFile } from '@/ipc/client';
-import { frameOfShare, timeline, type ClipSample } from './recipe-timeline';
+import { frameOfShare, lengthWithin, timeline, type ClipSample } from './recipe-timeline';
 
 interface Probe {
   t: number;
@@ -44,6 +44,7 @@ describe('the recipe timeline, as the core makes it', () => {
     const t = timeline(c.recipe);
     expect(t.fps).toBe(c.fps);
     expect(t.frames).toBe(c.frames);
+    expect(lengthWithin(c.recipe)).toBe(c.frames);
     expect(t.seams).toEqual(c.seams);
     expect(t.clips).toEqual(c.clips);
     for (const p of c.probes) {

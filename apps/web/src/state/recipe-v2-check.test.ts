@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { RecipeBase, TimeEdit } from '@/ipc/client';
-import { baseProblems, blendMost, clipsProblem, timeProblem } from './recipe-v2-check';
+import {
+  DEFAULT_BLEND,
+  baseProblems,
+  blendMost,
+  clipsProblem,
+  lengthProblem,
+  timeProblem,
+} from './recipe-v2-check';
 
 const clip = (name: string, frames: number, more: Partial<RecipeBase> = {}): RecipeBase => ({
   name,
@@ -9,6 +16,25 @@ const clip = (name: string, frames: number, more: Partial<RecipeBase> = {}): Rec
   hash: name,
   mixamo: false,
   ...more,
+});
+
+describe('the whole timeline length, as the core checks it', () => {
+  const long = (name: string) => ({
+    name,
+    frames: 100_000,
+    length: 3333.333,
+    hash: name,
+    mixamo: false,
+  });
+  it('takes one clip as long as a recipe takes and refuses eight of them joined', () => {
+    expect(lengthProblem([long('A')], [])).toBeNull();
+    const eight = Array.from({ length: 8 }, (_, i) => ({
+      ...long(`C${i}`),
+      ...(i ? { blend: DEFAULT_BLEND } : {}),
+    }));
+    expect(lengthProblem(eight, [])).toMatch(/runs over 100000 frames/);
+    expect(baseProblems(eight, []).general).toEqual([lengthProblem(eight, [])]);
+  });
 });
 
 describe('the version 2 checks of clips and time edits', () => {

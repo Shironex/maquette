@@ -17,7 +17,10 @@ import type { BlendCurve, LineUp, RecipeBase, RecipeFile, TimeEdit } from '@/ipc
 export const BREATHE_SECONDS = 3;
 const REST_FPS = 30;
 const EPS = 1e-6;
-const MAX_KEYS = 200_000;
+/** The longest a whole recipe runs, in frames: the core's `MAX_TIMELINE_FRAMES`. */
+export const MAX_TIMELINE_FRAMES = 100_000;
+/** The most frames one clip makes, past what a whole recipe may run. */
+const MAX_KEYS = MAX_TIMELINE_FRAMES + 2;
 
 export interface HoldSample {
   at: number;
@@ -70,15 +73,15 @@ export interface Timeline {
   mirror: boolean;
 }
 
+/** What a timeline is made of: the clips and their time edits. */
+export type Playable = Pick<RecipeFile, 'base' | 'joined' | 'time'>;
+
 const smooth = (x: number) => {
   const c = Math.min(Math.max(x, 0), 1);
   return c * c * (3 - 2 * c);
 };
 
-export const clipsOf = (recipe: RecipeFile): RecipeBase[] => [
-  recipe.base,
-  ...(recipe.joined ?? []),
-];
+export const clipsOf = (recipe: Playable): RecipeBase[] => [recipe.base, ...(recipe.joined ?? [])];
 
 /** A clip's frames a second, to a thousandth: its frames over its length. */
 export function clipFps(clip: RecipeBase): number {
@@ -129,34 +132,56 @@ function holdAt(holds: readonly TimeEdit[], p: number): HoldSample | undefined {
   return best;
 }
 
-function clipSamples(recipe: RecipeFile, index: number, fps: number): ClipSample[] {
+/** One clip as it plays: its kept frames, its rate against the base's, its time edits and freezes. */
+interface ClipWalk {
+  a: number;
+  b: number;
+  rate: number;
+  retimes: TimeEdit[];
+  holds: TimeEdit[];
+  freezes: TimeEdit[];
+}
+
+function walkOf(recipe: Playable, index: number, fps: number): ClipWalk | null {
   const clip = clipsOf(recipe)[index];
-  if (!clip) return [];
+  if (!clip) return null;
   const [a, b] = clip.trim ?? [0, clip.frames];
-  const rate = Math.min(Math.max(clipFps(clip) / fps, 0.1), 10);
   const mine = (recipe.time ?? []).filter(t => t.clip === index);
-  const retimes = mine.filter(t => t.kind === 'retime');
-  const holds = mine.filter(t => t.kind !== 'retime');
-  const freezes = mine
-    .filter(t => t.kind === 'freeze' && t.at != null && t.frames != null)
-    .filter(t => (t.at ?? 0) >= a && (t.at ?? 0) <= b)
-    .sort((x, y) => (x.at ?? 0) - (y.at ?? 0));
+  return {
+    a,
+    b,
+    rate: Math.min(Math.max(clipFps(clip) / fps, 0.1), 10),
+    retimes: mine.filter(t => t.kind === 'retime'),
+    holds: mine.filter(t => t.kind !== 'retime'),
+    freezes: mine
+      .filter(t => t.kind === 'freeze' && t.at != null && t.frames != null)
+      .filter(t => (t.at ?? 0) >= a && (t.at ?? 0) <= b)
+      .sort((x, y) => (x.at ?? 0) - (y.at ?? 0)),
+  };
+}
+
+/**
+ * Steps through a clip's moving frames, up to about `limit` frames: `each`
+ * gets every moving frame, and after a freeze's frame the freeze, whose
+ * added frames count too.
+ */
+function steps(walk: ClipWalk, limit: number, each: (p: number, freeze?: TimeEdit) => void) {
+  const { a, b, rate, retimes, freezes } = walk;
   const emitted = freezes.map(() => false);
-  const out: ClipSample[] = [];
-  const push = (p: number) => {
-    const hold = holdAt(holds, p);
-    out.push(hold ? { clip: index, at: p, hold } : { clip: index, at: p });
+  let count = 0;
+  const visit = (p: number) => {
+    each(p);
+    count += 1;
     freezes.forEach((f, k) => {
-      const at = f.at ?? 0;
-      if (emitted[k] || Math.abs(p - at) >= EPS) return;
+      if (emitted[k] || Math.abs(p - (f.at ?? 0)) >= EPS) return;
       emitted[k] = true;
-      const held: HoldSample = { at, weight: 1, breathe: f.breathe ?? 0 };
-      for (let i = 0; i < (f.frames ?? 0); i += 1) out.push({ clip: index, at, hold: { ...held } });
+      each(f.at ?? 0, f);
+      count += f.frames ?? 0;
     });
   };
   let p = a;
-  push(p);
-  while (p < b - EPS && out.length < MAX_KEYS) {
+  visit(p);
+  while (p < b - EPS && count < limit) {
     let next = p + speedAt(retimes, p) * rate;
     const k = freezes.findIndex((f, i) => {
       const at = f.at ?? 0;
@@ -164,9 +189,65 @@ function clipSamples(recipe: RecipeFile, index: number, fps: number): ClipSample
     });
     if (k >= 0) next = freezes[k]?.at ?? next;
     p = Math.min(next, b);
-    push(p);
+    visit(p);
   }
+}
+
+function clipSamples(recipe: RecipeFile, index: number, fps: number): ClipSample[] {
+  const walk = walkOf(recipe, index, fps);
+  if (!walk) return [];
+  const out: ClipSample[] = [];
+  steps(walk, MAX_KEYS, (p, freeze) => {
+    if (!freeze) {
+      const hold = holdAt(walk.holds, p);
+      out.push(hold ? { clip: index, at: p, hold } : { clip: index, at: p });
+      return;
+    }
+    const held: HoldSample = { at: p, weight: 1, breathe: freeze.breathe ?? 0 };
+    for (let i = 0; i < (freeze.frames ?? 0); i += 1)
+      out.push({ clip: index, at: p, hold: { ...held } });
+  });
   return out;
+}
+
+/** How many frames one clip makes, counted without making them, up to about `limit`. */
+function clipCount(recipe: Playable, index: number, fps: number, limit: number): number {
+  const walk = walkOf(recipe, index, fps);
+  if (!walk) return 0;
+  let count = 0;
+  steps(walk, limit, (_, freeze) => {
+    count += freeze ? (freeze.frames ?? 0) : 1;
+  });
+  return count;
+}
+
+/** Where each clip starts and how long its blend window is, from each clip's frame count, and the last frame. */
+function layout(clips: readonly RecipeBase[], lens: readonly number[]) {
+  const starts = lens.map(() => 0);
+  const windows = lens.map(() => 0);
+  for (let i = 1; i < lens.length; i += 1) {
+    const prev = lens[i - 1] ?? 0;
+    const wanted = clips[i]?.blend?.frames ?? 0;
+    const room = Math.max(prev - (windows[i - 1] ?? 0), 0);
+    windows[i] = Math.min(wanted, room, lens[i] ?? 0);
+    starts[i] = (starts[i - 1] ?? 0) + prev - (windows[i] ?? 0);
+  }
+  const last = lens.length - 1;
+  return { starts, windows, total: (starts[last] ?? 0) + (lens[last] ?? 0) };
+}
+
+/**
+ * How many frames `recipe`'s timeline runs (its last frame), counted
+ * without making it, or null when it runs over `most`: the core's
+ * `length_within`.
+ */
+export function lengthWithin(recipe: Playable, most = MAX_TIMELINE_FRAMES): number | null {
+  const clips = clipsOf(recipe);
+  const fps = clipFps(recipe.base);
+  const lens = clips.map((_, i) => Math.max(clipCount(recipe, i, fps, most + 2) - 1, 0));
+  if (lens.some(n => n > most)) return null;
+  const { total } = layout(clips, lens);
+  return total <= most ? total : null;
 }
 
 const curve = (kind: BlendCurve, x: number) =>
@@ -179,17 +260,7 @@ export function timeline(recipe: RecipeFile): Timeline {
   const clips = clipsOf(recipe);
   const fps = clipFps(recipe.base);
   const parts = clips.map((_, i) => clipSamples(recipe, i, fps));
-  const starts = parts.map(() => 0);
-  const windows = parts.map(() => 0);
-  for (let i = 1; i < parts.length; i += 1) {
-    const prev = parts[i - 1] ?? [];
-    const wanted = clips[i]?.blend?.frames ?? 0;
-    const room = Math.max(len(prev) - (windows[i - 1] ?? 0), 0);
-    windows[i] = Math.min(wanted, room, len(parts[i] ?? []));
-    starts[i] = (starts[i - 1] ?? 0) + len(prev) - (windows[i] ?? 0);
-  }
-  const last = parts.length - 1;
-  const total = (starts[last] ?? 0) + len(parts[last] ?? []);
+  const { starts, windows, total } = layout(clips, parts.map(len));
   const before: number[] = [];
   let sum = 0;
   for (const c of clips) {

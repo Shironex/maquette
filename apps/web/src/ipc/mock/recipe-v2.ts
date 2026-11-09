@@ -6,7 +6,13 @@
  */
 import type { RecipeBase, RecipeFile, RecipeLayer, TimeEdit } from '../client';
 import { followLayers } from '@/state/recipe-shares';
-import { DEFAULT_BLEND, V2_LIMITS, clipsProblem, timeProblem } from '@/state/recipe-v2-check';
+import {
+  DEFAULT_BLEND,
+  V2_LIMITS,
+  clipsProblem,
+  lengthProblem,
+  timeProblem,
+} from '@/state/recipe-v2-check';
 import { fail } from './backend-options';
 import { clipsOf } from './recipe-files';
 
@@ -156,6 +162,7 @@ function layersProblem(recipe: RecipeFile): string | null {
 export const v2Problem = (recipe: RecipeFile): string | null =>
   clipsProblem(clipsOf(recipe)) ??
   timeProblem(recipe.time ?? [], clipsOf(recipe)) ??
+  lengthProblem(clipsOf(recipe), recipe.time ?? []) ??
   layersProblem(recipe);
 
 const sameClip = (a: RecipeBase, b: RecipeBase) =>
