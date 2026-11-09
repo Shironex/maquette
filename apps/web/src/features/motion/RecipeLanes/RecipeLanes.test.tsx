@@ -31,3 +31,37 @@ describe('the recipe lanes', () => {
     expect(screen.getByRole('button', { name: /^Reach l-1, frames/ })).toBeVisible();
   });
 });
+
+describe('the pin lane', () => {
+  it('lays pins on their own lane, stacking the ones that overlap', async () => {
+    await openRecipe('slash-into-block');
+    const pin = (id: string, bone: string) => ({
+      id,
+      kind: 'pin' as const,
+      bone,
+      settings: {
+        weight: 1,
+        start: 0.2,
+        end: 0.6,
+        target: null,
+        rotation: null,
+        offset: null,
+        cycles: null,
+        amount: null,
+      },
+    });
+    useRecipeEditorStore.getState().edit(d => ({
+      ...d,
+      layers: [...d.layers, pin('l-8', 'leftFoot'), pin('l-9', 'rightFoot')],
+    }));
+    render(<RecipeLanes frame={0} playing={false} onToggle={vi.fn()} onScrub={vi.fn()} />);
+    expect(screen.getByText('Pins')).toBeVisible();
+    const left = screen.getByRole('button', { name: /^Pin l-8, frames/ });
+    expect(left).toHaveTextContent('Left foot');
+    expect(screen.getByRole('button', { name: /^Pin l-9, frames/ })).toHaveTextContent(
+      'Right foot'
+    );
+    await userEvent.click(left);
+    expect(useRecipeEditorStore.getState().picked).toEqual({ what: 'layer', id: 'l-8' });
+  });
+});

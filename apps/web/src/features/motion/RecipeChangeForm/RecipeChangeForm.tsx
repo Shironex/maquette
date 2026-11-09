@@ -2,6 +2,7 @@ import { Button, Icon, NumberField, Select } from '@maquette/ui';
 import type { LayerKind } from '@/ipc/client';
 import { LIMITS } from '@/state/recipe-check';
 import { num } from '@/state/recipe-draft';
+import { RecipePinForm } from '../RecipePinForm';
 import { RecipeRange } from '../RecipeRange';
 import { useRecipeChangeForm } from './RecipeChangeForm.hooks';
 
@@ -44,7 +45,15 @@ export default function RecipeChangeForm({ id }: { id: string }) {
           value={layer.kind}
           onChange={(k: LayerKind) => f.setKind(k)}
         />
-        <Select label="Bone" size="sm" options={f.bones} value={layer.bone} onChange={f.setBone} />
+        {layer.kind === 'pin' ? null : (
+          <Select
+            label="Bone"
+            size="sm"
+            options={f.bones}
+            value={layer.bone}
+            onChange={f.setBone}
+          />
+        )}
         {targeted ? (
           <Select
             label="Target"
@@ -72,6 +81,7 @@ export default function RecipeChangeForm({ id }: { id: string }) {
         end={num(s.end, 1)}
         onChange={f.setRange}
       />
+      {layer.kind === 'pin' ? <RecipePinForm id={layer.id} /> : null}
       {layer.kind === 'nudge' ? (
         <>
           <div className="flex gap-2">{triple('rotation')}</div>

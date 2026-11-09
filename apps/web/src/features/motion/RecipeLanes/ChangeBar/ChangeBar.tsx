@@ -12,6 +12,10 @@ export interface ChangeBarProps {
   toShare: (frame: number) => number;
   picked: boolean;
   onPick: () => void;
+  /** The words on the bar; the change's kind without. */
+  label?: string;
+  /** The bar's colours; the changes' clay without. */
+  look?: string;
 }
 
 const HANDLE =
@@ -25,6 +29,8 @@ export default function ChangeBar({
   toShare,
   picked,
   onPick,
+  label,
+  look = 'bg-clay/70 text-clay-ink',
 }: ChangeBarProps) {
   const b = useChangeBar(layer, frames, toFrame, toShare);
   const word = KIND_WORDS[layer.kind];
@@ -46,12 +52,13 @@ export default function ChangeBar({
       onPointerMove={b.move}
       onPointerUp={b.up}
       className={cn(
-        'absolute inset-y-1 flex cursor-grab items-center overflow-hidden rounded-[5px] bg-clay/70 px-2.5 text-[11px] font-medium whitespace-nowrap text-clay-ink focus-visible:outline-2 focus-visible:outline-focus',
+        'absolute inset-y-1 flex cursor-grab items-center overflow-hidden rounded-[5px] px-2.5 text-[11px] font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-focus',
+        look,
         picked && 'outline-2 outline-fg'
       )}
       style={{ left: at(b.from, frames), width: across(b.from, b.to, frames) }}
     >
-      <span className="truncate">{word}</span>
+      <span className="truncate">{label ?? word}</span>
       <span
         role="slider"
         tabIndex={0}

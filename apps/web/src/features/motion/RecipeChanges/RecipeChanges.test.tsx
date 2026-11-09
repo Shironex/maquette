@@ -27,7 +27,13 @@ describe('the recipe changes', () => {
     render(<RecipeChanges />);
     const picker = screen.getByLabelText('Kind of change') as HTMLSelectElement;
     // Short labels, so the closed picker is never cut off; what it does shows on hover.
-    expect([...picker.options].map(o => o.text)).toEqual(['Reach', 'Nudge', 'Look at', 'Wave']);
+    expect([...picker.options].map(o => o.text)).toEqual([
+      'Reach',
+      'Nudge',
+      'Look at',
+      'Wave',
+      'Pin',
+    ]);
     expect(picker).toHaveAttribute('title', 'A hand or foot reaches a blank');
     await userEvent.selectOptions(picker, 'nudge');
     expect(picker).toHaveAttribute('title', "Turns or moves one bone's pose");
@@ -49,5 +55,21 @@ describe('the recipe changes', () => {
     }));
     render(<RecipeChanges />);
     expect(screen.getByText('A reach needs a target: pick a blank, or add one.')).toBeVisible();
+  });
+});
+
+describe('adding a pin', () => {
+  it('starts on the left foot with 3 frame eases and toe and heel flat', async () => {
+    await openRecipe();
+    render(<RecipeChanges />);
+    await userEvent.selectOptions(screen.getByLabelText('Kind of change'), 'pin');
+    await userEvent.click(screen.getByRole('button', { name: 'Add change' }));
+    const added = useRecipeEditorStore.getState().editing?.draft.layers.at(-1);
+    expect(added).toMatchObject({
+      kind: 'pin',
+      bone: 'leftFoot',
+      settings: { easeIn: 3, easeOut: 3, flat: 'toe-and-heel' },
+    });
+    expect(screen.getByRole('group', { name: 'Pin, left foot' })).toBeVisible();
   });
 });
