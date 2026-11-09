@@ -7,8 +7,8 @@ use crate::animations::recipes::RecipeDoc;
 /// yet starts, so an agent's answer can carry its own code.
 pub const NOT_BAKEABLE_YET: &str = "This Maquette cannot bake";
 
-/// Why `doc` cannot be baked yet: it uses pins, pose keys or grips, which
-/// the bake does not make yet. None for a recipe a bake takes (joined clips,
+/// Why `doc` cannot be baked yet: it uses pose keys or grips, which the
+/// bake does not make yet. None for a recipe a bake takes (joined clips,
 /// trims, mirror and time edits bake).
 pub fn not_bakeable(doc: &RecipeDoc) -> Option<String> {
     let unsupported = crate::recipes::bake_unsupported(&doc.recipe);
