@@ -621,7 +621,7 @@ Version 2 adds `joined` clips after the base (each with a `blend` window and its
 on any clip, `mirror`, `time` edits (retime, freeze, hold over) on a clip's own frames, and the pin,
 pose key and grip changes. Each is written only when used: a save writes version 1 while a recipe
 uses none of it, so an older Maquette still opens it, and version 2 once it does; a version past 2
-is refused. Pose keys and grips do not bake yet (`not-bakeable-yet`); pins do. Keys and time edits sit
+is refused. Grips do not bake yet (`not-bakeable-yet`); pins and pose keys do. Keys and time edits sit
 on a clip by its index and its own frame. A change's `start` and `end` are shares of all the clips'
 own frames laid end to end (on one clip, of its length), so a trim, retime or freeze leaves it on
 the motion it covered; `recipes/clip_moves.rs` moves every share, key and time edit with its clip
@@ -633,6 +633,20 @@ stands. A recipe whose whole timeline runs over `MAX_TIMELINE_FRAMES` is refused
 counted without building it. The web app keeps step for step copies in `state/recipe-timeline.ts`
 and `state/recipe-shares.ts`; `recipes/fixtures/timeline.json` and `fixtures/clip_moves.json` hold
 the cases both must agree on.
+
+Pose keys (`recipes/pose_keys.rs`) stand at the share of their clip's own frame among all the
+clips' frames, so they ride with trims, retimes, holds and joins like a change's span (on the rest
+pose a key's frame is the recipe's own). Each bone blends only between the keys that turn it, as the
+later key's ease says (smooth, in, out, linear, step), holding its first key before and its last
+after. A turn is degrees about the model's own axes, X then Y then Z, under the bone's parent: add
+lays it on the clip, replace turns from the rest pose, both by the change's weight with no ramp.
+`recipes/key_edits.rs` adds, moves and removes keys for `set_recipe_keys`;
+`recipes/joint_limits.rs` holds the fixed humanoid table (left side and middle, the right
+mirrored) that judges keyed turns, warn only. The bake stages `recipe_keys.py` beside
+`bake_recipe.py` with each pose key change's keys as shares, and its review adds a joint limits
+line. The web app's copies are `state/recipe-keys.ts` and `state/joint-limits.ts`, checked against
+`recipes/fixtures/pose_keys.json`, and the rough preview lays keys with the bake's math
+(`features/viewer/recipe-keys-pose.ts`) under a turn gizmo (`turn-gizmo.ts`).
 
 `animations::recipes::bake` bakes a recipe onto a rigged model in one headless run of
 `bake_recipe.py`, staged under the workspace cache and added as the model's next version only after
@@ -680,7 +694,8 @@ preview is
 an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
 `features/viewer/recipe-pins.ts` then holds the pins roughly with the same two-bone IK, from spots
 taken at each pin's first frame, and checks how far the hips move against the limb's reach for the
-pin's settings. Pins have a Pin lane of their own in the editor; pose keys and grips stay read only.
+pin's settings. Pins have a Pin lane of their own in the editor, pose keys a lane per keyed bone;
+grips stay read only.
 A joined recipe plays the timeline: each frame poses the clip frames it names, blends across a
 window and holds a frozen pose, the same frames the bake makes.
 Facing comes from the rig (`rigForward`: up crossed with left to right upper arm, else upper leg,

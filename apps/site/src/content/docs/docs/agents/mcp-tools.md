@@ -98,6 +98,7 @@ These look at the workspace and change nothing.
 | [`list_recipes`](#list_recipes)                 | A project's animation recipes: id, name, base clip and frames, whether the base clip is Mixamo's, and the change and blank counts with how many blanks are open                                                                                                                                                                                                                                                    | Nothing | No       |
 | [`get_recipe`](#get_recipe)                     | One animation recipe: its base clip as matched in this computer's library, its blanks and its changes in order                                                                                                                                                                                                                                                                                                     | Nothing | No       |
 | [`get_recipe_bake`](#get_recipe_bake)           | A recipe's last bake: its state, progress, why it stopped, the staged result and its review against the limits                                                                                                                                                                                                                                                                                                     | Nothing | No       |
+| [`get_recipe_pose`](#get_recipe_pose)           | The turns a recipe's pose keys make at one frame, blended as the preview blends them, against the humanoid joint limits                                                                                                                                                                                                                                                                                            | Nothing | No       |
 | [`list_library_recipes`](#list_library_recipes) | The recipe library's entries: each revision with where it came from, the newest base clip and counts                                                                                                                                                                                                                                                                                                               | Nothing | No       |
 | [`get_library_recipe`](#get_library_recipe)     | One library recipe's revision in full, its base clip as matched here, and every revision                                                                                                                                                                                                                                                                                                                           | Nothing | No       |
 | [`list_canvases`](#list_canvases)               | A project's planning canvases: id, name, preset, node and link counts and when each last changed                                                                                                                                                                                                                                                                                                                   |
@@ -173,6 +174,7 @@ These look at the workspace and change nothing.
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                                                                                            | Nothing | No       |
 | [`create_recipe`](#create_recipe)                     | Makes an animation recipe on a library clip, as the Motion view's Recipes tab does; bakes nothing                                                                                                                                                                      | Nothing | No       |
 | [`update_recipe`](#update_recipe)                     | Changes a recipe's name, changes or blanks, checked whole before anything is written; bakes nothing                                                                                                                                                                    | Nothing | No       |
+| [`set_recipe_keys`](#set_recipe_keys)                 | Adds, moves or removes pose keys on one pose key change by bone and frame, checked like update_recipe; bakes nothing                                                                                                                                                   | Nothing | No       |
 | [`bake_recipe`](#bake_recipe)                         | Bakes a recipe onto a rigged model in headless Blender, staged for a person to review; answers at once                                                                                                                                                                 | Nothing | No       |
 | [`use_recipe`](#use_recipe)                           | Copies a library recipe's revision into a project as a new recipe that remembers it                                                                                                                                                                                    | Nothing | No       |
 | [`import_recipe`](#import_recipe)                     | Imports a `.recipe.json` inside the workspace into a project, checked whole first                                                                                                                                                                                      | Nothing | No       |
@@ -1253,6 +1255,46 @@ A blank is `{ id, label, kind, prop?, point? }`: `kind` is `prop` (an asset of t
   ]
 }
 ```
+
+### set_recipe_keys
+
+`changes the project`
+
+Edits the keys of one pose key change, as the Motion view's pose keys do, without sending the whole change list. `layer` names the change; left out, or an id the recipe has not got, a new pose key change is added at the end. `remove` goes first, then `move`, then `set`, and a key left with no bones goes. Each `set` entry is `{ clip?, frame, ease?, pose }`: the key on that clip's own frame (clip 0 the base, then the joined clips; on the rest pose the recipe's own frame), turning each bone in `pose` to degrees [x, y, z] about the model's own axes (X to its left, Y up, Z ahead) under its parent. `ease` (`smooth`, `in`, `out`, `linear`, `step`) is how the motion eases into the key. `mode` is `add` (on top of the clip, the default) or `replace` (from the rest pose), and `weight` 0 to 1. It needs `expected`, the version `get_recipe` read; a recipe changed since is refused (`moved`). Answers the change, its key count and bones, and `overLimits`: the keyed turns past the humanoid joint limits, which only warn. Pose keys bake.
+
+| Argument   | Type   | Required | What it is                                                                 |
+| ---------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `project`  | string | yes      | The project id.                                                            |
+| `recipe`   | string | yes      | The recipe id.                                                             |
+| `expected` | string | yes      | The `version` `get_recipe` read.                                           |
+| `layer`    | string | no       | The pose key change's id; left out, a new one is added.                    |
+| `mode`     | string | no       | `add` or `replace`.                                                        |
+| `weight`   | number | no       | 0 to 1.                                                                    |
+| `set`      | array  | no       | `{ clip?, frame, ease?, pose }` per key.                                   |
+| `move`     | array  | no       | `{ clip?, frame, toClip?, toFrame, bones? }`: a key, or some bones, moved. |
+| `remove`   | array  | no       | `{ clip?, frame, bones? }`: a key, or some bones, taken out.               |
+
+```json
+{
+  "project": "frostveil",
+  "recipe": "slash-with-a-lean",
+  "expected": "v3",
+  "set": [{ "clip": 0, "frame": 20, "ease": "out", "pose": { "chest": [12, 18, 0] } }]
+}
+```
+
+### get_recipe_pose
+
+`read only`
+
+Reads the turns a recipe's pose keys make at one frame of its bake, from the same math the rough preview and the bake blend them with: the clip and its own frame that frame shows, and per keyed bone its pose key change, `mode`, `weight`, `turn` in degrees, its joint `limits` per axis (none for the hips) and each axis `over` them. An add key's turn sits on the clip's own, which is not counted. `layer` reads one pose key change only.
+
+| Argument  | Type   | Required | What it is                          |
+| --------- | ------ | -------- | ----------------------------------- |
+| `project` | string | yes      | The project id.                     |
+| `recipe`  | string | yes      | The recipe id.                      |
+| `frame`   | number | yes      | A frame of the bake, 0 to `frames`. |
+| `layer`   | string | no       | Only this pose key change.          |
 
 ### bake_recipe
 
