@@ -218,16 +218,21 @@ export function mergeDrafts(
   const mirror = mergeField(base.mirror, mine.mirror, theirs.mirror);
   // Mine's changes land on mine's clips when mine changed them, else on theirs.
   const mineLayout: Layout = deepEqual(clipsField(base), clipsField(mine)) ? 'theirs' : 'mine';
-  const onMine = mergeLayers(base, mine, theirs, mineLayout);
-  // A change that cannot sit on mine's clips makes the clips a clash too, so
-  // Use theirs takes theirs' clips with it.
-  const clipsClash = clips.clash || (mineLayout === 'mine' && onMine.off.length > 0);
+  const landed = mergeLayers(base, mine, theirs, mineLayout);
+  // A change that cannot sit on the landed clips makes the clips a clash
+  // too: Keep mine then keeps mine's clips with the change, Use theirs
+  // takes theirs' clips.
+  const clipsClash = clips.clash || landed.off.length > 0;
+  const onMine =
+    clipsClash && mineLayout === 'theirs' ? mergeLayers(base, mine, theirs, 'mine') : landed;
+  const onTheirsClips =
+    clipsClash && mineLayout === 'mine' ? mergeLayers(base, mine, theirs, 'theirs') : landed;
+  const clipsMine = clipsClash ? clipsField(mine) : clips.mine;
   const clipsTheirs = clipsClash ? clipsField(theirs) : clips.theirs;
-  const onTheirsClips = clipsClash ? mergeLayers(base, mine, theirs, 'theirs') : onMine;
   const layers = {
     mine: onMine.mine,
     theirs: onTheirsClips.theirs,
-    clashes: [...new Set([...onMine.clashes, ...onTheirsClips.clashes])],
+    clashes: [...new Set([...landed.clashes, ...onMine.clashes, ...onTheirsClips.clashes])],
   };
   // Mine counts its kept clips against the file as read; the merge lands on theirs.
   const onTheirs = (c: ClipsField): ClipsField =>
@@ -238,7 +243,7 @@ export function mergeDrafts(
     mine: {
       layers: layers.mine,
       blanks: blanks.mine,
-      ...onTheirs(clips.mine),
+      ...onTheirs(clipsMine),
       mirror: mirror.mine,
     },
     theirs: {

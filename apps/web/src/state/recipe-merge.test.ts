@@ -161,6 +161,43 @@ describe('merging changes read on other clips', () => {
     ]);
   });
 
+  it("keeps mine's new change and mine's clips under Keep mine when theirs took its clip out", () => {
+    const two = {
+      ...one,
+      layers: [],
+      clips: [clip('Idle'), { ...clip('Wave'), blend: { frames: 8 } }],
+      kept: [0, 1],
+    };
+    const mine = { ...two, layers: [span('l-mine', 0.6, 0.7)] };
+    const theirs = { ...two, clips: [clip('Idle')], kept: [0] };
+    const merged = mergeDrafts(two, mine, theirs);
+    expect(merged.clashes).toEqual(['change l-mine', 'the clips and time edits']);
+    expect(merged.mine.clips.map(c => c.name)).toEqual(['Idle', 'Wave']);
+    expect(shares(merged.mine)).toEqual([['l-mine', 0.6, 0.7]]);
+    expect(merged.theirs.clips.map(c => c.name)).toEqual(['Idle']);
+    expect(merged.theirs.layers).toEqual([]);
+  });
+
+  it("keeps mine's edit of a change theirs deleted with its clip under Keep mine", () => {
+    const x = span('l-x', 0.6, 0.7);
+    const two = {
+      ...one,
+      layers: [x],
+      clips: [clip('Idle'), { ...clip('Wave'), blend: { frames: 8 } }],
+      kept: [0, 1],
+    };
+    const edited = { ...x, settings: { ...x.settings, weight: 0.3 } };
+    const mine = { ...two, layers: [edited] };
+    const theirs = { ...two, clips: [clip('Idle')], kept: [0], layers: [] };
+    const merged = mergeDrafts(two, mine, theirs);
+    expect(merged.clashes).toContain('change l-x');
+    expect(merged.clashes).toContain('the clips and time edits');
+    expect(merged.mine.clips).toHaveLength(2);
+    expect(merged.mine.layers).toEqual([edited]);
+    expect(merged.theirs.layers).toEqual([]);
+    expect(merged.theirs.clips).toHaveLength(1);
+  });
+
   it('calls a change on a clip mine took out a clash, with the clips', () => {
     const two = {
       ...one,
