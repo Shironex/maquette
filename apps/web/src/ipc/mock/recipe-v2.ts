@@ -2,9 +2,10 @@
  * What version 2 of the recipe file adds, in mock mode as the core has it:
  * which version a recipe is written as, the shape it is written in, the
  * checks and limits of clips, time edits, pose keys and grips, and keys
- * and time edits following their clip when the clips are replaced.
+ * time edits and changes following their clip when the clips are replaced.
  */
 import type { RecipeBase, RecipeFile, RecipeLayer, TimeEdit } from '../client';
+import { followLayers } from '@/state/recipe-shares';
 import { DEFAULT_BLEND, V2_LIMITS, clipsProblem, timeProblem } from '@/state/recipe-v2-check';
 import { fail } from './backend-options';
 import { clipsOf } from './recipe-files';
@@ -169,7 +170,9 @@ const sameClip = (a: RecipeBase, b: RecipeBase) =>
  * (those not sent, `layersSent` and `timeSent` say which) moved to where
  * their clip went among `clips`, each clip found through `keptFrom` (the
  * index of the clip of `current` it keeps) or else by name, frames and
- * hash. A clip taken away that one of them sits on fails `clip-in-use`.
+ * hash; a change's start and end move to cover the same motion. A clip
+ * taken away that one of them sits on, or moved away from the clip a change
+ * runs across from, fails `clip-in-use`.
  */
 export function followClips(
   current: RecipeFile,
@@ -205,31 +208,51 @@ export function followClips(
     if (i != null && places[i] == null) places[i] = j;
   });
   const dropped: [number, string][] = [];
+  let split: [number, string] | null = null;
+  let layers = current.layers;
+  if (!layersSent) {
+    const followed = followLayers(
+      current.layers,
+      old.map(c => c.frames),
+      clips.map(c => c.frames),
+      places
+    );
+    layers = followed.layers;
+    // As the core lists them: the changes first, then the pose keys.
+    const byKind = [
+      ...followed.stranded.filter(s => s.layer.kind !== 'pose'),
+      ...followed.stranded.filter(s => s.layer.kind === 'pose'),
+    ];
+    for (const { layer, why } of byKind) {
+      if ('dropped' in why)
+        dropped.push([
+          why.dropped,
+          layer.kind === 'pose' ? `the pose keys ${layer.id}` : `the change ${layer.id}`,
+        ]);
+      else split ??= [why.split, layer.id];
+    }
+  }
   const move = (clip: number, what: string) => {
     const to = places[clip];
     if (to == null) dropped.push([clip, what]);
     return to ?? clip;
   };
-  const layers = layersSent
-    ? current.layers
-    : current.layers.map(l =>
-        l.keys?.length
-          ? {
-              ...l,
-              keys: l.keys.map(k => ({ ...k, clip: move(k.clip ?? 0, `the pose keys ${l.id}`) })),
-            }
-          : l
-      );
   const time = timeSent
     ? (current.time ?? [])
     : (current.time ?? []).map(t => ({ ...t, clip: move(t.clip, 'a time edit') }));
-  const first = dropped[0];
-  if (first) {
-    const [clip] = first;
+  if (dropped.length) {
+    const clip = Math.min(...dropped.map(([c]) => c));
     const what = [...new Set(dropped.filter(([c]) => c === clip).map(([, w]) => w))];
     fail(
       'clip-in-use',
       `${CLIP_IN_USE} ${clip + 1} (${old[clip]?.name ?? ''}) would leave ${what.join(', ')} on no clip. Keep that clip (keep ${clip}), or send changes and time without what sits on it.`
+    );
+  }
+  if (split) {
+    const [clip, id] = split;
+    fail(
+      'clip-in-use',
+      `${CLIP_IN_USE} ${clip + 1} (${old[clip]?.name ?? ''}) away from clip ${clip} would put other motion under the change ${id}, which runs across both. Keep them together in that order, or send changes without it.`
     );
   }
   return { layers, time };
