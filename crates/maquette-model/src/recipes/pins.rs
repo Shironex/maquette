@@ -122,9 +122,9 @@ pub fn amount(pin: &PinSpan, frame: f64) -> f64 {
 
 /// The frames of `pin` where it holds whole: past its ease in and before
 /// its ease out, which the drift check measures. None when its eases leave
-/// no such frame.
+/// no such frame (the bake reports its drift as not measured then).
 pub fn held(pin: &PinSpan) -> Option<[u32; 2]> {
-    let from = pin.first.saturating_add(pin.ease_in);
-    let to = pin.last.saturating_sub(pin.ease_out);
+    let from = pin.first.checked_add(pin.ease_in)?;
+    let to = pin.last.checked_sub(pin.ease_out)?;
     (from <= to).then_some([from, to])
 }

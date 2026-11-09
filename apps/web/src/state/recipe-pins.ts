@@ -96,7 +96,7 @@ export function pinAmount(pin: PinSpan, frame: number): number {
 /** The frames where `pin` holds whole, which the drift check measures; null when none. */
 export function heldFrames(pin: PinSpan): [number, number] | null {
   const from = pin.first + pin.easeIn;
-  const to = Math.max(pin.last - pin.easeOut, 0);
+  const to = pin.last - pin.easeOut;
   return from <= to ? [from, to] : null;
 }
 

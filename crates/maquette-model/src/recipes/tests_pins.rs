@@ -56,7 +56,16 @@ fn cases() -> Vec<RecipeFile> {
     long.settings.ease_in = Some(10);
     long.settings.ease_out = Some(10);
     rest.layers = vec![long];
-    vec![plain, joined, rest]
+
+    let mut tight = on("Eases overlap", clip("Standing Idle", 60));
+    let mut late = ranged("l-1", "leftFoot", 0.0, 0.034);
+    late.settings.ease_in = Some(0);
+    late.settings.ease_out = Some(5);
+    let mut early = ranged("l-2", "rightFoot", 0.5, 0.534);
+    early.settings.ease_in = Some(5);
+    early.settings.ease_out = Some(0);
+    tight.layers = vec![late, early];
+    vec![plain, joined, rest, tight]
 }
 
 fn rounded(v: f64) -> f64 {
@@ -132,6 +141,18 @@ fn a_pin_holds_from_where_its_start_falls_to_where_its_end_falls() {
     assert!((amount(p, 27.0) - 1.0).abs() < 1e-9);
     assert!(amount(p, 13.0) < amount(p, 14.0), "it eases in");
     assert_eq!(held(p), Some([15, 39]));
+}
+
+#[test]
+fn a_pin_whose_eases_overlap_holds_no_frame_whole() {
+    let recipe = &cases()[3];
+    let t = timeline(recipe);
+    let pins = spans(recipe, &t);
+    assert_eq!(pins.len(), 2);
+    for p in &pins {
+        assert!(p.last - p.first < 5, "frames {} to {}", p.first, p.last);
+        assert_eq!(held(p), None, "{}", p.layer);
+    }
 }
 
 #[test]

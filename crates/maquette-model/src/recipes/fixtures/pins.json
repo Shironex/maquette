@@ -538,6 +538,141 @@
           "weight": 1.0
         }
       ]
+    },
+    {
+      "amounts": [
+        {
+          "amount": 0.352,
+          "frame": 0,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.104,
+          "frame": 1,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 2,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 3,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 29,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.0,
+          "frame": 30,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.104,
+          "frame": 31,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.352,
+          "frame": 32,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.0,
+          "frame": 33,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.0,
+          "frame": 35,
+          "layer": "l-2"
+        }
+      ],
+      "held": [
+        null,
+        null
+      ],
+      "name": "Eases overlap",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "standing-idle-hash",
+          "length": 2.0,
+          "mixamo": true,
+          "name": "Standing Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "leftFoot",
+            "id": "l-1",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 0,
+              "easeOut": 5,
+              "end": 0.034,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          },
+          {
+            "bone": "rightFoot",
+            "id": "l-2",
+            "kind": "pin",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 5,
+              "easeOut": 0,
+              "end": 0.534,
+              "offset": null,
+              "rotation": null,
+              "start": 0.5,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Eases overlap",
+        "revision": 1,
+        "version": 1
+      },
+      "spans": [
+        {
+          "bone": "leftFoot",
+          "easeIn": 0,
+          "easeOut": 5,
+          "first": 0,
+          "flat": "toe-and-heel",
+          "last": 2,
+          "layer": "l-1",
+          "weight": 1.0
+        },
+        {
+          "bone": "rightFoot",
+          "easeIn": 5,
+          "easeOut": 0,
+          "first": 30,
+          "flat": "toe-and-heel",
+          "last": 32,
+          "layer": "l-2",
+          "weight": 1.0
+        }
+      ]
     }
   ]
 }
