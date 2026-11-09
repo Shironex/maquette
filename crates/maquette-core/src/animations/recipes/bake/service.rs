@@ -216,7 +216,10 @@ impl RecipeBakes {
     }
 
     /// The bake of `recipe` in `project`, or none when it was never baked.
-    /// A bake the app closed on reads as failed, saying so.
+    /// A bake the app closed on reads as failed, saying so. The record is
+    /// read while the running bakes are held: a bake saves its end before
+    /// it leaves them, so one that ends during the read is never taken for
+    /// one the app closed on.
     ///
     /// # Errors
     ///
@@ -228,10 +231,11 @@ impl RecipeBakes {
         project: &str,
         recipe: &str,
     ) -> CoreResult<Option<RecipeBakeRecord>> {
+        let active = self.active();
         let Some(mut found) = record_of(root, config, project, recipe)? else {
             return Ok(None);
         };
-        if found.running() && !self.active().contains_key(&key(project, recipe)) {
+        if found.running() && !active.contains_key(&key(project, recipe)) {
             found.state = RecipeBakeState::Failed;
             found.progress = None;
             found.error = Some(CLOSED.to_string());

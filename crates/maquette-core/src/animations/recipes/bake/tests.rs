@@ -649,6 +649,8 @@ fn bakes_on(fake: Fake) -> (RecipeBakes, Arc<Mutex<Vec<RecipeBakeRecord>>>) {
     (bakes, told)
 }
 
+/// The bake's record once it ended and left the running bakes, so every
+/// change it told about has been told.
 pub(super) fn settled(bakes: &RecipeBakes, p: &Project) -> RecipeBakeRecord {
     let started = Instant::now();
     loop {
@@ -656,7 +658,10 @@ pub(super) fn settled(bakes: &RecipeBakes, p: &Project) -> RecipeBakeRecord {
             .get(p.root(), &p.config, &p.id, &p.recipe.id)
             .expect("get")
             .expect("record");
-        if !record.running() {
+        let left = !bakes
+            .active()
+            .contains_key(&super::service::key(&p.id, &p.recipe.id));
+        if !record.running() && left {
             return record;
         }
         assert!(started.elapsed() < Duration::from_secs(10), "{record:?}");
