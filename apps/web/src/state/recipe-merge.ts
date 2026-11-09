@@ -10,10 +10,19 @@
  * The clips and the time edits are one field: a time edit sits on a clip by
  * its place, so clips moved on one side and time edits changed on the other
  * could land a time edit on the wrong clip. Both sides touching them clash.
+ *
+ * A change's start and end are shares of the clips laid end to end, so each
+ * side's changes read on its own clips. Before the changes are compared,
+ * every side's are moved onto the clips the merge lands on (recipe-shares.ts),
+ * so a clip joined on one side and a change edited or added on the other
+ * still meet on the same motion. A change that cannot sit on those clips
+ * (its clip is not there) is a clash, and so are the clips.
  */
+import type { RecipeBase, RecipeLayer } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
 import { rekeep } from './recipe-clips';
 import { freeId, type RecipeDraft } from './recipe-draft';
+import { followLayers } from './recipe-shares';
 
 /** The clash words of the clips field and of the mirror. */
 export const CLIPS_FIELD = 'the clips and time edits';
@@ -134,6 +143,69 @@ export interface Renamed {
   blank: Record<string, string>;
 }
 
+/** Which clips the merged changes sit on: mine (the draft's) or theirs (the file's now). */
+type Layout = 'mine' | 'theirs';
+
+/**
+ * Every side's changes moved onto the clips of `layout`, then merged; the
+ * changes that would sit on a clip `layout` does not have are left out of
+ * both results, named in `off` and as clashes.
+ */
+function mergeLayers(
+  base: RecipeDraft,
+  mine: RecipeDraft,
+  theirs: RecipeDraft,
+  layout: Layout
+): ListMerge<RecipeLayer> & { off: string[] } {
+  const frames = (clips: readonly RecipeBase[]) => clips.map(c => c.frames);
+  // Where each clip of the file as read sits in theirs, and in mine.
+  const baseInTheirs = rekeep(
+    base.clips,
+    base.clips.map((_, i) => i),
+    base.clips,
+    theirs.clips
+  );
+  const baseInMine = base.clips.map(() => null as number | null);
+  mine.kept.forEach((k, j) => {
+    if (k != null && baseInMine[k] == null) baseInMine[k] = j;
+  });
+  const places =
+    layout === 'mine'
+      ? {
+          base: baseInMine,
+          mine: mine.clips.map((_, j) => j),
+          theirs: theirs.clips.map((_, t) => {
+            const b = baseInTheirs.indexOf(t);
+            return b < 0 ? null : (baseInMine[b] ?? null);
+          }),
+        }
+      : {
+          base: baseInTheirs,
+          mine: mine.kept.map(k => (k == null ? null : (baseInTheirs[k] ?? null))),
+          theirs: theirs.clips.map((_, t) => t),
+        };
+  const to = frames(layout === 'mine' ? mine.clips : theirs.clips);
+  const onLayout = (side: RecipeDraft, at: readonly (number | null)[]) =>
+    followLayers(side.layers, frames(side.clips), to, at);
+  const b = onLayout(base, places.base);
+  const m = onLayout(mine, places.mine);
+  const t = onLayout(theirs, places.theirs);
+  const merged = mergeList(b.layers, m.layers, t.layers);
+  const stranded = new Set([b, m, t].flatMap(side => side.stranded.map(s => s.layer)));
+  const off = new Set<string>();
+  const fits = (layer: RecipeLayer) => {
+    if (!stranded.has(layer)) return true;
+    off.add(layer.id);
+    return false;
+  };
+  return {
+    mine: merged.mine.filter(fits),
+    theirs: merged.theirs.filter(fits),
+    clashes: [...new Set([...merged.clashes, ...off])],
+    off: [...off],
+  };
+}
+
 /** Lays the outside change from `base` to `theirs` over the person's `mine`. */
 export function mergeDrafts(
   base: RecipeDraft,
@@ -141,10 +213,22 @@ export function mergeDrafts(
   theirs: RecipeDraft
 ): DraftMerge {
   const { draft: mine, renamed } = apart(base, ownDraft, theirs);
-  const layers = mergeList(base.layers, mine.layers, theirs.layers);
   const blanks = mergeList(base.blanks, mine.blanks, theirs.blanks);
   const clips = mergeField(clipsField(base), clipsField(mine), clipsField(theirs));
   const mirror = mergeField(base.mirror, mine.mirror, theirs.mirror);
+  // Mine's changes land on mine's clips when mine changed them, else on theirs.
+  const mineLayout: Layout = deepEqual(clipsField(base), clipsField(mine)) ? 'theirs' : 'mine';
+  const onMine = mergeLayers(base, mine, theirs, mineLayout);
+  // A change that cannot sit on mine's clips makes the clips a clash too, so
+  // Use theirs takes theirs' clips with it.
+  const clipsClash = clips.clash || (mineLayout === 'mine' && onMine.off.length > 0);
+  const clipsTheirs = clipsClash ? clipsField(theirs) : clips.theirs;
+  const onTheirsClips = clipsClash ? mergeLayers(base, mine, theirs, 'theirs') : onMine;
+  const layers = {
+    mine: onMine.mine,
+    theirs: onTheirsClips.theirs,
+    clashes: [...new Set([...onMine.clashes, ...onTheirsClips.clashes])],
+  };
   // Mine counts its kept clips against the file as read; the merge lands on theirs.
   const onTheirs = (c: ClipsField): ClipsField =>
     c === clipsField(theirs) || deepEqual(c, clipsField(theirs))
@@ -160,13 +244,13 @@ export function mergeDrafts(
     theirs: {
       layers: layers.theirs,
       blanks: blanks.theirs,
-      ...onTheirs(clips.theirs),
+      ...onTheirs(clipsTheirs),
       mirror: mirror.theirs,
     },
     clashes: [
       ...layers.clashes.map(id => `change ${id}`),
       ...blanks.clashes.map(id => `blank ${id}`),
-      ...(clips.clash ? [CLIPS_FIELD] : []),
+      ...(clipsClash ? [CLIPS_FIELD] : []),
       ...(mirror.clash ? [MIRROR_FIELD] : []),
     ],
     renamed,

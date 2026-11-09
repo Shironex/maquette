@@ -426,6 +426,8 @@ describe('the recipe editor store', () => {
       clips: [d.clips[0]!, d.clips[2]!, d.clips[1]!],
       kept: [0, 2, 1],
       time: d.time.map(t => (t.clip === 1 ? { ...t, clip: 2 } : t)),
+      // The nudge runs across the block into the idle, which a swap would part.
+      layers: [],
     }));
     const update = vi.spyOn(commands, 'recipeUpdate');
     expect(await store().save()).toBe(true);
