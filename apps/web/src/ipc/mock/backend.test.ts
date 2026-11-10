@@ -351,6 +351,11 @@ describe('mock starter scripts', () => {
     type View = { starters: { path: string; state: string; backup: string | null }[] };
     const before = await call<View>('pipeline_get', { project: 'frostveil' });
     expect(before.starters.filter(s => s.state === 'outdated')).toHaveLength(3);
+    // Frostveil was also made before the helper file for built scripts and its example.
+    expect(before.starters.filter(s => s.state === 'missing').map(s => s.path)).toEqual([
+      'built/maquette_helpers.py',
+      'built/maquette_example.py',
+    ]);
     const all = before.starters.map(s => s.path);
     const kept = await call<View>('pipeline_update_starters', {
       project: 'frostveil',
@@ -361,6 +366,8 @@ describe('mock starter scripts', () => {
       'current',
       'current',
       'edited',
+      'current',
+      'current',
       'current',
       'current',
     ]);

@@ -284,11 +284,15 @@ export function fileName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-/** "bake_light.py, build_scene.py and render_stops.py" */
-export function listNames(paths: readonly string[]): string {
-  const names = paths.map(fileName);
+/** "a, b and c" */
+function listed(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** "bake_light.py, build_scene.py and render_stops.py" */
+export function listNames(paths: readonly string[]): string {
+  return listed(paths.map(fileName));
 }
 
 /** "3 starter scripts updated in Lantern Bay": the project is named, since the banner acts on the open one. */
@@ -299,14 +303,68 @@ export function starterToast(n: number, project: string): string {
 }
 
 /** What the Pipeline view offers for the project's starter scripts. */
-export function starterOffer(starters: readonly StarterStatus[]): {
+export interface StarterOffer {
   /** Untouched old copies and missing ones: updated in one click. */
   update: string[];
+  /** The untouched copies of an older starter among them. */
+  outdated: string[];
+  /** The starters the project does not have, such as one newer than it. */
+  missing: string[];
   /** Edited by hand: only replaced one at a time, when asked. */
   edited: string[];
-} {
+}
+
+export function starterOffer(starters: readonly StarterStatus[]): StarterOffer {
+  const of = (state: StarterStatus['state']) =>
+    starters.filter(s => s.state === state).map(s => s.path);
   return {
     update: starters.filter(s => s.state === 'outdated' || s.state === 'missing').map(s => s.path),
-    edited: starters.filter(s => s.state === 'edited').map(s => s.path),
+    outdated: of('outdated'),
+    missing: of('missing'),
+    edited: of('edited'),
   };
+}
+
+/** The folder every path is in, or null when they are in more than one. */
+function sharedFolder(paths: readonly string[]): string | null {
+  const folders = new Set(paths.map(p => p.split(/[\\/]/).slice(0, -1).join('/')));
+  const [only] = folders;
+  return folders.size === 1 && only ? only : null;
+}
+
+/**
+ * What the starter banner says Update will do: bring untouched copies of an
+ * older starter up to date, and add the starters the project was made before,
+ * named with their folder. An older helper file for built scripts in `built/`
+ * also says what updating it sets off.
+ */
+export function starterDetail(
+  { outdated, missing }: Pick<StarterOffer, 'outdated' | 'missing'>,
+  project: string
+): string {
+  const parts: string[] = [];
+  if (outdated.length > 0) {
+    const folder = sharedFolder(outdated);
+    const where = folder ? `${project}'s ${folder} folder` : project;
+    const are = outdated.length === 1 ? 'is an untouched copy' : 'are untouched copies';
+    parts.push(`${listNames(outdated)} in ${where} ${are} of an older starter.`);
+  }
+  if (missing.length > 0) {
+    const are =
+      missing.length === 1
+        ? 'is new: this project does not have it'
+        : 'are new: this project does not have them';
+    parts.push(`${listed(missing)} ${are} yet.`);
+  }
+  parts.push(
+    outdated.length > 0
+      ? 'Updating brings in what newer starters do, for example a real light bake.'
+      : `Updating adds ${missing.length === 1 ? 'it' : 'them'} and changes no other file.`
+  );
+  const helpers = outdated.filter(p => p.startsWith('built/'));
+  if (helpers.length > 0)
+    parts.push(
+      `Built assets that list ${listNames(helpers)} then say Script changed and build again.`
+    );
+  return parts.join(' ');
 }

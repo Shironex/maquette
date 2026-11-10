@@ -12,6 +12,8 @@ import {
   runSummary,
   shipsNowhere,
   stageViews,
+  starterDetail,
+  starterOffer,
 } from './pipeline';
 
 const NOW = 1_800_000_000_000;
@@ -192,5 +194,60 @@ describe('a run with nowhere to ship', () => {
     expect(shipsNowhere(taking, '/sites/moon')).toBe(false);
     expect(shipsNowhere({ ...def, steps: others }, null)).toBe(false);
     expect(shipsNowhere({ ...def, steps: [...others, { ...ship, args: [] }] }, null)).toBe(false);
+  });
+});
+
+describe('the starter scripts offer', () => {
+  const starter = (path: string, state: 'current' | 'outdated' | 'edited' | 'missing') => ({
+    path,
+    state,
+    backup: null,
+  });
+  const HELPERS = 'built/maquette_helpers.py';
+  const EXAMPLE = 'built/maquette_example.py';
+
+  it('updates old copies and missing starters in one go, and keeps them apart', () => {
+    const offer = starterOffer([
+      starter('tools/build_scene.py', 'outdated'),
+      starter('tools/export_web.py', 'edited'),
+      starter('tools/ship.mjs', 'current'),
+      starter(HELPERS, 'missing'),
+    ]);
+    expect(offer).toEqual({
+      update: ['tools/build_scene.py', HELPERS],
+      outdated: ['tools/build_scene.py'],
+      missing: [HELPERS],
+      edited: ['tools/export_web.py'],
+    });
+  });
+
+  it('says a starter the project never had is new, with its folder', () => {
+    expect(starterDetail({ outdated: [], missing: [HELPERS, EXAMPLE] }, 'Moon Island')).toBe(
+      `${HELPERS} and ${EXAMPLE} are new: this project does not have them yet. Updating adds them and changes no other file.`
+    );
+    expect(starterDetail({ outdated: [], missing: [HELPERS] }, 'Moon Island')).toBe(
+      `${HELPERS} is new: this project does not have it yet. Updating adds it and changes no other file.`
+    );
+  });
+
+  it('names old copies by their folder and new starters beside them', () => {
+    expect(
+      starterDetail(
+        { outdated: ['tools/build_scene.py', 'tools/bake_light.py'], missing: [HELPERS] },
+        'Moon Island'
+      )
+    ).toBe(
+      `build_scene.py and bake_light.py in Moon Island's tools folder are untouched copies of an older starter. ${HELPERS} is new: this project does not have it yet. Updating brings in what newer starters do, for example a real light bake.`
+    );
+  });
+
+  it('says what updating an older helper file for built scripts sets off', () => {
+    expect(starterDetail({ outdated: [HELPERS], missing: [] }, 'Moon Island')).toBe(
+      "maquette_helpers.py in Moon Island's built folder is an untouched copy of an older starter. Updating brings in what newer starters do, for example a real light bake. Built assets that list maquette_helpers.py then say Script changed and build again."
+    );
+    // Old copies in two folders: no single folder to name.
+    expect(
+      starterDetail({ outdated: ['tools/bake_light.py', HELPERS], missing: [] }, 'Moon Island')
+    ).toContain('bake_light.py and maquette_helpers.py in Moon Island are untouched copies');
   });
 });

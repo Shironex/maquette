@@ -17,7 +17,8 @@ export function useStartersBanner(view: PipelineView) {
   );
   const [working, setWorking] = useState<string | null>(null);
   const [kept, setKept] = useState<readonly string[]>([]);
-  const { update, edited } = starterOffer(view.starters);
+  const offer = starterOffer(view.starters);
+  const { update, edited } = offer;
   const shown = edited.filter(p => !kept.includes(p) && !readFlag(keepKey(view.project, p)));
 
   const run = async (id: string, scripts: string[], replace: boolean) => {
@@ -29,5 +30,5 @@ export function useStartersBanner(view: PipelineView) {
     writeFlag(keepKey(view.project, path), true);
     setKept(k => [...k, path]);
   };
-  return { update, shown, working, run, keep, projectName };
+  return { update, offer, shown, working, run, keep, projectName };
 }

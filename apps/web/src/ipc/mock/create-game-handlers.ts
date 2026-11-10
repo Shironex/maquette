@@ -38,6 +38,7 @@ import { createPreviewHandlers } from './create-preview-handlers';
 import type { RunStore } from './runner';
 import { gamePipeline, gameRuns } from './game-pipeline';
 import { BAKE_DEFAULT } from './bake';
+import { BUILT_STARTERS } from './starter-fixtures';
 import { GAME_TEMPLATES, templateOutcome, templatePreview } from './game-templates';
 
 const GAME_STARTERS = [
@@ -47,6 +48,7 @@ const GAME_STARTERS = [
   'tools/export_game.py',
   'tools/game_export.mjs',
   'tools/ship_game.mjs',
+  ...BUILT_STARTERS,
 ];
 
 export interface GameContext {

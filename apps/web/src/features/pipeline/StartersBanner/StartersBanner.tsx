@@ -1,6 +1,6 @@
 import { Button, InlineBanner } from '@maquette/ui';
 import type { PipelineView } from '@/ipc/client';
-import { fileName, listNames } from '@/state/pipeline';
+import { fileName, starterDetail } from '@/state/pipeline';
 import { useStartersBanner } from './StartersBanner.hooks';
 
 export interface StartersBannerProps {
@@ -9,12 +9,13 @@ export interface StartersBannerProps {
 }
 
 /**
- * Starter scripts that this build ships newer versions of. Untouched old
- * copies update in one click; an edited script is never replaced unless
- * asked, one at a time, with the old file kept as `<name>.bak`.
+ * Starter scripts that this build ships newer versions of, or that the
+ * project was made before. Untouched old copies and missing ones update in
+ * one click; an edited script is never replaced unless asked, one at a time,
+ * with the old file kept as `<name>.bak`.
  */
 export default function StartersBanner({ view, busy }: StartersBannerProps) {
-  const { update, shown, working, run, keep, projectName } = useStartersBanner(view);
+  const { update, offer, shown, working, run, keep, projectName } = useStartersBanner(view);
   if (update.length === 0 && shown.length === 0) return null;
 
   const blocked = busy ? 'Wait for the run to finish' : undefined;
@@ -55,7 +56,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
         <InlineBanner
           tone="info"
           title={`New starter scripts for ${projectName}`}
-          detail={`${listNames(update)} in ${projectName}'s tools folder ${update.length === 1 ? 'is an untouched copy' : 'are untouched copies'} of an older starter. Updating brings in what newer starters do, for example a real light bake.`}
+          detail={starterDetail(offer, projectName)}
           actions={
             <Button
               size="sm"
@@ -63,7 +64,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
               loading={working === 'all'}
               disabled={busy || working !== null}
               disabledReason={blocked}
-              tooltip="Replaces the untouched starter scripts with the newer ones"
+              tooltip="Brings the untouched starter scripts up to date and adds the new ones"
               onClick={() => void run('all', update, false)}
             >
               Update
