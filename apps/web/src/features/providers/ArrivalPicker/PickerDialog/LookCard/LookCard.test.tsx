@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Arrival } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
@@ -98,5 +98,31 @@ describe('a download that needs a look', () => {
         useDownloadsStore.getState().status?.arrivals.find(a => a.id === arrival.id)?.asset
       ).toBe(other.asset)
     );
+  });
+
+  it('lists two projects sends of one id as two choices', async () => {
+    const arrival = await lookAtLantern();
+    cleanup();
+    // The same job id waits in this project and in another one.
+    const ranked = arrival.suggestions ?? [];
+    const shown = ranked.find(s => s.job === arrival.job)!;
+    const first = ranked.find(s => s.job !== arrival.job);
+    const twin = { ...first!, project: 'frost-cathedral', assetName: 'Cathedral twin' };
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <ul>
+        <LookCard
+          arrival={{ ...arrival, suggestions: [shown, first!, twin] }}
+          now={arrival.atMs ?? 0}
+        />
+      </ul>
+    );
+    const here = screen.getByRole('button', { name: new RegExp(`^${first!.assetName} · `) });
+    const there = screen.getByRole('button', { name: /^Cathedral twin · / });
+    expect(here).not.toBe(there);
+    // Its project is not the open one, so it is offered but not attached from here.
+    expect(there).toHaveAttribute('aria-disabled', 'true');
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+    errors.mockRestore();
   });
 });
