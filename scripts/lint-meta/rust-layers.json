@@ -86,6 +86,7 @@
     "library": "library",
     "packs": "library",
     "renders": "library",
+    "views": "library",
     "animations": "library"
   }
 }
