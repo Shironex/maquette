@@ -242,3 +242,195 @@ fn a_fingerprint_follows_the_size_and_the_modified_time() {
     );
     assert_eq!(Fingerprint::new(7, 6_000_000).modified_ms, 6.0);
 }
+
+#[test]
+fn the_page_light_has_a_cache_name_of_its_own_and_the_studio_keeps_its() {
+    let hash = "0123456789abcdef0123456789abcdef0123";
+    assert_eq!(
+        png_name(hash, ThumbLook::Studio, "rig"),
+        "0123456789abcdef0123456789abcdef.png"
+    );
+    let page = png_name(hash, ThumbLook::Page, "rig one");
+    assert!(page.starts_with("0123456789abcdef0123456789abcdef-page-"));
+    assert!(page.ends_with(".png"));
+    // A changed rig renders the page light again, and only the page light.
+    assert_ne!(page, png_name(hash, ThumbLook::Page, "rig two"));
+    assert_eq!(
+        png_name(hash, ThumbLook::Studio, "rig one"),
+        png_name(hash, ThumbLook::Studio, "rig two")
+    );
+    // The same rig checked out with other line ends is the same rig.
+    assert_eq!(
+        rig_key("sun = 3\r\nfill = 0.18\r\n"),
+        rig_key("sun = 3\nfill = 0.18\n")
+    );
+    assert_eq!(rig_key(RIG_SCRIPT).len(), 8);
+}
+
+#[test]
+fn the_page_look_tells_the_script_and_the_studio_job_stays_as_it_was() {
+    let model = Path::new("/m/crate.glb");
+    let studio = render_def_with(model, "a.png", ThumbLook::Studio.args());
+    assert_eq!(
+        studio.steps[0].args,
+        render_def(model, "a.png").steps[0].args
+    );
+    assert!(!studio.steps[0].args.iter().any(|a| a == "--look"));
+    let page = render_def_with(model, "a.png", ThumbLook::Page.args());
+    let args = &page.steps[0].args;
+    let at = args.iter().position(|a| a == "--look").expect("look");
+    assert_eq!(args[at + 1], "page");
+    assert!(blender_headless(args));
+}
+
+#[test]
+fn only_a_built_asset_gets_the_page_light() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    assert_eq!(look_of(dir.path(), "laptop"), ThumbLook::Studio);
+    let built = serde_json::json!({
+        "version": 1,
+        "assets": { "laptop": { "script": "built/laptop.py", "helpers": [], "root": null, "last": null } },
+    });
+    let file = dir.path().join(crate::built::BUILT_FILE);
+    fs::write(&file, serde_json::to_vec(&built).expect("json")).expect("built.json");
+    assert_eq!(look_of(dir.path(), "laptop"), ThumbLook::Page);
+    assert_eq!(look_of(dir.path(), "desk-lamp"), ThumbLook::Studio);
+    // A file that cannot be read lights nothing differently.
+    fs::write(&file, b"{ not json").expect("broken");
+    assert_eq!(look_of(dir.path(), "laptop"), ThumbLook::Studio);
+}
+
+/// What `name = ...` assigns in a script, without a trailing comment.
+fn assigned<'a>(text: &'a str, name: &str) -> &'a str {
+    let start = format!("{name} = ");
+    let line = text
+        .lines()
+        .map(str::trim)
+        .find(|l| l.starts_with(&start))
+        .unwrap_or_else(|| panic!("no {name} in the script"));
+    line[start.len()..]
+        .split('#')
+        .next()
+        .expect("value")
+        .trim()
+        .trim_end_matches(';')
+}
+
+fn number(text: &str, name: &str) -> f64 {
+    assigned(text, name)
+        .parse()
+        .unwrap_or_else(|_| panic!("{name} is not a number"))
+}
+
+#[test]
+fn the_rig_holds_the_bakes_light_and_the_pages_display() {
+    // The light is Build scene's, which Bake light bakes into a model.
+    let build = include_str!("../../starter/build_scene.py");
+    assert_eq!(
+        number(RIG_SCRIPT, "SUN_STRENGTH"),
+        number(build, "sun.data.energy")
+    );
+    assert_eq!(
+        number(RIG_SCRIPT, "WORLD_GREY"),
+        number(build, "WORLD_GREY")
+    );
+    let turn: Vec<f64> = assigned(build, "sun.rotation_euler")
+        .trim_matches(|c| c == '(' || c == ')')
+        .split(',')
+        .map(|v| v.trim().parse().expect("a turn"))
+        .collect();
+    assert_eq!(number(RIG_SCRIPT, "SUN_TILT"), turn[0]);
+    // The same sun, mirrored from the front right to the front left.
+    assert_eq!(number(RIG_SCRIPT, "SUN_TURN"), -turn[2]);
+    assert_eq!(turn[1], 0.0);
+
+    // The display is the reference page's renderer.
+    let site =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/site/src/scene/Workbench.tsx");
+    let page = fs::read_to_string(&site).expect("the site's renderer settings");
+    assert_eq!(
+        assigned(&page, "gl.toneMapping"),
+        "THREE.ACESFilmicToneMapping"
+    );
+    assert_eq!(assigned(RIG_SCRIPT, "TONE"), "\"aces-filmic\"");
+    assert_eq!(
+        number(RIG_SCRIPT, "EXPOSURE"),
+        number(&page, "gl.toneMappingExposure")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_page_render_takes_the_rig_along_and_never_stands_in_for_a_studio_one() {
+    use crate::pipeline::tools::ResolvedTool;
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::mpsc;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    // A stand-in for Blender: notes what it was told and writes the picture.
+    let fake = dir.path().join("blender");
+    fs::write(
+        &fake,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$(dirname \"$0\")/told.txt\"\nwhile [ \"$1\" != \"--out\" ]; do shift; done\nprintf '\\211PNG' > \"$2\"\n",
+    )
+    .expect("fake");
+    fs::set_permissions(&fake, fs::Permissions::from_mode(0o755)).expect("chmod");
+    let mut tools = Toolbox {
+        path_env: std::env::var_os("PATH").unwrap_or_default(),
+        os: Some(crate::toolchain::HostOs::current()),
+        ..Toolbox::default()
+    };
+    tools.tools.insert(
+        ToolId::Blender,
+        ResolvedTool {
+            program: fake,
+            prefix: Vec::new(),
+            version: "test".into(),
+        },
+    );
+    let model = dir.path().join("laptop.glb");
+    fs::write(&model, b"glb").expect("model");
+    let thumbs_dir = dir.path().join("thumbs");
+    let (tx, rx) = mpsc::channel();
+    let tx = Mutex::new(tx);
+    let service = Thumbnails::new(move |done| {
+        let _ = tx.lock().expect("tx").send(done);
+    });
+    let wait = || {
+        rx.recv_timeout(std::time::Duration::from_secs(20))
+            .expect("finished")
+    };
+
+    let asked = service
+        .request_look(&thumbs_dir, &model, None, &tools, ThumbLook::Page)
+        .expect("page");
+    assert_eq!(asked, Requested::Rendering);
+    let page = wait().png.expect("the page picture");
+    assert_eq!(
+        page,
+        png_for_look(&thumbs_dir, &model, ThumbLook::Page).expect("name")
+    );
+    assert_eq!(
+        fs::read_to_string(thumbs_dir.join(RIG_FILE)).expect("the rig"),
+        RIG_SCRIPT
+    );
+    let told = fs::read_to_string(dir.path().join("told.txt")).expect("told");
+    assert!(told.contains("--look\npage\n"), "{told}");
+
+    // The studio picture of the same model is another file, rendered apart.
+    let studio = service
+        .request(&thumbs_dir, &model, None, &tools)
+        .expect("studio");
+    assert_eq!(studio, Requested::Rendering);
+    let plain = wait().png.expect("the studio picture");
+    assert_eq!(plain, png_for(&thumbs_dir, &model).expect("name"));
+    assert_ne!(plain, page);
+    service.wait();
+    // Both are cached now, each under its own name.
+    for look in [ThumbLook::Page, ThumbLook::Studio] {
+        let again = service
+            .request_look(&thumbs_dir, &model, None, &tools, look)
+            .expect("cached");
+        assert_eq!(again.state(), ThumbState::Ready, "{look:?}");
+    }
+}

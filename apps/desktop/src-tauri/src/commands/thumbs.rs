@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use maquette_core::inbox::InboxItem;
 use maquette_core::pipeline::tools::Toolbox;
-use maquette_core::thumbs::{self, Finished, Requested, ThumbState, ThumbTarget, Thumbnails};
+use maquette_core::thumbs::{
+    self, Finished, Requested, ThumbLook, ThumbState, ThumbTarget, Thumbnails,
+};
 use maquette_core::{ProjectManifest, WorkspaceConfig, project};
 use tauri::{AppHandle, Manager as _, State};
 use tauri_specta::Event as _;
@@ -122,7 +124,12 @@ pub(crate) fn ask_version(
     target: ThumbTarget,
 ) -> Asked {
     let dir = thumbs::thumbs_dir(root, config);
-    match service.request(&dir, file, Some(target.clone()), tools) {
+    // A built asset is lit as its page lights it, every other model by the studio.
+    let look = project::dir(root, &config.layout, &target.project).map_or_else(
+        |_| ThumbLook::default(),
+        |d| thumbs::look_of(&d, &target.asset),
+    );
+    match service.request_look(&dir, file, Some(target.clone()), tools, look) {
         Ok(Requested::Ready(png)) => Asked::Ready(
             thumbs::apply(root, config, &target, &png)
                 .inspect_err(|err| tracing::warn!(error = %err, "could not apply the thumbnail"))
