@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import type { RecipeLayer } from '@/ipc/client';
+import type { Playable } from '@/state/recipe-timeline';
 import { checkReaches } from './check-reaches';
 import {
   envelope,
@@ -265,6 +266,35 @@ describe('the live checks', () => {
     expect(near[0]!.flipped).toBe(false);
     const far = checkReaches(reset, rig, [reach], new Map([['near', v(3, 1.4, 0)]]));
     expect(far[0]!.gap).toBeGreaterThan(2);
+  });
+
+  it('counts a pose key laid before a reach when given the recipe the keys sit on', () => {
+    const { rig, upper, reset } = arm();
+    const restTurn = new Map<THREE.Object3D, THREE.Quaternion>([
+      [upper, upper.getWorldQuaternion(new THREE.Quaternion())],
+    ]);
+    const keyed: RecipeRig = { ...rig, rest: bone => restTurn.get(bone)?.clone() };
+    const recipe = {
+      base: { name: 'idle', frames: 10, length: 1, hash: 'h', mixamo: false },
+      joined: [],
+      time: [],
+    } as unknown as Playable;
+    const lift: RecipeLayer = {
+      id: 'k-1',
+      kind: 'pose',
+      bone: '',
+      mode: 'add',
+      settings: { weight: 1, start: 0, end: 1 },
+      keys: [{ clip: 0, frame: 0, ease: 'smooth', pose: { rightUpperArm: [0, 0, 80] } }],
+    } as unknown as RecipeLayer;
+    const half = layer(
+      { kind: 'reach', bone: 'rightHand' },
+      { start: 0.2, end: 0.6, target: 'far', weight: 0.5 }
+    );
+    const targets = new Map([['far', v(0.3, 3, 0)]]);
+    const without = checkReaches(reset, keyed, [lift, half], targets);
+    const withKeys = checkReaches(reset, keyed, [lift, half], targets, recipe);
+    expect(Math.abs(withKeys[0]!.gap - without[0]!.gap)).toBeGreaterThan(0.01);
   });
 
   it('skips a reach whose blank is open', () => {

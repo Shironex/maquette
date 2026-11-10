@@ -283,7 +283,7 @@ export function useRecipeFrame(
   const reportPins = useEffectEvent((checks: PinCheck[]) => pins?.onChecks?.(checks));
   useEffect(() => {
     if (!setup) return;
-    report(checkReaches(setup.frameAt, setup.rig, layers, targets));
+    report(checkReaches(setup.frameAt, setup.rig, layers, targets, keysOn));
     const spans = pins?.spans ?? [];
     const poseAt = poseAtOf(setup, pins?.frames ?? 0);
     spots.current = pinSpots(poseAt, setup.rig, layers, targets, spans, keysOn);
