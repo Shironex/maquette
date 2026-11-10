@@ -40,11 +40,12 @@ export interface RecipeStageProps {
   play: { share: number; playing: boolean; onTick: (delta: number) => void };
   /** A recipe that joins, trims, retimes or mirrors: each clip's file and rate, and the timeline. */
   joined?: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null;
-  /** Pose keys: the clips they stand on, and the gizmo while they are edited. */
-  keys?: StageKeys | null;
+  /**
+   * Laid over the changes: pose keys (the clips they stand on, and the gizmo
+   * while they are edited), then the pins held last, on the bake's frames.
+   */
+  laid?: { keys?: StageKeys | null; pins?: StagePins | null };
   onChecks?: (checks: ReachCheck[]) => void;
-  /** The pins to hold last, on the bake's frames. */
-  pins?: StagePins | null;
   onError?: (message: string) => void;
   label: string;
   className?: string;
@@ -86,7 +87,8 @@ function Markers({
 }
 
 function Scene(props: SceneProps) {
-  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined, pins } = props;
+  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined } = props;
+  const keys = props.laid?.keys;
   const model = useMotionModel(modelUrl, onError);
   const skeleton = useMotionModel(clipUrl, onError);
   const framing = useFraming(model, undefined);
@@ -101,8 +103,8 @@ function Scene(props: SceneProps) {
     targets,
     props.play,
     onChecks,
-    pins ?? null,
-    props.keys?.on ?? null
+    props.laid?.pins ?? null,
+    keys?.on ?? null
   );
   const controls = useOrbitControls(false, framing?.target ?? null);
   const box = framing?.box;
@@ -116,9 +118,9 @@ function Scene(props: SceneProps) {
       {rig ? <primitive object={rig} /> : null}
       {model ? <primitive object={model.scene} /> : null}
       <Markers markers={markers} targets={targets} />
-      {setup && props.keys?.gizmo ? (
+      {setup && keys?.gizmo ? (
         <PoseGizmo
-          {...props.keys.gizmo}
+          {...keys.gizmo}
           rig={setup.rig}
           size={size}
           onDragging={dragging => {

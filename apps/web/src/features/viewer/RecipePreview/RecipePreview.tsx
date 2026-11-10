@@ -110,8 +110,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
               markers={props.markers}
               play={props.play}
               onChecks={props.onChecks}
-              pins={props.pins}
-              keys={props.keys}
+              laid={{ keys: props.keys, pins: props.pins }}
               onError={setFailed}
             />
           </Suspense>
