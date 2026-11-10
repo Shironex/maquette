@@ -2,25 +2,25 @@
 //! from the Inbox the model a send brought), whether the provider takes it
 //! by the task that made it, and queueing it like any paid send.
 //!
-//! The model is copied into `<workspace cache>/splits/<job id>/source.glb`
-//! when the split goes out: Tripo uploads that copy when it needs a file,
-//! and the texture bakes back from it after a Meshy split, whatever
-//! happens to the Inbox model or the version meanwhile.
+//! The model is copied into the job's own folder in the workspace cache
+//! (`sends/<project>/<job id>/source.glb`, see [`super::split_files`]) when
+//! the split goes out: Tripo uploads that copy when it needs a file, and
+//! the texture bakes back from it after a Meshy split, whatever happens to
+//! the Inbox model or the version meanwhile.
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 use super::ids::next_id;
-use super::split_files::{SOURCE_FILE, split_dir};
+use super::owner::saved_owner;
+use super::split_files::{SOURCE_FILE, new_dir};
 use super::{
-    CancelMode, Chain, Entry, JobState, Provider, ProviderEvent, ProviderJob, ProviderJobs, Shared,
+    CancelMode, Entry, JobState, Provider, ProviderEvent, ProviderJob, ProviderJobs, Shared,
     SplitJob, Stored, Workspace, api_key, persist, pump, snapshot, touch_asset,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::http::StopFlag;
 use crate::presets::{PresetVariant, ProviderId};
 use crate::split::{self as rules, MeshySplit, SplitAfter, TripoSplit};
 use maquette_base::history::now_ms;
@@ -105,9 +105,10 @@ fn find_model(
             .ports
             .inbox
             .path_of(&workspace.root, &workspace.config, item)?;
-        let made = jobs
-            .iter()
-            .find(|e| e.stored.job.inbox_file.as_deref() == Some(item))
+        // The job whose model is in the inbox under that name now, not one
+        // of another project that had the name before.
+        let made = saved_owner(item, jobs.iter().map(|e| &e.stored.job))
+            .and_then(|job| jobs.iter().find(|e| e.is(&job.project, &job.id)))
             .map(|e| e.stored.clone());
         if made
             .as_ref()
@@ -277,7 +278,7 @@ impl ProviderJobs {
         let workspace = self.workspace()?;
         let (mut job, file) = prepare(&self.shared, &workspace, request)?;
         job.via_agent = via_agent;
-        let dir = split_dir(&workspace, &job.id);
+        let dir = new_dir(&workspace, &job.project, &job.id);
         fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
         let copy = dir.join(SOURCE_FILE);
         fs::copy(&file, &copy).map_err(|e| CoreError::io(&copy, e))?;
@@ -285,20 +286,12 @@ impl ProviderJobs {
             job.state = JobState::Approval;
             job.message = Some("Waiting for your approval before spending credits".to_string());
         }
-        let stored = Stored {
-            job: job.clone(),
-            chain: Chain::default(),
-        };
+        let stored = Stored::new(job.clone());
         let saving = self.shared.saving();
         self.shared
             .still_open(&saving, Some(workspace.generation))?;
         let mut jobs = self.shared.jobs();
-        jobs.push(Entry {
-            stored: stored.clone(),
-            stop: Arc::new(StopFlag::default()),
-            thread: false,
-            cancelled: false,
-        });
+        jobs.push(Entry::new(stored.clone()));
         persist(&self.shared, &saving, &jobs, &job.project);
         drop(jobs);
         drop(saving);
@@ -313,7 +306,7 @@ impl ProviderJobs {
             job: Box::new(snapshot(&stored)),
         });
         pump(&self.shared);
-        Ok(self.get(&job.id).unwrap_or(job))
+        Ok(self.get(&job.project, &job.id).unwrap_or(job))
     }
 
     fn workspace(&self) -> CoreResult<Workspace> {
@@ -370,7 +363,12 @@ fn prepare(
         )));
     }
     let project_dir = workspace.project_dir(&request.project)?;
-    let id = next_id(&shared.jobs(), &project_dir, &found.asset.id);
+    let id = next_id(
+        shared.jobs().iter().map(|e| &e.stored.job),
+        &request.project,
+        &project_dir,
+        &found.asset.id,
+    );
     let split = SplitJob {
         from_version: found.version,
         from_item: found.item.clone(),

@@ -159,6 +159,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Fill the open blanks with update_recipe (a prop's asset id or a point), then bake again.",
             "update_recipe",
         )),
+        super::sending::SEVERAL_PROJECTS => Some(agent(
+            "Call again with project set to the project the send is in: every send answer carries it, and get_provider_job with project and no id lists that project's sends.",
+            "get_provider_job",
+        )),
         super::handoffs::STAGED_BAKE => Some(agent(
             "Call add_recipe_bake: a person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's.",
             "add_recipe_bake",

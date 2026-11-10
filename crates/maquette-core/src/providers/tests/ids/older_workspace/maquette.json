@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "layout": {
+    "projects": "projects",
+    "inbox": "inbox",
+    "cache": "cache"
+  },
+  "providers": {
+    "tripo": {
+      "prop": {
+        "model": "v3.1-20260211",
+        "faceLimit": 0,
+        "texture": true,
+        "pbr": true,
+        "textureQuality": "standard",
+        "geometryQuality": "standard",
+        "smartLowPoly": false,
+        "autoSize": true,
+        "imageAutofix": false,
+        "multiView": false,
+        "rig": false,
+        "rigModel": "v3.0-20260909",
+        "rigSpec": "mixamo",
+        "animations": []
+      },
+      "character": {
+        "model": "v3.1-20260211",
+        "faceLimit": 50000,
+        "texture": true,
+        "pbr": true,
+        "textureQuality": "standard",
+        "geometryQuality": "standard",
+        "smartLowPoly": false,
+        "autoSize": true,
+        "imageAutofix": false,
+        "multiView": true,
+        "rig": true,
+        "rigModel": "v3.0-20260909",
+        "rigSpec": "mixamo",
+        "animations": [
+          "preset:idle",
+          "preset:walk"
+        ]
+      }
+    },
+    "meshy": {
+      "prop": {
+        "aiModel": "latest",
+        "shouldTexture": true,
+        "enablePbr": true,
+        "textureResolution": "2k",
+        "shouldRemesh": false,
+        "topology": "triangle",
+        "targetPolycount": 30000,
+        "poseMode": "none",
+        "removeLighting": true,
+        "multiView": false,
+        "rig": false,
+        "heightMeters": 1.7
+      },
+      "character": {
+        "aiModel": "latest",
+        "shouldTexture": true,
+        "enablePbr": true,
+        "textureResolution": "2k",
+        "shouldRemesh": true,
+        "topology": "triangle",
+        "targetPolycount": 50000,
+        "poseMode": "a-pose",
+        "removeLighting": true,
+        "multiView": true,
+        "rig": true,
+        "heightMeters": 1.7
+      }
+    }
+  },
+  "budgets": {
+    "sceneMb": 3.0,
+    "trisPerModel": 60000,
+    "firstViewMb": 3.0
+  },
+  "compression": {
+    "textureSize": "2K",
+    "textureCodec": "etc1s",
+    "meshopt": "medium"
+  },
+  "agents": {
+    "mcpEnabled": false,
+    "mcpPort": 4791,
+    "rules": {
+      "blenderHeadlessOnly": true,
+      "neverCaptureScreen": true,
+      "askBeforeShipping": true,
+      "toolGroupsOff": []
+    }
+  },
+  "lab": {
+    "concurrency": 4,
+    "timeoutMinutes": 10,
+    "images": {
+      "backends": {
+        "concepts": "codex",
+        "objectRefs": "codex",
+        "otherViews": "codex",
+        "cleanBackground": "codex"
+      },
+      "quality": "low",
+      "monthlyCapUsd": 10
+    }
+  },
+  "avatar": {
+    "author": "",
+    "contactInformation": null,
+    "copyrightInformation": null,
+    "avatarPermission": "onlyAuthor",
+    "commercialUsage": "personalNonProfit",
+    "creditNotation": "required",
+    "modification": "prohibited",
+    "allowRedistribution": false,
+    "allowExcessivelyViolentUsage": false,
+    "allowExcessivelySexualUsage": false,
+    "allowPoliticalOrReligiousUsage": false,
+    "allowAntisocialOrHateUsage": false,
+    "otherLicenseUrl": null,
+    "material": "mtoon-soft"
+  },
+  "currentProject": null
+}

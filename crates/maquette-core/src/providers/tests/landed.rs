@@ -86,7 +86,7 @@ fn accepting_a_model_for_the_asset_closes_its_waiting_by_hand_send() {
     assert_eq!(world.asset_status().1, AssetStatus::Queued);
 
     assert_eq!(accept_for_asset(&world, &jobs), 1);
-    assert_closed(&jobs.get(&job.id).expect("job"));
+    assert_closed(&jobs.get(&job.project, &job.id).expect("job"));
     assert_eq!(world.asset_status(), (Stage::Blender, AssetStatus::Review));
     assert!(pending_handoffs(&jobs).is_empty(), "list_handoffs is empty");
     // Most likely made on the site under another name: it counts as spent.
@@ -96,7 +96,7 @@ fn accepting_a_model_for_the_asset_closes_its_waiting_by_hand_send() {
     // Saved that way, so it stays closed after a restart.
     jobs.close();
     let again = world.jobs(&server());
-    assert_closed(&again.get(&job.id).expect("job"));
+    assert_closed(&again.get(&job.project, &job.id).expect("job"));
     assert_eq!(world.asset_status().1, AssetStatus::Review);
 }
 
@@ -112,7 +112,7 @@ fn opening_the_workspace_closes_sends_whose_asset_got_a_model_after_them() {
     assert_eq!(world.asset_status().1, AssetStatus::Queued);
 
     let again = world.jobs(&server());
-    assert_closed(&again.get(&job.id).expect("job"));
+    assert_closed(&again.get(&job.project, &job.id).expect("job"));
     assert_eq!(world.asset_status().1, AssetStatus::Review);
     assert!(pending_handoffs(&again).is_empty());
     assert_eq!(hand_spend(&again, &job.id), SpendOutcome::Succeeded);
@@ -130,7 +130,7 @@ fn a_library_model_closes_the_send_and_leaves_the_ledger_alone() {
     give_model(&world);
 
     assert_eq!(jobs.settle_handed(&world.project), 1);
-    assert_closed(&jobs.get(&job.id).expect("job"));
+    assert_closed(&jobs.get(&job.project, &job.id).expect("job"));
     assert_eq!(world.asset_status().1, AssetStatus::Review);
     assert!(pending_handoffs(&jobs).is_empty());
     assert_eq!(ledger_lines(&world), before, "nothing written");
@@ -153,7 +153,10 @@ fn a_model_older_than_the_send_leaves_it_waiting() {
     first.close();
 
     let again = world.jobs(&server());
-    assert_eq!(again.get(&job.id).expect("job").state, JobState::Waiting);
+    assert_eq!(
+        again.get(&job.project, &job.id).expect("job").state,
+        JobState::Waiting
+    );
     assert_eq!(world.asset_status().1, AssetStatus::Queued);
     assert_eq!(again.settle_handed(&world.project), 0);
 }
@@ -173,15 +176,19 @@ fn a_running_api_send_of_the_asset_is_left_alone() {
         )
         .expect("send");
     let end = std::time::Instant::now() + WAIT;
-    while jobs.get(&api.id).and_then(|j| j.remote_id).is_none() {
+    while jobs
+        .get(&api.project, &api.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         assert!(std::time::Instant::now() < end, "never sent");
         std::thread::sleep(Duration::from_millis(5));
     }
     let hand = send_by_hand(&world, &jobs);
 
     assert_eq!(accept_for_asset(&world, &jobs), 1, "only the By hand wait");
-    assert_closed(&jobs.get(&hand.id).expect("job"));
-    let running = jobs.get(&api.id).expect("job");
+    assert_closed(&jobs.get(&hand.project, &hand.id).expect("job"));
+    let running = jobs.get(&api.project, &api.id).expect("job");
     assert_eq!(running.state, JobState::Running, "{running:?}");
     // The card follows the send still running.
     assert_eq!(world.asset_status().1, AssetStatus::Running);
@@ -195,7 +202,9 @@ fn discarding_the_model_of_a_send_closes_it_and_leaves_the_ledger_alone() {
     let job = send_by_hand(&world, &jobs);
     let file = world.root.join("made_on_the_site.glb");
     fs::write(&file, fixture::clean_prop()).expect("model");
-    let back = jobs.hand_back(&job.id, &file).expect("hand back");
+    let back = jobs
+        .hand_back(&job.project, &job.id, &file)
+        .expect("hand back");
     assert_eq!(back.state, JobState::Inbox);
     let name = back.inbox_file.clone().expect("inbox file");
     let lines = ledger_lines(&world);
@@ -203,7 +212,7 @@ fn discarding_the_model_of_a_send_closes_it_and_leaves_the_ledger_alone() {
 
     inbox::discard(&world.root, &world.config, &name).expect("discard");
     assert_eq!(jobs.discarded(&name).as_deref(), Some(job.id.as_str()));
-    let closed = jobs.get(&job.id).expect("job");
+    let closed = jobs.get(&job.project, &job.id).expect("job");
     assert_eq!(closed.state, JobState::Cancelled, "{closed:?}");
     assert_eq!(closed.inbox_file, None);
     assert_eq!(closed.message.as_deref(), Some("Discarded from the Inbox"));

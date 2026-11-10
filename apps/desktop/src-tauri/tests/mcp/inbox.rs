@@ -108,7 +108,9 @@ async fn the_inbox_tools_agree_on_the_checks_and_a_discard_moves_a_model_aside()
         .expect("send");
     let made = dir.path().join("made.glb");
     std::fs::write(&made, maquette_core::inbox::fixture::clean_prop()).expect("model");
-    let back = studio.hand_back(&job.id, &made).expect("hand back");
+    let back = studio
+        .hand_back(&job.project, &job.id, &made)
+        .expect("hand back");
     let sent_file = back.inbox_file.expect("inbox file");
     let inbox = root.join(&config.layout.inbox);
     std::fs::write(
@@ -187,7 +189,7 @@ async fn the_inbox_tools_agree_on_the_checks_and_a_discard_moves_a_model_aside()
         .collect();
     assert_eq!(ids, ["loose_crate.glb"]);
     assert_eq!(
-        host.studio.get(&job.id).expect("job").state,
+        host.studio.get(&job.project, &job.id).expect("job").state,
         maquette_core::providers::JobState::Cancelled
     );
 

@@ -31,7 +31,7 @@ fn stopping_a_send_of_an_asset_without_a_model_leaves_it_queued() {
     let world = World::new();
     let jobs = world.jobs(&server());
     let job = send_by_hand(&world, &jobs);
-    jobs.cancel(&job.id).expect("cancel");
+    jobs.cancel(&job.project, &job.id).expect("cancel");
     assert_eq!(world.asset_status().1, AssetStatus::Queued);
 }
 
@@ -42,7 +42,7 @@ fn stopping_a_send_of_an_asset_with_a_model_puts_it_back_in_review() {
     let jobs = world.jobs(&server());
     let job = send_by_hand(&world, &jobs);
     assert_eq!(world.asset_status().1, AssetStatus::Queued);
-    let stopped = jobs.cancel(&job.id).expect("cancel");
+    let stopped = jobs.cancel(&job.project, &job.id).expect("cancel");
     assert_eq!(stopped.state, JobState::Cancelled);
     assert_eq!(world.asset_status().1, AssetStatus::Review);
 }
@@ -54,13 +54,13 @@ fn stopping_one_send_keeps_the_status_of_another_live_one() {
     let jobs = world.jobs(&server());
     let first = send_by_hand(&world, &jobs);
     let second = send_by_hand(&world, &jobs);
-    jobs.cancel(&first.id).expect("cancel");
+    jobs.cancel(&first.project, &first.id).expect("cancel");
     assert_eq!(
         world.asset_status().1,
         AssetStatus::Queued,
         "the second send still waits"
     );
-    jobs.cancel(&second.id).expect("cancel");
+    jobs.cancel(&second.project, &second.id).expect("cancel");
     assert_eq!(world.asset_status().1, AssetStatus::Review);
 }
 

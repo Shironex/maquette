@@ -7,11 +7,11 @@ use std::sync::Arc;
 use super::records::write_inbox;
 use super::remote::{run_meshy, run_tripo};
 use super::retexture::run_meshy_retexture;
-use super::split_files::{SOURCE_FILE, source_of, split_dir};
+use super::split_files::{SOURCE_FILE, files_dir, source_of};
 use super::split_remote::{run_meshy_split, run_tripo_split};
 use super::{
-    Chain, Flow, FlowResult, JobPhase, JobState, Outcome, ProviderEvent, ProviderJob, Shared,
-    Stored, Workspace, api_key, touch_in, update_in,
+    Chain, Flow, FlowResult, JobKey, JobPhase, JobState, Outcome, ProviderEvent, ProviderJob,
+    Shared, Stored, Workspace, api_key, touch_in, update_in,
 };
 use crate::http::{Api, ApiError, StopFlag};
 use crate::meshy::{self, Meshy};
@@ -22,7 +22,7 @@ use maquette_model::assets::{AssetKind, AssetStatus};
 
 /// Starts queued jobs while the lane has room.
 pub(super) fn pump(shared: &Arc<Shared>) {
-    let (generation, start): (u64, Vec<(String, Arc<StopFlag>)>) = {
+    let (generation, start): (u64, Vec<(JobKey, Arc<StopFlag>)>) = {
         let mut jobs = shared.jobs();
         let Some(generation) = shared.generation() else {
             return;
@@ -36,39 +36,53 @@ pub(super) fn pump(shared: &Arc<Shared>) {
             .take(free)
         {
             entry.thread = true;
-            start.push((entry.stored.job.id.clone(), Arc::clone(&entry.stop)));
+            start.push((JobKey::of(&entry.stored.job), Arc::clone(&entry.stop)));
         }
         (generation, start)
     };
-    for (id, stop) in start {
+    for (key, stop) in start {
         let shared = Arc::clone(shared);
         let spawned = std::thread::Builder::new()
-            .name(format!("provider-{id}"))
-            .spawn(move || worker(&shared, &id, &stop, generation));
+            .name(format!("provider-{}-{}", key.project, key.id))
+            .spawn(move || worker(&shared, &key, &stop, generation));
         if let Err(err) = spawned {
             tracing::warn!(error = %err, "could not start a provider job");
         }
     }
 }
 
-/// A job thread: the job it runs and the workspace generation it started
-/// under. Once that workspace closes, it changes nothing.
+/// A job thread: the job it runs (by project and id, never the id alone)
+/// and the workspace generation it started under. Once that workspace
+/// closes, it changes nothing.
 pub(super) struct Run<'a> {
     shared: &'a Shared,
-    id: &'a str,
+    key: &'a JobKey,
     generation: u64,
 }
 
 impl<'a> Run<'a> {
-    /// A job thread's view of job `id`, as one started now would have.
+    /// A job thread's view of the job `key` names, as one started now
+    /// would have.
     #[cfg(test)]
-    pub(super) fn current(shared: &'a Shared, id: &'a str) -> Self {
+    pub(super) fn current(shared: &'a Shared, key: &'a JobKey) -> Self {
         let generation = shared.generation().expect("an open workspace");
         Self {
             shared,
-            id,
+            key,
             generation,
         }
+    }
+
+    /// The job as it is saved, while the workspace this thread started
+    /// under is open.
+    fn stored(&self) -> Option<Stored> {
+        let jobs = self.shared.jobs();
+        if !self.current_workspace() {
+            return None;
+        }
+        jobs.iter()
+            .find(|e| e.is(&self.key.project, &self.key.id))
+            .map(|e| e.stored.clone())
     }
 
     /// True while the workspace this thread started under is open.
@@ -77,18 +91,11 @@ impl<'a> Run<'a> {
     }
 
     pub(super) fn chain(&self) -> Chain {
-        let jobs = self.shared.jobs();
-        if !self.current_workspace() {
-            return Chain::default();
-        }
-        jobs.iter()
-            .find(|e| e.stored.job.id == self.id)
-            .map(|e| e.stored.chain.clone())
-            .unwrap_or_default()
+        self.stored().map(|s| s.chain).unwrap_or_default()
     }
 
     pub(super) fn save(&self, change: impl FnOnce(&mut Stored)) {
-        let _ = update_in(self.shared, self.generation, self.id, true, |s| {
+        let _ = update_in(self.shared, self.generation, self.key, true, |s| {
             change(s);
             Ok(())
         });
@@ -106,7 +113,7 @@ impl<'a> Run<'a> {
     }
 
     pub(super) fn progress(&self, phase: JobPhase, progress: f64) {
-        let _ = update_in(self.shared, self.generation, self.id, false, |s| {
+        let _ = update_in(self.shared, self.generation, self.key, false, |s| {
             s.job.phase = Some(phase);
             s.job.progress = s.job.progress.max(progress.clamp(0.0, 1.0));
             Ok(())
@@ -135,35 +142,27 @@ pub(super) fn lerp((from, to): (f64, f64), t: f64) -> f64 {
     from + (to - from) * t.clamp(0.0, 1.0)
 }
 
-fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag, generation: u64) {
+fn worker(shared: &Arc<Shared>, key: &JobKey, stop: &StopFlag, generation: u64) {
     let run = Run {
         shared,
-        id,
+        key,
         generation,
     };
     let Some(workspace) = shared.workspace().filter(|w| w.generation == generation) else {
         return;
     };
-    let job = {
-        let jobs = shared.jobs();
-        if !run.current_workspace() {
-            return;
-        }
-        jobs.iter()
-            .find(|e| e.stored.job.id == id)
-            .map(|e| e.stored.job.clone())
-    };
-    let Some(job) = job else {
+    let Some(stored) = run.stored() else {
         return;
     };
+    let job = &stored.job;
     run.save(|s| {
         s.job.state = JobState::Running;
         s.job.started_at_ms.get_or_insert_with(now_ms);
         s.job.message = None;
     });
-    run.touch(&workspace, &job, AssetStatus::Running);
+    run.touch(&workspace, job, AssetStatus::Running);
     let result = match job.provider.service() {
-        Some(service) => run_remote(shared, &run, &workspace, &job, service, stop),
+        Some(service) => run_remote(shared, &run, &workspace, &stored, service, stop),
         None => Err(Flow::Fail("Open the workspace first.".to_string())),
     };
     let cancelled = {
@@ -171,7 +170,7 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag, generation: u64) {
         !run.current_workspace()
             || jobs
                 .iter()
-                .find(|e| e.stored.job.id == id)
+                .find(|e| e.is(&key.project, &key.id))
                 .is_none_or(|e| e.cancelled)
     };
     match result {
@@ -180,13 +179,13 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag, generation: u64) {
             // The app is closing or the workspace changed: the saved chain
             // resumes next time.
         }
-        Ok(outcome) => finish(shared, &run, &workspace, &job, outcome),
+        Ok(outcome) => finish(shared, &run, &workspace, job, outcome),
         Err(flow) => {
             let message = match flow {
                 Flow::Api(error) => error.message(job.provider.label()),
                 Flow::Fail(message) => message,
             };
-            run.touch(&workspace, &job, AssetStatus::Failed);
+            run.touch(&workspace, job, AssetStatus::Failed);
             run.save(|s| {
                 s.job.state = JobState::Failed;
                 s.job.finished_at_ms = Some(now_ms());
@@ -197,7 +196,7 @@ fn worker(shared: &Arc<Shared>, id: &str, stop: &StopFlag, generation: u64) {
     {
         let mut jobs = shared.jobs();
         if run.current_workspace()
-            && let Some(entry) = jobs.iter_mut().find(|e| e.stored.job.id == id)
+            && let Some(entry) = jobs.iter_mut().find(|e| e.is(&key.project, &key.id))
         {
             entry.thread = false;
         }
@@ -260,10 +259,11 @@ fn run_remote(
     shared: &Shared,
     run: &Run<'_>,
     workspace: &Workspace,
-    job: &ProviderJob,
+    stored: &Stored,
     service: ProviderId,
     stop: &StopFlag,
 ) -> FlowResult<Outcome> {
+    let job = &stored.job;
     let key = api_key(shared, service).map_err(|e| Flow::Fail(e.to_string()))?;
     let project_dir = workspace
         .project_dir(&job.project)
@@ -280,7 +280,7 @@ fn run_remote(
             )?;
             let client = Tripo { api: &api, stop };
             if let Some(split) = &job.split {
-                let source = source_of(workspace, job).ok_or_else(|| {
+                let source = source_of(workspace, stored).ok_or_else(|| {
                     Flow::Fail("The model to split is gone from the project.".to_string())
                 })?;
                 return run_tripo_split(run, &client, split, &source);
@@ -297,7 +297,7 @@ fn run_remote(
             )?;
             let client = Meshy { api: &api, stop };
             if job.retexture.is_some() {
-                let source = split_dir(workspace, &job.id).join(SOURCE_FILE);
+                let source = files_dir(workspace, stored).join(SOURCE_FILE);
                 return run_meshy_retexture(run, &client, job, &source);
             }
             if let Some(split) = &job.split {

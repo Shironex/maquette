@@ -214,7 +214,10 @@ export function useCardDrop() {
     onLeave: () => setDropJob(null),
     onDrop: ({ x, y }, paths) => {
       setDropJob(null);
-      const job = jobAt(x, y);
+      // The card names its send by id; the Board shows one project's
+      // sends, so the send itself (with its project) is the one in the store.
+      const id = jobAt(x, y);
+      const job = useProvidersStore.getState().jobs.find(j => j.id === id);
       const model = paths.find(p => MODEL_FILE.test(p));
       if (job && model) void handBack(job, model);
       else if (job)

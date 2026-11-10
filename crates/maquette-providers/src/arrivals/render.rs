@@ -173,7 +173,9 @@ impl Arrivals {
             ..arrival
         };
         if let Some(best) = looks_like(&next.suggestions).cloned()
-            && let Some(job) = waiting.iter().find(|j| j.id == best.job)
+            && let Some(job) = waiting
+                .iter()
+                .find(|j| j.id == best.job && j.project == best.project)
             && is_open(next.state)
         {
             next.state = ArrivalState::Review;

@@ -29,6 +29,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { DEFAULT_TRIPO, assembleProblem, meshyProblem, splitCredits } from '@/state/split';
 import { fail, type Args } from './backend-options';
+import { nextJobId } from './export-name';
 import type { createFakeProviders } from './providers';
 import { lanternPair, seedPairJobs, sendRetexture } from './split-fixtures';
 
@@ -232,9 +233,8 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
       if (problem) fail('invalid', problem);
       const tripo = req.tripo ?? null;
       const credits = splitCredits(service, tripo ?? DEFAULT_TRIPO, PRICES);
-      const used = providers.jobs().filter(j => j.asset === from.asset).length;
       const job = providers.base({
-        id: `${from.asset}-${used + 1}`,
+        id: nextJobId(providers.jobs(), req.project, from.asset),
         project: req.project,
         asset: from.asset,
         assetName: from.assetName,
@@ -266,10 +266,10 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
         id => assetOf(project((request as RetextureRequest).project), id),
         keys()
       ),
-    split_bake_back: ({ id }: Args): ProviderJob => {
+    split_bake_back: ({ project: of, id }: Args): ProviderJob => {
       const job =
-        providers.jobs().find(j => j.id === String(id)) ??
-        fail('not-found', `Could not find the job ${String(id)}.`);
+        providers.jobs().find(j => j.project === String(of) && j.id === String(id)) ??
+        fail('not-found', `Could not find the job ${String(id)} in ${String(of)}.`);
       const bake = job.split?.bake ?? fail('invalid', 'This split has nothing to bake back.');
       if (bake.state === 'done' || bake.state === 'running') {
         fail('invalid', 'The texture is already back, or baking.');

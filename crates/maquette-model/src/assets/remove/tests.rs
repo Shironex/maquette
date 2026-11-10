@@ -11,7 +11,8 @@ use crate::layout::{self, ExplodeKey, ExplodeTrack, LayoutStop, Placement, Scene
 use crate::prepare::{self, ModelPrep};
 use crate::project::{NewProject, ProjectTemplate};
 
-/// Sends as a list, recording which ones a remove stopped.
+/// Sends as a list, recording which ones a remove stopped, each as
+/// `<project>/<id>`: the id alone would not say whose send it is.
 #[derive(Default)]
 struct Stub {
     jobs: Vec<Sent>,
@@ -23,8 +24,8 @@ impl Sends for Stub {
         self.jobs.clone()
     }
 
-    fn stop(&self, id: &str) -> CoreResult<()> {
-        self.stopped.borrow_mut().push(id.to_string());
+    fn stop(&self, project: &str, id: &str) -> CoreResult<()> {
+        self.stopped.borrow_mut().push(format!("{project}/{id}"));
         self.jobs
             .iter()
             .find(|j| j.id == id)
@@ -236,7 +237,11 @@ fn a_removed_asset_goes_to_the_trash_with_its_files_and_links() {
     assert_eq!(out.state, RemoveState::Removed, "{out:?}");
     assert!(out.warnings.is_empty(), "{:?}", out.warnings);
     assert_eq!(out.stopped, ["clay-bowl-1"]);
-    assert_eq!(*sends.stopped.borrow(), ["clay-bowl-1"]);
+    assert_eq!(
+        *sends.stopped.borrow(),
+        ["moon-island/clay-bowl-1"],
+        "stopped in the project the asset is removed from"
+    );
     let id = out.trash.clone().expect("trash id");
     assert!(id.starts_with("clay-bowl-"));
     assert_eq!(

@@ -1,0 +1,103 @@
+{
+  "asset": "Stone lantern",
+  "card": {
+    "credits": 30.0,
+    "creditsNote": "textured image to 3D",
+    "exportName": "maq_stone-lantern_v2_tripo",
+    "images": [
+      "front.png"
+    ],
+    "mode": "Image to 3D",
+    "prompt": null,
+    "returnName": "maq_stone-lantern_v2_tripo.glb",
+    "rows": [
+      {
+        "label": "Tab",
+        "note": null,
+        "value": "HD Model"
+      },
+      {
+        "label": "AI Model",
+        "note": "model id v3.1-20260211",
+        "value": "H3.1"
+      },
+      {
+        "label": "Ultra Mesh Quality",
+        "note": null,
+        "value": "Off"
+      },
+      {
+        "label": "AI Complete",
+        "note": "recommended",
+        "value": "On"
+      },
+      {
+        "label": "Texture",
+        "note": null,
+        "value": "On"
+      },
+      {
+        "label": "Texture Quality",
+        "note": null,
+        "value": "2K"
+      },
+      {
+        "label": "Remove Lighting",
+        "note": "recommended",
+        "value": "On"
+      },
+      {
+        "label": "PBR",
+        "note": null,
+        "value": "On"
+      },
+      {
+        "label": "Topology",
+        "note": "quads export FBX only",
+        "value": "Triangle"
+      },
+      {
+        "label": "Polycount",
+        "note": "Studio has no adaptive",
+        "value": "20000"
+      },
+      {
+        "label": "Generate in Parts",
+        "note": "recommended",
+        "value": "Off"
+      },
+      {
+        "label": "Rig",
+        "note": "skip Rig, export the model as is",
+        "value": "None"
+      },
+      {
+        "label": "Export",
+        "note": "GLB, with this file name",
+        "value": "maq_stone-lantern_v2_tripo"
+      }
+    ],
+    "service": "tripo",
+    "site": "https://studio.tripo3d.ai"
+  },
+  "id": "stone-lantern-2",
+  "meshy": null,
+  "service": "tripo",
+  "tripo": {
+    "animations": [],
+    "autoSize": true,
+    "faceLimit": 0,
+    "geometryQuality": "standard",
+    "imageAutofix": false,
+    "model": "v3.1-20260211",
+    "multiView": false,
+    "pbr": true,
+    "rig": false,
+    "rigModel": "v3.0-20260909",
+    "rigSpec": "mixamo",
+    "smartLowPoly": false,
+    "texture": true,
+    "textureQuality": "standard"
+  },
+  "variant": "prop"
+}

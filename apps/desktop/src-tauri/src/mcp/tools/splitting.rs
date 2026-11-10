@@ -8,7 +8,7 @@ use maquette_core::parts::assemble::{AssemblePart, AssembleRequest, Pivot};
 use maquette_core::providers::split::{
     CompletionMode, Granularity, MeshySplit, MeshySplitMode, SegmentModel, SplitAfter, TripoSplit,
 };
-use maquette_core::providers::{JobState, Provider, SplitRequest};
+use maquette_core::providers::{JobKey, JobState, Provider, SplitRequest};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
@@ -217,7 +217,7 @@ impl McpTools {
                 Arc::clone(&self.host),
                 Arc::clone(&self.hub),
                 approval,
-                vec![job.id.clone()],
+                vec![JobKey::of(&job)],
             );
         }
         json_result(&job_value(&self.hub, &job))
@@ -233,9 +233,9 @@ impl McpTools {
                 let asset = asset_id(host, &args.project, &args.asset)?;
                 let studio = host.studio();
                 let id = studio.waiting_bake(&args.project, &asset, args.version)?;
-                studio.schedule_bake(&id)?;
+                studio.schedule_bake(&args.project, &id)?;
                 let tools = host.toolbox();
-                let job = studio.bake_back(&id, &tools)?;
+                let job = studio.bake_back(&args.project, &id, &tools)?;
                 thumb_for(host.thumbs(), &root, &config, &tools, &job);
                 let bake = job.split.as_ref().and_then(|s| s.bake.clone());
                 Ok(json!({

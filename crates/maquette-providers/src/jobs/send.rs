@@ -3,17 +3,15 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use super::ids::next_id;
 use super::{
-    BatchFailure, BatchRequest, BatchSent, CancelMode, Chain, Entry, JobState, MAX_BATCH,
+    BatchFailure, BatchRequest, BatchSent, CancelMode, Entry, JobKey, JobState, MAX_BATCH,
     MAX_IMAGES, Provider, ProviderEvent, ProviderJob, ProviderJobs, SendRequest, Shared, Stored,
     Workspace, api_key, persist, pump, snapshot, touch_asset, update,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::handoff::Handoff;
-use crate::http::StopFlag;
 use crate::meshy;
 use crate::presets::{ProviderId, meshy_problem, tripo_problem};
 use maquette_base::history::now_ms;
@@ -183,22 +181,14 @@ impl ProviderJobs {
             job.state = JobState::Queued;
             AssetStatus::Queued
         };
-        let stored = Stored {
-            job: job.clone(),
-            chain: Chain::default(),
-        };
+        let stored = Stored::new(job.clone());
         #[cfg(test)]
         self.shared.run_before_queue();
         let saving = self.shared.saving();
         self.shared
             .still_open(&saving, Some(workspace.generation))?;
         let mut jobs = self.shared.jobs();
-        jobs.push(Entry {
-            stored: stored.clone(),
-            stop: Arc::new(StopFlag::default()),
-            thread: false,
-            cancelled: false,
-        });
+        jobs.push(Entry::new(stored.clone()));
         persist(&self.shared, &saving, &jobs, &job.project);
         drop(jobs);
         drop(saving);
@@ -216,12 +206,12 @@ impl ProviderJobs {
             job: Box::new(snapshot(&stored)),
         });
         pump(&self.shared);
-        Ok(self.get(&job.id).unwrap_or(job))
+        Ok(self.get(&job.project, &job.id).unwrap_or(job))
     }
 
-    /// Releases a job waiting for approval.
-    pub fn approve(&self, id: &str) -> CoreResult<ProviderJob> {
-        update(&self.shared, id, true, |stored| {
+    /// Releases the job `id` of `project`, which waits for approval.
+    pub fn approve(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
+        update(&self.shared, &JobKey::new(project, id), true, |stored| {
             if stored.job.state != JobState::Approval {
                 return Err(CoreError::Invalid(
                     "This send is not waiting for approval.".to_string(),
@@ -232,8 +222,7 @@ impl ProviderJobs {
             Ok(())
         })?;
         pump(&self.shared);
-        self.get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))
+        self.job(project, id)
     }
 }
 
@@ -357,7 +346,12 @@ fn prepare(
             busy.stored.job.id
         )));
     }
-    let id = next_id(&jobs, &project_dir, &asset.id);
+    let id = next_id(
+        jobs.iter().map(|e| &e.stored.job),
+        &request.project,
+        &project_dir,
+        &asset.id,
+    );
     let estimate = crate::pricing::estimate(
         request.provider,
         request.variant,

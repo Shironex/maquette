@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::ids::IdScope;
 use crate::handoff::HandoffCard;
 use crate::handoff::options::{StudioRig, StudioSettings};
 use crate::presets::{MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec};
@@ -72,7 +73,8 @@ pub enum CancelMode {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderJob {
-    /// `<asset id>-<n>`, unique across the workspace; also the handoff
+    /// `<asset id>-<n>`, numbered in its project: with `project` it names
+    /// one job, alone it can be a job of several projects. Also the handoff
     /// folder and the inbox file name.
     pub id: String,
     pub project: String,
@@ -141,6 +143,26 @@ pub struct ProviderJob {
 }
 
 impl ProviderJob {
+    /// The name a By hand send's model is expected under, without an
+    /// extension: the one its card was handed out with, which stays as it
+    /// is for as long as the send lives. A card from before export names
+    /// (it has none) waits for the older form, from the id. `None` for a
+    /// Tripo or Meshy send, which nobody saves by hand.
+    pub fn export_name(&self) -> Option<String> {
+        if self.provider != Provider::ByHand {
+            return None;
+        }
+        let handed = self
+            .card
+            .as_ref()
+            .map(|card| card.export_name.as_str())
+            .filter(|name| !name.is_empty());
+        Some(handed.map_or_else(
+            || crate::naming::legacy_stem(&self.id, &self.asset, self.service),
+            str::to_string,
+        ))
+    }
+
     /// The settings in a few words, for an approval prompt: "Tripo H3.1,
     /// 2 images as multi-view, rig with Mixamo, 2 animations".
     pub fn summary(&self) -> String {
@@ -343,6 +365,21 @@ pub(super) struct Stored {
     pub(super) job: ProviderJob,
     #[serde(default)]
     pub(super) chain: Chain,
+    /// How its id was numbered. Left out of the file for a job from the
+    /// older numbering, so such a record is written back as it was read.
+    #[serde(default, skip_serializing_if = "IdScope::is_workspace")]
+    pub(super) scope: IdScope,
+}
+
+impl Stored {
+    /// A job sent now: numbered in its project.
+    pub(super) fn new(job: ProviderJob) -> Self {
+        Self {
+            job,
+            chain: Chain::default(),
+            scope: IdScope::Project,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

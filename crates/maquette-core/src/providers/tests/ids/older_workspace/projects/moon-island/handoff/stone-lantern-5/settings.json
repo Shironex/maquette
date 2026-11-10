@@ -1,0 +1,71 @@
+{
+  "asset": "Stone lantern",
+  "card": {
+    "credits": 30.0,
+    "creditsNote": "mesh and texture",
+    "exportName": "maq_stone-lantern_v5_meshy",
+    "images": [
+      "front.png"
+    ],
+    "mode": "Image to 3D",
+    "prompt": "weathered granite",
+    "returnName": "maq_stone-lantern_v5_meshy.glb",
+    "rows": [
+      {
+        "label": "AI model",
+        "note": null,
+        "value": "Meshy 7.1"
+      },
+      {
+        "label": "Remesh",
+        "note": null,
+        "value": "Off"
+      },
+      {
+        "label": "Texture",
+        "note": null,
+        "value": "On"
+      },
+      {
+        "label": "Texture size",
+        "note": null,
+        "value": "2K"
+      },
+      {
+        "label": "PBR",
+        "note": null,
+        "value": "On"
+      },
+      {
+        "label": "Pose",
+        "note": null,
+        "value": "As drawn"
+      },
+      {
+        "label": "Texture prompt",
+        "note": null,
+        "value": "weathered granite"
+      }
+    ],
+    "service": "meshy",
+    "site": "https://www.meshy.ai/workspace"
+  },
+  "id": "stone-lantern-5",
+  "meshy": {
+    "aiModel": "latest",
+    "enablePbr": true,
+    "heightMeters": 1.7,
+    "multiView": false,
+    "poseMode": "none",
+    "removeLighting": true,
+    "rig": false,
+    "shouldRemesh": false,
+    "shouldTexture": true,
+    "targetPolycount": 30000,
+    "textureResolution": "2k",
+    "topology": "triangle"
+  },
+  "service": "meshy",
+  "tripo": null,
+  "variant": "prop"
+}

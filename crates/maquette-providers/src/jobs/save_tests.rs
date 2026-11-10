@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use super::tests::meshy_job;
 use super::worker::Run;
-use super::{JOBS_FILE, Options, ProviderJobs, update};
+use super::{JOBS_FILE, JobKey, Options, ProviderJobs, update};
 use super::{Provider, SendRequest};
 use crate::error::CoreResult;
 use crate::presets::{PresetVariant, ProviderId};
@@ -108,6 +108,11 @@ fn saved_ids(path: &Path) -> Vec<String> {
         .collect()
 }
 
+/// The saved job of [`one_job`]: `lantern-1` of `moon-island`.
+fn lantern() -> JobKey {
+    JobKey::new("moon-island", "lantern-1")
+}
+
 /// How long a test waits on a thread before it fails instead of hanging.
 const WAIT: Duration = Duration::from_secs(5);
 
@@ -133,7 +138,7 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
     let saving = {
         let shared = Arc::clone(&jobs.shared);
         std::thread::spawn(move || {
-            update(&shared, "lantern-1", true, |s| {
+            update(&shared, &lantern(), true, |s| {
                 s.chain.credits.insert("m-model".to_string(), 20.0);
                 Ok(())
             })
@@ -172,7 +177,7 @@ fn closing_while_a_job_saves_keeps_its_saved_send() {
     assert_eq!(file["jobs"][0]["chain"]["credits"]["m-model"], json!(20.0));
 
     // A job thread that saves after close finds nothing and writes nothing.
-    assert!(update(&jobs.shared, "lantern-1", true, |_| Ok(())).is_err());
+    assert!(update(&jobs.shared, &lantern(), true, |_| Ok(())).is_err());
     assert_eq!(saved_ids(&path), ["lantern-1"]);
 }
 
@@ -191,7 +196,7 @@ fn a_saved_change_is_on_disk_before_anyone_reads_it() {
     let saving = {
         let shared = Arc::clone(&jobs.shared);
         std::thread::spawn(move || {
-            update(&shared, "lantern-1", true, |s| {
+            update(&shared, &lantern(), true, |s| {
                 s.job.message = Some("on disk first".to_string());
                 Ok(())
             })
@@ -206,7 +211,7 @@ fn a_saved_change_is_on_disk_before_anyone_reads_it() {
         let jobs = jobs.clone();
         let path = path.clone();
         std::thread::spawn(move || {
-            let message = jobs.get("lantern-1").expect("job").message;
+            let message = jobs.get("moon-island", "lantern-1").expect("job").message;
             let saved = fs::read_to_string(&path).expect("read");
             read_tx.send((message, saved)).expect("read");
         })
@@ -242,7 +247,8 @@ fn a_job_thread_of_a_closed_workspace_cannot_save_onto_the_next_one() {
     let first = tempfile::tempdir().expect("dir");
     let (jobs, _, _) = one_job(first.path());
     // A job thread of the first workspace, still going after the switch.
-    let stale = Run::current(&jobs.shared, "lantern-1");
+    let key = lantern();
+    let stale = Run::current(&jobs.shared, &key);
 
     // A copy of the workspace, so its job has the same id.
     let second = tempfile::tempdir().expect("dir");
@@ -250,7 +256,9 @@ fn a_job_thread_of_a_closed_workspace_cannot_save_onto_the_next_one() {
     jobs.open_workspace(second.path(), &config);
     stale.save(|s| s.job.message = Some("from the old workspace".to_string()));
 
-    let job = jobs.get("lantern-1").expect("the new workspace's job");
+    let job = jobs
+        .get("moon-island", "lantern-1")
+        .expect("the new workspace's job");
     assert_ne!(job.message.as_deref(), Some("from the old workspace"));
     let saved = fs::read_to_string(&path).expect("read");
     assert!(!saved.contains("from the old workspace"), "{saved}");

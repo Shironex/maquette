@@ -26,6 +26,8 @@ describe('a checklist row', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Hide the settings card' }));
     expect(screen.queryByText('Use these settings')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Open the Guardian statues folder' }));
-    expect(sent('provider_open_handoff')).toEqual([{ id: 'guardian-statues-1' }]);
+    expect(sent('provider_open_handoff')).toEqual([
+      { project: 'frostveil', id: 'guardian-statues-1' },
+    ]);
   });
 });

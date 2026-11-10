@@ -1,0 +1,227 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "job": {
+        "id": "stone-lantern-2",
+        "project": "lantern-bay",
+        "asset": "stone-lantern",
+        "assetName": "Stone lantern",
+        "provider": "by-hand",
+        "service": "tripo",
+        "variant": "prop",
+        "images": [
+          "refs/front.png"
+        ],
+        "views": [
+          "front"
+        ],
+        "tripo": {
+          "model": "v3.1-20260211",
+          "faceLimit": 0,
+          "texture": true,
+          "pbr": true,
+          "textureQuality": "standard",
+          "geometryQuality": "standard",
+          "smartLowPoly": false,
+          "autoSize": true,
+          "imageAutofix": false,
+          "multiView": false,
+          "rig": false,
+          "rigModel": "v3.0-20260909",
+          "rigSpec": "mixamo",
+          "animations": []
+        },
+        "meshy": null,
+        "state": "waiting",
+        "phase": null,
+        "progress": 0.0,
+        "remoteId": null,
+        "credits": null,
+        "createdAtMs": 1794347203122.0,
+        "startedAtMs": null,
+        "finishedAtMs": null,
+        "message": "Waiting for your model",
+        "inboxFile": null,
+        "handoff": "projects/lantern-bay/handoff/stone-lantern-2",
+        "card": {
+          "service": "tripo",
+          "site": "https://studio.tripo3d.ai",
+          "mode": "Image to 3D",
+          "rows": [
+            {
+              "label": "Tab",
+              "value": "HD Model",
+              "note": null
+            },
+            {
+              "label": "AI Model",
+              "value": "H3.1",
+              "note": "model id v3.1-20260211"
+            },
+            {
+              "label": "Ultra Mesh Quality",
+              "value": "Off",
+              "note": null
+            },
+            {
+              "label": "AI Complete",
+              "value": "On",
+              "note": "recommended"
+            },
+            {
+              "label": "Texture",
+              "value": "On",
+              "note": null
+            },
+            {
+              "label": "Texture Quality",
+              "value": "2K",
+              "note": null
+            },
+            {
+              "label": "Remove Lighting",
+              "value": "On",
+              "note": "recommended"
+            },
+            {
+              "label": "PBR",
+              "value": "On",
+              "note": null
+            },
+            {
+              "label": "Topology",
+              "value": "Triangle",
+              "note": "quads export FBX only"
+            },
+            {
+              "label": "Polycount",
+              "value": "20000",
+              "note": "Studio has no adaptive"
+            },
+            {
+              "label": "Generate in Parts",
+              "value": "Off",
+              "note": "recommended"
+            },
+            {
+              "label": "Rig",
+              "value": "None",
+              "note": "skip Rig, export the model as is"
+            },
+            {
+              "label": "Export",
+              "value": "maq_stone-lantern_v2_tripo",
+              "note": "GLB, with this file name"
+            }
+          ],
+          "images": [
+            "front.png"
+          ],
+          "returnName": "maq_stone-lantern_v2_tripo.glb",
+          "exportName": "maq_stone-lantern_v2_tripo",
+          "credits": 30.0,
+          "creditsNote": "textured image to 3D",
+          "prompt": null
+        },
+        "version": null,
+        "viaAgent": false,
+        "cancel": "free",
+        "batch": null,
+        "prompt": null,
+        "redoOf": null,
+        "estimate": null,
+        "split": null,
+        "studio": {
+          "mesh": "hd-model",
+          "rig": "none"
+        },
+        "retexture": null,
+        "denied": false
+      },
+      "chain": {
+        "sending": false,
+        "modelTask": null,
+        "meshyKind": null,
+        "rigCheckTask": null,
+        "rigType": null,
+        "riggable": null,
+        "rigTask": null,
+        "retargetTask": null,
+        "completeTask": null,
+        "credits": {},
+        "refunded": false
+      }
+    },
+    {
+      "job": {
+        "id": "stone-lantern-4",
+        "project": "lantern-bay",
+        "asset": "stone-lantern",
+        "assetName": "Stone lantern",
+        "provider": "meshy",
+        "service": "meshy",
+        "variant": "prop",
+        "images": [
+          "refs/front.png"
+        ],
+        "views": [
+          "front"
+        ],
+        "tripo": null,
+        "meshy": {
+          "aiModel": "latest",
+          "shouldTexture": true,
+          "enablePbr": true,
+          "textureResolution": "2k",
+          "shouldRemesh": false,
+          "topology": "triangle",
+          "targetPolycount": 30000,
+          "poseMode": "none",
+          "removeLighting": true,
+          "multiView": false,
+          "rig": false,
+          "heightMeters": 1.7
+        },
+        "state": "inbox",
+        "phase": null,
+        "progress": 1.0,
+        "remoteId": "m-model",
+        "credits": 20.0,
+        "createdAtMs": 1794347203194.0,
+        "startedAtMs": 1794347203199.0,
+        "finishedAtMs": 1794347203237.0,
+        "message": "In the Inbox, ready for its checks",
+        "inboxFile": "stone-lantern-4.glb",
+        "handoff": null,
+        "card": null,
+        "version": null,
+        "viaAgent": false,
+        "cancel": "free",
+        "batch": null,
+        "prompt": null,
+        "redoOf": null,
+        "estimate": 30.0,
+        "split": null,
+        "studio": null,
+        "retexture": null,
+        "denied": false
+      },
+      "chain": {
+        "sending": true,
+        "modelTask": "m-model",
+        "meshyKind": "image-to-3d",
+        "rigCheckTask": null,
+        "rigType": null,
+        "riggable": null,
+        "rigTask": null,
+        "retargetTask": null,
+        "completeTask": null,
+        "credits": {
+          "m-model": 20.0
+        },
+        "refunded": false
+      }
+    }
+  ]
+}

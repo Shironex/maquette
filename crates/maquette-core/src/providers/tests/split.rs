@@ -119,7 +119,7 @@ fn made_by(world: &World, jobs: &ProviderJobs, provider: Provider) -> u32 {
             false,
         )
         .expect("send");
-    let done = finished(jobs, &job.id);
+    let done = finished(jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     accept(world, jobs, done.inbox_file.as_deref().expect("file"))
 }
@@ -165,7 +165,7 @@ fn a_tripo_split_goes_by_the_task_that_made_the_model_then_completes_the_parts()
     });
     let job = jobs.send_split(&request, false, false).expect("split");
     assert_eq!(job.estimate, Some(140.0));
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(done.credits, Some(140.0));
     let segment = server
@@ -202,7 +202,10 @@ fn a_tripo_split_goes_by_the_task_that_made_the_model_then_completes_the_parts()
     // It lands as v2 through the Inbox; Tripo's lost texture is offered back.
     let item = done.inbox_file.expect("item");
     assert_eq!(accept(&world, &jobs, &item), 2);
-    let bake = jobs.get(&job.id).and_then(|j| j.split?.bake).expect("bake");
+    let bake = jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.split?.bake)
+        .expect("bake");
     assert_eq!((bake.state, bake.onto), (BakeState::Offered, 2));
     assert!(jobs.scheduled_bakes().is_empty(), "Tripo only offers it");
     // An agent finds the offered bake by the asset and the version.
@@ -246,7 +249,7 @@ fn a_tripo_split_uploads_a_model_tripo_did_not_make() {
     let job = jobs
         .send_split(&split_request(&world, Provider::Tripo), false, false)
         .expect("split");
-    assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+    assert_eq!(finished(&jobs, &job).state, JobState::Inbox);
     assert_eq!(server.count("POST", "/files"), 1);
     let segment = server
         .find("POST", "/mesh/segment")
@@ -274,7 +277,7 @@ fn meshy_refuses_smart_topology_and_an_empty_part_list() {
     preset.ai_model = "meshy-t2.5".into();
     send.meshy = Some(preset);
     let job = jobs.send(&send, false, false).expect("send");
-    let item = finished(&jobs, &job.id).inbox_file.expect("item");
+    let item = finished(&jobs, &job).inbox_file.expect("item");
     // From the Inbox, before it is a version.
     let source = jobs
         .split_source(&world.project, &world.asset, None, Some(&item))
@@ -319,8 +322,8 @@ fn a_meshy_split_waits_for_approval_lands_as_a_version_and_bakes_the_texture_bac
         0,
         "nothing before approval"
     );
-    jobs.approve(&job.id).expect("approve");
-    let done = finished(&jobs, &job.id);
+    jobs.approve(&job.project, &job.id).expect("approve");
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(done.credits, Some(10.0));
     let body = server.find("POST", "/print/split").expect("split").json();
@@ -337,14 +340,16 @@ fn a_meshy_split_waits_for_approval_lands_as_a_version_and_bakes_the_texture_bac
     );
 
     assert_eq!(accept(&world, &jobs, &done.inbox_file.expect("item")), 2);
-    assert_eq!(jobs.scheduled_bakes(), std::slice::from_ref(&job.id));
+    assert_eq!(jobs.scheduled_bakes(), [JobKey::of(&job)]);
 
     // Without Blender the bake fails, says why and can be scheduled again.
-    let failed = jobs.bake_back(&job.id, &Toolbox::default()).expect("ran");
+    let failed = jobs
+        .bake_back(&job.project, &job.id, &Toolbox::default())
+        .expect("ran");
     let bake = failed.split.and_then(|s| s.bake).expect("bake");
     assert_eq!(bake.state, BakeState::Failed);
     assert!(bake.message.is_some_and(|m| m.contains("Blender")));
-    jobs.schedule_bake(&job.id).expect("again");
+    jobs.schedule_bake(&job.project, &job.id).expect("again");
     assert_eq!(jobs.scheduled_bakes().len(), 1);
 
     let Some(blender) = crate::test_blender::blender() else {
@@ -370,7 +375,8 @@ fn a_meshy_split_waits_for_approval_lands_as_a_version_and_bakes_the_texture_bac
     );
     assert!(!parts.is_empty());
     assert!(
-        jobs.bake_back(&job.id, &Toolbox::default()).is_err(),
+        jobs.bake_back(&job.project, &job.id, &Toolbox::default())
+            .is_err(),
         "done once"
     );
 }
@@ -385,10 +391,13 @@ fn keeping_a_meshy_split_grey_only_offers_the_bake_and_a_retexture_lands_as_a_ve
     request.meshy = Some(MeshySplit::default());
     request.after = SplitAfter::Grey;
     let job = jobs.send_split(&request, false, false).expect("split");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(accept(&world, &jobs, &done.inbox_file.expect("item")), 2);
     assert!(jobs.scheduled_bakes().is_empty(), "grey runs no bake");
-    let split = jobs.get(&job.id).and_then(|j| j.split).expect("split");
+    let split = jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.split)
+        .expect("split");
     assert_eq!(split.bake.map(|b| b.state), Some(BakeState::Offered));
 
     let paint = RetextureRequest {
@@ -413,8 +422,8 @@ fn keeping_a_meshy_split_grey_only_offers_the_bake_and_a_retexture_lands_as_a_ve
         0,
         "nothing before approval"
     );
-    jobs.approve(&asked.id).expect("approve");
-    let painted = finished(&jobs, &asked.id);
+    jobs.approve(&asked.project, &asked.id).expect("approve");
+    let painted = finished(&jobs, &asked);
     assert_eq!(painted.state, JobState::Inbox, "{painted:?}");
     assert_eq!(painted.credits, Some(10.0));
     let body = server.find("POST", "/retexture").expect("sent").json();
@@ -447,7 +456,7 @@ fn a_retexture_that_merges_the_parts_warns_in_the_inbox() {
     request.meshy = Some(MeshySplit::default());
     request.after = SplitAfter::Grey;
     let job = jobs.send_split(&request, false, false).expect("split");
-    let file = finished(&jobs, &job.id).inbox_file.expect("item");
+    let file = finished(&jobs, &job).inbox_file.expect("item");
 
     // The grey split waits in the Inbox without a word about maps.
     let mut items = inbox::list(&world.root, &world.config).expect("list");
@@ -464,7 +473,7 @@ fn a_retexture_that_merges_the_parts_warns_in_the_inbox() {
         prompt: "weathered iron".to_string(),
     };
     let sent = jobs.send_retexture(&paint, false, false).expect("sent");
-    let painted = finished(&jobs, &sent.id).inbox_file.expect("item");
+    let painted = finished(&jobs, &sent).inbox_file.expect("item");
 
     let mut items = inbox::list(&world.root, &world.config).expect("list");
     jobs.link_inbox(&mut items);
@@ -496,7 +505,7 @@ fn a_failed_meshy_split_is_refunded_and_a_pending_one_cancels_for_free() {
     let job = jobs
         .send_split(&split_request(&world, Provider::Meshy), false, false)
         .expect("split");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Failed);
     assert_eq!(done.message.as_deref(), Some("The model could not be cut."));
     let spend = settled(&jobs, 2)
@@ -512,11 +521,15 @@ fn a_failed_meshy_split_is_refunded_and_a_pending_one_cancels_for_free() {
         .send_split(&split_request(&world, Provider::Meshy), false, false)
         .expect("split");
     let end = std::time::Instant::now() + WAIT;
-    while jobs.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         assert!(std::time::Instant::now() < end, "never sent");
         std::thread::sleep(Duration::from_millis(5));
     }
-    let cancelled = jobs.cancel(&job.id).expect("cancel");
+    let cancelled = jobs.cancel(&job.project, &job.id).expect("cancel");
     assert_eq!(cancelled.state, JobState::Cancelled);
     assert_eq!(server.count("DELETE", "/print/split/m-split"), 1);
     let spend = settled(&jobs, 3)
@@ -538,14 +551,18 @@ fn a_split_resumes_after_a_restart_without_paying_again() {
         .send_split(&split_request(&world, Provider::Tripo), false, false)
         .expect("split");
     let end = std::time::Instant::now() + WAIT;
-    while first.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while first
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         assert!(std::time::Instant::now() < end, "never sent");
         std::thread::sleep(Duration::from_millis(5));
     }
     first.close();
     fake.hold.store(false, Ordering::SeqCst);
     let second = world.jobs(&server);
-    let done = finished(&second, &job.id);
+    let done = finished(&second, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(server.count("POST", "/mesh/segment"), 1);
     assert!(done.split.is_some_and(|s| s.from_version == Some(1)));

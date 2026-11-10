@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use maquette_core::project;
 use maquette_core::providers::ledger::{DecisionRecord, decisions};
-use maquette_core::providers::{JobState, Provider, ProviderJob, ProviderJobs};
+use maquette_core::providers::{JobKey, JobState, Provider, ProviderJob};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
@@ -13,10 +13,13 @@ use serde_json::{Value, json};
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 
+mod by_id;
 mod redo;
 mod requests;
 mod warnings;
 
+pub(super) use self::by_id::SEVERAL_PROJECTS;
+use self::by_id::{cancel_one, find_job};
 use self::requests::{batch_request, send_request};
 use super::{McpTools, Out, WAITING, failed, json_result, respond, to_value, workspace};
 
@@ -144,10 +147,12 @@ pub struct SendBatchArgs {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderJobArgs {
-    /// The job id that send_to_3d returned, for example "stone-lantern-2".
+    /// The job id that send_to_3d returned, for example "stone-lantern-2". Job ids
+    /// are numbered per project, so pass project with it.
     pub id: Option<String>,
-    /// Without an id: every send in this project, newest last. With an id:
-    /// the project the send must belong to.
+    /// With an id: the project the send is in (every send answer carries it). Left
+    /// out, the id must be a send of one project only. Without an id: every send in
+    /// this project, newest last.
     pub project: Option<String>,
     /// With project: only this asset's sends.
     pub asset: Option<String>,
@@ -157,8 +162,11 @@ pub struct ProviderJobArgs {
 #[serde(rename_all = "camelCase")]
 pub struct CancelJobsArgs {
     /// The job ids that send_to_3d, send_batch_to_3d or the redo tools
-    /// returned, 1 to 50.
+    /// returned, 1 to 50, all of one project.
     pub ids: Vec<String>,
+    /// The project the sends are in. Job ids are numbered per project; left
+    /// out, each id must be a send of one project only.
+    pub project: Option<String>,
 }
 
 /// Most ids one cancel_provider_jobs call takes.
@@ -166,7 +174,7 @@ const MAX_CANCEL_IDS: usize = 50;
 
 /// A provider job as agents read it.
 pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
-    let approval = hub.pending_for_job(&job.id);
+    let approval = hub.pending_for_job(&job.project, &job.id);
     let status = if approval.is_some() {
         WAITING.to_string()
     } else {
@@ -222,26 +230,31 @@ pub(super) fn await_send_approval(
     host: Arc<dyn Host>,
     hub: Arc<Hub>,
     approval: String,
-    jobs: Vec<String>,
+    jobs: Vec<JobKey>,
 ) {
     let spawned = std::thread::Builder::new()
         .name("send-approval".into())
         .spawn(move || {
-            let waiting = |id: &String| {
+            let waiting = |job: &JobKey| {
                 host.studio()
-                    .get(id)
+                    .get(&job.project, &job.id)
                     .is_some_and(|j| j.state == JobState::Approval)
             };
             let gone = || !jobs.iter().any(waiting);
             let answer = hub.wait_until(&approval, gone);
             for job in jobs.iter().filter(|j| waiting(j)) {
                 let result = match answer {
-                    Some(true) => host.studio().approve(job).map(|_| ()),
-                    Some(false) => host.studio().deny(job).map(|_| ()),
+                    Some(true) => host.studio().approve(&job.project, &job.id).map(|_| ()),
+                    Some(false) => host.studio().deny(&job.project, &job.id).map(|_| ()),
                     None => Ok(()),
                 };
                 if let Err(err) = result {
-                    tracing::warn!(job, error = %err, "could not answer a send approval");
+                    tracing::warn!(
+                        project = job.project,
+                        job = job.id,
+                        error = %err,
+                        "could not answer a send approval"
+                    );
                 }
             }
         });
@@ -275,17 +288,20 @@ impl McpTools {
                 Arc::clone(&self.host),
                 Arc::clone(&self.hub),
                 approval,
-                vec![job.id.clone()],
+                vec![JobKey::of(&job)],
             );
         }
         let mut out = job_value(&self.hub, &job);
         out["refWarnings"] = warned.refs;
         out["modelWarning"] = warned.model;
         if job.provider == Provider::ByHand {
+            // The export name carries the project; the job id alone can be
+            // a send of another project too.
+            let name = job.export_name().unwrap_or_else(|| job.id.clone());
+            out["exportName"] = json!(name);
             out["note"] = json!(format!(
-                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder, then drops the GLB on the asset's card in Maquette or saves it into the inbox as {}.glb.",
-                job.service.label(),
-                job.id
+                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder and exports it as {name}; Maquette picks that file up from Downloads. Or they drop the GLB on the asset's card in Maquette, or save it into the inbox as {name}.glb.",
+                job.service.label()
             ));
         }
         json_result(&out)
@@ -307,7 +323,7 @@ impl McpTools {
                     .cloned()
                     .collect();
                 let pending = hub.request_batch(&waiting);
-                let ids = waiting.into_iter().map(|j| j.id).collect::<Vec<_>>();
+                let ids = waiting.iter().map(JobKey::of).collect::<Vec<_>>();
                 let warned: Vec<_> = sent.jobs.iter().map(|j| warnings::of(host, j)).collect();
                 Ok((sent, pending, ids, warned))
             })
@@ -359,23 +375,14 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). With project instead of id, every send in the project.",
+        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). Job ids are numbered per project (an asset's first send in a project is <asset>-1), so pass project with id; an id that is a send in several projects answers code job-in-several-projects without it. With project and no id, every send in the project.",
         annotations(read_only_hint = true)
     )]
     async fn get_provider_job(&self, Parameters(args): Parameters<ProviderJobArgs>) -> Out {
         let found = self
             .blocking(move |host, hub| {
                 if let Some(id) = args.id.as_deref() {
-                    // Ids are unique across the workspace; a project given
-                    // alongside must be the job's own.
-                    let job = host
-                        .studio()
-                        .get(id.trim())
-                        .filter(|j| args.project.as_deref().is_none_or(|p| j.project == p))
-                        .ok_or_else(|| match args.project.as_deref() {
-                            Some(project) => format!("There is no send {id} in {project}."),
-                            None => format!("There is no send {id}."),
-                        })?;
+                    let job = find_job(host.studio(), id, args.project.as_deref())?;
                     let decided = super::credits::decisions_of(host);
                     return Ok(with_decision(job_value(hub, &job), &job, &decided));
                 }
@@ -401,7 +408,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids. Each id is stopped on its own and answers with its new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why. A send waiting for approval is refused: a person approves or denies those in the Maquette app."
+        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids of project (job ids are numbered per project; without project each id must be a send of one project only, else it is refused with code job-in-several-projects). Each id is stopped on its own and answers with its project, new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why. A send waiting for approval is refused: a person approves or denies those in the Maquette app."
     )]
     async fn cancel_provider_jobs(&self, Parameters(args): Parameters<CancelJobsArgs>) -> Out {
         let mut ids: Vec<String> = Vec::new();
@@ -419,40 +426,17 @@ impl McpTools {
                 ids.len()
             ));
         }
+        let project = args.project.as_deref().map(str::trim).map(str::to_string);
         let found = self
             .blocking(move |host, hub| {
                 let results: Vec<Value> = ids
                     .iter()
-                    .map(|id| cancel_one(host.studio(), hub, id))
+                    .map(|id| cancel_one(host.studio(), hub, id, project.as_deref()))
                     .collect();
                 let stopped = results.iter().filter(|r| r["ok"] == json!(true)).count();
                 Ok(json!({ "stopped": stopped, "refused": results.len() - stopped, "results": results }))
             })
             .await;
         respond(found)
-    }
-}
-
-/// Stops one job for [`cancel_provider_jobs`]. A send that waits for approval
-/// is left to the person, so an agent cannot deny its own sends.
-fn cancel_one(jobs: &ProviderJobs, hub: &Hub, id: &str) -> Value {
-    let refuse = |error: String| json!({ "id": id, "ok": false, "error": error });
-    let Some(job) = jobs.get(id) else {
-        return refuse(format!("There is no send {id}."));
-    };
-    if job.state == JobState::Approval || hub.pending_for_job(id).is_some() {
-        return refuse(
-            "This send is waiting for approval. A person denies it in the Maquette app; an agent cannot deny its own sends."
-                .to_string(),
-        );
-    }
-    match jobs.cancel(id) {
-        Ok(job) => json!({
-            "id": id,
-            "ok": true,
-            "status": to_value(job.state),
-            "message": job.message,
-        }),
-        Err(err) => refuse(maquette_core::ErrorPayload::from(err).message),
     }
 }

@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::jobs::{JobState, Provider, ProviderJob, is_glb};
 use crate::error::{CoreError, CoreResult};
+use crate::naming;
 
 /// The largest model a hand-back reads, unzipped.
 pub const MAX_MODEL_BYTES: u64 = 512 * 1024 * 1024;
@@ -284,8 +285,22 @@ fn name_score(found: &Found, job: &ProviderJob) -> f64 {
 }
 
 /// How well a file (and the GLB inside, for a zip) is named for a send, 0
-/// to 1. See [`name_score`].
+/// to 1. See [`name_score`]. A file saved under an export name is for the
+/// send that was handed out with that name and fits no other: the name of
+/// another project's send of the same asset says nothing for this one.
 pub(crate) fn name_fit(name: &str, inner: Option<&str>, job: &ProviderJob) -> f64 {
+    let files = [Some(name), inner];
+    if let Some(expected) = job.export_name()
+        && files
+            .iter()
+            .flatten()
+            .any(|f| naming::is_named(f, &expected))
+    {
+        return 1.0;
+    }
+    if files.iter().flatten().any(|f| naming::parse(f).is_some()) {
+        return 0.0;
+    }
     let mut names = vec![stem(name).to_string()];
     if let Some(inner) = inner {
         names.push(stem(inner.rsplit('/').next().unwrap_or(inner)).to_string());
@@ -312,9 +327,18 @@ pub(crate) fn name_fit(name: &str, inner: Option<&str>, job: &ProviderJob) -> f6
     score
 }
 
+/// True for a file saved under an export name, whichever send it names.
+fn is_export(found: &Found) -> bool {
+    [Some(found.name.as_str()), found.inner.as_deref()]
+        .iter()
+        .flatten()
+        .any(|name| naming::parse(name).is_some())
+}
+
 /// Pairs files with waiting sends: best name match first, each file and
 /// each send once. A name that shares no word still matches when it is
-/// the only new file left for the only send left.
+/// the only new file left for the only send left, unless it is an export
+/// name: that one says which send it is for, and it is not this one.
 fn assign(files: &[Found], jobs: &[&ProviderJob]) -> Vec<Option<(usize, String)>> {
     let newer = |f: &Found, j: &ProviderJob| f.modified_ms + SLACK_MS >= j.created_at_ms;
     let mut pairs: Vec<(f64, f64, usize, usize)> = Vec::new();
@@ -344,7 +368,9 @@ fn assign(files: &[Found], jobs: &[&ProviderJob]) -> Vec<Option<(usize, String)>
         };
         out[fi] = Some((ji, reason));
     }
-    let free_files: Vec<usize> = (0..files.len()).filter(|&i| out[i].is_none()).collect();
+    let free_files: Vec<usize> = (0..files.len())
+        .filter(|&i| out[i].is_none() && !is_export(&files[i]))
+        .collect();
     let free_jobs: Vec<usize> = (0..jobs.len()).filter(|&i| !taken[i]).collect();
     if let ([fi], [ji]) = (free_files.as_slice(), free_jobs.as_slice())
         && newer(&files[*fi], jobs[*ji])

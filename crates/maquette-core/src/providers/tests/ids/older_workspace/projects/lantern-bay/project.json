@@ -1,0 +1,27 @@
+{
+  "assets": [
+    {
+      "createdAt": "2026-11-10T21:46:43.053Z",
+      "id": "stone-lantern",
+      "kind": "prop",
+      "name": "Stone lantern",
+      "origin": null,
+      "refs": [],
+      "stage": "tripo",
+      "status": "review",
+      "thumbnail": null,
+      "updatedAt": "2026-11-10T21:46:43.233Z",
+      "versions": []
+    }
+  ],
+  "createdAt": "2026-11-10T21:46:43.049Z",
+  "game": null,
+  "id": "lantern-bay",
+  "name": "Lantern Bay",
+  "siteRepo": null,
+  "siteRepoName": null,
+  "sourceFolder": null,
+  "target": "website",
+  "template": "floating-diorama",
+  "version": 1
+}

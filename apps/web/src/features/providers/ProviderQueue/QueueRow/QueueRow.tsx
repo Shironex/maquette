@@ -69,7 +69,7 @@ export default function QueueRow({ job, now }: QueueRowProps) {
                 loading={busy}
                 disabled={busy}
                 tooltip={CANCEL_HINT[job.cancel] ?? undefined}
-                onClick={() => void cancel(job.id)}
+                onClick={() => void cancel(job)}
               >
                 {cancelLabel}
               </Button>

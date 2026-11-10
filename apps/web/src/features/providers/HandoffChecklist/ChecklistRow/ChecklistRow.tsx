@@ -52,7 +52,7 @@ export default function ChecklistRow({ job }: ChecklistRowProps) {
                 icon="folder-open"
                 size="sm"
                 label={`Open the ${job.assetName} folder`}
-                onClick={() => void openHandoff(job.id)}
+                onClick={() => void openHandoff(job)}
               />
             </div>
           ) : null}

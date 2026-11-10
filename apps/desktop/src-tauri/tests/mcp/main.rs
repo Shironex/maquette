@@ -34,6 +34,7 @@ mod recipe_starters;
 mod recipes;
 mod renders;
 mod rig;
+mod sends_projects;
 mod ship;
 mod ship_gate;
 mod start;

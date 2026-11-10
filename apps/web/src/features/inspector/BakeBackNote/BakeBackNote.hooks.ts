@@ -85,7 +85,7 @@ export function useBakeBackNote(project: string, asset: string) {
     },
     from: split ? sourceLabel({ version: split.fromVersion, item: split.fromItem }) : '',
     busy,
-    bakeNow: () => job && void run(() => commands.splitBakeBack(job.id)),
+    bakeNow: () => job && void run(() => commands.splitBakeBack(job.project, job.id)),
     keepGrey: () =>
       bake &&
       void run(async () => {

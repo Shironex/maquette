@@ -30,6 +30,7 @@ import { clock } from '@/lib/clock';
 import type { Args } from './backend-options';
 import { createKeyStore } from './create-key-store';
 import { deniedCardBack, deniedJob } from './denied-card-back';
+import { nextJobId } from './export-name';
 import { handoffCard } from './handoff-card';
 import { jobFactory } from './job-factory';
 import { labRefs } from './lab-fixtures';
@@ -41,6 +42,9 @@ export { PROVIDER_REF_FILES };
 
 /** The states a send is still open in. */
 const OPEN: readonly string[] = ['approval', 'queued', 'running', 'waiting', 'inbox'];
+
+/** What names one job. */
+type JobRef = Pick<ProviderJob, 'project' | 'id'>;
 
 export function createFakeProviders({
   config,
@@ -104,13 +108,14 @@ export function createFakeProviders({
     });
   }
 
-  const find = (id: string): ProviderJob =>
-    jobs.find(j => j.id === id) ?? fail('not-found', `Could not find the job ${id}.`);
+  /** A job is told by its project and its id: ids are numbered per project. */
+  const same = (a: JobRef, b: JobRef) => a.project === b.project && a.id === b.id;
+  const find = (ref: JobRef): ProviderJob =>
+    jobs.find(j => same(j, ref)) ??
+    fail('not-found', `Could not find the job ${ref.id} in ${ref.project}.`);
 
   const put = (job: ProviderJob) => {
-    jobs = jobs.some(j => j.id === job.id)
-      ? jobs.map(j => (j.id === job.id ? job : j))
-      : [...jobs, job];
+    jobs = jobs.some(j => same(j, job)) ? jobs.map(j => (same(j, job) ? job : j)) : [...jobs, job];
     emit?.({ type: 'job', job: structuredClone(job) });
     return job;
   };
@@ -127,9 +132,11 @@ export function createFakeProviders({
   };
 
   /** Moves a fake API job along: upload, generate, download, Inbox. */
-  const run = (id: string) => {
+  const run = ({ project: of, id }: JobRef) => {
+    const ref = { project: of, id };
+    const key = `${of}/${id}`;
     const started = clock.nowMs();
-    const first = find(id);
+    const first = find(ref);
     put({
       ...first,
       state: 'running',
@@ -139,18 +146,18 @@ export function createFakeProviders({
       // Meshy cancels while its task is pending; Tripo never cancels.
       cancel: first.provider === 'meshy' ? 'provider' : 'none',
     });
-    touch(find(id), 'running');
+    touch(find(ref), 'running');
     const timer = setInterval(() => {
-      const job = jobs.find(j => j.id === id);
+      const job = jobs.find(j => same(j, ref));
       if (!job || job.state !== 'running') {
         clearInterval(timer);
-        timers.delete(id);
+        timers.delete(key);
         return;
       }
       const progress = Math.min(1, (job.progress ?? 0) + 0.09);
       if (progress >= 1) {
         clearInterval(timer);
-        timers.delete(id);
+        timers.delete(key);
         put({
           ...job,
           state: 'inbox',
@@ -166,13 +173,10 @@ export function createFakeProviders({
       const working = job.split ? 'split' : 'generate';
       put({ ...job, progress, phase: progress > 0.9 ? 'download' : working });
     }, 700);
-    timers.set(id, timer);
+    timers.set(key, timer);
   };
 
-  const nextId = (asset: string) => {
-    const used = jobs.filter(j => j.asset === asset).length;
-    return `${asset}-${used + 1}`;
-  };
+  const nextId = (of: string, asset: string) => nextJobId(jobs, of, asset);
 
   const assetOf = (p: ProjectManifest, assetId: string): Asset =>
     (p.assets ?? []).find(a => a.id === assetId) ??
@@ -193,7 +197,7 @@ export function createFakeProviders({
     }
     put(job);
     touch(job, 'queued');
-    setTimeout(() => run(job.id), 600);
+    setTimeout(() => run(job), 600);
     return job;
   };
 
@@ -210,7 +214,7 @@ export function createFakeProviders({
         suggested: suggestedRefs(lab, p, asset, images),
         variant: asset.kind === 'character' ? 'character' : 'prop',
         keys: [keyStore.status('tripo'), keyStore.status('meshy')],
-        jobs: jobs.filter(j => j.asset === asset.id),
+        jobs: jobs.filter(j => j.project === p.id && j.asset === asset.id),
       };
     },
     provider_batch_options: ({ project: id, assets }): BatchOptions => {
@@ -249,7 +253,7 @@ export function createFakeProviders({
       const sent = items.map(({ item, asset }) =>
         start(
           base({
-            id: nextId(asset.id),
+            id: nextId(p.id, asset.id),
             project: p.id,
             asset: asset.id,
             assetName: asset.name,
@@ -289,7 +293,7 @@ export function createFakeProviders({
         fail('invalid', `Save a ${req.provider === 'tripo' ? 'Tripo' : 'Meshy'} API key first.`);
       }
       const job = base({
-        id: nextId(asset.id),
+        id: nextId(p.id, asset.id),
         project: p.id,
         asset: asset.id,
         assetName: asset.name,
@@ -306,8 +310,8 @@ export function createFakeProviders({
       return start(job, req.studio);
     },
     provider_jobs: ({ project: id }) => jobs.filter(j => !id || j.project === id),
-    provider_cancel: ({ id }) => {
-      const job = find(String(id));
+    provider_cancel: ({ project: of, id }) => {
+      const job = find({ project: String(of), id: String(id) });
       if (job.cancel === 'none') {
         fail(
           'invalid',
@@ -332,8 +336,8 @@ export function createFakeProviders({
       touch(job, 'queued');
       return next;
     },
-    provider_hand_back: ({ id, file }) => {
-      const job = find(String(id));
+    provider_hand_back: ({ project: of, id, file }) => {
+      const job = find({ project: String(of), id: String(id) });
       if (job.state !== 'waiting') fail('invalid', 'This send is not waiting for a model.');
       if (!/\.(glb|zip)$/i.test(String(file)))
         fail('invalid', 'That is not a GLB file, or a zip with one inside.');
@@ -356,13 +360,13 @@ export function createFakeProviders({
     ...keyStore.handlers,
   };
 
-  /** An agent's send was approved or denied in the app. */
-  const decide = (jobId: string, approve: boolean) => {
-    const job = jobs.find(j => j.id === jobId);
+  /** An agent's send of `of` was approved or denied in the app. */
+  const decide = (of: string, jobId: string, approve: boolean) => {
+    const job = jobs.find(j => same(j, { project: of, id: jobId }));
     if (!job || job.state !== 'approval') return;
     if (approve) {
       put({ ...job, state: 'queued', message: null });
-      setTimeout(() => run(job.id), 400);
+      setTimeout(() => run(job), 400);
     } else {
       put(deniedJob(job, clock.nowMs()));
       // Its card goes back to Refs while it has no model, as the core does.

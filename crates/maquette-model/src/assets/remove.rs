@@ -78,8 +78,9 @@ pub enum SentState {
 pub trait Sends {
     /// Every send of `project`, as Sends lists them.
     fn jobs(&self, project: &str) -> Vec<Sent>;
-    /// Cancels a send or stops waiting for its model.
-    fn stop(&self, id: &str) -> CoreResult<()>;
+    /// Cancels the send `id` of `project` or stops waiting for its model.
+    /// Send ids are numbered per project, so the id alone is not enough.
+    fn stop(&self, project: &str, id: &str) -> CoreResult<()>;
 }
 
 /// How the remove of one asset went.
@@ -257,7 +258,7 @@ fn remove_one(place: &Place<'_>, id: &str, busy: &Busy<'_>, sends: &dyn Sends) -
     }
     let mut stopped = Vec::new();
     for job in mine.iter().filter(|j| j.state == SentState::Waiting) {
-        if let Err(err) = sends.stop(&job.id) {
+        if let Err(err) = sends.stop(place.project, &job.id) {
             let mut out = RemoveOutcome::refused(
                 &asset,
                 format!("Could not stop the send {}. {err}", job.id),

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "models": {
+    "stone-lantern": {
+      "size": null,
+      "fixups": [],
+      "skipBake": true,
+      "padEdges": true,
+      "parts": null
+    }
+  }
+}

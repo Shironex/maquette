@@ -260,7 +260,10 @@ fn a_waiting_by_hand_send_takes_the_file_as_its_model() {
 
     let added = add(&jobs, &runner, &tools(), &own(&world, &file)).expect("added");
     assert_eq!(added.job.as_deref(), Some(job.id.as_str()));
-    assert_eq!(jobs.get(&job.id).expect("job").state, JobState::Inbox);
+    assert_eq!(
+        jobs.get(&job.project, &job.id).expect("job").state,
+        JobState::Inbox
+    );
 }
 
 #[test]

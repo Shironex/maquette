@@ -96,7 +96,8 @@ export function createFakeAgents({
   scene?: string | null;
   emit?: (status: McpStatus) => void;
   /** A send to 3D an agent asked for was approved or denied. */
-  onSendDecision?: (job: string, approve: boolean) => void;
+  /** A send's answer: the job by its project and its id, numbered per project. */
+  onSendDecision?: (project: string, job: string, approve: boolean) => void;
   /** Ship approvals runs of game projects ask for, whoever started them. */
   games?: { approvals: () => Approval[]; decide: (a: Approval, approve: boolean) => void };
   /** Rest pose approvals agents' avatar builds wait on; only the Avatar view answers them. */
@@ -291,7 +292,7 @@ export function createFakeAgents({
       rig?.deny(approvalId as string);
       approvals = approvals.filter(a => a.id !== approvalId);
       const jobs = found.items.length ? found.items.map(i => i.job) : found.job ? [found.job] : [];
-      for (const job of jobs) onSendDecision?.(job, Boolean(approve));
+      for (const job of jobs) onSendDecision?.(found.project, job, Boolean(approve));
       return status();
     },
     mcp_clear_activity: () => {

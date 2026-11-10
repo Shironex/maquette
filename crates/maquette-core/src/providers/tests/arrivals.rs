@@ -17,6 +17,7 @@ use crate::providers::ledger::{SpendOutcome, SpendSource};
 use crate::providers::presets::PresetVariant;
 use crate::providers::tests::{World, add_objects};
 
+mod projects;
 mod render;
 
 pub(super) struct Rig {
@@ -76,9 +77,9 @@ fn a_named_export_is_copied_into_the_inbox_once_and_settles_the_ledger() {
     let rig = rig();
     let job = rig.by_hand(&rig.world.asset.clone());
     let card = job.card.clone().expect("card");
-    assert_eq!(card.export_name, "maq_stone-lantern_v1_tripo");
+    assert_eq!(card.export_name, "maq_moon-island_stone-lantern_v1_tripo");
     let file = rig.download(
-        "maq_stone-lantern_v1_tripo (1).glb",
+        "maq_moon-island_stone-lantern_v1_tripo (1).glb",
         &fixture::character(false),
     );
 
@@ -89,7 +90,10 @@ fn a_named_export_is_copied_into_the_inbox_once_and_settles_the_ledger() {
     let inbox_file = arrival.inbox_file.clone().expect("inbox file");
     assert!(rig.world.inbox().join(&inbox_file).is_file());
     assert!(file.is_file(), "the download stays where it was");
-    assert_eq!(rig.jobs.get(&job.id).expect("job").state, JobState::Inbox);
+    assert_eq!(
+        rig.jobs.get(&job.project, &job.id).expect("job").state,
+        JobState::Inbox
+    );
     assert_eq!(rig.seen.lock().expect("lock").len(), 1, "one quiet notice");
 
     // The same bytes again, under any name, are left alone.
@@ -148,9 +152,15 @@ fn an_unplaced_download_waits_for_which_asset_is_this() {
     assert_eq!(done.job.as_deref(), Some(lamp.id.as_str()));
     let inbox_file = done.inbox_file.clone().expect("inbox file");
     assert!(rig.world.inbox().join(&inbox_file).is_file());
-    assert_eq!(rig.jobs.get(&lamp.id).expect("lamp").state, JobState::Inbox);
     assert_eq!(
-        rig.jobs.get(&lantern.id).expect("lantern").state,
+        rig.jobs.get(&lamp.project, &lamp.id).expect("lamp").state,
+        JobState::Inbox
+    );
+    assert_eq!(
+        rig.jobs
+            .get(&lantern.project, &lantern.id)
+            .expect("lantern")
+            .state,
         JobState::Waiting
     );
     assert!(file.is_file(), "the download stays where it was");
@@ -223,7 +233,7 @@ fn a_close_name_waits_for_a_look_and_lands_only_when_attached() {
     assert_eq!(arrival.job.as_deref(), Some(ruin.id.as_str()));
     assert_eq!(arrival.asset.as_deref(), Some(ids[0].as_str()));
     assert_eq!(
-        rig.jobs.get(&ruin.id).expect("ruin").state,
+        rig.jobs.get(&ruin.project, &ruin.id).expect("ruin").state,
         JobState::Waiting
     );
     assert!(asset_on_disk(&rig, &ids[0]).versions.is_empty());
@@ -241,9 +251,12 @@ fn a_close_name_waits_for_a_look_and_lands_only_when_attached() {
         .expect("attach");
     assert_eq!(done.state, ArrivalState::Attached);
     assert_eq!(done.reason, "You attached it to Wooden log");
-    assert_eq!(rig.jobs.get(&log.id).expect("log").state, JobState::Inbox);
     assert_eq!(
-        rig.jobs.get(&ruin.id).expect("ruin").state,
+        rig.jobs.get(&log.project, &log.id).expect("log").state,
+        JobState::Inbox
+    );
+    assert_eq!(
+        rig.jobs.get(&ruin.project, &ruin.id).expect("ruin").state,
         JobState::Waiting
     );
     assert!(
@@ -274,20 +287,29 @@ fn attaching_closes_every_waiting_send_of_the_asset_or_none() {
     // The newest send took it into the inbox; the older one waits until it is accepted.
     assert_eq!(done.job.as_deref(), Some(again.id.as_str()));
     assert_eq!(
-        rig.jobs.get(&again.id).expect("again").state,
+        rig.jobs
+            .get(&again.project, &again.id)
+            .expect("again")
+            .state,
         JobState::Inbox
     );
     assert_eq!(
-        rig.jobs.get(&first.id).expect("first").state,
+        rig.jobs
+            .get(&first.project, &first.id)
+            .expect("first")
+            .state,
         JobState::Waiting
     );
     let item = done.inbox_file.expect("inbox file");
     assert_eq!(accept(&rig, &item), ids[0]);
     assert_eq!(
-        rig.jobs.get(&again.id).expect("again").state,
+        rig.jobs
+            .get(&again.project, &again.id)
+            .expect("again")
+            .state,
         JobState::Accepted
     );
-    let older = rig.jobs.get(&first.id).expect("first");
+    let older = rig.jobs.get(&first.project, &first.id).expect("first");
     assert_eq!(older.state, JobState::Accepted);
     assert_eq!(
         older.message.as_deref(),
@@ -299,7 +321,9 @@ fn attaching_closes_every_waiting_send_of_the_asset_or_none() {
     let send = rig.by_hand(&rig.world.asset.clone());
     let other = rig.download("stray.glb", &fixture::character(true));
     let stray = rig.arrivals.take(&other).expect("seen");
-    rig.jobs.cancel(&send.id).expect("stop waiting");
+    rig.jobs
+        .cancel(&send.project, &send.id)
+        .expect("stop waiting");
     let done = rig
         .arrivals
         .attach(&stray.id, &rig.world.project, &ids[0])
@@ -333,7 +357,7 @@ fn not_this_one_is_remembered_after_a_restart() {
     assert_eq!(gone.state, ArrivalState::Dismissed);
     assert_eq!(gone.reason, "You said it is not Stone ruin");
     assert_eq!(
-        rig.jobs.get(&ruin.id).expect("ruin").state,
+        rig.jobs.get(&ruin.project, &ruin.id).expect("ruin").state,
         JobState::Waiting
     );
     assert!(
@@ -353,11 +377,17 @@ fn not_this_one_is_remembered_after_a_restart() {
 fn fbx_exports_are_matched_but_left_for_a_glb() {
     let rig = rig();
     let job = rig.by_hand(&rig.world.asset.clone());
-    let file = rig.download("maq_stone-lantern_v1_tripo.fbx", b"Kaydara FBX Binary");
+    let file = rig.download(
+        "maq_moon-island_stone-lantern_v1_tripo.fbx",
+        b"Kaydara FBX Binary",
+    );
     let arrival = rig.arrivals.take(&file).expect("seen");
     assert_eq!(arrival.state, ArrivalState::NeedsGlb);
     assert_eq!(arrival.job.as_deref(), Some(job.id.as_str()));
-    assert_eq!(rig.jobs.get(&job.id).expect("job").state, JobState::Waiting);
+    assert_eq!(
+        rig.jobs.get(&job.project, &job.id).expect("job").state,
+        JobState::Waiting
+    );
     let models = fs::read_dir(rig.world.inbox())
         .map(|d| {
             d.flatten()
@@ -372,12 +402,18 @@ fn fbx_exports_are_matched_but_left_for_a_glb() {
 fn a_download_carrying_a_recipe_bake_mark_is_never_placed_or_attached() {
     let rig = rig();
     let job = rig.by_hand(&rig.world.asset.clone());
-    let named = rig.download("maq_stone-lantern_v1_tripo.glb", &fixture::character(false));
+    let named = rig.download(
+        "maq_moon-island_stone-lantern_v1_tripo.glb",
+        &fixture::character(false),
+    );
     crate::recipes::baked::write_mark(&named, &super::own_file::mark()).expect("mark");
     let arrival = rig.arrivals.take(&named).expect("seen");
     assert_eq!(arrival.state, ArrivalState::Failed);
     assert_eq!(arrival.reason, crate::providers::own_file::STAGED_BAKE);
-    assert_eq!(rig.jobs.get(&job.id).expect("job").state, JobState::Waiting);
+    assert_eq!(
+        rig.jobs.get(&job.project, &job.id).expect("job").state,
+        JobState::Waiting
+    );
 
     let ids = add_objects(&rig.world, &["Desk lamp"]);
     rig.by_hand(&ids[0]);
@@ -394,7 +430,10 @@ fn a_download_carrying_a_recipe_bake_mark_is_never_placed_or_attached() {
 #[test]
 fn nothing_is_read_while_no_send_waits() {
     let rig = rig();
-    let file = rig.download("maq_stone-lantern_v1_tripo.glb", &fixture::character(false));
+    let file = rig.download(
+        "maq_moon-island_stone-lantern_v1_tripo.glb",
+        &fixture::character(false),
+    );
     assert!(rig.arrivals.take(&file).is_none());
     assert!(rig.arrivals.status().arrivals.is_empty());
 }
@@ -415,7 +454,10 @@ fn the_watch_follows_its_switch_and_picks_up_a_new_export() {
     rig.arrivals.configure(true, Some(rig.downloads.clone()));
     assert!(rig.arrivals.status().watching);
     std::thread::sleep(Duration::from_millis(300));
-    rig.download("maq_stone-lantern_v1_tripo.glb", &fixture::character(false));
+    rig.download(
+        "maq_moon-island_stone-lantern_v1_tripo.glb",
+        &fixture::character(false),
+    );
     let start = Instant::now();
     while rig.seen.lock().expect("lock").is_empty() && start.elapsed() < Duration::from_secs(10) {
         std::thread::sleep(Duration::from_millis(50));
@@ -423,7 +465,10 @@ fn the_watch_follows_its_switch_and_picks_up_a_new_export() {
     let seen = rig.seen.lock().expect("lock").clone();
     assert_eq!(seen.len(), 1, "{seen:?}");
     assert_eq!(seen[0].state, ArrivalState::Imported);
-    assert_eq!(rig.jobs.get(&job.id).expect("job").state, JobState::Inbox);
+    assert_eq!(
+        rig.jobs.get(&job.project, &job.id).expect("job").state,
+        JobState::Inbox
+    );
     rig.arrivals.stop();
     assert!(!rig.arrivals.status().watching);
 }
@@ -432,7 +477,9 @@ fn the_watch_follows_its_switch_and_picks_up_a_new_export() {
 fn a_send_you_stop_waiting_for_settles_at_nothing() {
     let rig = rig();
     let job = rig.by_hand(&rig.world.asset.clone());
-    rig.jobs.cancel(&job.id).expect("stop waiting");
+    rig.jobs
+        .cancel(&job.project, &job.id)
+        .expect("stop waiting");
     let ledger = rig.jobs.ledger().expect("ledger");
     let spend = ledger
         .spends
@@ -442,6 +489,9 @@ fn a_send_you_stop_waiting_for_settles_at_nothing() {
     assert_eq!(spend.source, SpendSource::Subscription);
     assert_eq!(spend.outcome, SpendOutcome::Cancelled);
     assert_eq!((spend.credits, spend.estimated), (0.0, false));
-    let file = rig.download("maq_stone-lantern_v1_tripo.glb", &fixture::character(false));
+    let file = rig.download(
+        "maq_moon-island_stone-lantern_v1_tripo.glb",
+        &fixture::character(false),
+    );
     assert!(rig.arrivals.take(&file).is_none(), "nothing waits any more");
 }

@@ -16,7 +16,8 @@ interface TrashContext {
   saveProject: (next: ProjectManifest) => ProjectManifest;
   jobs: () => readonly ProviderJob[];
   /** Stops a send the way Cancel and Stop waiting in Sends do. */
-  stopJob: (id: string) => void;
+  /** Stops the send `id` of `project`: send ids are numbered per project. */
+  stopJob: (project: string, id: string) => void;
   /** The run going in the project, if any. */
   activeRun: (project: string) => string | null | undefined;
 }
@@ -70,7 +71,7 @@ export function createTrashHandlers(ctx: TrashContext): Record<string, (args: Ar
       });
     }
     const stopped = mine.filter(j => WAITING_STATES.includes(j.state)).map(j => j.id);
-    stopped.forEach(ctx.stopJob);
+    stopped.forEach(job => ctx.stopJob(projectId, job));
     const stamp = clock.now().toISOString();
     const digits = stamp.replace(/\D/g, '');
     const trashId = `${id}-${digits.slice(0, 8)}-${digits.slice(8)}`;

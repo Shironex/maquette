@@ -38,6 +38,24 @@ pub(super) struct Entry {
     pub(super) cancelled: bool,
 }
 
+impl Entry {
+    /// A job that has no thread yet.
+    pub(super) fn new(stored: Stored) -> Self {
+        Self {
+            stored,
+            stop: Arc::new(StopFlag::default()),
+            thread: false,
+            cancelled: false,
+        }
+    }
+
+    /// True for the job `id` of `project`. An id alone is not a job: two
+    /// projects may each hold it.
+    pub(super) fn is(&self, project: &str, id: &str) -> bool {
+        self.stored.job.project == project && self.stored.job.id == id
+    }
+}
+
 pub(super) type Callback = Box<dyn Fn(ProviderEvent) + Send + Sync>;
 
 pub(super) struct Shared {

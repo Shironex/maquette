@@ -266,23 +266,30 @@ pub fn provider_jobs(
     Ok(studio.0.list(project.as_deref()))
 }
 
+/// Cancels the send `id` of `project`: send ids are numbered per project.
 /// Meshy is asked over the network, so this runs off the main thread.
 #[tauri::command]
 #[specta::specta]
-pub async fn provider_cancel(studio: State<'_, Studio>, id: String) -> CommandResult<ProviderJob> {
+pub async fn provider_cancel(
+    studio: State<'_, Studio>,
+    project: String,
+    id: String,
+) -> CommandResult<ProviderJob> {
     let jobs = studio.0.clone();
-    Ok(blocking(move || jobs.cancel(&id)).await??)
+    Ok(blocking(move || jobs.cancel(&project, &id)).await??)
 }
 
-/// By hand: a GLB dropped on the asset's card.
+/// By hand: a GLB dropped on the asset's card, for the send `id` of
+/// `project`.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn provider_hand_back(
     studio: State<'_, Studio>,
+    project: String,
     id: String,
     file: String,
 ) -> CommandResult<ProviderJob> {
-    Ok(studio.0.hand_back(&id, Path::new(&file))?)
+    Ok(studio.0.hand_back(&project, &id, Path::new(&file))?)
 }
 
 #[tauri::command(async)]
@@ -295,14 +302,22 @@ pub fn provider_clear_finished(
     Ok(studio.0.list(Some(&project)))
 }
 
+/// The send `id` of `project`, or the error that says it is not there.
+fn job_of(studio: &ProviderJobs, project: &str, id: &str) -> CommandResult<ProviderJob> {
+    Ok(studio
+        .get(project, id)
+        .ok_or_else(|| CoreError::NotFound(format!("the job {id} in {project}")))?)
+}
+
 /// Shows a By hand job's folder in Finder or Explorer.
 #[tauri::command(async)]
 #[specta::specta]
-pub fn provider_open_handoff(studio: State<'_, Studio>, id: String) -> CommandResult<()> {
-    let job = studio
-        .0
-        .get(&id)
-        .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+pub fn provider_open_handoff(
+    studio: State<'_, Studio>,
+    project: String,
+    id: String,
+) -> CommandResult<()> {
+    let job = job_of(&studio.0, &project, &id)?;
     let folder = job
         .handoff
         .map(PathBuf::from)
@@ -352,13 +367,11 @@ pub(crate) fn handoff_image(job: &ProviderJob, image: &str) -> CommandResult<Pat
 #[specta::specta]
 pub fn provider_reveal_image(
     studio: State<'_, Studio>,
+    project: String,
     id: String,
     image: String,
 ) -> CommandResult<()> {
-    let job = studio
-        .0
-        .get(&id)
-        .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+    let job = job_of(&studio.0, &project, &id)?;
     let path = handoff_image(&job, &image)?;
     opener::reveal_file(&path).map_err(|err| CoreError::io(&path, err).payload())
 }

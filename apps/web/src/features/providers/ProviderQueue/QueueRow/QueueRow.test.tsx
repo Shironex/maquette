@@ -37,6 +37,6 @@ describe('a queue row', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Settings card' }));
     expect(useProvidersStore.getState().panel?.handoff?.id).toBe('guardian-statues-1');
     await userEvent.click(screen.getByRole('button', { name: 'Stop waiting' }));
-    expect(sent('provider_cancel')).toEqual([{ id: 'guardian-statues-1' }]);
+    expect(sent('provider_cancel')).toEqual([{ project: 'frostveil', id: 'guardian-statues-1' }]);
   });
 });

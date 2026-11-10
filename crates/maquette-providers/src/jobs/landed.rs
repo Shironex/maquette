@@ -3,7 +3,7 @@
 //! library version, or any version newer than the send. Only By hand
 //! waits close; a Tripo or Meshy send runs on and spends as it would.
 
-use super::{JobState, Provider, Shared, settle, update_with};
+use super::{JobKey, JobState, Provider, Shared, settle, update_with};
 use maquette_base::history::now_ms;
 use maquette_model::assets;
 use maquette_model::project;
@@ -30,20 +30,20 @@ fn close_where(
     spend: Spend,
     pick: impl Fn(&str, f64) -> bool,
 ) -> usize {
-    let ids: Vec<(String, String)> = shared
+    let waiting: Vec<(JobKey, String)> = shared
         .jobs()
         .iter()
         .map(|e| &e.stored.job)
         .filter(|j| j.project == project)
         .filter(|j| j.provider == Provider::ByHand && j.state == JobState::Waiting)
         .filter(|j| pick(&j.asset, j.created_at_ms))
-        .map(|j| (j.id.clone(), j.asset.clone()))
+        .map(|j| (JobKey::of(j), j.asset.clone()))
         .collect();
     let mut closed = 0;
     let mut touched: Vec<String> = Vec::new();
-    for (id, asset) in &ids {
+    for (key, asset) in &waiting {
         let mut done = false;
-        let _ = update_with(shared, id, true, spend == Spend::Site, |stored| {
+        let _ = update_with(shared, key, true, spend == Spend::Site, |stored| {
             // Checked again: a hand back may have come in meanwhile.
             if stored.job.state == JobState::Waiting {
                 stored.job.state = JobState::Accepted;

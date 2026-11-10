@@ -12,7 +12,7 @@ import type {
   StudioSettings,
   TripoPreset,
 } from '@/ipc/client';
-import type { SendDraft } from './providers';
+import type { JobRef, SendDraft } from './providers';
 import type { BatchDraft } from './batch';
 
 export interface Panel {
@@ -65,7 +65,7 @@ export interface ProvidersStore {
   /** The queue sheet is open. */
   queueOpen: boolean;
   sending: boolean;
-  /** Job ids being cancelled or handed back right now. */
+  /** The jobs being cancelled or handed back right now, each by its `jobKey`. */
   busy: string[];
   /** The service whose key is being saved, removed or tested. */
   keyBusy: ProviderId | null;
@@ -79,9 +79,9 @@ export interface ProvidersStore {
   send: () => Promise<void>;
   showHandoff: (job: ProviderJob) => void;
   setQueueOpen: (open: boolean) => void;
-  cancel: (id: string) => Promise<void>;
-  handBack: (id: string, file: string) => Promise<void>;
-  openHandoff: (id: string) => Promise<void>;
+  cancel: (job: JobRef) => Promise<void>;
+  handBack: (job: JobRef, file: string) => Promise<void>;
+  openHandoff: (job: JobRef) => Promise<void>;
   clearFinished: () => Promise<void>;
   loadKeys: () => Promise<void>;
   saveKey: (service: ProviderId, key: string) => Promise<boolean>;
@@ -123,14 +123,14 @@ export interface ProvidersStore {
   useDownload: (path: string) => Promise<void>;
   closeDownloads: () => void;
   /** Opens the file picker for a GLB or zip, then hands it back. */
-  addModel: (id: string) => Promise<void>;
+  addModel: (job: JobRef) => Promise<void>;
   /**
    * Opens the file picker for a model file someone fixed by hand and copies
    * it into the Inbox for `asset`, where Accept makes its next version.
    */
   addModelFile: (project: string, asset: string) => Promise<void>;
   openSite: (service: ProviderId) => Promise<void>;
-  revealImage: (id: string, image: string) => Promise<void>;
+  revealImage: (job: JobRef, image: string) => Promise<void>;
   /** Opens the send panel prefilled from the earlier send `job` of `asset`. */
   openRedo: (project: string, asset: string, job: string) => Promise<void>;
   /** Opens the batch panel with each asset prefilled from its earlier send. */

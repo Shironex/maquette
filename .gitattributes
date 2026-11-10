@@ -22,3 +22,6 @@ crates/maquette-core/src/thumbs/*.py text eol=lf
 
 # Recipe file fixtures are compared byte for byte.
 crates/maquette-model/src/recipes/fixtures/*.json text eol=lf
+
+# A workspace as Maquette 0.7.1 wrote it: its files are loaded as they are.
+crates/maquette-core/src/providers/tests/ids/older_workspace/** text eol=lf

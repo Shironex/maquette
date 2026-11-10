@@ -4,68 +4,25 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::Mutex;
 
 use super::ids::next_id;
 use super::landed;
+use super::owner::owner_of;
 use super::retexture::retexture_source;
 use super::{
-    Entry, InboxLink, JobState, Provider, ProviderJob, ProviderJobs, Stored, Workspace, persist,
-    send_notes, touch_asset, update,
+    Entry, InboxLink, JobKey, JobState, Provider, ProviderJob, ProviderJobs, Stored, Workspace,
+    persist, send_notes, touch_asset, update,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
 use crate::handback::{self, DownloadsScan};
-use crate::http::StopFlag;
 use crate::presets::PresetVariant;
 use maquette_base::history::now_ms;
 use maquette_model::assets::{Asset, AssetKind, AssetStatus};
 use maquette_model::project;
 use maquette_model::sends::SendLinked;
 use maquette_model::settings::game::{self, FolderBudget};
-
-/// Lower case with `_` and spaces read as `-`, for matching file names to
-/// job ids.
-fn normalize(name: &str) -> String {
-    name.trim()
-        .to_lowercase()
-        .chars()
-        .map(|c| if c == '_' || c == ' ' { '-' } else { c })
-        .collect()
-}
-
-/// The job id an inbox file name points at: the whole stem, or the
-/// longest job id it starts with, followed by `-`.
-pub(super) fn match_job<'a>(stem: &str, ids: impl Iterator<Item = &'a str>) -> Option<&'a str> {
-    let stem = normalize(stem);
-    ids.filter(|id| {
-        let id = normalize(id);
-        stem == id
-            || stem
-                .strip_prefix(&id)
-                .is_some_and(|rest| rest.starts_with('-'))
-    })
-    .max_by_key(|id| id.len())
-}
-
-/// The job a model file is for: its export name (`maq_<asset>_v<n>_<provider>`)
-/// first, else [`match_job`] on its stem.
-pub(super) fn job_for_file<'a>(file: &str, ids: impl Iterator<Item = &'a str>) -> Option<&'a str> {
-    let ids: Vec<&'a str> = ids.collect();
-    if let Some(named) = crate::naming::parse(file) {
-        let id = named.job_id();
-        if let Some(found) = ids.iter().copied().find(|i| *i == id) {
-            return Some(found);
-        }
-    }
-    match_job(&file_stem(file), ids.into_iter())
-}
-
-fn file_stem(file: &str) -> String {
-    Path::new(file)
-        .file_stem()
-        .map_or_else(|| file.to_string(), |s| s.to_string_lossy().into_owned())
-}
 
 impl ProviderJobs {
     /// Drops finished jobs of a project from the queue.
@@ -121,7 +78,8 @@ impl ProviderJobs {
             .map(|e| e.stored.clone())
             .collect();
         for source in &sources {
-            let id = next_id(&jobs, &dir, &copy.id);
+            // The copy is a send of its new project: numbered there.
+            let id = next_id(jobs.iter().map(|e| &e.stored.job), to, &dir, &copy.id);
             let mut job = source.job.clone();
             job.id = id;
             job.project = to.to_string();
@@ -137,15 +95,9 @@ impl ProviderJobs {
                         .map_or_else(|| image.clone(), |(_, new)| new.clone())
                 })
                 .collect();
-            jobs.push(Entry {
-                stored: Stored {
-                    job,
-                    chain: source.chain.clone(),
-                },
-                stop: Arc::new(StopFlag::default()),
-                thread: false,
-                cancelled: false,
-            });
+            let mut stored = Stored::new(job);
+            stored.chain.clone_from(&source.chain);
+            jobs.push(Entry::new(stored));
         }
         if !sources.is_empty() {
             persist(&self.shared, &saving, &jobs, to);
@@ -163,23 +115,12 @@ impl ProviderJobs {
         {
             let jobs = self.shared.jobs();
             for item in items.iter_mut() {
-                // The file a job saved first, then its name.
-                let saved = jobs
-                    .iter()
-                    .find(|e| e.stored.job.inbox_file.as_deref() == Some(item.inbox_name()))
-                    .map(|e| e.stored.job.id.as_str());
-                let Some(id) = saved.or_else(|| {
-                    job_for_file(
-                        item.inbox_name(),
-                        jobs.iter().map(|e| e.stored.job.id.as_str()),
-                    )
-                }) else {
+                // The job that saved the file, then its name: one job of one
+                // project, or no link.
+                let Some(job) = owner_of(item.inbox_name(), jobs.iter().map(|e| &e.stored.job))
+                else {
                     continue;
                 };
-                let Some(entry) = jobs.iter().find(|e| e.stored.job.id == id) else {
-                    continue;
-                };
-                let job = &entry.stored.job;
                 item.link_send(InboxLink {
                     job: job.id.clone(),
                     project: job.project.clone(),
@@ -205,7 +146,7 @@ impl ProviderJobs {
                     item.apply_send(kind, notes, &workspace.config, folder.as_ref());
                 }
                 if job.state == JobState::Waiting {
-                    arrived.push((job.id.clone(), item.inbox_name().to_string()));
+                    arrived.push((JobKey::of(job), item.inbox_name().to_string()));
                 }
             }
         }
@@ -214,8 +155,8 @@ impl ProviderJobs {
         }
     }
 
-    fn arrived(&self, id: &str, file: &str) -> CoreResult<()> {
-        if let Some(job) = self.get(id) {
+    fn arrived(&self, key: &JobKey, file: &str) -> CoreResult<()> {
+        if let Some(job) = self.get(&key.project, &key.id) {
             touch_asset(
                 &self.shared,
                 &job.project,
@@ -224,7 +165,7 @@ impl ProviderJobs {
                 AssetStatus::Review,
             );
         }
-        update(&self.shared, id, true, |stored| {
+        update(&self.shared, key, true, |stored| {
             stored.job.state = JobState::Inbox;
             stored.job.progress = 1.0;
             stored.job.finished_at_ms = Some(now_ms());
@@ -244,15 +185,14 @@ impl ProviderJobs {
 
     /// By hand: copies a GLB someone dropped on the asset's card (or the
     /// one GLB inside a zip) into the inbox under the job's name, so it goes
-    /// through the usual checks. The original file is left alone.
-    pub fn hand_back(&self, id: &str, file: &Path) -> CoreResult<ProviderJob> {
+    /// through the usual checks, for the job `id` of `project`. The
+    /// original file is left alone.
+    pub fn hand_back(&self, project: &str, id: &str, file: &Path) -> CoreResult<ProviderJob> {
         let workspace = self
             .shared
             .workspace()
             .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))?;
-        let job = self
-            .get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+        let job = self.job(project, id)?;
         // Read, never moved: the original stays where it was.
         let model = handback::read_model(file)?;
         let name = write_inbox(&workspace, &job.id, &model.bytes)?;
@@ -264,28 +204,16 @@ impl ProviderJobs {
                 AssetKind::Character,
             );
         }
-        self.arrived(&job.id, &name)?;
-        self.get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))
+        self.arrived(&JobKey::of(&job), &name)?;
+        self.job(project, id)
     }
 
     /// Marks the job behind an accepted inbox model as done, and closes
     /// every other By hand send of `asset` still waiting for its model:
     /// the asset has one now. Returns how many of those closed.
     pub fn accepted(&self, item: &str, project: &str, asset: &str, version: u32) -> usize {
-        let id = {
-            let jobs = self.shared.jobs();
-            let by_file = jobs
-                .iter()
-                .find(|e| e.stored.job.inbox_file.as_deref() == Some(item))
-                .map(|e| e.stored.job.id.clone());
-            by_file.or_else(|| {
-                job_for_file(item, jobs.iter().map(|e| e.stored.job.id.as_str()))
-                    .map(str::to_string)
-            })
-        };
-        if let Some(id) = id {
-            let _ = update(&self.shared, &id, true, |stored| {
+        if let Some(key) = self.owner(item) {
+            let _ = update(&self.shared, &key, true, |stored| {
                 stored.job.state = JobState::Accepted;
                 stored.job.version = Some(version);
                 stored.job.inbox_file = Some(item.to_string());
@@ -303,18 +231,9 @@ impl ProviderJobs {
     /// model is gone. Its ledger line was written when the model arrived, so
     /// nothing is spent or refunded by this. Returns the job's id.
     pub fn discarded(&self, item: &str) -> Option<String> {
-        let id = {
-            let jobs = self.shared.jobs();
-            jobs.iter()
-                .find(|e| e.stored.job.inbox_file.as_deref() == Some(item))
-                .map(|e| e.stored.job.id.clone())
-                .or_else(|| {
-                    job_for_file(item, jobs.iter().map(|e| e.stored.job.id.as_str()))
-                        .map(str::to_string)
-                })
-        }?;
+        let key = self.owner(item)?;
         let mut closed = false;
-        let _ = update(&self.shared, &id, true, |stored| {
+        let _ = update(&self.shared, &key, true, |stored| {
             if stored.job.state == JobState::Inbox {
                 stored.job.state = JobState::Cancelled;
                 stored.job.inbox_file = None;
@@ -324,7 +243,13 @@ impl ProviderJobs {
             }
             Ok(())
         });
-        closed.then_some(id)
+        closed.then_some(key.id)
+    }
+
+    /// The job the inbox file `item` belongs to, if it is one job's.
+    fn owner(&self, item: &str) -> Option<JobKey> {
+        let jobs = self.shared.jobs();
+        owner_of(item, jobs.iter().map(|e| &e.stored.job)).map(JobKey::of)
     }
 
     /// Brings a model someone picked an asset for (a download the watcher
@@ -350,7 +275,7 @@ impl ProviderJobs {
         waiting.sort_by(|a, b| b.created_at_ms.total_cmp(&a.created_at_ms));
         let (job, inbox_file) = match waiting.first() {
             Some(job) => {
-                let back = self.hand_back(&job.id, file)?;
+                let back = self.hand_back(&job.project, &job.id, file)?;
                 let item = back.inbox_file.ok_or_else(|| {
                     CoreError::Invalid(format!("{} did not reach the inbox.", job.id))
                 })?;
@@ -401,9 +326,19 @@ pub struct ModelAttached {
     pub asset_name: String,
 }
 
+/// One model into the inbox at a time: the name is chosen and the file
+/// written under this lock. Two projects' jobs of one id want the same
+/// name, and landing together each would find it free and one model would
+/// replace the other.
+static INBOX_WRITE: Mutex<()> = Mutex::new(());
+
+/// Writes a model into the inbox as `<id>.glb`, or `<id>-<n>.glb` when
+/// that name is taken, and answers the name it got. It never replaces a
+/// file that is there.
 pub(super) fn write_inbox(workspace: &Workspace, id: &str, bytes: &[u8]) -> CoreResult<String> {
     let dir = maquette_model::sends::inbox_dir(&workspace.root, &workspace.config);
     fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
+    let _one = INBOX_WRITE.lock().unwrap_or_else(|p| p.into_inner());
     let name = (1u32..)
         .map(|n| {
             if n == 1 {

@@ -8,6 +8,7 @@ import type {
 } from '../client';
 import { isTripoPSeries } from '@/state/provider-presets';
 import { STUDIO_RIG, studioDefaults } from '@/state/studio';
+import { exportName } from './export-name';
 import { webCost } from './pricing';
 
 const onOff = (on: boolean) => (on ? 'On' : 'Off');
@@ -97,12 +98,6 @@ function meshyRows(p: MeshyPreset): CardRow[] {
 }
 
 const VIEWS = ['front', 'left', 'back', 'right'];
-
-/** `maq_<asset>_v<n>_<provider>`, n from the job id `<asset>-<n>`. */
-export function exportName(job: Pick<ProviderJob, 'id' | 'asset' | 'service'>): string {
-  const n = job.id.startsWith(`${job.asset}-`) ? job.id.slice(job.asset.length + 1) : job.id;
-  return `maq_${job.asset}_v${n}_${job.service}`;
-}
 
 export function handoffCard(job: ProviderJob): HandoffCard {
   const tripo = job.service === 'tripo';

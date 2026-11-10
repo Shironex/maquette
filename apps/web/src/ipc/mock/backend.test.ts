@@ -269,27 +269,79 @@ describe('mock backend', () => {
     const job = (await handle('provider_send', { request })) as ProviderJob;
     expect(job.state).toBe('waiting');
     expect(job.card?.exportName).toBe(
-      `maq_guardian-statues_v${job.id.slice('guardian-statues-'.length)}_tripo`
+      `maq_frostveil_guardian-statues_v${job.id.slice('guardian-statues-'.length)}_tripo`
     );
     expect(job.card?.returnName).toBe(`${job.card?.exportName}.glb`);
     expect(job.card?.credits).toBe(30);
+    const mine = { project: job.project, id: job.id };
     await expect(
-      handle('provider_hand_back', { id: job.id, file: '/tmp/a.png' })
+      handle('provider_hand_back', { ...mine, file: '/tmp/a.png' })
     ).rejects.toMatchObject({
       code: 'invalid',
     });
+    // The id alone is no send: another project may have the same one.
+    await expect(
+      handle('provider_hand_back', { project: 'hollow-vale', id: job.id, file: '/tmp/a.glb' })
+    ).rejects.toMatchObject({ code: 'not-found' });
     const back = (await handle('provider_hand_back', {
-      id: job.id,
+      ...mine,
       file: '/tmp/a.glb',
     })) as ProviderJob;
     expect(back.state).toBe('inbox');
     await expect(
       handle('provider_send', { request: { ...request, provider: 'meshy', service: 'meshy' } })
     ).rejects.toMatchObject({ code: 'invalid' });
-    const tripo = (await handle('provider_cancel', { id: 'veil-gate-1' }).catch(e => e)) as {
+    const tripo = (await handle('provider_cancel', {
+      project: 'frostveil',
+      id: 'veil-gate-1',
+    }).catch(e => e)) as {
       message: string;
     };
     expect(tripo.message).toContain('Tripo cannot cancel');
+  });
+
+  it('numbers a send in its own project and reaches it only with that project', async () => {
+    const { handle } = backend('configured');
+    // Frostveil and Frost cathedral each have an asset `crystal-lantern`.
+    const send = (project: string) =>
+      handle('provider_send', {
+        request: {
+          project,
+          asset: 'crystal-lantern',
+          provider: 'by-hand',
+          service: 'tripo',
+          variant: 'prop',
+          images: ['refs/guardian_statues_front.png'],
+          tripo: null,
+          meshy: null,
+        },
+      }) as Promise<ProviderJob>;
+    const mine = await send('frostveil');
+    const theirs = await send('frost-cathedral');
+    expect([mine.id, theirs.id]).toEqual(['crystal-lantern-1', 'crystal-lantern-1']);
+    expect(mine.card?.exportName).toBe('maq_frostveil_crystal-lantern_v1_tripo');
+    expect(theirs.card?.exportName).toBe('maq_frost-cathedral_crystal-lantern_v1_tripo');
+    expect(mine.handoff).not.toBe(theirs.handoff);
+    expect((await send('frostveil')).id).toBe('crystal-lantern-2');
+
+    // Stop waiting in one project: the other project's send of that id stays.
+    const stopped = (await handle('provider_cancel', {
+      project: 'frost-cathedral',
+      id: 'crystal-lantern-1',
+    })) as ProviderJob;
+    expect(stopped.project).toBe('frost-cathedral');
+    const state = async (project: string) =>
+      ((await handle('provider_jobs', { project })) as ProviderJob[]).find(
+        j => j.id === 'crystal-lantern-1'
+      )?.state;
+    expect(await state('frost-cathedral')).toBe('cancelled');
+    expect(await state('frostveil')).toBe('waiting');
+    // The send panel of each project lists only its own sends of the asset.
+    const options = (await handle('provider_send_options', {
+      project: 'frost-cathedral',
+      asset: 'crystal-lantern',
+    })) as SendOptions;
+    expect(options.jobs.map(j => j.project)).toEqual(['frost-cathedral']);
   });
 
   it('lists three projects, switches between them and keeps the switch on a settings save', async () => {

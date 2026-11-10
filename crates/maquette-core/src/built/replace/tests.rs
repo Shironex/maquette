@@ -32,7 +32,7 @@ impl Sends for Stub {
         self.0.clone()
     }
 
-    fn stop(&self, _id: &str) -> CoreResult<()> {
+    fn stop(&self, _project: &str, _id: &str) -> CoreResult<()> {
         Ok(())
     }
 }

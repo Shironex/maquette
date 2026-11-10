@@ -101,8 +101,12 @@ fn a_batch_approval_covers_every_job_of_it() {
     let id = hub
         .request_batch(&[job("lamp-1", "Desk lamp"), job("cup-1", "Brush cup")])
         .expect("approval");
-    let pending = hub.pending_for_job("cup-1").expect("covered");
+    let pending = hub.pending_for_job("landing", "cup-1").expect("covered");
     assert_eq!(pending.id, id);
+    assert!(
+        hub.pending_for_job("studio", "cup-1").is_none(),
+        "another project's cup-1 is not waiting"
+    );
     assert_eq!(
         pending.jobs(),
         vec!["lamp-1".to_string(), "cup-1".to_string()]
@@ -112,7 +116,25 @@ fn a_batch_approval_covers_every_job_of_it() {
         Some("2 models in total, one model per asset")
     );
     assert!(hub.decide(&id, true));
-    assert!(hub.pending_for_job("lamp-1").is_none());
+    assert!(hub.pending_for_job("landing", "lamp-1").is_none());
+}
+
+#[test]
+fn a_pending_send_is_told_by_its_project_and_its_kind() {
+    let hub = Hub::new(|| {});
+    let mine = hub.request_send(&job("desk-lamp-1", "Desk lamp"));
+    let mut other = job("desk-lamp-1", "Desk lamp");
+    other.project = "studio".into();
+    let theirs = hub.request_send(&other);
+    assert_ne!(mine, theirs);
+    let found = |project: &str| hub.pending_for_job(project, "desk-lamp-1").map(|a| a.id);
+    assert_eq!(found("landing"), Some(mine.clone()));
+    assert_eq!(found("studio"), Some(theirs.clone()));
+    assert_eq!(found("moon"), None);
+    // Answering one leaves the other waiting.
+    assert!(hub.decide(&mine, false));
+    assert_eq!(found("landing"), None);
+    assert_eq!(found("studio"), Some(theirs));
 }
 
 /// Runs while a test log writes.
