@@ -7,6 +7,7 @@ mod agent_repo;
 mod animations;
 mod bake;
 mod built;
+mod built_helpers;
 mod built_replace;
 mod game;
 mod grips;
