@@ -221,6 +221,13 @@ async fn connect(session: Session, tools: Toolbox, views: Views) -> (Client, Run
     (client, server)
 }
 
+/// `base` and the folders of `path`, joined one by one, as the app builds
+/// its paths: a string compare then holds on Windows too.
+fn under(base: &Path, path: &str) -> PathBuf {
+    path.split('/')
+        .fold(base.to_path_buf(), |at, part| at.join(part))
+}
+
 fn close(value: &Value, want: [f64; 3]) -> bool {
     (0..3).all(|k| (value[k].as_f64().unwrap_or(f64::NAN) - want[k]).abs() < 2e-3)
 }
@@ -475,7 +482,7 @@ async fn an_agent_gets_a_rebuild_beside_its_ref_and_beside_what_it_replaces() {
         (set["version"].clone(), set["size"].clone()),
         (json!(2), json!(192))
     );
-    let folder = moon.join("exports/renders/book-stack/views/v2");
+    let folder = under(&moon, "exports/renders/book-stack/views/v2");
     assert_eq!(set["dir"], json!(folder));
     let views = set["views"].as_array().expect("views");
     let ids: Vec<&str> = views
@@ -540,7 +547,7 @@ async fn an_agent_gets_a_rebuild_beside_its_ref_and_beside_what_it_replaces() {
     )
     .await;
     assert_eq!(both["compare"], 1);
-    let pair = moon.join("exports/renders/book-stack/views/v2-vs-v1");
+    let pair = under(&moon, "exports/renders/book-stack/views/v2-vs-v1");
     let (new, old) = (
         both["views"].as_array().expect("views"),
         both["compared"]["views"].as_array().expect("compared"),
