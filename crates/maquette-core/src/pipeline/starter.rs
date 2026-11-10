@@ -3,6 +3,9 @@
 //! project's `tools/` once, when the template is first written, and never
 //! over a file that exists: after that they belong to the project.
 //!
+//! Every project also gets the two starters for built assets ([`built`]),
+//! which land in `built/`, where the scripts of built assets live.
+//!
 //! Each write is recorded in `tools/.starter.json` (the script's path and
 //! the hash of the text written), so a later Maquette can tell an untouched
 //! copy of an older starter from one the user edited. Scripts written before
@@ -189,6 +192,10 @@ fn load_record(project_dir: &Path) -> Record {
 
 fn save_record(project_dir: &Path, record: &Record) -> CoreResult<()> {
     let path = project_dir.join(RECORD_FILE);
+    // An imported project has no step starters, so no `tools/` yet.
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
+    }
     let text =
         serde_json::to_string_pretty(record).map_err(|e| CoreError::Invalid(e.to_string()))?;
     crate::fs::write_atomic(&path, format!("{text}\n").as_bytes())
@@ -279,7 +286,13 @@ pub fn scripts(template: ProjectTemplate) -> &'static [StarterScript] {
     }
 }
 
-/// Writes the template's scripts under `project_dir`, skipping any that
+/// Every starter of a project: the scripts its template's steps reference,
+/// then the two for built assets, which any project can hold.
+fn all_of(template: ProjectTemplate) -> impl Iterator<Item = &'static StarterScript> {
+    scripts(template).iter().chain(&built::ALL)
+}
+
+/// Writes the project's starters under `project_dir`, skipping any that
 /// exist, and returns the paths it wrote.
 ///
 /// # Errors
@@ -288,7 +301,7 @@ pub fn scripts(template: ProjectTemplate) -> &'static [StarterScript] {
 pub fn write(project_dir: &Path, template: ProjectTemplate) -> CoreResult<Vec<String>> {
     let mut written = Vec::new();
     let mut record = load_record(project_dir);
-    for script in scripts(template) {
+    for script in all_of(template) {
         let path = project_dir.join(script.path);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
@@ -334,12 +347,11 @@ fn state_of(project_dir: &Path, script: &StarterScript, record: &Record) -> Star
     }
 }
 
-/// How each of the template's starters in the project compares with the
-/// shipped ones. Empty for an imported project.
+/// How each of the project's starters compares with the shipped ones. An
+/// imported project only has the two for built assets.
 pub fn status(project_dir: &Path, template: ProjectTemplate) -> Vec<StarterStatus> {
     let record = load_record(project_dir);
-    scripts(template)
-        .iter()
+    all_of(template)
         .map(|script| StarterStatus {
             path: script.path.to_string(),
             state: state_of(project_dir, script, &record),
@@ -379,18 +391,17 @@ pub fn update(
     paths: &[String],
     replace_edited: bool,
 ) -> CoreResult<Vec<StarterStatus>> {
-    let known = scripts(template);
-    if let Some(unknown) = paths.iter().find(|p| !known.iter().any(|s| s.path == *p)) {
+    if let Some(unknown) = paths
+        .iter()
+        .find(|p| !all_of(template).any(|s| s.path == *p))
+    {
         return Err(CoreError::Invalid(format!(
             "{unknown} is not a starter script of this project's template."
         )));
     }
     let mut record = load_record(project_dir);
     let mut backups = BTreeMap::new();
-    for script in scripts(template)
-        .iter()
-        .filter(|s| paths.iter().any(|p| p == s.path))
-    {
+    for script in all_of(template).filter(|s| paths.iter().any(|p| p == s.path)) {
         let path = project_dir.join(script.path);
         match state_of(project_dir, script, &record) {
             StarterState::Current => continue,
@@ -436,7 +447,10 @@ pub fn update(
     Ok(after)
 }
 
+pub mod built;
 #[cfg(test)]
 mod export_tests;
 #[cfg(test)]
 mod tests;
+
+pub use built::{BUILT_EXAMPLE, BUILT_HELPERS};
