@@ -35,7 +35,7 @@ use crate::project::{latin_slug, windows_safe};
 use crate::recipes::{self, ID_MAX_CHARS, RECIPE_SUFFIX, RecipeFile, is_recipe_id, version_of};
 
 mod diff;
-mod link;
+pub(crate) mod link;
 mod remove;
 mod save;
 pub mod starters;
@@ -174,7 +174,7 @@ pub fn revision_file(n: u32) -> String {
 }
 
 /// Reads `file` whole when it is at most `cap` bytes.
-pub(super) fn read_capped(file: &Path, cap: u64) -> CoreResult<String> {
+pub(crate) fn read_capped(file: &Path, cap: u64) -> CoreResult<String> {
     let handle = match fs::File::open(file) {
         Ok(handle) => handle,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {

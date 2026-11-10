@@ -12,9 +12,9 @@ use super::{LibraryRecipeEntry, load_entry};
 use crate::error::{CoreError, CoreResult};
 use crate::recipes::RecipeFrom;
 
-/// A fresh uid for a library recipe made from `seed`: 16 hex digits of a
-/// hash of the seed, the clock, the process and a counter.
-pub(super) fn new_uid(seed: &str) -> String {
+/// A fresh uid for a library recipe or grip made from `seed`: 16 hex
+/// digits of a hash of the seed, the clock, the process and a counter.
+pub(crate) fn new_uid(seed: &str) -> String {
     use sha2::{Digest, Sha256};
     static MADE: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
