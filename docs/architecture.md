@@ -943,7 +943,8 @@ anything, and the app is the only caller: no MCP tool removes or restores a proj
 - **Restore.** It moves the folder back and is refused when a project with the same id exists
   again. The check and the move share a lock with `project::create`, so a new project cannot claim
   the folder in between. A repo path that comes back is marked as set by an agent, so its dev
-  command waits for a person again. There is no permanent delete, as the asset trash has none.
+  command waits for a person again, and so does an agent's Ship into it. There is no permanent
+  delete, as the asset trash has none.
 - **Agents.** A removed project is left out of `list_projects`, and a tool given its id fails with
   not-found, saying it was removed to the workspace trash and only a person can restore it.
 - **Edges.** The Tauri commands are in `commands/project_trash.rs`. The web state is
@@ -976,6 +977,14 @@ into `maquette.site.json`, keeping its other keys. `build_scene.py` stores each 
 in `maquette_moved` so `export_web.py` can undo it. A build only run marks the ship steps skipped
 in `graph::plan_run`. The desktop side is `commands/ship.rs` and `mcp/tools/ship.rs`; the web
 side is `state/use-ship-store.ts` and `features/pipeline/SiteShipView`.
+
+Ship approval: a website run a person starts never waits before Ship. A run an agent starts gets
+its gate from `commands/pipeline/run.rs::agent_run`, which `run_pipeline` calls. Its `ShipGate`
+(`mcp/gate.rs`) waits while `agents.rules.askBeforeShipping` is on (`ShipReason::Agent`) and,
+whatever that rule says, when an agent chose the repo the run ships into (`ShipReason::AgentRepo`):
+the run's own `repo`, or a project in `AppState.agent_set_repos`, the mark the Page view's Ask
+first keeps. `agent_run` reads the repo and its mark in one `Session::repo_turn`, so no save lands
+between the two.
 
 ## Baked light
 
