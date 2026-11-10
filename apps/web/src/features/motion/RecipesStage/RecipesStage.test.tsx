@@ -154,6 +154,7 @@ describe('the recipes stage', () => {
         warnings: [warning],
         problem: null,
         from: null,
+        grips: [],
       },
     ]);
     render(<RecipesStage />);

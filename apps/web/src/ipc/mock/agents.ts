@@ -6,10 +6,12 @@
  * `?agents=images` a round of two Lab images on OpenAI Images (the jobs
  * `?lab=approval` holds). `?agents=many` asks all of those at once, a page
  * preview too, for the folded cards. `?agents=recipe-save` (with
- * `?library=demo`) has an agent propose saving a recipe to the library.
+ * `?library=demo`) has an agent propose saving a recipe to the library, and
+ * `?agents=grip-save` a hand pose to the grip library.
  */
 import type { Approval, McpCall, McpStatus, RigRecord, WorkspaceConfig } from '../client';
 import { createRigHandlers } from './create-rig-handlers';
+import { createGripSaveAsks } from './grip-save-asks';
 import { createRecipeBakeAsks } from './recipe-bake-asks';
 import { createRecipeSaveAsks } from './recipe-save-asks';
 import { clock } from '@/lib/clock';
@@ -67,6 +69,7 @@ export const AGENT_SCENES = [
   'many',
   'recipe',
   'recipe-save',
+  'grip-save',
 ];
 
 export function createFakeAgents({
@@ -88,6 +91,7 @@ export function createFakeAgents({
    * start of a repo an agent set. `many`: a batch, a round and a preview together.
    * `recipe`: only an add of a recipe bake waits (with `?library=demo`).
    * `recipe-save`: only a save of a recipe to the library waits (with `?library=demo`).
+   * `grip-save`: only a save of a hand pose to the grip library waits (with `?library=demo`).
    */
   scene?: string | null;
   emit?: (status: McpStatus) => void;
@@ -104,6 +108,8 @@ export function createFakeAgents({
   const recipeBakes = createRecipeBakeAsks(() => changed(), scene === 'recipe');
   // Recipe saves an agent proposed; only the save to library sheet saves, Deny turns one down.
   const recipeSaves = createRecipeSaveAsks(() => changed(), scene === 'recipe-save');
+  // Grip saves an agent proposed; only the save a grip sheet saves, Deny turns one down.
+  const gripSaves = createGripSaveAsks(() => changed(), scene === 'grip-save');
   const many = scene === 'many';
   const batch = scene === 'batch' || many;
   const images = scene === 'images' || many;
@@ -206,8 +212,8 @@ export function createFakeAgents({
     ];
   }
 
-  // Only the recipe bake's add or the recipe save waits.
-  if (scene === 'recipe' || scene === 'recipe-save') approvals = [];
+  // Only the recipe bake's add, the recipe save or the grip save waits.
+  if (scene === 'recipe' || scene === 'recipe-save' || scene === 'grip-save') approvals = [];
 
   if (preview) {
     approvals = [
@@ -258,6 +264,7 @@ export function createFakeAgents({
         ...(rig?.approvals() ?? []),
         ...recipeBakes.approvals(),
         ...recipeSaves.approvals(),
+        ...gripSaves.approvals(),
       ],
     };
   };
@@ -274,7 +281,8 @@ export function createFakeAgents({
         games?.decide(game, Boolean(approve));
         return status();
       }
-      if (recipeBakes.deny(approvalId as string) || recipeSaves.deny(approvalId as string))
+      const asked = approvalId as string;
+      if (recipeBakes.deny(asked) || recipeSaves.deny(asked) || gripSaves.deny(asked))
         return status();
       const found = approvals.find(a => a.id === approvalId);
       if (!found) {

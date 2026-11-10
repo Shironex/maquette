@@ -49,6 +49,12 @@ export function approvalToast(approval: Approval, approve: boolean, game: boolea
         ? toast(true, `${recipe} was saved to the library`, 'The agent sees it in the library.')
         : toast(false, 'Not saved to the library', `The library did not change. ${TOLD}`);
     }
+    case 'grip-save': {
+      const grip = approval.assetName ?? 'The grip';
+      return approve
+        ? toast(true, `${grip} was saved to the library`, 'The agent sees it in the grip library.')
+        : toast(false, 'Not saved to the library', `The grip library did not change. ${TOLD}`);
+    }
     case 'recipe-bake':
       return approve
         ? toast(true, `${approval.assetName ?? 'The bake'} was added`, 'It is the next version.')
