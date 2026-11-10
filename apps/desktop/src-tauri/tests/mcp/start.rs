@@ -44,6 +44,15 @@ pub(super) fn session_in(
 }
 
 pub(super) async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) {
+    serve_with(session, Arc::new(Hub::new(|| {}))).await
+}
+
+/// As [`serve`], with a hub the test keeps, to read what waits for a person
+/// and to answer it as the app would.
+pub(super) async fn serve_with(
+    session: Session,
+    hub: Arc<Hub>,
+) -> (Client, Running, Arc<TestHost>) {
     maquette_core::providers::http::ensure_crypto();
     let secrets = Arc::new(MemoryStore::default());
     secrets.set(ProviderId::Tripo, SECRET).expect("key");
@@ -64,7 +73,7 @@ pub(super) async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) 
         0,
         token.clone(),
         host.clone() as Arc<dyn Host>,
-        Arc::new(Hub::new(|| {})),
+        hub,
     )
     .expect("start");
     let url = format!("http://127.0.0.1:{}/mcp", server.port());

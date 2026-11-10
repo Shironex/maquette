@@ -270,6 +270,10 @@ async fn the_recipe_tools_are_hidden_and_refused_while_the_animation_group_is_of
         "propose_recipe_save",
         "import_recipe",
         "export_recipe",
+        "list_grips",
+        "get_grip",
+        "apply_grip",
+        "propose_grip_save",
     ] {
         let refused = raw_call(
             &client,
@@ -393,10 +397,13 @@ async fn agents_join_clips_add_time_edits_and_keys_and_the_bake_takes_them() {
         json!({ "project": PROJECT, "recipe": id, "asset": "dummy" }),
     )
     .await;
-    // Refused only for the made up model, never as not bakeable yet.
+    // The recipe is taken: only this test's host, which runs no bakes, refuses.
     assert_eq!(bake.is_error, Some(true));
     let body: Value = serde_json::from_str(&text(&bake)).expect("json");
-    assert_ne!(body["code"], "not-bakeable-yet", "{body}");
+    assert_eq!(
+        body["error"], "Recipe bakes are not available in this session.",
+        "{body}"
+    );
 
     let plain = call(
         &client,

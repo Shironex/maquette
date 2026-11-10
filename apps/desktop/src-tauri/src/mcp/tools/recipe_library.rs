@@ -19,6 +19,8 @@ use super::recipes::{change_view, recipe_view};
 use super::{McpTools, Out, ToolError, WAITING, respond, to_value, workspace};
 use crate::commands::{recipe_library as commands, recipes};
 
+mod grips;
+
 /// Where a person saves a recipe an agent proposed.
 pub(super) const SAVE_IN_APP: &str = "The approval prompt in the Maquette app: Review opens the save to library sheet in the Motion view's Recipes tab, where the person reads what changes and saves. Also listed under Settings > Agents. No tool can approve.";
 

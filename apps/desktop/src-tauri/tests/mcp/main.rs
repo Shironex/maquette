@@ -8,6 +8,7 @@ mod animations;
 mod bake;
 mod built;
 mod game;
+mod grips;
 mod groups;
 mod handshake;
 mod inbox;

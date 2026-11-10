@@ -132,14 +132,16 @@ async fn an_agent_proposes_a_tour_and_only_the_person_applies() {
     let agent = "Camera agent";
     let moon_args = json!({ "project": "moon-island" });
 
-    // No tool applies a plan; the only one named for Apply reads.
+    // No tool applies a plan: of the two named for Apply one reads, and the
+    // other lays a library grip on an animation recipe.
     let tools = client.list_all_tools().await.expect("tools");
-    let apply_tools: Vec<_> = tools
+    let mut apply_tools: Vec<_> = tools
         .iter()
         .filter(|t| t.name.contains("apply"))
         .map(|t| t.name.to_string())
         .collect();
-    assert_eq!(apply_tools, vec!["get_apply_preview".to_string()]);
+    apply_tools.sort();
+    assert_eq!(apply_tools, ["apply_grip", "get_apply_preview"]);
 
     let read = call(&client, "get_camera_plan", moon_args.clone()).await;
     assert_eq!(read["canvas"], json!(CAMERA_PLAN_ID));
