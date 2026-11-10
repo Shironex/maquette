@@ -32,5 +32,6 @@ mod recipes;
 mod renders;
 mod rig;
 mod ship;
+mod ship_gate;
 mod start;
 mod trash;

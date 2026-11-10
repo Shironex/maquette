@@ -1,5 +1,6 @@
 //! "Ask before shipping": a run an agent starts stops before its Ship step
-//! until someone approves it in the app.
+//! until someone approves it in the app. A Ship into a repo an agent chose
+//! stops there whatever that rule says.
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -22,6 +23,9 @@ pub fn is_ship(step: &StepDef) -> bool {
 pub enum ShipReason {
     /// An agent started the run and "Ask before shipping" is on.
     Agent,
+    /// An agent started the run and chose the repo it ships into, so it asks
+    /// whatever "Ask before shipping" says.
+    AgentRepo,
     /// A game project: Ship writes into the game repo, so it always asks.
     Game,
 }
@@ -34,17 +38,6 @@ pub struct ShipGate {
     pub destination: Option<String>,
 }
 
-impl ShipGate {
-    /// The gate for a run an agent starts.
-    pub fn for_agent(hub: Arc<Hub>, destination: Option<String>) -> Self {
-        Self {
-            hub,
-            reason: ShipReason::Agent,
-            destination,
-        }
-    }
-}
-
 impl StepGate for ShipGate {
     fn applies(&self, step: &StepDef) -> bool {
         is_ship(step)
@@ -54,6 +47,10 @@ impl StepGate for ShipGate {
         match self.reason {
             ShipReason::Agent => format!(
                 "{} waits for approval in Maquette, because an agent started this run.",
+                step.name
+            ),
+            ShipReason::AgentRepo => format!(
+                "{} waits for approval in Maquette, because an agent chose the repo it writes into.",
                 step.name
             ),
             ShipReason::Game => format!(

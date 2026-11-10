@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
-use maquette_core::pipeline::runner::{JobRunner as _, RunOptions, StepGate};
+use maquette_core::pipeline::runner::{JobRunner as _, RunOptions};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
@@ -15,7 +15,7 @@ use crate::commands::pipeline;
 
 mod presets;
 use super::hints::{RunEnd, after_run};
-use crate::mcp::gate::{DENIED, ShipGate};
+use crate::mcp::gate::DENIED;
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 use presets::edited_presets;
@@ -54,8 +54,9 @@ pub struct RunPipelineArgs {
     #[serde(default)]
     pub build_only: bool,
     /// Ship into this repo for this run only, in place of the project's: an absolute path to
-    /// a git repo or worktree on this computer. Nothing is saved; set_game_settings repo
-    /// changes the project's own. Ship still waits for a person's approval.
+    /// a git repo or worktree on this computer. Nothing is saved; set_ship_settings siteRepo
+    /// or set_game_settings repo changes the project's own. A run with repo always waits for
+    /// a person's approval before Ship, whatever "Ask before shipping" says.
     pub repo: Option<String>,
     /// Seconds to wait for the run before answering, 20 by default and 120 at most.
     /// The run carries on either way; follow it with get_run.
@@ -245,20 +246,22 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run. A project with no site repo builds, skips Ship without asking and answers done with shipped false and shipReason."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run. Ship asks whatever that setting says in a game project, in a run with repo, and while the project's site repo is one an agent set (create_project, set_ship_settings) that no person has set since. A project with no site repo builds, skips Ship without asking and answers done with shipped false and shipReason."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
         let gate_hub = Arc::clone(&self.hub);
         let started = self
             .blocking(move |host, _| {
-                let (_, config) = workspace(host)?;
+                // Refused here, with its code, when no workspace is open.
+                workspace(host)?;
                 let tools = host.toolbox();
                 if args.from.is_none() {
                     super::built::rebuild_stale(host, &args.project, &tools)?;
                 }
-                let setup = pipeline::setup(
+                let (setup, gate) = pipeline::agent_run(
                     host.session(),
+                    &gate_hub,
                     &args.project,
                     pipeline::RunAsk {
                         from: args.from,
@@ -268,19 +271,6 @@ impl McpTools {
                     },
                     tools,
                 )?;
-                let to = pipeline::destination(&setup);
-                let gate =
-                    crate::commands::game::ship_gate(
-                        host.session(),
-                        &args.project,
-                        &gate_hub,
-                        to.clone(),
-                    )
-                    .or_else(|| {
-                        config.agents.rules.ask_before_shipping.then(|| {
-                            Arc::new(ShipGate::for_agent(gate_hub, to)) as Arc<dyn StepGate>
-                        })
-                    });
                 host.runner()
                     .submit_with(
                         setup,
