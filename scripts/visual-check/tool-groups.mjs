@@ -25,7 +25,7 @@ export async function toolGroupsShots({ open, shot }) {
     await shot(groups, `settings-tool-groups-list${size.name}`);
     // The switch's own label, as a person clicks it.
     await avatar.locator('xpath=..').click();
-    await groups.getByText('142 of 149 tools offered').waitFor();
+    await groups.getByText('144 of 151 tools offered').waitFor();
     if (await avatar.isChecked()) throw new Error('the avatar and rig switch stayed on');
     await shot(page, `settings-tool-groups-off${size.name}`);
     await page.context().close();

@@ -58,6 +58,7 @@ pub mod starters;
 pub mod style;
 pub mod timeline;
 pub mod trash;
+pub mod views;
 
 mod errors;
 mod instructions;
@@ -216,10 +217,7 @@ impl McpTools {
             "inbox",
             Self::inbox_router() + Self::inbox_triage_router(),
         ));
-        all.merge(tagged(
-            "prepare",
-            Self::materials_router() + Self::prepare_router() + Self::parts_router(),
-        ));
+        all.merge(tagged("prepare", Self::prepare_routers()));
         all.merge(tagged("built", Self::built_router()));
         all.merge(tagged(
             "pipeline",

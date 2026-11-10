@@ -45,6 +45,7 @@ get_inbox_checks
 get_layout
 get_library_recipe
 get_material_tweaks
+get_model_facts
 get_motion
 get_pack
 get_page_preview
@@ -105,6 +106,7 @@ remove_nodes
 rename_library_entry
 render_styles
 render_thumbnail
+render_views
 restore_asset
 restore_inbox_model
 restore_to_library

@@ -15,6 +15,7 @@ use maquette_core::renders::Renders;
 use maquette_core::rig::RigDoctors;
 use maquette_core::site::preview::SitePreview;
 use maquette_core::thumbs::Thumbnails;
+use maquette_core::views::Views;
 use maquette_core::{ProjectManifest, ToolReport};
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
@@ -28,6 +29,7 @@ use crate::commands::recipe_bakes::RecipeBakeJobs;
 use crate::commands::renders::RenderJobs;
 use crate::commands::rig::RigJobs;
 use crate::commands::thumbs::Thumbs;
+use crate::commands::views::ViewJobs;
 use crate::events::{
     AvatarChanged, BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged,
     PipelineChanged, PlanChanged, PrepareChanged, ProjectChanged, ProjectCreated,
@@ -75,6 +77,11 @@ pub trait Host: Send + Sync + 'static {
 
     /// The recipe bake service, where the app runs one.
     fn recipe_bakes(&self) -> Option<&RecipeBakes> {
+        None
+    }
+
+    /// The standard views service, where the app runs one.
+    fn views(&self) -> Option<&Views> {
         None
     }
 
@@ -173,6 +180,10 @@ impl Host for AppHost {
 
     fn recipe_bakes(&self) -> Option<&RecipeBakes> {
         self.0.try_state::<RecipeBakeJobs>().map(|r| &r.inner().0)
+    }
+
+    fn views(&self) -> Option<&Views> {
+        self.0.try_state::<ViewJobs>().map(|v| &v.inner().0)
     }
 
     fn site_preview(&self) -> Option<Arc<SitePreview>> {
