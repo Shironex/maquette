@@ -31,8 +31,11 @@ export default function RecipePlayer() {
         markers={p.markers}
         play={{ share: p.share, playing: p.playing, onTick: p.tick }}
         onChecks={p.setChecks}
-        pins={p.pins}
-        keys={p.keysOn ? { on: p.keysOn, gizmo } : null}
+        laid={{
+          keys: p.keysOn ? { on: p.keysOn, gizmo } : null,
+          pins: p.pins,
+          grips: p.grips,
+        }}
       />
       <PoseKeysBar />
       <RecipeLanes frame={p.frame} playing={p.playing} onToggle={p.toggle} onScrub={p.scrub} />

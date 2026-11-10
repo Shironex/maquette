@@ -1,2 +1,2 @@
 export { default } from './RecipeStage';
-export type { RecipeStageProps, StageGizmo, StageKeys } from './RecipeStage';
+export type { RecipeStageProps, StageGizmo, StageKeys, StageLaid } from './RecipeStage';

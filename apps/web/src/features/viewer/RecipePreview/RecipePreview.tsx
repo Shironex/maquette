@@ -5,7 +5,7 @@
  */
 import { Suspense } from 'react';
 import type { Timeline } from '@/state/recipe-timeline';
-import type { StageKeys } from '@/features/viewer/RecipeStage';
+import type { StageLaid } from '@/features/viewer/RecipeStage';
 import { StageLoader } from '@/features/common/ViewLoader';
 import { lazyAfterPaint } from '@/lib/after-paint';
 import { Icon, InlineBanner } from '@maquette/ui';
@@ -13,7 +13,6 @@ import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { fileUrl } from '@/ipc/files';
 import type { RecipeLayer } from '@/ipc/client';
 import type { ReachCheck } from '@/state/recipe-review';
-import type { StagePins } from '../recipe-pins';
 import type { RecipeMarker } from '../recipe-pose';
 import { useRoughMap } from '../RoughPreview/RoughPreview.hooks';
 import { useRecipePreview } from './RecipePreview.hooks';
@@ -52,10 +51,12 @@ export interface RecipePreviewProps {
    */
   play: { share: number; playing: boolean; onTick: (delta: number) => void };
   onChecks?: (checks: ReachCheck[]) => void;
-  /** The pins to hold last, on the bake's frames. */
-  pins?: StagePins | null;
-  /** Pose keys: the clips they stand on, and the turn gizmo while they are edited. */
-  keys?: StageKeys | null;
+  /**
+   * Laid with the changes on the bake's frames: pose keys (the clips they
+   * stand on, and the turn gizmo while they are edited), grips, and the
+   * pins held last.
+   */
+  laid?: StageLaid;
   /** The words on the picture; the rough preview's own without. */
   label?: string;
   /** The figure's accessible name. */
@@ -110,7 +111,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
               markers={props.markers}
               play={props.play}
               onChecks={props.onChecks}
-              laid={{ keys: props.keys, pins: props.pins }}
+              laid={props.laid}
               onError={setFailed}
             />
           </Suspense>

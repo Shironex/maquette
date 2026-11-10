@@ -297,6 +297,62 @@ describe('the live checks', () => {
     expect(Math.abs(withKeys[0]!.gap - without[0]!.gap)).toBeGreaterThan(0.01);
   });
 
+  it('lays a grip in place of the clip by how much of it shows on the bake frame', () => {
+    const { rig, lower, hand, reset } = arm();
+    const turnOf = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());
+    const rests = new Map<THREE.Object3D, THREE.Quaternion>([
+      [lower, turnOf(lower)],
+      [hand, turnOf(hand)],
+    ]);
+    const posed: RecipeRig = { ...rig, rest: bone => rests.get(bone)?.clone() };
+    const grip = {
+      ...layer({ kind: 'grip', bone: 'rightHand' }),
+      mode: 'replace',
+      pose: { rightLowerArm: [0, 40, 0], rightHand: [0, 0, 30], rightIndexProximal: [0, 0, 60] },
+    } as RecipeLayer;
+    const span = {
+      layer: 'l-1',
+      bone: 'rightHand',
+      first: 10,
+      last: 30,
+      easeIn: 4,
+      easeOut: 4,
+      weight: 1,
+      mode: 'replace' as const,
+    };
+    const degreesFromRest = (bone: THREE.Object3D, frame: number) => {
+      reset();
+      // The clip turns the forearm 25 degrees about another axis under the grip.
+      lower.quaternion.setFromAxisAngle(v(1, 0, 0), THREE.MathUtils.degToRad(25));
+      lower.updateWorldMatrix(false, true);
+      poseRecipe(posed, [grip], new Map(), 0.5, null, { spans: [span], frame });
+      return THREE.MathUtils.radToDeg(bone.quaternion.angleTo(new THREE.Quaternion()));
+    };
+    // Outside its frames the clip shows; held whole, each bone is its own turn from its rest.
+    expect(degreesFromRest(lower, 9)).toBeCloseTo(25, 3);
+    expect(degreesFromRest(lower, 20)).toBeCloseTo(40, 3);
+    expect(degreesFromRest(hand, 20)).toBeCloseTo(30, 3);
+    // Easing in it is part of the way from the clip to the grip.
+    const easing = degreesFromRest(hand, 12);
+    expect(easing).toBeGreaterThan(1);
+    expect(easing).toBeLessThan(29);
+    expect(degreesFromRest(hand, 31)).toBeCloseTo(0, 3);
+    // A grip that adds lays its turn on top of the clip's, and without the
+    // frames it stands on a grip is left out.
+    const added = { ...span, mode: 'add' as const };
+    reset();
+    lower.quaternion.setFromAxisAngle(v(0, 1, 0), THREE.MathUtils.degToRad(25));
+    lower.updateWorldMatrix(false, true);
+    poseRecipe(posed, [grip], new Map(), 0.5, null, { spans: [added], frame: 20 });
+    expect(THREE.MathUtils.radToDeg(lower.quaternion.angleTo(new THREE.Quaternion()))).toBeCloseTo(
+      65,
+      3
+    );
+    reset();
+    poseRecipe(posed, [grip], new Map(), 0.5);
+    expect(hand.quaternion.angleTo(new THREE.Quaternion())).toBeCloseTo(0, 6);
+  });
+
   it('skips a reach whose blank is open', () => {
     const { rig, reset } = arm();
     const reach = layer({ kind: 'reach', bone: 'rightHand' }, { target: 'open' });

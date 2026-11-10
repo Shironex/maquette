@@ -20,6 +20,7 @@ import {
   targetsOf,
   type RecipeMarker,
   type RecipeRig,
+  type StageGrips,
 } from '../recipe-pose';
 import { joinComposer } from '../recipe-join';
 import { roughRetarget, type RoughPair } from '../rough-retarget';
@@ -264,10 +265,10 @@ export function useTargets(
 const POSE_FIRST = -1;
 
 /**
- * Poses the clip at `share` each frame with the changes laid over it and
- * the pins held last, moving the playhead while it plays, and measures each
- * reach's end, takes each pin's spot and checks it again whenever the
- * changes or targets change.
+ * Poses the clip at `share` each frame with the changes laid over it (the
+ * grips of `grips` on the bake's frames) and the pins held last, moving the
+ * playhead while it plays, and measures each reach's end, takes each pin's
+ * spot and checks it again whenever the changes or targets change.
  */
 export function useRecipeFrame(
   setup: RecipeSetup | null,
@@ -275,27 +276,34 @@ export function useRecipeFrame(
   targets: ReadonlyMap<string, THREE.Vector3>,
   play: { share: number; playing: boolean; onTick: (delta: number) => void },
   onChecks?: (checks: ReachCheck[]) => void,
-  pins: StagePins | null = null,
-  keysOn: Playable | null = null
+  laid: { pins?: StagePins | null; keysOn?: Playable | null; grips?: StageGrips | null } = {}
 ) {
+  const pins = laid.pins ?? null;
+  const keysOn = laid.keysOn ?? null;
+  const grips = laid.grips ?? null;
   const report = useEffectEvent((checks: ReachCheck[]) => onChecks?.(checks));
   const spots = useRef<ReadonlyMap<string, PinSpot>>(new Map());
   const reportPins = useEffectEvent((checks: PinCheck[]) => pins?.onChecks?.(checks));
   useEffect(() => {
     if (!setup) return;
-    report(checkReaches(setup.frameAt, setup.rig, layers, targets, keysOn));
+    const held = grips?.spans ?? [];
+    const gripsAt = grips
+      ? (share: number) => ({ spans: grips.spans, frame: grips.frameOf(share) })
+      : undefined;
+    report(checkReaches(setup.frameAt, setup.rig, layers, targets, keysOn, gripsAt));
     const spans = pins?.spans ?? [];
     const poseAt = poseAtOf(setup, pins?.frames ?? 0);
-    spots.current = pinSpots(poseAt, setup.rig, layers, targets, spans, keysOn);
-    reportPins(checkPins(poseAt, setup.rig, layers, targets, spans, spots.current, keysOn));
-  }, [setup, layers, targets, pins, keysOn]);
+    spots.current = pinSpots(poseAt, setup.rig, layers, targets, spans, keysOn, held);
+    reportPins(checkPins(poseAt, setup.rig, layers, targets, spans, spots.current, keysOn, held));
+  }, [setup, layers, targets, pins, keysOn, grips]);
   useFrame((_, delta) => {
     if (!setup) return;
     if (play.playing) play.onTick(delta);
     let share = play.share;
     if (setup.playAt) share = setup.playAt(play.share);
     else setup.frameAt(play.share);
-    poseRecipe(setup.rig, layers, targets, share, keysOn);
+    const gripsNow = grips ? { spans: grips.spans, frame: play.share * grips.frames } : null;
+    poseRecipe(setup.rig, layers, targets, share, keysOn, gripsNow);
     if (pins?.spans.length)
       holdPins(setup.rig, pins.spans, spots.current, play.share * pins.frames);
   }, POSE_FIRST);

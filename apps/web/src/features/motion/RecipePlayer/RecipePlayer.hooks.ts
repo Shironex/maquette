@@ -11,6 +11,7 @@ import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { usePoseKeysStore } from '@/state/use-pose-keys-store';
 import { clipFps, clipsOf } from '@/state/recipe-timeline';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
+import { usePreviewGrips } from './use-preview-grips';
 import { usePreviewPins } from './use-preview-pins';
 
 /** The library clip a recipe's clip names: the same name and frames, the same keys first. */
@@ -110,5 +111,6 @@ export function useRecipePlayer() {
     checks,
     setChecks,
     pins: usePreviewPins(dt, editing?.draft.layers),
+    grips: usePreviewGrips(dt, editing?.draft.layers),
   };
 }

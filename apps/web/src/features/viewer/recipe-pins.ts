@@ -11,6 +11,7 @@
  */
 import * as THREE from 'three';
 import type { RecipeLayer } from '@/ipc/client';
+import type { GripSpan } from '@/state/recipe-grips';
 import { pinAmount, type PinCheck, type PinSpan } from '@/state/recipe-pins';
 import type { Playable } from '@/state/recipe-timeline';
 import {
@@ -70,7 +71,7 @@ export function holdPins(
 
 /**
  * Where each pin stays: at its first frame, with every change (pose keys
- * on `keysOn`) and the pins before it laid over, the bone where it is then (or its blank's target)
+ * on `keysOn`, the grips of `grips`) and the pins before it laid over, the bone where it is then (or its blank's target)
  * and its turn. The caller poses the frame on show again afterwards.
  */
 export function pinSpots(
@@ -79,14 +80,15 @@ export function pinSpots(
   layers: readonly RecipeLayer[],
   targets: ReadonlyMap<string, THREE.Vector3>,
   spans: readonly PinSpan[],
-  keysOn: Playable | null = null
+  keysOn: Playable | null = null,
+  grips: readonly GripSpan[] = []
 ): Map<string, PinSpot> {
   const spots = new Map<string, PinSpot>();
   spans.forEach((pin, i) => {
     const bone = rig.bone(pin.bone);
     if (!bone) return;
     const share = poseAt(pin.first);
-    poseRecipe(rig, layers, targets, share, keysOn);
+    poseRecipe(rig, layers, targets, share, keysOn, { spans: grips, frame: pin.first });
     holdPins(rig, spans.slice(0, i), spots, pin.first);
     const target = pin.target ? targets.get(pin.target) : undefined;
     if (pin.target && !target) return;
@@ -113,7 +115,8 @@ export function checkPins(
   targets: ReadonlyMap<string, THREE.Vector3>,
   spans: readonly PinSpan[],
   spots: ReadonlyMap<string, PinSpot>,
-  keysOn: Playable | null = null
+  keysOn: Playable | null = null,
+  grips: readonly GripSpan[] = []
 ): PinCheck[] {
   const out: PinCheck[] = [];
   const hips = rig.bone('hips');
@@ -131,7 +134,7 @@ export function checkPins(
     let travel = 0;
     let outFrame: number | null = null;
     for (let f = pin.first; f <= pin.last; f += step) {
-      poseRecipe(rig, layers, targets, poseAt(f), keysOn);
+      poseRecipe(rig, layers, targets, poseAt(f), keysOn, { spans: grips, frame: f });
       if (hips) {
         const at = worldPosition(hips);
         start ??= at.clone();
