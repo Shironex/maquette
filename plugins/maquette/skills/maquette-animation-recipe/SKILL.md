@@ -87,8 +87,9 @@ in the app: agents may propose a tour, never apply one.
      `end`: where the bone is at its first frame, or on a blank in `target` (give a hand one).
      `easeIn` and `easeOut` are whole frames (3 unless set). A foot's `flat` is `toe-and-heel`
      (default), `heel` or `off`. Pins are solved last, after every other change.
-   - Pose keys: `set_recipe_keys` `{ project, recipe, expected, layer?, mode?, weight?, set?,
-     move?, remove? }` edits one pose key change by bone and frame (a new one without `layer`).
+   - Pose keys: `set_recipe_keys`
+     `{ project, recipe, expected, layer?, mode?, weight?, set?, move?, remove? }` edits one pose
+     key change by bone and frame (a new one without `layer`).
      A key sits on a clip's own frame (`clip`, `frame`); turns are degrees [x, y, z] about the
      model's own axes, added to the clip (`add`) or from the rest pose (`replace`), eased in by the
      later key (`smooth`, `in`, `out`, `linear`, `step`). `get_recipe_pose` `{ frame }` reads the
