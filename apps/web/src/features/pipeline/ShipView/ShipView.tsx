@@ -1,4 +1,5 @@
 import { Button, EmptyState, Icon, cn } from '@maquette/ui';
+import { SwapNotes } from '@/features/common/SwapNotes';
 import { ViewLoader } from '@/features/common/ViewLoader';
 import type { ShipFile } from '@/ipc/client';
 import { commitFirstLine, originalsLine, shipCounts } from '@/state/game';
@@ -128,6 +129,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
             Back to the runner
           </Button>
         </div>
+        <SwapNotes project={project} refresh={approval?.runId ?? null} />
         {!plan.exported ? (
           <EmptyState
             icon="rocket-launch"

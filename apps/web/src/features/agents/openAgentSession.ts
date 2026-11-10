@@ -6,7 +6,9 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 
 export async function openAgentSession(
-  agents: 'active' | 'batch' | 'images' | 'preview' | 'many' | null = 'batch'
+  agents: 'active' | 'batch' | 'images' | 'preview' | 'many' | null = 'batch',
+  /** `swapped`: a built asset took Crystal lantern's place and no Ship wrote it yet. */
+  built: string | null = null
 ) {
   const handle = createBackend({
     scenario: 'configured',
@@ -14,6 +16,7 @@ export async function openAgentSession(
     pace: 0,
     conceptMs: 60_000,
     agents,
+    built,
   });
   const calls: string[] = [];
   mockIPC((cmd, args) => {

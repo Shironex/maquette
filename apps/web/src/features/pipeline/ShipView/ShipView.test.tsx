@@ -31,6 +31,33 @@ describe('ShipView', () => {
     expect(screen.getByText(/Ship never commits/)).toBeInTheDocument();
   });
 
+  it('names the models a built asset replaced since the last Ship', async () => {
+    vi.spyOn(commands, 'builtSwaps').mockResolvedValue([
+      {
+        asset: 'brazier',
+        name: 'Brazier',
+        script: 'built/brazier.py',
+        at: '2026-11-10T09:30:00.000Z',
+        oldFile: 'props/brazier.glb',
+        newFile: 'props/brazier.glb',
+        oldVersion: 1,
+        newVersion: 2,
+        oldTriangles: 41_000,
+        newTriangles: 1_840,
+        oldBytes: 1_900_000,
+        newBytes: 96_000,
+      },
+    ]);
+    render(<ShipView project="crypt-game" onClose={vi.fn()} />);
+    const swaps = await screen.findByRole('region', {
+      name: 'Built models that replace another model in this Ship',
+    });
+    expect(swaps).toHaveTextContent(
+      'Brazier is a built model now: props/brazier.glb · 1.8k triangles, was 41k · 96 KB, was 1.9 MB'
+    );
+    vi.restoreAllMocks();
+  });
+
   it('says which replaced files are the imported originals and to commit first', async () => {
     render(<ShipView project="crypt-game" onClose={vi.fn()} />);
     await screen.findByRole('heading', { level: 1, name: 'Ship to Crypt game' });

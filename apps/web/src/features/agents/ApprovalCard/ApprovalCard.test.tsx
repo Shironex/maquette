@@ -152,6 +152,19 @@ describe('an approval card', () => {
     expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
   });
 
+  it('shows the model a built asset replaced since the last Ship', async () => {
+    await openAgentSession('active', 'swapped');
+    render(<ApprovalCard approval={approval('approval-1')} />);
+    const card = screen.getByRole('alertdialog');
+    expect(
+      await within(card).findByText(
+        'Crystal lantern is a built model now: crystal_lantern_v3.glb takes the place of ' +
+          'crystal_lantern_v2.glb · 1.8k triangles, was 12.9k · 96 KB, was 400 KB'
+      )
+    ).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
+  });
+
   it('says a game ship replaces the imported originals and to commit first', async () => {
     await openMockGame('crypt');
     await useAgentsStore.getState().load();

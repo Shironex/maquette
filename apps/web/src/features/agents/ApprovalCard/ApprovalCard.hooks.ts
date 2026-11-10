@@ -3,6 +3,7 @@ import { commands, errorMessage, type Approval, type DecidedBy } from '@/ipc/cli
 import { settleOpen } from '@/state/agents';
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
+import { swapLines } from '@/state/built-replace';
 import { commitFirstLine, originalsLine, shipGroups } from '@/state/game';
 import { formatCredits } from '@/state/credits';
 import { formatUsd } from '@/state/image-api';
@@ -18,7 +19,7 @@ import { useRigStore } from '@/state/use-rig-store';
  * For a game's Ship: which replaced files are the game's imported originals,
  * and whether the game repo has changes to commit first. Empty otherwise.
  */
-function useShipNotes(approval: Approval, game: boolean): string[] {
+function useGameNotes(approval: Approval, game: boolean): string[] {
   const [notes, setNotes] = useState<string[]>([]);
   const { project, runId } = approval;
   useEffect(() => {
@@ -36,6 +37,27 @@ function useShipNotes(approval: Approval, game: boolean): string[] {
     };
   }, [game, project, runId]);
   return game ? notes : [];
+}
+
+/**
+ * For any Ship: the models a built asset replaced since the last one, so
+ * whoever approves sees the swap (the files, triangles and bytes of both).
+ */
+function useSwapNotes(approval: Approval): string[] {
+  const [notes, setNotes] = useState<string[]>([]);
+  const { project, runId } = approval;
+  const ship = approval.kind === 'ship';
+  useEffect(() => {
+    if (!ship) return;
+    let live = true;
+    void swapLines(project).then(lines => {
+      if (live) setNotes(lines);
+    });
+    return () => {
+      live = false;
+    };
+  }, [ship, project, runId]);
+  return ship ? notes : [];
 }
 
 /** How long Approve stays unarmed after its place on screen changed. */
@@ -158,7 +180,9 @@ export function useApprovalCard(approval: Approval) {
       : estimate === null || estimate === undefined
         ? `${approval.service} credits`
         : `about ${formatCredits(estimate)} ${approval.service} credits`;
-  const notes = useShipNotes(approval, approval.kind === 'ship' && site?.target === 'game');
+  const game = useGameNotes(approval, approval.kind === 'ship' && site?.target === 'game');
+  const swaps = useSwapNotes(approval);
+  const notes = [...swaps, ...game];
   return { decide, deciding, site, now, cost, notes, pose: useRestPose(approval) };
 }
 

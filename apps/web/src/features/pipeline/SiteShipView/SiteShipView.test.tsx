@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useShipStore } from '@/state/use-ship-store';
-import { clearMocks, openMockShip } from '@/test/mock-ipc';
+import { clearMocks, openMockShip, openMockWorkspace } from '@/test/mock-ipc';
 import { SiteShipView } from '.';
 import { changeWords } from './SiteShipView.hooks';
 
@@ -31,6 +31,19 @@ describe('the website Ship view', () => {
       within(row('observatory_arch.glb')).getByText('Held: the site file was not made by Maquette')
     ).toBeInTheDocument();
     expect(within(row('snow_drift.glb')).getByText('Left alone')).toBeInTheDocument();
+  });
+
+  it('names the models a built asset replaced since the last Ship', async () => {
+    clearMocks();
+    await openMockWorkspace('configured', undefined, undefined, undefined, undefined, 'swapped');
+    await act(() => usePipelineStore.getState().load('frostveil'));
+    render(<SiteShipView project="frostveil" onClose={vi.fn()} />);
+    const swaps = await screen.findByRole('region', {
+      name: 'Built models that replace another model in this Ship',
+    });
+    expect(swaps).toHaveTextContent(
+      'Crystal lantern is a built model now: crystal_lantern_v3.glb takes the place of crystal_lantern_v2.glb'
+    );
   });
 
   it('ships a hand made file once the person picks Always', async () => {

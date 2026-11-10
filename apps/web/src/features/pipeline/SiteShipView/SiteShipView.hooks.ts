@@ -44,6 +44,8 @@ export function useSiteShipView(project: string, focus: 'report' | null = null) 
   const repo = ours?.plan.target.repo ? homePath(ours.plan.target.repo, home) : null;
   return {
     view: ours,
+    /** Changes when a run starts or ends, so what waits to ship is read again. */
+    runKey,
     reportRef,
     loading,
     saving,
