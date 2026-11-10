@@ -197,6 +197,9 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
         "message": job.message,
         "inboxFile": job.inbox_file,
         "handoff": job.handoff,
+        // By hand: the file name the send waits for, which carries its
+        // project. Null for a Tripo or Meshy send.
+        "exportName": job.export_name(),
         "version": job.version,
         "cancel": to_value(job.cancel),
     });
@@ -298,7 +301,6 @@ impl McpTools {
             // The export name carries the project; the job id alone can be
             // a send of another project too.
             let name = job.export_name().unwrap_or_else(|| job.id.clone());
-            out["exportName"] = json!(name);
             out["note"] = json!(format!(
                 "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder and exports it as {name}; Maquette picks that file up from Downloads. Or they drop the GLB on the asset's card in Maquette, or save it into the inbox as {name}.glb.",
                 job.service.label()

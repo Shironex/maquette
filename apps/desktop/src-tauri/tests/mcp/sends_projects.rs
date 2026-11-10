@@ -264,6 +264,11 @@ async fn a_job_id_reaches_the_send_of_the_project_it_is_given() {
             "the id alone names two sends: {note}"
         );
     }
+    // Reading the send again answers with the same name, and a paid send has none.
+    let read = call(&client, "get_provider_job", job(LIGHTHOUSE, "lantern-2")).await;
+    assert_eq!(read["exportName"], theirs["exportName"], "{read}");
+    let paid = call(&client, "get_provider_job", job(LIGHTHOUSE, "lantern-1")).await;
+    assert_eq!(paid["exportName"], Value::Null, "{paid}");
     let handoffs = call(&client, "list_handoffs", json!({})).await;
     let mut pending: Vec<(String, String, String)> = handoffs["pending"]
         .as_array()
