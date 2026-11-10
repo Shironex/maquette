@@ -3,7 +3,8 @@
 //!
 //! A file another asset still uses stays: a ref it was sent with or shows
 //! as its picture, a model file its version names, a built helper its
-//! script imports.
+//! script imports. So do the helper file and the example Maquette ships
+//! into `built/`: they are the project's.
 
 use std::fs;
 use std::io;
@@ -12,7 +13,7 @@ use std::path::{Component, Path};
 use super::Sent;
 use crate::assets::copy::{is_ref_of, key, refs_of, thumb_of};
 use crate::assets::{Asset, HANDOFF_DIR};
-use crate::built::BuiltFile;
+use crate::built::{BuiltFile, EXAMPLE_FILE, HELPERS_FILE};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::move_tree;
 use crate::project::ProjectManifest;
@@ -128,10 +129,13 @@ pub(super) fn of_asset(
                 .filter(|(id, _)| *id != &asset.id)
                 .any(|(_, s)| s.script == file || s.helpers.iter().any(|h| h == file))
         };
+        // A starter Maquette wrote would come back with the next update,
+        // and a restore refuses a file that is in the project again.
+        let shipped = |file: &str| file == HELPERS_FILE || file == EXAMPLE_FILE;
         paths.extend(
             std::iter::once(&source.script)
                 .chain(&source.helpers)
-                .filter(|f| !used_elsewhere(f))
+                .filter(|f| !used_elsewhere(f) && !shipped(f))
                 .cloned(),
         );
     }

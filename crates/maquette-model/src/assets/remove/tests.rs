@@ -316,6 +316,42 @@ fn a_removed_asset_goes_to_the_trash_with_its_files_and_links() {
 }
 
 #[test]
+fn the_helpers_maquette_ships_stay_when_an_asset_that_lists_them_goes() {
+    let w = world();
+    write(&w.project, built::HELPERS_FILE, "def box(): pass");
+    write(&w.project, built::EXAMPLE_FILE, "import maquette_helpers");
+    write(&w.project, "built/own.py", "OWN = 1");
+    // The bowl is the example itself, with the shipped helpers and one of its own.
+    built::update(&w.project, |file| {
+        let source = file.assets.get_mut("clay-bowl").expect("bowl");
+        source.script = built::EXAMPLE_FILE.into();
+        source.helpers = vec![built::HELPERS_FILE.into(), "built/own.py".into()];
+        Ok(())
+    })
+    .expect("built");
+
+    let done = w.remove(&["clay-bowl"], &sends()).expect("remove");
+    let id = done.outcomes[0].trash.clone().expect("trash id");
+    for stays in [built::HELPERS_FILE, built::EXAMPLE_FILE] {
+        assert!(w.project.join(stays).exists(), "{stays} is the project's");
+        assert!(!w.trash(&id).join("files").join(stays).exists());
+    }
+    assert!(
+        !w.project.join("built/own.py").exists(),
+        "its own helper goes with it"
+    );
+    assert!(w.trash(&id).join("files/built/own.py").exists());
+
+    // Nothing of the asset's is in the project again, so the restore is not refused.
+    let back = restore(&w.root, &w.layout, "moon-island", &id, &Busy::default()).expect("restore");
+    assert!(back.warnings.is_empty(), "{:?}", back.warnings);
+    assert!(w.project.join("built/own.py").exists());
+    let source = built::load(&w.project).expect("built").assets["clay-bowl"].clone();
+    assert_eq!(source.script, built::EXAMPLE_FILE);
+    assert_eq!(source.helpers, [built::HELPERS_FILE, "built/own.py"]);
+}
+
+#[test]
 fn restore_puts_the_asset_its_files_and_links_back() {
     let w = world();
     let done = w.remove(&["clay-bowl"], &sends()).expect("remove");
