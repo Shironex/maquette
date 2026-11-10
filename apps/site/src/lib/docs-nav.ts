@@ -48,7 +48,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
   },
   {
     label: 'Guides',
-    slugs: ['docs/guides/animation-recipes'],
+    slugs: ['docs/guides/animation-recipes', 'docs/guides/built-assets'],
   },
   {
     label: 'Pipeline steps',

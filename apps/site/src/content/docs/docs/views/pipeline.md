@@ -33,6 +33,8 @@ A new project gets small, commented scripts in `tools/`, so it runs end to end o
 
 The light Build scene sets up and Bake light bakes in is also the light a built asset is previewed in. [The page light](/docs/pipeline/page-light/) has its numbers and a swatch sheet rendered with it.
 
+Two starters land in `built/`, in every project: `maquette_helpers.py`, the helpers a built asset's script imports, and `maquette_example.py`, a script that uses each one. A project made before them shows both as new on the banner, and Update adds them. Updating the helper file later shows the built assets that list it as Script changed, so they build again. See [Built assets](/docs/guides/built-assets/#helpers).
+
 ## Game projects
 
 A [game project](/docs/start/game-projects/) runs Build models, Bake light (off by default), Export, Game export and Ship. The Game export panel takes the place of the compression presets, and when Ship waits the view opens the Ship diff with Approve and ship and Deny.
