@@ -8,8 +8,9 @@
 use serde_json::{Value, json};
 
 use super::grips::{
-    GRIP_VERSION, GripFile, GripHands, GripHolds, GripSide, amount, grip_of, hands_words,
-    keyed_pose, layer_of, mirror_pose, pose_for, spans, weapon_group,
+    GRIP_EASE_FRAMES, GRIP_VERSION, GripFile, GripHands, GripHolds, GripSide, WEAPON_GROUPS,
+    WEAPONS, amount, grip_of, hands_words, keyed_pose, layer_of, mirror_pose, pose_for, spans,
+    weapon_group,
 };
 use super::tests_v2::{clip, key, pose_layer, slash};
 use super::timeline::timeline;
@@ -281,6 +282,9 @@ fn grips_match_the_fixture_the_web_app_reads_too() {
         .collect();
     let on_timelines: Vec<Value> = span_cases().iter().map(span_case).collect();
     let want = json!({
+        "weapons": WEAPONS,
+        "groups": WEAPON_GROUPS,
+        "easeFrames": GRIP_EASE_FRAMES,
         "grips": files,
         "spans": on_timelines,
         "keyed": keyed_cases(),

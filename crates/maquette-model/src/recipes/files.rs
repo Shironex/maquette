@@ -59,8 +59,6 @@ pub struct RecipeSummary {
     pub format: u32,
     /// Each grip change that came from a library grip, so a list can say
     /// when the library has a newer revision without reading every recipe.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    #[specta(optional)]
     pub grips: Vec<RecipeGripUse>,
 }
 

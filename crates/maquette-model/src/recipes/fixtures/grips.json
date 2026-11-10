@@ -1,4 +1,5 @@
 {
+  "easeFrames": 4,
   "grips": [
     {
       "applies": [
@@ -273,7 +274,8 @@
       ],
       "grip": {
         "hands": {
-          "holds": "right"
+          "holds": "right",
+          "supports": null
         },
         "name": "Dagger, reverse",
         "pose": {
@@ -386,7 +388,8 @@
       ],
       "grip": {
         "hands": {
-          "holds": "left"
+          "holds": "left",
+          "supports": null
         },
         "name": "Empty hand, relaxed",
         "pose": {
@@ -420,6 +423,32 @@
       },
       "words": "either hand"
     }
+  ],
+  "groups": [
+    [
+      "swords",
+      "Swords"
+    ],
+    [
+      "polearms",
+      "Polearms"
+    ],
+    [
+      "daggers",
+      "Daggers"
+    ],
+    [
+      "shields",
+      "Shields"
+    ],
+    [
+      "empty",
+      "Empty"
+    ],
+    [
+      "other",
+      "Other"
+    ]
   ],
   "keyed": [
     {
@@ -1003,7 +1032,8 @@
       "holds": null,
       "made": {
         "hands": {
-          "holds": "right"
+          "holds": "right",
+          "supports": null
         },
         "pose": {
           "rightHand": [
@@ -1066,7 +1096,8 @@
       "holds": null,
       "made": {
         "hands": {
-          "holds": "left"
+          "holds": "left",
+          "supports": null
         },
         "pose": {
           "leftHand": [
@@ -1119,7 +1150,8 @@
       "holds": null,
       "made": {
         "hands": {
-          "holds": "right"
+          "holds": "right",
+          "supports": null
         },
         "pose": {
           "rightHand": [
@@ -1777,5 +1809,62 @@
         }
       ]
     }
+  ],
+  "weapons": [
+    [
+      "longsword",
+      "Longsword",
+      "swords"
+    ],
+    [
+      "sword",
+      "Sword",
+      "swords"
+    ],
+    [
+      "rapier",
+      "Rapier",
+      "swords"
+    ],
+    [
+      "scythe",
+      "Scythe",
+      "polearms"
+    ],
+    [
+      "staff",
+      "Staff",
+      "polearms"
+    ],
+    [
+      "spear",
+      "Spear",
+      "polearms"
+    ],
+    [
+      "dagger",
+      "Dagger",
+      "daggers"
+    ],
+    [
+      "shield",
+      "Shield",
+      "shields"
+    ],
+    [
+      "bow",
+      "Bow",
+      "other"
+    ],
+    [
+      "empty",
+      "Empty hand",
+      "empty"
+    ],
+    [
+      "other",
+      "Something else",
+      "other"
+    ]
   ]
 }

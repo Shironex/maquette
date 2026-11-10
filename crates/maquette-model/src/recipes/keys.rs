@@ -81,7 +81,7 @@ pub struct GripFrom {
     /// with another uid is another grip (the first was removed and its id
     /// taken again), so the link reads as gone. A link written by hand may
     /// leave it out; it then goes by the id alone.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     #[specta(optional)]
     pub uid: Option<String>,
     /// Its revision, from 1.

@@ -91,7 +91,7 @@ impl GripSide {
 pub struct GripHolds {
     pub holds: GripSide,
     /// The other hand, when the grip poses both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     #[specta(optional)]
     pub supports: Option<GripSide>,
 }

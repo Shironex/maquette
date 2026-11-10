@@ -179,8 +179,8 @@ fn a_grip_file_reads_back_as_written_and_refuses_what_is_not_one() {
     assert_eq!(grips::text(&read).expect("again"), text, "same bytes");
     let one = grips::text(&dagger()).expect("text");
     assert!(
-        !one.contains("supports"),
-        "one hand writes no support: {one}"
+        one.contains("\"supports\": null"),
+        "one hand has no support: {one}"
     );
 
     let missing = grips::load(&dir.path().join("r9.grip.json"));
