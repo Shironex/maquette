@@ -392,3 +392,66 @@ fn a_redo_names_the_send_of_its_own_project() {
         .collect();
     assert_eq!(redos, [(other.as_str(), "stone-lantern-2")], "{ledger:?}");
 }
+
+#[test]
+fn the_lane_takes_two_projects_jobs_of_one_id_in_the_order_they_were_sent() {
+    let world = World::new();
+    let other = second_project(&world);
+    let fake = TripoFake::new();
+    fake.hold.store(true, Ordering::SeqCst);
+    let hold = Arc::clone(&fake.hold);
+    let (server, _) = tripo_server(fake);
+    // One job at a time, so the second send has to wait its turn.
+    let jobs = ProviderJobs::new(
+        Arc::clone(&world.secrets) as Arc<dyn SecretStore>,
+        Options {
+            endpoints: Endpoints {
+                tripo: server.url.clone(),
+                meshy: server.url.clone(),
+            },
+            tripo: Timing::instant(),
+            meshy: Timing::instant(),
+            limit: 1,
+        },
+        inbox::send_ports(),
+        |_| {},
+    );
+    jobs.open_workspace(&world.root, &world.config);
+    let send = |project: &str| {
+        jobs.send(&request_in(&world, project, Provider::Tripo), false, false)
+            .expect("send")
+    };
+    let read = |job: &ProviderJob| jobs.get(&job.project, &job.id).expect("job");
+
+    let first = send(&world.project);
+    let second = send(&other);
+    assert_eq!(first.id, second.id, "one id, two jobs in the queue");
+    let end = std::time::Instant::now() + WAIT;
+    while read(&first).remote_id.is_none() {
+        assert!(std::time::Instant::now() < end, "the first never started");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    // The first runs and holds the lane; the second is still queued, not
+    // taken for the running one because it has the same id.
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(read(&first).state, JobState::Running);
+    let waiting = read(&second);
+    assert_eq!(waiting.state, JobState::Queued);
+    assert_eq!((waiting.remote_id, waiting.started_at_ms), (None, None));
+    assert_eq!(server.count("POST", "/generation/image-to-model"), 1);
+
+    hold.store(false, Ordering::SeqCst);
+    let (first, second) = (finished(&jobs, &first), finished(&jobs, &second));
+    assert_eq!(first.state, JobState::Inbox, "{first:?}");
+    assert_eq!(second.state, JobState::Inbox, "{second:?}");
+    assert_eq!(
+        server.count("POST", "/generation/image-to-model"),
+        2,
+        "each was sent once"
+    );
+    assert!(
+        first.started_at_ms < second.started_at_ms,
+        "in the order they were sent"
+    );
+    assert_ne!(first.inbox_file, second.inbox_file);
+}
