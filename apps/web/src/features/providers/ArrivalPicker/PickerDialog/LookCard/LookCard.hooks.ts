@@ -1,7 +1,7 @@
 import { fileUrl } from '@/ipc/files';
 import type { Arrival } from '@/ipc/client';
 import { projectFile } from '@/state/board';
-import { otherSuggestions, shownSuggestion, suggestionLabel } from '@/state/downloads';
+import { otherSuggestions, pointsAt, shownSuggestion, suggestionLabel } from '@/state/downloads';
 import { useAppStore } from '@/state/use-app-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
 
@@ -12,7 +12,7 @@ import { useDownloadsStore } from '@/state/use-downloads-store';
  */
 export function useLookCard(arrival: Arrival) {
   const workspace = useAppStore(s => s.workspace);
-  const send = useDownloadsStore(s => s.status?.pending.find(p => p.job === arrival.job));
+  const send = useDownloadsStore(s => s.status?.pending.find(p => pointsAt(arrival, p)));
   const busy = useDownloadsStore(s => s.busy.includes(arrival.id));
   const attach = useDownloadsStore(s => s.attach);
   const openChooser = useDownloadsStore(s => s.openChooser);
@@ -23,7 +23,7 @@ export function useLookCard(arrival: Arrival) {
   const picture = shown?.image ?? send?.image ?? asset?.thumbnail ?? null;
   const here = Boolean(arrival.project && arrival.project === project?.id);
   const others = otherSuggestions(arrival).map(s => ({
-    job: s.job,
+    key: `${s.project}/${s.job}`,
     label: `${s.assetName} · ${suggestionLabel(s)}`,
     here: s.project === project?.id,
     attach: () => void attach(arrival.id, s.asset),
@@ -31,7 +31,7 @@ export function useLookCard(arrival: Arrival) {
   return {
     ref: fileUrl(picture && workspace && here ? projectFile(workspace, picture) : null),
     render: fileUrl(arrival.render ?? null),
-    fit: shown && shown.job === arrival.job ? suggestionLabel(shown) : null,
+    fit: shown && pointsAt(arrival, shown) ? suggestionLabel(shown) : null,
     others,
     here,
     busy,

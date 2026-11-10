@@ -23,7 +23,11 @@ export function retextureOffer(
 ): Pick<Notice, 'detail' | 'action'> | null {
   const link = item?.link;
   if (!link) return null;
-  const job = useProvidersStore.getState().jobs.find(j => j.id === link.job);
+  // The inbox holds every project's models: the link's own project, not
+  // a send of the open one that happens to share the id.
+  const job = useProvidersStore
+    .getState()
+    .jobs.find(j => j.project === link.project && j.id === link.job);
   if (job?.split?.after !== 'retexture') return null;
   return {
     detail: 'Your re-texture is not sent yet. It waits in the Parts tab with your prompt.',

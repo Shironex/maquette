@@ -123,16 +123,27 @@ export function suggestionLabel(suggestion: SendSuggestion): string {
     : `${percent(suggestion.score)}% alike`;
 }
 
+/**
+ * True when `arrival` points at the send `of`. Sends of every project wait
+ * together and their ids are numbered per project, so both must match.
+ */
+export function pointsAt(
+  arrival: Pick<Arrival, 'job' | 'project'>,
+  of: { job: string; project: string }
+): boolean {
+  return arrival.job === of.job && arrival.project === of.project;
+}
+
 /** The send a download's card compares it with: the one it points at, else the best. */
 export function shownSuggestion(arrival: Arrival): SendSuggestion | null {
   const ranked = arrival.suggestions ?? [];
-  return ranked.find(s => s.job === arrival.job) ?? ranked[0] ?? null;
+  return ranked.find(s => pointsAt(arrival, s)) ?? ranked[0] ?? null;
 }
 
 /** The other waiting sends, ranked, after the one shown. */
 export function otherSuggestions(arrival: Arrival, limit = 3): SendSuggestion[] {
   const shown = shownSuggestion(arrival);
-  return (arrival.suggestions ?? []).filter(s => s.job !== shown?.job).slice(0, limit);
+  return (arrival.suggestions ?? []).filter(s => s !== shown).slice(0, limit);
 }
 
 /** One asset a download can be attached to. */
