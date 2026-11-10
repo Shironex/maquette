@@ -291,6 +291,9 @@ on purpose: ids, counts and one line per node, with `full` for whole texts.
 helpers the Board's commands use. Builds go through one `maquette_core::built::Builder` for the
 whole app, so a build an agent starts and one from the Board queue behind each other, and
 `run_pipeline` without `from` calls the same `before_run` as the Run button.
+It also holds `replace_with_built_asset` (the replace, its dry run and its undo, worked out in
+`tools/built/replace.rs`) through `commands/built/replace.rs`, like the Board's sheet, and
+`get_ship_plan` adds `swaps`.
 
 `tools/motion.rs` holds `get_motion`, and the `states` and `clips` edits `set_layout` takes
 (`projects.rs` turns them into a layout patch, the same `apply` the Layout editor's save uses).
@@ -1022,6 +1025,45 @@ without a script of its own.
   with the front at -Y, X unchanged. The `signpost` fixture (`maquette-glb`) has a green marker on
   +Z, a red one on +X and a blue one on top, and the Blender test of the views checks that the front
   picture shows green in the middle with red to its right and the top picture blue with green below.
+
+`built::replace` puts a built asset in the place of another model (a generated scan, say), as one
+action that one action undoes. It is pipeline in the layer map, like `built::build`.
+
+- **Shape.** The replaced asset keeps its id and becomes the built one: it gains the built
+  asset's script, helpers and root in `built.json`, the built asset's newest model is copied in
+  as its next version and its older versions stay as history. Nothing keyed by the id is written
+  (the placement, stops, path ends, states, explode track and clip choices in `layout.json`, the
+  choice and file name in `ship.json`, a game's `models`), so the next run builds, bakes and
+  ships the new model like any built piece, Ship names the new file by itself and no later run
+  brings the old model back. The other shape, a second asset taking over the references, would
+  rewrite ids in every one of those files and teach the trash to put them back.
+- **Settings.** `settings.rs` is the table: the real size carries over (a measure, so Build
+  scene scales the new model to it from its own bounds, never twice), the old model's fix-ups,
+  skip bake, pad edges and material tweaks are reset to the built asset's own, part names carry
+  where the new model has that part, the library origin goes, and compression presets stay with
+  their model file (the locked character preset follows its asset's newest model, as
+  `template::fit_presets` moves it, and the report says so). `links.rs` checks what names a part
+  or clip against the new model and reports what no longer resolves; nothing leaves the layout.
+- **Report.** `report.rs` measures both models the way the layout does
+  (`layout::prepared_with`): file names as they ship, triangles, bytes, prepared bounds and the
+  real size scale, with a warning when the size, the proportions or the middle differ. Nothing
+  is aligned.
+- **Record and undo.** What the asset was is kept on its built source (`ReplacedModel` in the
+  model crate: its version numbers, picture, library origin, status, stage, `prepare.json`
+  entry, material tweaks and where the built asset's card went). The built asset's own card
+  leaves through the asset trash. `undo.rs` restores that card, puts the record back and takes
+  the versions added since off the asset; their files go to a folder in the workspace trash
+  (`assets::remove::set_aside`), so nothing is deleted.
+- **Ship.** `swaps.rs` lists the replaces no run has shipped yet (a run whose Ship step ran and
+  finished after the replace, from the run history each computer keeps), with both file names
+  and both models' triangles and bytes.
+- **Edges.** `commands/built/replace.rs` has `built_replace_plan`, `built_replace`,
+  `built_replace_undo_plan`, `built_replace_undo` and `built_swaps`, and the tool is in
+  `mcp/tools/built.rs`. The web side is `state/built-replace.ts`,
+  `features/board/ReplaceBuiltSheet` (the confirm sheet with the report, opened from a card's
+  menu) and `features/common/SwapNotes`, which the two Ship views mount; the Ship approval card
+  shows the same lines. A replace asks no approval: it changes nothing outside the project, one
+  action undoes it, and Ship is gated on its own.
 
 ## Website ship settings
 
