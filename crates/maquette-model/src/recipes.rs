@@ -634,3 +634,6 @@ mod tests_pins;
 
 #[cfg(test)]
 mod tests_pose_keys;
+
+#[cfg(test)]
+mod tests_key_edits;
