@@ -43,7 +43,8 @@ pub struct SetShipArgs {
     pub project: String,
     /// The site repo: a git repo or worktree on this computer, absolute or starting with ~,
     /// outside the workspace, saved per computer. Only null clears it. Refused while the project
-    /// has a run going. A game's repo goes through set_game_settings.
+    /// has a run going. A repo set here counts as an agent's: run_pipeline then waits for a
+    /// person before every Ship into it. A game's repo goes through set_game_settings.
     #[serde(default, deserialize_with = "explicit")]
     pub site_repo: Option<Option<String>>,
     /// "scene" (Maquette builds the scene: placed exports, versioned names) or "models"
