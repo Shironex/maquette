@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 155 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 156 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 ## Tool groups
 
@@ -21,7 +21,7 @@ Every tool belongs to one group, and its description starts with that group in b
 | `[send]`       | 14    | Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads.          |
 | `[inbox]`      | 7     | Models waiting to be accepted: checks, accept, discard and restore.                      |
 | `[prepare]`    | 14    | Real size, fix-ups, parts, materials, assembling props and comparing versions.           |
-| `[built]`      | 3     | Models a Blender script in the project makes, with no credits.                           |
+| `[built]`      | 4     | Models a Blender script in the project makes, with no credits.                           |
 | `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.       |
 | `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                           |
 | `[library]`    | 12    | Models kept outside any project, copied in and out.                                      |
@@ -152,6 +152,7 @@ These look at the workspace and change nothing.
 | `set_game_settings`                                   | Changes a game's format, model folder, export (dropping normal and metal maps too), bake, folder budgets, each asset's own folder (`assetFolders`) and the game repo (`repo`, a checkout or worktree), or applies a game template (`template`, an id `get_game` lists) | Nothing | No       |
 | `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                                                                                                                                                                             | Nothing | No       |
 | `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                                                                                                                                                                                | Nothing | No       |
+| `replace_with_built_asset`                            | Puts a built asset in the place of another model, which keeps its id, placement and ship name; `dryRun` reports only, `undo` brings the old model back                                                                                                                 | Nothing | No       |
 | `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                                                                                                                                                                                 | Nothing | No       |
 | [`render_views`](#render_views)                       | Renders an asset version from the standard views in the page light, beside its refs, or two versions with the same cameras                                                                                                                                             | Nothing |
 | `start_page_preview`                                  | Runs the site repo's dev command: starts the server the Page view shows, or reuses the running one. The first start of a repo an agent set waits for your approval                                                                                                     | Nothing | No       |
