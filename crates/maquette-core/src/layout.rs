@@ -8,7 +8,7 @@ mod view;
 
 pub use view::{
     FirstView, FirstViewModel, LayoutModel, LayoutView, Measured, first_view, first_view_of,
-    models, placement_of, view, view_of,
+    models, placement_of, prepared, view, view_of,
 };
 
 pub(crate) use view::measured_file;

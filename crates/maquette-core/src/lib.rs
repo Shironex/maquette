@@ -8,6 +8,7 @@ pub mod avatar;
 pub mod base;
 pub mod built;
 pub mod concepts;
+pub mod facts;
 pub mod game;
 pub mod inbox;
 pub mod inspect;

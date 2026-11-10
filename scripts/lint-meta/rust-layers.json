@@ -69,6 +69,7 @@
     "ship::tests": "pipeline",
     "layout::view": "pipeline",
     "thumbs": "pipeline",
+    "facts": "pipeline",
     "game": "pipeline",
     "inspect": "pipeline",
     "inbox": "pipeline",
