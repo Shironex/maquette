@@ -330,6 +330,13 @@ sheet and zip. A record per pack lives in `exports/.packs/`, and a folder Maquet
 `tools/trash.rs` holds `remove_assets`, `list_removed_assets` and `restore_asset`, which go
 through `commands/trash.rs` like the Board's Remove from project and Recently removed.
 
+`tools/views.rs` holds `render_views` and `get_model_facts`, in the prepare group. They go through
+`commands/views.rs` to `maquette_core::views` and `maquette_core::facts` (see Preview light, standard
+views and model facts): the helper finds the asset version and its refs, and makes the copy with
+the asset's fix-ups and real size through the same fix-up preview `preview_fixups` runs.
+`render_views` waits on the views service up to `waitSeconds` and then answers `rendering`; the same
+call again joins the run. Neither has a Tauri command: no view shows them yet.
+
 `tools/page.rs` reads, starts and stops the site dev server the Page view shows
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
 agent and the view share the one server and its state.
@@ -962,6 +969,49 @@ lane, the way the fix-up previews run. `build.rs` turns the GLB into the next ve
 Inbox checks for warnings and keeps the last build on the record. The desktop side adds the
 thumbnail, the window events (`BuiltChanged`, `ProjectChanged`) and the pre run rebuild; the web
 side is `state/use-built-store.ts`, the Board card and `features/board/AddBuiltDialog`.
+
+## Preview light, standard views and model facts
+
+What an agent needs to judge a model against its ref and to replace one model with another,
+without a script of its own.
+
+- **The rig.** `thumbs/preview_rig.py` is the one page light: Build scene's sun (3.0, tilted 0.9
+  radians, mirrored to the front left) and grey world (0.18), rendered in Cycles to a float EXR and
+  shown through three.js' ACES Filmic curve at exposure 1.15, written as sRGB. The curve is applied
+  in numpy, so no Blender view transform takes part. `scene_color` undoes it for a backdrop that
+  must show as its hex, and `ground` makes a floor that only catches a shadow. A test in
+  `thumbs/tests.rs` holds the numbers to `starter/build_scene.py` and to the site scene's
+  `Workbench.tsx` (listed in `scripts/gate/plan.mjs`, so a change there runs the whole gate).
+- **Thumbnails.** `thumbs/look.rs` picks the look: `ThumbLook::Page` for an asset `built.json`
+  lists, the studio for every other model. `render_thumb.py --look page` keeps the backdrop, the
+  floor and the camera and takes the light and the tone curve from the rig. A page render is cached
+  as `<hash>-page-<rig key>.png`, the studio's as `<hash>.png` as before, so a changed rig renders
+  the built assets' pictures again and nothing else. `commands/thumbs.rs::ask_version` asks for the
+  look of the asset; the Inbox and `render_thumbnail` stay studio.
+- **The swatch sheet.** `thumbs/swatch_sheet.py` renders a palette as tiles in the rig, each with a
+  strip of the colour as written, and reports what each tile shows. The docs' reference picture
+  (`apps/site/public/docs-media/page-light-swatches.png`) is made by the `swatch_sheet` example,
+  and a Blender test holds the pale tiles to what the reference page shows for the same baked tiles.
+- **Standard views.** `maquette_core::views` (library layer): `cameras.rs` is the set (three
+  quarter at 38 and 22 degrees, front, top and two close ups whose targets are a half, a named
+  object or a box in shares of the bounds), `spec.rs` the JSON `views/render_views.py` is told and
+  the key of a set, `job.rs` the `Views` service on the `views` runner lane. A set lands in
+  `<project>/exports/renders/<asset>/views/v<n>/` (`v<n>-vs-v<m>/` side by side, where both models
+  share cameras fitted to their joint bounds) with `sheet.png` and `views.json`; the pictures are
+  rendered in a scratch folder under the workspace cache and copied over together. `views.json`
+  keeps the key (scripts, size, views, the models' and refs' content), so the same request answers
+  from the folder, one for a set on its way joins it, a failed run says why once and `cancel` stops
+  one.
+- **Facts.** `maquette_core::facts` (pipeline layer) measures nothing anew: counts and the file's
+  box from the Inbox analysis, the real size and the box at real size from `layout::prepared` (the
+  Layout editor's own), the entry and the box in the scene from `layout.json`, and the facing from
+  `facts/facing.rs`. A rigged model's front is the rest pose's (`how: rig`, `sure: measured`); a
+  prop's is glTF's +Z and says so (`how: convention`, `sure: assumed`). `placed` turns it by the
+  layout entry with the matrix the layout places bounds with.
+- **Axes.** glTF and three.js share one frame: Y up, the front at +Z. Blender imports that as Z up
+  with the front at -Y, X unchanged. The `signpost` fixture (`maquette-glb`) has a green marker on
+  +Z, a red one on +X and a blue one on top, and the Blender test of the views checks that the front
+  picture shows green in the middle with red to its right and the top picture blue with green below.
 
 ## Website ship settings
 
