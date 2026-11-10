@@ -12,7 +12,6 @@ pub mod animations;
 pub mod avatar;
 pub mod bake;
 pub mod built;
-pub mod built_replace;
 pub mod codex_usage;
 pub mod concept_jobs;
 pub mod concepts;
@@ -219,7 +218,7 @@ impl McpTools {
             Self::inbox_router() + Self::inbox_triage_router(),
         ));
         all.merge(tagged("prepare", Self::prepare_routers()));
-        all.merge(tagged("built", Self::built_router() + Self::built_replace_router()));
+        all.merge(tagged("built", Self::built_router()));
         all.merge(tagged(
             "pipeline",
             Self::runs_router()

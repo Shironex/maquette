@@ -182,11 +182,12 @@ async fn agents_replace_a_scan_with_a_built_asset_and_undo_it() {
         ),
     });
     let token = ensure_token(&host.session).expect("token");
+    let hub = Arc::new(Hub::new(|| {}));
     let server = maquette_desktop_lib::mcp::server::start(
         0,
         token.clone(),
         host.clone() as Arc<dyn Host>,
-        Arc::new(Hub::new(|| {})),
+        Arc::clone(&hub),
     )
     .expect("start");
     let url = format!("http://127.0.0.1:{}/mcp", server.port());
@@ -260,6 +261,8 @@ async fn agents_replace_a_scan_with_a_built_asset_and_undo_it() {
     );
     assert_eq!(done["next"][0]["tool"], json!("run_pipeline"));
     let trash = done["trash"].as_str().expect("trash id").to_string();
+    // It answered at once: a replace waits for no person.
+    assert!(hub.approvals().is_empty(), "a replace raises no approval");
 
     // The asset kept its id and place; the built asset's card is in the trash.
     assert_eq!(

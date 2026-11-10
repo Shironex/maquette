@@ -1,25 +1,23 @@
-//! The tool that puts a built asset in the place of another model, as the
-//! Board's Use in place of a model does, through the same helpers in
-//! `commands/built/replace.rs`. It needs no approval: it changes nothing
-//! outside the project, one call undoes it, and Ship is gated on its own
-//! (the Ship approval shows the swap).
+//! What replace_with_built_asset does: a built asset in the place of another
+//! model, as the Board's Use in place of a model does, through the same
+//! helpers in `commands/built/replace.rs`. It needs no approval: it changes
+//! nothing outside the project, one call undoes it, and Ship is gated on its
+//! own (the Ship approval shows the swap).
 
 use maquette_core::project;
-use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router};
+use rmcp::schemars;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::commands::built::replace as commands;
 use crate::mcp::host::Host;
-
-use super::hints::{step, with_next};
-use super::materials::find_asset;
-use super::{McpTools, Out, ToolError, respond, to_short_value, workspace};
+use crate::mcp::tools::hints::{step, with_next};
+use crate::mcp::tools::materials::find_asset;
+use crate::mcp::tools::{ToolError, to_short_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ReplaceArgs {
+pub(super) struct ReplaceArgs {
     /// The project id.
     pub project: String,
     /// The asset whose model is replaced, by id or name. It keeps its id, its name and
@@ -98,22 +96,12 @@ fn replace(host: &dyn Host, args: &ReplaceArgs, asset: &str) -> Result<Value, To
     ))
 }
 
-#[tool_router(router = built_replace_router, vis = "pub(super)")]
-impl McpTools {
-    #[tool(
-        description = "Put a built asset in the place of another model (a generated scan, say), or undo that. The asset keeps its id, so its layout placement, camera stops, path ends, object states, ship file name and game file stay; it gains the built asset's script and its newest model as its next version, and the built asset's own card goes to the asset trash. The real size carries over (a measure, so nothing is scaled twice); the old model's fix-ups, skip bake, pad edges and material tweaks are reset to the built asset's own, and compression presets stay with their model file. Nothing is aligned: build the model facing the way the old one stood, around the same origin, and compare old and new min and max in the answer. The answer gives both files with triangles and bytes, every setting as kept, carried, reset or brought, what no longer resolves (parts and clips the new model lacks stay in the layout) and warnings. dryRun changes nothing; undo brings the old model back as it was. The next run bakes and ships it like any built piece, and the Ship approval shows the swap. Refused while a run is going, for a built asset that is not current and for an asset that is already built. Spends nothing and needs no approval."
-    )]
-    async fn replace_with_built_asset(&self, Parameters(args): Parameters<ReplaceArgs>) -> Out {
-        let found = self
-            .blocking(move |host, _| {
-                let asset = id_of(host, &args.project, &args.asset)?;
-                if args.undo {
-                    undo(host, &args, &asset)
-                } else {
-                    replace(host, &args, &asset)
-                }
-            })
-            .await;
-        respond(found)
+/// Runs the tool: the replace, its dry run or its undo.
+pub(super) fn run(host: &dyn Host, args: &ReplaceArgs) -> Result<Value, ToolError> {
+    let asset = id_of(host, &args.project, &args.asset)?;
+    if args.undo {
+        undo(host, args, &asset)
+    } else {
+        replace(host, args, &asset)
     }
 }

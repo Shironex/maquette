@@ -18,6 +18,8 @@ use crate::mcp::host::{Host, HostNotify};
 use super::materials::find_asset;
 use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
+mod replace;
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AddBuiltArgs {
@@ -246,5 +248,18 @@ impl McpTools {
             })
             .await;
         respond(found)
+    }
+
+    #[tool(
+        description = "Put a built asset in the place of another model (a generated scan, say), or undo that. The asset keeps its id, so its layout placement, camera stops, path ends, object states, ship file name and game file stay; it gains the built asset's script and its newest model as its next version, and the built asset's own card goes to the asset trash. The real size carries over (a measure, so nothing is scaled twice); the old model's fix-ups, skip bake, pad edges and material tweaks are reset to the built asset's own, and compression presets stay with their model file. Nothing is aligned: build the model facing the way the old one stood, around the same origin, and compare old and new min and max in the answer. The answer gives both files with triangles and bytes, every setting as kept, carried, reset or brought, what no longer resolves (parts and clips the new model lacks stay in the layout) and warnings. dryRun changes nothing; undo brings the old model back as it was. The next run bakes and ships it like any built piece, and the Ship approval shows the swap. Refused while a run is going, for a built asset that is not current and for an asset that is already built. Spends nothing and needs no approval."
+    )]
+    async fn replace_with_built_asset(
+        &self,
+        Parameters(args): Parameters<replace::ReplaceArgs>,
+    ) -> Out {
+        respond(
+            self.blocking(move |host, _| replace::run(host, &args))
+                .await,
+        )
     }
 }
