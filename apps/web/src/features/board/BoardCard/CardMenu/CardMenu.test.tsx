@@ -301,6 +301,98 @@ describe('CardMenu', () => {
     expect(board.actions.setMenuFor).toHaveBeenCalledWith(null);
   });
 
+  it('offers a built card a place to take, and a model card a built asset to take its place', async () => {
+    const built: BuiltAsset = {
+      asset: 'elsheria',
+      name: 'Elsheria',
+      source: { script: 'built/elsheria.py', helpers: [], root: null, last: null },
+      state: 'current',
+      missing: [],
+    };
+    useBuiltStore.setState({ items: [built] });
+    const { unmount } = render(
+      <CardMenu
+        asset={mockAsset('Elsheria')}
+        waiting={undefined}
+        refPicture={null}
+        built={built}
+        board={fakeBoardEnv()}
+      />
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Replace with a built asset...' })).toBeNull();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Use in place of a model...' }));
+    expect(useBuiltStore.getState().replacing).toEqual({
+      mode: 'replace',
+      asset: null,
+      built: 'elsheria',
+    });
+    unmount();
+    // A card with a model of its own, while the project has a built asset.
+    render(
+      <CardMenu
+        asset={mockAsset('Veil platform')}
+        waiting={undefined}
+        refPicture={null}
+        board={fakeBoardEnv()}
+      />
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Use in place of a model...' })).toBeNull();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Replace with a built asset...' }));
+    expect(useBuiltStore.getState().replacing).toEqual({
+      mode: 'replace',
+      asset: 'veil-platform',
+      built: null,
+    });
+    useBuiltStore.setState({ items: [], replacing: null });
+  });
+
+  it('offers to bring the old model back on a card a built model replaced', async () => {
+    const built: BuiltAsset = {
+      asset: 'elsheria',
+      name: 'Elsheria',
+      source: {
+        script: 'built/elsheria.py',
+        helpers: [],
+        root: null,
+        last: null,
+        replaced: {
+          at: '2026-11-10T09:30:00.000Z',
+          by: { asset: 'elsheria-built', name: 'Elsheria built', index: 4, trash: null },
+          versions: [1, 2],
+          thumbnail: null,
+          origin: null,
+          status: 'done',
+          stage: 'web',
+          prep: null,
+          materials: null,
+        },
+      },
+      state: 'current',
+      missing: [],
+    };
+    useBuiltStore.setState({ items: [built] });
+    render(
+      <CardMenu
+        asset={mockAsset('Elsheria')}
+        waiting={undefined}
+        refPicture={null}
+        built={built}
+        board={fakeBoardEnv()}
+      />
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Use in place of a model...' })).toBeNull();
+    const back = screen.getByRole('menuitem', { name: 'Bring back the old model...' });
+    await userEvent.hover(back);
+    expect(
+      await screen.findByText(
+        'Its model took the place of v2 with Elsheria built; this undoes that'
+      )
+    ).toBeInTheDocument();
+    await userEvent.click(back);
+    expect(useBuiltStore.getState().replacing).toEqual({ mode: 'undo', asset: 'elsheria' });
+    useBuiltStore.setState({ items: [], replacing: null });
+  });
+
   it('adds the asset to the library, and offers the update waiting there', async () => {
     await openMockLibrary('demo');
     await useLibraryStore.getState().load();

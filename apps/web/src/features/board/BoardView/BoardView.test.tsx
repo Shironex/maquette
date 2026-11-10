@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands, type ProjectManifest, type Stage } from '@/ipc/client';
 import { withStage } from '@/state/board';
 import { useAppStore } from '@/state/use-app-store';
+import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { useProvidersStore } from '@/state/use-providers-store';
@@ -306,6 +307,37 @@ describe('the Board', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
     await screen.findByRole('button', { name: 'More for Brass lantern post' });
     expect(screen.queryByRole('dialog', { name: 'Rename asset' })).toBeNull();
+  });
+
+  it('puts a built asset in the place of a model from its card menu, and back', async () => {
+    await openMockWorkspace('configured', undefined, undefined, undefined, undefined, 'swap');
+    await useBuiltStore.getState().load('frostveil');
+    render(<BoardView />);
+    await userEvent.click(await screen.findByRole('button', { name: 'More for Lantern rebuilt' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Use in place of a model...' }));
+    const sheet = screen.getByRole('dialog', { name: 'Use Lantern rebuilt in place of a model' });
+    await userEvent.selectOptions(
+      within(sheet).getByRole('combobox', { name: /Takes the place of/ }),
+      'Crystal lantern'
+    );
+    await within(sheet).findByRole('table');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Replace' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // The built asset's own card is gone and the lantern's card is the built model now.
+    expect(screen.queryByRole('button', { name: 'More for Lantern rebuilt' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Crystal lantern, v3/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'More for Crystal lantern' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Bring back the old model...' }));
+    const undo = screen.getByRole('dialog', {
+      name: 'Bring back the old model of Crystal lantern',
+    });
+    await within(undo).findByRole('region', { name: 'Current again' });
+    await userEvent.click(within(undo).getByRole('button', { name: 'Bring it back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('button', { name: /^Crystal lantern, v2/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More for Lantern rebuilt' })).toBeInTheDocument();
+    useBuiltStore.setState({ project: null, items: [], replacing: null });
   });
 
   it('opens the real size and fix-ups of a card from its menu', async () => {
