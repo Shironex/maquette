@@ -438,6 +438,13 @@ fn no_mcp_tool_can_answer_an_approval() {
         "remove_revision",
         "recipe_library_remove",
         "recipe_library_remove_revision",
+        // The same holds for the grip library: only the person saves a
+        // grip there or removes a grip or a revision.
+        "close_grip_save",
+        "save_grip",
+        "grip_library_save",
+        "grip_library_remove",
+        "grip_library_remove_revision",
         "from_card",
         "mcp_decide",
         "avatar_decide",

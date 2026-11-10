@@ -83,6 +83,9 @@ pub enum ApprovalKind {
     /// An agent proposed saving a project's recipe to the recipe library;
     /// the person confirms it in the save to library sheet.
     RecipeSave,
+    /// An agent proposed saving the hand pose of a recipe's pose keys to
+    /// the grip library; the person confirms it in the save a grip sheet.
+    GripSave,
     /// The first start of the dev server of a repo an agent set waits for a
     /// person to read the folder and the command.
     PagePreview,
@@ -140,7 +143,7 @@ pub struct Approval {
     /// Page preview: the folder and the command that will run.
     #[serde(default)]
     pub preview: Option<PreviewAsk>,
-    /// Recipe save: where the agent proposed saving the recipe.
+    /// Recipe save and grip save: where the agent proposed saving it.
     #[serde(default)]
     pub recipe_save: Option<RecipeSaveAsk>,
 }
@@ -502,7 +505,7 @@ pub use decisions::{DecisionLog, Refused};
 mod preview;
 mod recipe_bake;
 mod recipe_save;
-pub use recipe_save::RecipeSaveAsk;
+pub use recipe_save::{GripSaveAsk, RecipeSaveAsk};
 mod rest_pose;
 mod rig;
 

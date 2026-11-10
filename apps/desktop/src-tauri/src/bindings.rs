@@ -9,17 +9,18 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
-    downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
-    motion, packs, page, parts, paths, pipeline, plan_camera, plan_extras, plan_watch, plans,
-    prepare, project, project_trash, providers, quit, recipe_bakes, recipe_library, recipes, refs,
-    renders, rig, ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
+    downloads, game, grip_library, image_api, inbox, inspect, lab, layout, library, library_batch,
+    materials, motion, packs, page, parts, paths, pipeline, plan_camera, plan_extras, plan_watch,
+    plans, prepare, project, project_trash, providers, quit, recipe_bakes, recipe_library, recipes,
+    refs, renders, rig, ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
-    ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
-    PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PlanChanged, PrepareChanged,
-    ProjectChanged, ProjectCreated, ProviderUpdate, QuitRequested, RecipeBakeChanged,
-    RecipeChanged, RecipeLibraryChanged, RenderChanged, RigChanged, ThumbnailReady, UpdaterUpdate,
+    GripLibraryChanged, ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged,
+    MaterialsChanged, McpUpdate, PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate,
+    PlanChanged, PrepareChanged, ProjectChanged, ProjectCreated, ProviderUpdate, QuitRequested,
+    RecipeBakeChanged, RecipeChanged, RecipeLibraryChanged, RenderChanged, RigChanged,
+    ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -186,6 +187,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             recipe_library::recipe_export,
             recipe_library::recipe_import_to_project,
             recipe_library::recipe_import_to_library,
+            grip_library::grip_library_list,
+            grip_library::grip_library_get,
+            grip_library::grip_library_plan_save,
+            grip_library::grip_library_save,
+            grip_library::grip_library_remove_revision,
+            grip_library::grip_library_remove,
             plans::plan_pick_image,
             plans::plan_open_link,
             plans::plan_links,
@@ -335,6 +342,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             PlanChanged,
             RecipeChanged,
             RecipeLibraryChanged,
+            GripLibraryChanged,
             RecipeBakeChanged,
             MaterialsChanged,
             AvatarChanged,

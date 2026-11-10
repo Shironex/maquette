@@ -63,6 +63,8 @@ pub enum DecisionSource {
     /// The save to library sheet: the person saved the recipe there, or an
     /// agent's later proposal replaced it.
     RecipeSave,
+    /// The save a grip sheet: the person saved the grip there.
+    GripSave,
     /// The jobs it held left the approval state first: cancelled in Sends
     /// or the Lab, or by an agent's cancel of its own Lab jobs.
     JobsCancelled,

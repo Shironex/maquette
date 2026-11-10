@@ -127,6 +127,7 @@ mod tests {
             DecisionSource::RigDoctor,
             DecisionSource::RecipeReview,
             DecisionSource::RecipeSave,
+            DecisionSource::GripSave,
             DecisionSource::JobsCancelled,
             DecisionSource::Quit,
         ] {

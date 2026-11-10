@@ -1,26 +1,56 @@
-//! Recipe save approvals: an agent's propose_recipe_save waits for a person
-//! to look at what changes and save the recipe to the library in the app's
-//! save to library sheet. No tool answers it, and the approval itself
-//! writes nothing: only the sheet's Save does.
+//! Save approvals for the recipe and grip libraries: an agent's
+//! propose_recipe_save waits for a person to look at what changes and save
+//! the recipe in the app's save to library sheet, and its propose_grip_save
+//! waits for the person to save the grip in the save a grip sheet. No tool
+//! answers either, and the approval itself writes nothing: only the
+//! sheet's Save does.
 
+use maquette_core::animations::grips::{GripSavePlan, GripSource};
 use maquette_core::animations::recipes::library::RecipeSavePlan;
 use maquette_core::pipeline::history::now_ms;
 use maquette_core::providers::ledger::{DecidedBy, Decision, DecisionSource};
+use maquette_core::recipes::grips::{GripHolds, hands_words};
 
 use serde::{Deserialize, Serialize};
 
 use super::{Approval, ApprovalKind, Hub};
 
-/// Where an agent proposed saving a project's recipe in the recipe library.
+/// Where an agent proposed saving to a library: a project's recipe in the
+/// recipe library, or (with `grip`) a grip read from one of its pose key
+/// changes in the grip library.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeSaveAsk {
     /// The project's recipe id.
     pub recipe: String,
-    /// The library recipe it would get a revision of; none for a new one.
+    /// The library recipe (or grip) it would get a revision of; none for a
+    /// new one.
     pub entry: Option<String>,
     /// The revision it would be.
     pub revision: u32,
+    /// A grip save: what the agent proposed. None for a recipe save.
+    #[serde(default)]
+    #[specta(optional)]
+    pub grip: Option<GripSaveAsk>,
+}
+
+/// The grip an agent proposed saving from a recipe's pose keys.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GripSaveAsk {
+    /// The pose key change it reads, and the frame of the bake.
+    pub layer: String,
+    pub frame: u32,
+    /// The grip as proposed.
+    pub name: String,
+    pub weapon: String,
+    pub hands: GripHolds,
+    /// The bones it keeps, by VRM name.
+    pub bones: Vec<String>,
+    /// The library grip's newest revision now; none for a new grip.
+    pub latest: Option<u32>,
+    /// Where the file would go: `library/grips/<id>/r<n>.grip.json`.
+    pub file: String,
 }
 
 impl Hub {
@@ -65,8 +95,106 @@ impl Hub {
                 recipe: plan.recipe.clone(),
                 entry: plan.entry.clone(),
                 revision: plan.revision,
+                grip: None,
             }),
         })
+    }
+
+    /// Records that saving a grip to the library waits for a person. One
+    /// per pose key change of a recipe: asking again returns the same id.
+    pub fn request_grip_save(
+        &self,
+        plan: &GripSavePlan,
+        source: &GripSource,
+        recipe_name: &str,
+    ) -> String {
+        if let Some(found) = self.grip_save_for(&source.project, &source.recipe, &source.layer) {
+            return found.id;
+        }
+        let grip = &plan.grip;
+        self.push(|id| Approval {
+            id,
+            kind: ApprovalKind::GripSave,
+            project: source.project.clone(),
+            run_id: None,
+            run_number: None,
+            step: None,
+            job: Some(source.recipe.clone()),
+            asset_name: Some(format!("{} r{}", plan.entry_name, plan.revision)),
+            service: None,
+            detail: Some(format!(
+                "From the pose keys on {} in {recipe_name}, at frame {}.",
+                hands_words(grip),
+                source.frame
+            )),
+            items: Vec::new(),
+            requested_at_ms: now_ms(),
+            estimate: None,
+            concept_jobs: Vec::new(),
+            estimate_usd: None,
+            asset: None,
+            version: None,
+            sheets: None,
+            preview: None,
+            recipe_save: Some(RecipeSaveAsk {
+                recipe: source.recipe.clone(),
+                entry: plan.entry.clone(),
+                revision: plan.revision,
+                grip: Some(GripSaveAsk {
+                    layer: source.layer.clone(),
+                    frame: source.frame,
+                    name: grip.name.clone(),
+                    weapon: grip.weapon.clone(),
+                    hands: grip.hands,
+                    bones: grip.pose.keys().cloned().collect(),
+                    latest: plan.latest,
+                    file: plan.file.clone(),
+                }),
+            }),
+        })
+    }
+
+    /// The approval a grip save from the pose key change `layer` of
+    /// `recipe` in `project` waits for, if any.
+    pub fn grip_save_for(&self, project: &str, recipe: &str, layer: &str) -> Option<Approval> {
+        self.lock()
+            .approvals
+            .iter()
+            .find(|a| {
+                a.kind == ApprovalKind::GripSave
+                    && a.project == project
+                    && a.job.as_deref() == Some(recipe)
+                    && a.recipe_save
+                        .as_ref()
+                        .and_then(|ask| ask.grip.as_ref())
+                        .is_some_and(|grip| grip.layer == layer)
+            })
+            .cloned()
+    }
+
+    /// The person saved a grip from that pose key change in the sheet, to
+    /// library grip `saved_to` (none for a new one): nothing waits any
+    /// more. It ends as approved only when the save went where the agent
+    /// asked; saved elsewhere, the agent's ask ends as cancelled.
+    pub fn close_grip_save(
+        &self,
+        project: &str,
+        recipe: &str,
+        layer: &str,
+        saved_to: Option<&str>,
+    ) {
+        if let Some(found) = self.grip_save_for(project, recipe, layer) {
+            let asked = found.recipe_save.as_ref().map(|ask| ask.entry.as_deref());
+            let decision = if asked == Some(saved_to) {
+                Decision::Approved
+            } else {
+                Decision::Cancelled
+            };
+            let by = DecidedBy::from(DecisionSource::GripSave);
+            if let Err(err) = self.settle(&found.id, decision == Decision::Approved, decision, by) {
+                tracing::warn!(error = ?err, "could not close a grip save approval");
+            }
+        }
     }
 
     /// The approval a save of `recipe` in `project` waits for, if any.
@@ -162,6 +290,101 @@ mod tests {
             hub.wait_until(&second, || true),
             Some(false),
             "saved elsewhere is not the agent's yes"
+        );
+    }
+
+    fn grip_plan(entry: Option<&str>) -> GripSavePlan {
+        use maquette_core::recipes::grips::{GRIP_VERSION, GripFile, GripSide};
+        GripSavePlan {
+            entry: entry.map(Into::into),
+            entry_name: "Scythe, staff grip".into(),
+            entry_version: entry.map(|_| "e1".into()),
+            latest: entry.map(|_| 2),
+            revision: if entry.is_some() { 3 } else { 1 },
+            file: "library/grips/scythe-staff-grip/r3.grip.json".into(),
+            bytes: 900,
+            grip: GripFile {
+                version: GRIP_VERSION,
+                name: "Scythe, staff grip".into(),
+                revision: 3,
+                weapon: "scythe".into(),
+                hands: GripHolds {
+                    holds: GripSide::Right,
+                    supports: Some(GripSide::Left),
+                },
+                pose: [
+                    ("rightHand", [4.0, 0.0, -8.0]),
+                    ("leftHand", [0.0, 6.0, 0.0]),
+                ]
+                .into_iter()
+                .map(|(bone, turn)| (bone.to_string(), turn))
+                .collect(),
+            },
+            changes: vec!["Turns 1 bone another way.".into()],
+            same: false,
+        }
+    }
+
+    fn source(layer: &str) -> GripSource {
+        GripSource {
+            project: "moon".into(),
+            recipe: "charge".into(),
+            layer: layer.into(),
+            frame: 30,
+        }
+    }
+
+    #[test]
+    fn a_proposed_grip_save_raises_one_approval_per_pose_key_change_until_the_person_saves() {
+        let hub = Hub::new(|| {});
+        let plan = grip_plan(Some("scythe-staff-grip"));
+        let first = hub.request_grip_save(&plan, &source("l-2"), "Scythe charge, held");
+        assert_eq!(
+            hub.request_grip_save(&grip_plan(None), &source("l-2"), "Scythe charge, held"),
+            first,
+            "one per pose key change"
+        );
+        let second = hub.request_grip_save(&grip_plan(None), &source("l-5"), "Scythe charge, held");
+        let waiting = hub.approvals();
+        assert_eq!(waiting.len(), 2);
+        assert_eq!(waiting[0].kind, ApprovalKind::GripSave);
+        assert_eq!(
+            waiting[0].asset_name.as_deref(),
+            Some("Scythe, staff grip r3")
+        );
+        assert_eq!(
+            waiting[0].detail.as_deref(),
+            Some("From the pose keys on both hands in Scythe charge, held, at frame 30.")
+        );
+        let ask = waiting[0].recipe_save.as_ref().expect("ask");
+        assert_eq!(
+            (ask.entry.as_deref(), ask.revision),
+            (Some("scythe-staff-grip"), 3)
+        );
+        let grip = ask.grip.as_ref().expect("grip");
+        assert_eq!(
+            (grip.layer.as_str(), grip.frame, grip.latest),
+            ("l-2", 30, Some(2))
+        );
+        assert_eq!(grip.bones, ["leftHand", "rightHand"]);
+        assert!(
+            hub.recipe_save_for("moon", "charge").is_none(),
+            "a grip save is not a recipe save"
+        );
+
+        // Saved where the agent asked: its yes. Saved elsewhere: not.
+        hub.close_grip_save("moon", "charge", "l-2", Some("scythe-staff-grip"));
+        assert!(hub.grip_save_for("moon", "charge", "l-2").is_none());
+        assert!(
+            hub.grip_save_for("moon", "charge", "l-5").is_some(),
+            "the other waits"
+        );
+        assert_eq!(hub.wait_until(&first, || true), Some(true));
+        hub.close_grip_save("moon", "charge", "l-5", Some("scythe-staff-grip"));
+        assert_eq!(
+            hub.wait_until(&second, || true),
+            Some(false),
+            "a new grip was asked for, a revision was saved"
         );
     }
 }

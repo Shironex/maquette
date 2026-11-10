@@ -527,6 +527,27 @@ export const commands = {
 	/**  The base clip missing or with other keys, an id that was taken. */
 	notes: string[],
 } | null>("recipe_import_to_library"),
+	/**  Every library grip with its newest revision's weapon, hands and pose. */
+	gripLibraryList: () => __TAURI_INVOKE<LibraryGripSummary[]>("grip_library_list"),
+	/**  A library grip's revision, the newest when none is given. */
+	gripLibraryGet: (entry: string, revision: number | null) => __TAURI_INVOKE<LibraryGripDoc>("grip_library_get", { entry, revision }),
+	/**
+	 *  What saving `grip` to the library would do, for the save sheet: a new
+	 *  library grip, or the next revision of `entry`.
+	 */
+	gripLibraryPlanSave: (grip: GripFile, entry: string | null) => __TAURI_INVOKE<GripSavePlan>("grip_library_plan_save", { grip, entry }),
+	/**
+	 *  Saves a grip to the library as the person confirmed it in the sheet:
+	 *  always a new revision, never an overwrite. A grip that moved since the
+	 *  sheet read it is refused (`moved`). An agent's proposal for the pose key
+	 *  change it was read from ends as approved when it went where the agent
+	 *  asked, and as cancelled when the person saved it elsewhere.
+	 */
+	gripLibrarySave: (save: GripSave) => __TAURI_INVOKE<GripSaved>("grip_library_save", { save }),
+	/**  Removes one revision of a library grip (moved aside, never deleted). */
+	gripLibraryRemoveRevision: (entry: string, revision: number, expected: string | null) => __TAURI_INVOKE<LibraryGripEntry>("grip_library_remove_revision", { entry, revision, expected }),
+	/**  Removes a library grip with every revision (moved aside, never deleted). */
+	gripLibraryRemove: (entry: string, expected: string | null) => __TAURI_INVOKE<string>("grip_library_remove", { entry, expected }),
 	/**
 	 *  Picks a picture for an image node, starting in the project folder. One
 	 *  from elsewhere is copied into `plans/images`. `None` when cancelled.
@@ -1050,6 +1071,7 @@ export const events = {
 	codexUsageUpdate: makeEvent<CodexUsageUpdate>("codex-usage-update"),
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	downloadsArrival: makeEvent<DownloadsArrival>("downloads-arrival"),
+	gripLibraryChanged: makeEvent<GripLibraryChanged>("grip-library-changed"),
 	imageSettingsChanged: makeEvent<ImageSettingsChanged>("image-settings-changed"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	layoutChanged: makeEvent<LayoutChanged>("layout-changed"),
@@ -1297,7 +1319,7 @@ export type Approval = {
 	sheets?: NormalizeSheets | null,
 	/**  Page preview: the folder and the command that will run. */
 	preview?: PreviewAsk | null,
-	/**  Recipe save: where the agent proposed saving the recipe. */
+	/**  Recipe save and grip save: where the agent proposed saving it. */
 	recipeSave?: RecipeSaveAsk | null,
 };
 
@@ -1352,6 +1374,11 @@ export type ApprovalKind =
  *  the person confirms it in the save to library sheet.
  */
 "recipe-save" | 
+/**
+ *  An agent proposed saving the hand pose of a recipe's pose keys to
+ *  the grip library; the person confirms it in the save a grip sheet.
+ */
+"grip-save" | 
 /**
  *  The first start of the dev server of a repo an agent set waits for a
  *  person to read the folder and the command.
@@ -3088,6 +3115,8 @@ export type DecisionSource =
  *  agent's later proposal replaced it.
  */
 "recipe-save" | 
+/**  The save a grip sheet: the person saved the grip there. */
+"grip-save" | 
 /**
  *  The jobs it held left the approval state first: cancelled in Sends
  *  or the Lab, or by an agent's cancel of its own Lab jobs.
@@ -3789,12 +3818,131 @@ export type GoneProp = {
 /**  How many parts the semantic model looks for. */
 export type Granularity = "simple" | "balanced" | "detailed";
 
+/**  One revision of a library grip: `r<revision>.grip.json`. */
+export type GripFile = {
+	version: number,
+	name: string,
+	/**  From 1; a save to the library adds the next one. */
+	revision: number,
+	/**  What it holds, one of [`WEAPONS`]. */
+	weapon: string,
+	hands: GripHolds,
+	/**  Degrees per hand, finger and arm bone, X then Y then Z; no frames. */
+	pose: { [key in string]: [(number | null), (number | null), (number | null)] },
+};
+
 /**  The library grip and revision a grip change was copied from. */
 export type GripFrom = {
 	/**  The library grip's id. */
 	entry: string,
+	/**
+	 *  The library grip's uid, made once with it. An entry of the same id
+	 *  with another uid is another grip (the first was removed and its id
+	 *  taken again), so the link reads as gone. A link written by hand may
+	 *  leave it out; it then goes by the id alone.
+	 */
+	uid?: string | null,
 	/**  Its revision, from 1. */
 	revision: number,
+};
+
+/**  Which hands of a grip a recipe takes. */
+export type GripHands = "both" | "right" | "left";
+
+/**  Which hand of a grip holds and which, if any, supports. */
+export type GripHolds = {
+	holds: GripSide,
+	/**  The other hand, when the grip poses both. */
+	supports?: GripSide | null,
+};
+
+/**
+ *  The grip library changed: a grip was saved, or a revision or a grip
+ *  removed, so the Animations library's Grips and the recipe editor's
+ *  "library has a newer revision" notes reload.
+ */
+export type GripLibraryChanged = null;
+
+/**  A confirmed save. */
+export type GripSave = {
+	/**
+	 *  The grip to save. Its revision is set by the save; saved as a
+	 *  revision of `entry`, it takes that grip's name.
+	 */
+	grip: GripFile,
+	/**  The library grip to add a revision to; none makes a new one. */
+	entry: string | null,
+	/**  The entry version the plan read. Needed with `entry`. */
+	expected: string | null,
+	/**  Where it was saved from, kept with the revision. */
+	source: GripSource | null,
+};
+
+/**  The grip an agent proposed saving from a recipe's pose keys. */
+export type GripSaveAsk = {
+	/**  The pose key change it reads, and the frame of the bake. */
+	layer: string,
+	frame: number,
+	/**  The grip as proposed. */
+	name: string,
+	weapon: string,
+	hands: GripHolds,
+	/**  The bones it keeps, by VRM name. */
+	bones: string[],
+	/**  The library grip's newest revision now; none for a new grip. */
+	latest: number | null,
+	/**  Where the file would go: `library/grips/<id>/r<n>.grip.json`. */
+	file: string,
+};
+
+/**  What a save would do, for the save sheet and an agent's proposal. */
+export type GripSavePlan = {
+	/**  The library grip it goes to; none for a new one. */
+	entry: string | null,
+	/**  The library grip's name, or the name a new one gets. */
+	entryName: string,
+	/**  The library grip's version as read; the save sends it back. */
+	entryVersion: string | null,
+	/**  Its newest revision now; none for a new one. */
+	latest: number | null,
+	/**  The revision the save writes. */
+	revision: number,
+	/**
+	 *  Where the file goes: `library/grips/<id>/r<n>.grip.json`. A new
+	 *  grip's id is the one free now, which the save may still change.
+	 */
+	file: string,
+	/**  How big the file is, bytes. */
+	bytes: number,
+	/**  The grip as it would be written. */
+	grip: GripFile,
+	/**  What changes against the newest revision, a plain line each. */
+	changes: string[],
+	/**  The grip holds what the newest revision holds: nothing to save. */
+	same: boolean,
+};
+
+/**  What a save wrote. */
+export type GripSaved = {
+	entry: string,
+	name: string,
+	revision: number,
+	/**  The library grip's version after the save. */
+	entryVersion: string,
+};
+
+/**  A side of the body. */
+export type GripSide = "left" | "right";
+
+/**
+ *  Where a grip was saved from: a pose key change of a project's recipe,
+ *  at one frame of its bake.
+ */
+export type GripSource = {
+	project: string,
+	recipe: string,
+	layer: string,
+	frame: number,
 };
 
 /**  What the By hand panel shows, with a copy button per row. */
@@ -4519,6 +4667,76 @@ export type LibraryEntry = {
 	versions: LibraryVersion[],
 	createdAt: string,
 	updatedAt: string,
+};
+
+/**  A library grip's revision as the view and agents read it. */
+export type LibraryGripDoc = {
+	entry: LibraryGripEntry,
+	/**  A hash of `entry.json`, sent back as `expected` by a write. */
+	version: string,
+	/**  The revision read. */
+	revision: number,
+	grip: GripFile,
+};
+
+/**  `entry.json`. */
+export type LibraryGripEntry = {
+	version: number,
+	/**  The folder name. */
+	id: string,
+	/**
+	 *  Made once with the grip and never changed: a recipe's link names
+	 *  it, so an id taken again after a removal is not mistaken for the
+	 *  grip it came from.
+	 */
+	uid: string,
+	name: string,
+	createdAt: string,
+	updatedAt: string,
+	/**  The highest revision ever saved, so a removed one is never reused. */
+	lastRevision: number,
+	/**  Oldest first. */
+	revisions: LibraryGripRevision[],
+};
+
+/**  One revision of a library grip, with where it came from. */
+export type LibraryGripRevision = {
+	revision: number,
+	/**  `r<revision>.grip.json`, in the grip's folder. */
+	file: string,
+	/**  RFC 3339, when it was saved. */
+	savedAt: string,
+	/**  The project, recipe, pose key change and bake frame it was saved from. */
+	project: string | null,
+	recipe: string | null,
+	layer: string | null,
+	frame: number | null,
+};
+
+/**  A line in the list of library grips: the entry and its newest revision. */
+export type LibraryGripSummary = {
+	id: string,
+	/**  The entry's uid; empty when it could not be read. */
+	uid: string,
+	/**  The entry's name, or its id when it could not be read. */
+	name: string,
+	/**  A hash of `entry.json`, sent back as `expected` by a write. */
+	version: string,
+	/**  The newest revision; 0 when none could be read. */
+	latest: number,
+	revisions: LibraryGripRevision[],
+	/**  The newest revision's weapon and the group it sorts under. */
+	weapon: string,
+	group: string,
+	/**  The newest revision's hands; none when it could not be read. */
+	hands: GripHolds | null,
+	/**  How those hands read: `both hands`, `right hand`, `either hand`. */
+	handsWords: string,
+	/**  The newest revision's pose, which its picture is drawn from. */
+	pose: { [key in string]: [(number | null), (number | null), (number | null)] },
+	updatedAt: string,
+	/**  Why the entry or its newest revision could not be read. */
+	problem: string | null,
 };
 
 /**  One entry as the Library view shows it. */
@@ -7028,6 +7246,8 @@ export type RecipeBakeResult = {
 	reaches: RecipeReachResult[],
 	/**  Each pin as the bake measured it. Empty in a record from before. */
 	pins?: RecipePinResult[],
+	/**  Each grip as the bake laid it. Empty in a record from before. */
+	grips?: RecipeGripResult[],
 	/**
 	 *  The keyed poses judged against the humanoid joint limits; none for a
 	 *  recipe with no pose keys (and in a record from before).
@@ -7476,6 +7696,34 @@ export type RecipeFrom = {
 	revision: number,
 };
 
+/**  One grip as the bake laid it. */
+export type RecipeGripResult = {
+	/**  The change's id. */
+	layer: string,
+	/**  The hand that holds, by VRM name. */
+	bone: string,
+	/**  The library grip and revision it was copied from, when it has a link. */
+	entry: string | null,
+	revision: number | null,
+	/**
+	 *  The bake frames it holds on, first and last; none when no frame
+	 *  falls within its range.
+	 */
+	frames: [number, number] | null,
+	/**  How many bones its pose turns, and how many of those the model has. */
+	bones: number,
+	posed: number,
+	/**  The bones of its pose the model lacks, by VRM name. */
+	missing: string[],
+};
+
+/**  A grip change of a recipe and the library grip it was copied from. */
+export type RecipeGripUse = {
+	/**  The change's id. */
+	layer: string,
+	from: GripFrom,
+};
+
 /**  A recipe file imported into the library. */
 export type RecipeImported = {
 	entry: string,
@@ -7606,9 +7854,9 @@ export type RecipeReachResult = {
 
 /**  One number of the review. */
 export type RecipeReviewLine = {
-	/**  `gap-l-1`, `flip-l-1`, `feet` or `stretch`. */
+	/**  `gap-l-1`, `flip-l-1`, `pin-l-1`, `joints`, `grip-l-1`, `feet` or `stretch`. */
 	id: string,
-	/**  "Hand gap", "Elbow", "Foot slide", "Rig stretch". */
+	/**  "Hand gap", "Elbow", "Pin drift", "Joint limits", "Grip", "Foot slide", "Rig stretch". */
 	label: string,
 	/**  The bone and change it is about, for a reach. */
 	about: string | null,
@@ -7642,14 +7890,23 @@ export type RecipeSave = {
 	recipeExpected: string | null,
 };
 
-/**  Where an agent proposed saving a project's recipe in the recipe library. */
+/**
+ *  Where an agent proposed saving to a library: a project's recipe in the
+ *  recipe library, or (with `grip`) a grip read from one of its pose key
+ *  changes in the grip library.
+ */
 export type RecipeSaveAsk = {
 	/**  The project's recipe id. */
 	recipe: string,
-	/**  The library recipe it would get a revision of; none for a new one. */
+	/**
+	 *  The library recipe (or grip) it would get a revision of; none for a
+	 *  new one.
+	 */
 	entry: string | null,
 	/**  The revision it would be. */
 	revision: number,
+	/**  A grip save: what the agent proposed. None for a recipe save. */
+	grip?: GripSaveAsk | null,
 };
 
 /**  What a save back would do, for the confirm sheet. */
@@ -7773,10 +8030,15 @@ export type RecipeSummary = {
 	/**  The library recipe and revision it came from or was last saved as. */
 	from: RecipeFrom | null,
 	/**
-	 *  The file's version: 1, or 2 once it uses something of version 2,
-	 *  which a bake cannot make yet. 0 when it could not be read.
+	 *  The file's version: 1, or 2 once it uses something of version 2.
+	 *  0 when it could not be read.
 	 */
 	format?: number,
+	/**
+	 *  Each grip change that came from a library grip, so a list can say
+	 *  when the library has a newer revision without reading every recipe.
+	 */
+	grips: RecipeGripUse[],
 };
 
 /**  A recipe brought into a project, with what to know about it. */

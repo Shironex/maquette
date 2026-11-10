@@ -125,6 +125,12 @@ pub struct RecipeChanged {
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct RecipeLibraryChanged;
 
+/// The grip library changed: a grip was saved, or a revision or a grip
+/// removed, so the Animations library's Grips and the recipe editor's
+/// "library has a newer revision" notes reload.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct GripLibraryChanged;
+
 /// A recipe bake changed: it started, moved on a frame, or finished, failed
 /// or was cancelled. The Motion view's Apply follows it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
