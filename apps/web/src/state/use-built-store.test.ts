@@ -9,7 +9,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   clearMocks();
-  useBuiltStore.setState({ project: null, items: [], adding: false });
+  useBuiltStore.setState({ project: null, items: [], adding: false, replacing: null });
+  useAppStore.setState({ notice: null });
 });
 
 describe('useBuiltStore', () => {
@@ -58,5 +59,58 @@ describe('useBuiltStore', () => {
       .toBe('current');
     const desk = useBuiltStore.getState().items.find(b => b.asset === 'desk');
     expect(desk?.source.helpers).toEqual(['built/common.py']);
+  });
+});
+
+describe('a built asset in the place of a model', () => {
+  const assets = () => useAppStore.getState().workspace?.project?.assets ?? [];
+
+  it('replaces a model, keeps the asset id and can bring the old model back', async () => {
+    clearMocks();
+    await openMockWorkspace('configured', undefined, undefined, undefined, undefined, 'swap');
+    await useBuiltStore.getState().load('frostveil');
+    useBuiltStore.setState({
+      replacing: { mode: 'replace', asset: 'crystal-lantern', built: 'lantern-rebuilt' },
+    });
+
+    await useBuiltStore.getState().replace('frostveil', 'crystal-lantern', 'lantern-rebuilt');
+
+    expect(useBuiltStore.getState().replacing).toBeNull();
+    expect(assets().some(a => a.id === 'lantern-rebuilt')).toBe(false);
+    const lantern = assets().find(a => a.id === 'crystal-lantern');
+    expect(lantern?.versions.map(v => v.version)).toEqual([1, 2, 3]);
+    const item = useBuiltStore.getState().items.find(b => b.asset === 'crystal-lantern');
+    expect(item?.state).toBe('current');
+    expect(item?.source.replaced?.versions).toEqual([1, 2]);
+    expect(useAppStore.getState().notice).toMatchObject({
+      status: 'done',
+      title: "Lantern rebuilt is in Crystal lantern's place",
+    });
+
+    await useBuiltStore.getState().undoReplace('frostveil', 'crystal-lantern');
+
+    expect(assets().find(a => a.id === 'crystal-lantern')?.versions).toHaveLength(2);
+    expect(assets().some(a => a.id === 'lantern-rebuilt')).toBe(true);
+    expect(useBuiltStore.getState().items.map(b => b.asset)).toEqual([
+      'laptop',
+      'newtons-cradle',
+      'lantern-rebuilt',
+    ]);
+    expect(useAppStore.getState().notice?.title).toBe('Crystal lantern is back on v2');
+  });
+
+  it('rejects with the reason and leaves the sheet open', async () => {
+    await useBuiltStore.getState().load('frostveil');
+    const target = { mode: 'replace' as const, asset: 'crystal-lantern', built: 'newtons-cradle' };
+    useBuiltStore.setState({ replacing: target });
+    await expect(
+      useBuiltStore.getState().replace('frostveil', 'crystal-lantern', 'newtons-cradle')
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('has a script that changed since its last build'),
+    });
+    expect(useBuiltStore.getState().replacing).toEqual(target);
+    await expect(useBuiltStore.getState().undoReplace('frostveil', 'laptop')).rejects.toMatchObject(
+      { message: expect.stringContaining('took no other model') }
+    );
   });
 });

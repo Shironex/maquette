@@ -262,6 +262,12 @@ export function createBackend({
     emit: (id, manifest) => emit?.({ name: 'built', project: id, manifest }),
     seed: configured ? builtState : null,
     buildMs: pace === 0 ? 0 : 1400,
+    scene: {
+      prep: (id, asset) => prepare.entries(id).models[asset] ?? null,
+      savePrep: (id, asset, entry) => prepare.saveEntry(id, asset, entry),
+      placement: (id, asset) => layout.view(id).layout.models[asset] ?? null,
+      bounds: prepare.bounds,
+    },
   });
 
   const page = createPageHandlers({

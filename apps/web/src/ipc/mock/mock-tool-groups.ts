@@ -59,7 +59,7 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
     14,
     'Real size, fix-ups, parts, materials, assembling props and comparing versions'
   ),
-  row('built', 'Built models', 3, 'Models a Blender script in the project makes, with no credits'),
+  row('built', 'Built models', 4, 'Models a Blender script in the project makes, with no credits'),
   row(
     'pipeline',
     'Pipeline and ship',
