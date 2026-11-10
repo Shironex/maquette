@@ -59,6 +59,7 @@
     "prepare::split_tests": "pipeline",
     "built::build": "pipeline",
     "built::blender": "pipeline",
+    "built::replace": "pipeline",
     "built::tests": "pipeline",
     "materials::apply": "pipeline",
     "materials::glb": "pipeline",

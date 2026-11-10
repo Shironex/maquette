@@ -202,6 +202,7 @@ pub fn add(
         helpers: files[1..].iter().map(rel).collect(),
         root,
         last: None,
+        replaced: None,
     };
     let recorded = update(&project_dir, |file| {
         file.assets.insert(asset.id.clone(), source);

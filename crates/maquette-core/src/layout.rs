@@ -11,7 +11,7 @@ pub use view::{
     models, placement_of, prepared, view, view_of,
 };
 
-pub(crate) use view::measured_file;
+pub(crate) use view::{measured_file, prepared_with};
 
 /// Registers the layout view's IPC types with the shell's TypeScript export;
 /// the stored layout's come from the model crate.

@@ -191,6 +191,7 @@ fn world() -> World {
                 helpers: Vec::new(),
                 root: None,
                 last: None,
+                replaced: None,
             },
         );
         Ok(())
@@ -534,4 +535,62 @@ fn two_removes_of_assets_with_the_same_id_keep_both_in_the_trash() {
     let listed = list_trash(&w.root, &w.layout, "moon-island").expect("list");
     assert_eq!(listed.len(), 2);
     assert_eq!(listed[0].id, second.outcomes[0].trash.clone().expect("id"));
+}
+
+#[test]
+fn files_set_aside_move_to_the_trash_with_a_note_and_are_never_listed() {
+    let w = world();
+    let place = Place::new(&w.root, &w.layout, "moon-island").expect("place");
+    let paths = w.ids(&[
+        "models/clay_bowl_v2.glb",
+        "thumbs/clay_bowl_v2.png",
+        "thumbs/not_there.png",
+    ]);
+    let note = json!({ "why": "an undo took this version off" });
+
+    let folder = set_aside(&place, "clay-bowl", &paths, &note)
+        .expect("set aside")
+        .expect("a folder");
+
+    let dir = w.root.join(&folder);
+    assert!(
+        folder.starts_with("trash/moon-island/clay-bowl-"),
+        "{folder}"
+    );
+    assert_eq!(
+        fs::read_to_string(dir.join("files/models/clay_bowl_v2.glb")).expect("moved"),
+        "glb 2"
+    );
+    assert!(dir.join("files/thumbs/clay_bowl_v2.png").is_file());
+    assert!(!w.project.join("models/clay_bowl_v2.glb").exists());
+    assert!(
+        w.project.join("models/clay_bowl_v1.glb").is_file(),
+        "others stay"
+    );
+    let kept: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("set-aside.json")).expect("note"))
+            .expect("json");
+    assert_eq!(kept, note);
+    // It is no removed asset: Recently removed does not list it.
+    assert!(
+        list_trash(&w.root, &w.layout, "moon-island")
+            .expect("list")
+            .is_empty()
+    );
+
+    // Nothing there to move makes no folder, and a path that leaves the project moves nothing.
+    let none = set_aside(
+        &place,
+        "clay-bowl",
+        &w.ids(&["thumbs/not_there.png"]),
+        &note,
+    );
+    assert_eq!(none.expect("nothing"), None);
+    let outside = set_aside(&place, "clay-bowl", &w.ids(&["../outside.glb"]), &note)
+        .expect_err("outside")
+        .to_string();
+    assert!(
+        outside.contains("not a path inside the project"),
+        "{outside}"
+    );
 }
