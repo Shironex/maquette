@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 
 use super::ids::{IdScope, make_unique};
 use super::owner::{owner_of, saved_owner};
+use super::records::write_inbox;
 use super::split_files::{SOURCE_FILE, files_dir, source_of};
 use super::tests::meshy_job;
 use super::{JobState, Provider, ProviderJob, Stored, Workspace};
@@ -264,4 +265,44 @@ fn two_records_of_one_project_sharing_an_id_get_ids_of_their_own() {
     let mut apart = vec![record("failed", 1.0), record("failed", 2.0)];
     apart[1].job.id = "lantern-9".into();
     assert!(!make_unique(&mut apart, &[]));
+}
+
+#[test]
+fn models_landing_at_once_under_one_id_each_get_a_file_of_their_own() {
+    use std::sync::{Arc, Barrier};
+
+    // Two projects' jobs of one id want the same inbox name. Landing
+    // together, each must still get its own file with its own model.
+    const WRITERS: usize = 8;
+    let dir = tempfile::tempdir().expect("dir");
+    let ws = Arc::new(workspace(dir.path()));
+    let inbox = maquette_model::sends::inbox_dir(&ws.root, &ws.config);
+    for round in 0..40 {
+        let id = format!("lamp-{round}");
+        let start = Arc::new(Barrier::new(WRITERS));
+        let writers: Vec<_> = (0..WRITERS)
+            .map(|n| {
+                let (ws, start, id) = (Arc::clone(&ws), Arc::clone(&start), id.clone());
+                std::thread::spawn(move || {
+                    let model = format!("glTF model {n}").into_bytes();
+                    start.wait();
+                    let name = write_inbox(&ws, &id, &model).expect("written");
+                    (name, model)
+                })
+            })
+            .collect();
+        let mut names = Vec::new();
+        for writer in writers {
+            let (name, model) = writer.join().expect("writer");
+            assert_eq!(
+                fs::read(inbox.join(&name)).expect("file"),
+                model,
+                "{name} holds another job's model"
+            );
+            names.push(name);
+        }
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), WRITERS, "round {round}: two jobs got one name");
+    }
 }
