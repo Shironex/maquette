@@ -5,7 +5,8 @@ Maquette runs this headless, never with a window:
     blender -b --factory-startup --python-exit-code 1 --python bake_recipe.py -- \
         --job recipe.json
 
-retarget_clips.py and surface.py sit next to it. recipe.json holds the
+retarget_clips.py, surface.py, recipe_motion.py, recipe_keys.py and
+recipe_pins.py sit next to it. recipe.json holds the
 retarget job of the recipe's base clip (as retarget_clips.py reads it), the
 recipe, and where the model, the report and the progress go:
 
@@ -43,6 +44,9 @@ half of its range and held to its end, the others over a quarter each way):
   target, up through its upper arm or leg, its influence keyed by the ease;
   a limb the clip holds dead straight is first bent a few degrees the way
   an elbow or knee bends, so the solver knows which way to fold it;
+- pose keys turn each keyed bone as blended between its keys at the frame's
+  share, added to the clip or in its place (recipe_keys.py), with no ease
+  in or out: "poseKeys" in the recipe holds each change's keys by id.
 - pins come last, after every other change (recipe_pins.py): a hand or foot
   held on its spot (where it is at the pin's first frame, or a blank's
   target) by IK, a foot kept flat and a hand kept turned as it was.
@@ -453,6 +457,8 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             rest = (rig.mw @ pb.bone.matrix_local).to_3x3().normalized().to_quaternion()
             rig.facings[pb.name] = rest.inverted() @ rig.ahead
     layers = recipe["layers"]
+    pose_keys = recipe.get("poseKeys") or {}
+    keys = load_sibling(os.path.dirname(os.path.abspath(at(job["out"]))), "recipe_keys") if pose_keys else None
     reaches = {}
     for layer in layers:
         if layer["kind"] != "reach":
@@ -501,6 +507,10 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             base = measure()
             stretch["base"] = base if stretch["base"] is None else max(stretch["base"], base)
         for layer in layers:
+            if layer["kind"] == "pose":
+                if keys is not None:
+                    keys.lay(rig, pose_keys.get(layer["id"]), share)
+                continue
             s = layer["settings"]
             amount = num(s.get("weight"), 1.0) * envelope(layer["kind"], num(s.get("start")), num(s.get("end"), 1.0), share)
             if amount <= 0.0:

@@ -24,11 +24,11 @@ use crate::test_blender;
 use crate::workspace::WorkspaceConfig;
 
 /// A quaternion (x, y, z, w) or a vector, as glTF keeps them.
-type Keys = (Vec<f64>, Vec<Vec<f64>>);
+pub(super) type Keys = (Vec<f64>, Vec<Vec<f64>>);
 
 /// The staged model's JSON and binary chunk.
 pub(super) struct Glb {
-    json: Value,
+    pub(super) json: Value,
     bin: Vec<u8>,
 }
 
@@ -80,7 +80,7 @@ impl Glb {
     }
 
     /// The keys of `path` (rotation, translation) of node `node` in clip `clip`.
-    fn keys(&self, clip: &str, node: usize, path: &str) -> Option<Keys> {
+    pub(super) fn keys(&self, clip: &str, node: usize, path: &str) -> Option<Keys> {
         let anim = self.json["animations"]
             .as_array()?
             .iter()
@@ -99,7 +99,7 @@ impl Glb {
 }
 
 /// `keys` at `t` seconds, linearly between keys (a quaternion renormalised).
-fn sample((times, values): &Keys, t: f64) -> Vec<f64> {
+pub(super) fn sample((times, values): &Keys, t: f64) -> Vec<f64> {
     let i = times.iter().rposition(|x| *x <= t + 1e-6).unwrap_or(0);
     let j = (i + 1).min(times.len() - 1);
     let span = times[j] - times[i];
@@ -121,7 +121,7 @@ fn sample((times, values): &Keys, t: f64) -> Vec<f64> {
 }
 
 /// How far apart two turns are, degrees.
-fn degrees_apart(a: &[f64], b: &[f64]) -> f64 {
+pub(super) fn degrees_apart(a: &[f64], b: &[f64]) -> f64 {
     let dot = a
         .iter()
         .zip(b)
@@ -203,7 +203,7 @@ pub(super) fn world(glb: &Glb, clip: &str, node: usize, t: f64) -> [f64; 3] {
 
 /// A project in `s` on the fixture clip, with a small nudge on the head (a
 /// bake needs a change) and `change` made to its clips, time or mirror.
-fn project(s: &Setup, change: impl FnOnce(&RecipeFile) -> RecipeChange) -> Project {
+pub(super) fn project(s: &Setup, change: impl FnOnce(&RecipeFile) -> RecipeChange) -> Project {
     let config = WorkspaceConfig::default();
     if list(s.root.path()).expect("clips").is_empty() {
         import_fixture(s, &config, "slide", "Foot Slide.fbx");
@@ -236,7 +236,7 @@ fn project(s: &Setup, change: impl FnOnce(&RecipeFile) -> RecipeChange) -> Proje
 
 /// Bakes `p` and answers the result, its staged model and the model bone
 /// name of each VRM bone asked for.
-fn bake_of(s: &Setup, p: &Project, vrm: &[&str]) -> (RecipeBakeResult, Glb, Vec<usize>) {
+pub(super) fn bake_of(s: &Setup, p: &Project, vrm: &[&str]) -> (RecipeBakeResult, Glb, Vec<usize>) {
     let prepared = prepare(p.root(), &p.config, &p.request()).expect("prepared");
     let record = baked(s, p);
     assert_eq!(record.state, RecipeBakeState::Done, "{:?}", record.error);

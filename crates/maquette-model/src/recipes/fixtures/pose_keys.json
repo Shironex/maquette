@@ -1,0 +1,2082 @@
+{
+  "cases": [
+    {
+      "clipFrames": [
+        {
+          "at": 0,
+          "clip": 0,
+          "frame": 0
+        },
+        {
+          "at": 7,
+          "clip": 0,
+          "frame": 7
+        },
+        {
+          "at": 14,
+          "clip": 0,
+          "frame": 14
+        },
+        {
+          "at": 21,
+          "clip": 0,
+          "frame": 21
+        },
+        {
+          "at": 28,
+          "clip": 0,
+          "frame": 28
+        },
+        {
+          "at": 35,
+          "clip": 0,
+          "frame": 35
+        },
+        {
+          "at": 42,
+          "clip": 0,
+          "frame": 42
+        },
+        {
+          "at": 49,
+          "clip": 0,
+          "frame": 49
+        },
+        {
+          "at": 56,
+          "clip": 0,
+          "frame": 56
+        }
+      ],
+      "keys": [
+        {
+          "bakeFrame": 10,
+          "clip": 0,
+          "frame": 10,
+          "share": 0.166667
+        },
+        {
+          "bakeFrame": 30,
+          "clip": 0,
+          "frame": 30,
+          "share": 0.5
+        },
+        {
+          "bakeFrame": 40,
+          "clip": 0,
+          "frame": 40,
+          "share": 0.666667
+        },
+        {
+          "bakeFrame": 45,
+          "clip": 0,
+          "frame": 45,
+          "share": 0.75
+        },
+        {
+          "bakeFrame": 55,
+          "clip": 0,
+          "frame": 55,
+          "share": 0.916667
+        }
+      ],
+      "limits": {
+        "hits": [
+          {
+            "bakeFrame": 55,
+            "clip": 0,
+            "frame": 55,
+            "hit": {
+              "axis": "x",
+              "bone": "chest",
+              "degrees": 50.0,
+              "limit": 40.0,
+              "word": "bend"
+            },
+            "layer": "l-1"
+          }
+        ],
+        "judged": 6
+      },
+      "name": "Twist on idle",
+      "probes": [
+        {
+          "at": 0,
+          "clip": 0,
+          "frame": 0,
+          "share": 0.0,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -12.0,
+                0.0,
+                24.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 6,
+          "clip": 0,
+          "frame": 6,
+          "share": 0.1,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -12.0,
+                0.0,
+                24.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 9,
+          "clip": 0,
+          "frame": 9,
+          "share": 0.15,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -12.0,
+                0.0,
+                24.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 10,
+          "clip": 0,
+          "frame": 10,
+          "share": 0.166667,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -12.0,
+                0.0,
+                24.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 11,
+          "clip": 0,
+          "frame": 11,
+          "share": 0.183333,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -15.66,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -11.986667,
+                0.033333,
+                23.973333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 12,
+          "clip": 0,
+          "frame": 12,
+          "share": 0.2,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -13.44,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -11.946667,
+                0.133333,
+                23.893333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 18,
+          "clip": 0,
+          "frame": 18,
+          "share": 0.3,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -2.64,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -11.146667,
+                2.133333,
+                22.293333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 24,
+          "clip": 0,
+          "frame": 24,
+          "share": 0.4,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                3.84,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -9.386667,
+                6.533333,
+                18.773333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 29,
+          "clip": 0,
+          "frame": 29,
+          "share": 0.483333,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                5.94,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -7.186667,
+                12.033333,
+                14.373333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 30,
+          "clip": 0,
+          "frame": 30,
+          "share": 0.5,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -6.666667,
+                13.333333,
+                13.333333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 31,
+          "clip": 0,
+          "frame": 31,
+          "share": 0.516667,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -6.12,
+                14.7,
+                12.24
+              ]
+            }
+          ]
+        },
+        {
+          "at": 36,
+          "clip": 0,
+          "frame": 36,
+          "share": 0.6,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -2.986667,
+                22.533333,
+                5.973333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 39,
+          "clip": 0,
+          "frame": 39,
+          "share": 0.65,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                -0.786667,
+                28.033333,
+                1.573333
+              ]
+            }
+          ]
+        },
+        {
+          "at": 40,
+          "clip": 0,
+          "frame": 40,
+          "share": 0.666667,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 41,
+          "clip": 0,
+          "frame": 41,
+          "share": 0.683333,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 42,
+          "clip": 0,
+          "frame": 42,
+          "share": 0.7,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 44,
+          "clip": 0,
+          "frame": 44,
+          "share": 0.733333,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                6.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 45,
+          "clip": 0,
+          "frame": 45,
+          "share": 0.75,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                10.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 46,
+          "clip": 0,
+          "frame": 46,
+          "share": 0.766667,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                14.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 48,
+          "clip": 0,
+          "frame": 48,
+          "share": 0.8,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                22.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 54,
+          "clip": 0,
+          "frame": 54,
+          "share": 0.9,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                46.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 55,
+          "clip": 0,
+          "frame": 55,
+          "share": 0.916667,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                50.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 56,
+          "clip": 0,
+          "frame": 56,
+          "share": 0.933333,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                50.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 60,
+          "clip": 0,
+          "frame": 60,
+          "share": 1.0,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-1",
+              "turn": [
+                50.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "bone": "rightUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                30.0,
+                0.0
+              ]
+            }
+          ]
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "standing-idle-hash",
+          "length": 2.0,
+          "mixamo": true,
+          "name": "Standing Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-1",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 10,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    -18.0,
+                    0.0
+                  ],
+                  "rightUpperArm": [
+                    -12.0,
+                    0.0,
+                    24.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "out",
+                "frame": 30,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    6.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "in",
+                "frame": 40,
+                "pose": {
+                  "rightUpperArm": [
+                    0.0,
+                    30.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "step",
+                "frame": 45,
+                "pose": {
+                  "chest": [
+                    10.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "linear",
+                "frame": 55,
+                "pose": {
+                  "chest": [
+                    50.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "add",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Twist on idle",
+        "revision": 1,
+        "version": 1
+      }
+    },
+    {
+      "clipFrames": [
+        {
+          "at": 6,
+          "clip": 0,
+          "frame": 0
+        },
+        {
+          "at": 13,
+          "clip": 0,
+          "frame": 7
+        },
+        {
+          "at": 20,
+          "clip": 0,
+          "frame": 14
+        },
+        {
+          "at": 31,
+          "clip": 0,
+          "frame": 21
+        },
+        {
+          "at": 39,
+          "clip": 0,
+          "frame": 28
+        },
+        {
+          "at": 46,
+          "clip": 0,
+          "frame": 35
+        },
+        {
+          "at": 53,
+          "clip": 0,
+          "frame": 42
+        },
+        {
+          "at": 14,
+          "clip": 1,
+          "frame": 49
+        },
+        {
+          "at": 21,
+          "clip": 1,
+          "frame": 56
+        },
+        {
+          "at": 28,
+          "clip": 1,
+          "frame": 63
+        },
+        {
+          "at": 30,
+          "clip": 1,
+          "frame": 70
+        },
+        {
+          "at": 32,
+          "clip": 1,
+          "frame": 77
+        },
+        {
+          "at": 39,
+          "clip": 1,
+          "frame": 84
+        },
+        {
+          "at": 46,
+          "clip": 1,
+          "frame": 91
+        },
+        {
+          "at": 53,
+          "clip": 1,
+          "frame": 98
+        },
+        {
+          "at": 60,
+          "clip": 1,
+          "frame": 105
+        }
+      ],
+      "keys": [
+        {
+          "bakeFrame": 20,
+          "clip": 0,
+          "frame": 30,
+          "share": 0.220588
+        },
+        {
+          "bakeFrame": 55,
+          "clip": 1,
+          "frame": 20,
+          "share": 0.676471
+        },
+        {
+          "bakeFrame": 65,
+          "clip": 1,
+          "frame": 30,
+          "share": 0.75
+        },
+        {
+          "bakeFrame": null,
+          "clip": 1,
+          "frame": 62,
+          "share": 0.985294
+        }
+      ],
+      "limits": {
+        "hits": [
+          {
+            "bakeFrame": 55,
+            "clip": 1,
+            "frame": 20,
+            "hit": {
+              "axis": "y",
+              "bone": "chest",
+              "degrees": 52.0,
+              "limit": 45.0,
+              "word": "twist"
+            },
+            "layer": "l-2"
+          }
+        ],
+        "judged": 4
+      },
+      "name": "Slash into thrust",
+      "probes": [
+        {
+          "at": 6,
+          "clip": 0,
+          "frame": 0,
+          "share": 0.044118,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 16,
+          "clip": 0,
+          "frame": 10,
+          "share": 0.117647,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 28,
+          "clip": 0,
+          "frame": 19,
+          "share": 0.205882,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 30,
+          "clip": 0,
+          "frame": 20,
+          "share": 0.217647,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                -18.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 31,
+          "clip": 0,
+          "frame": 21,
+          "share": 0.229412,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                -17.922347,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 42,
+          "clip": 0,
+          "frame": 31,
+          "share": 0.311765,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                -10.72,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 53,
+          "clip": 0,
+          "frame": 42,
+          "share": 0.452206,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                17.846701,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 17,
+          "clip": 1,
+          "frame": 52,
+          "share": 0.654412,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                51.524185,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 19,
+          "clip": 1,
+          "frame": 54,
+          "share": 0.669118,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                51.945957,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 20,
+          "clip": 1,
+          "frame": 55,
+          "share": 0.676471,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.0,
+                52.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 21,
+          "clip": 1,
+          "frame": 56,
+          "share": 0.683824,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                1.2,
+                46.8,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 28,
+          "clip": 1,
+          "frame": 63,
+          "share": 0.735294,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                9.6,
+                10.4,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 29,
+          "clip": 1,
+          "frame": 64,
+          "share": 0.742647,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                10.8,
+                5.2,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 30,
+          "clip": 1,
+          "frame": 65,
+          "share": 0.75,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                12.0,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 30,
+          "clip": 1,
+          "frame": 66,
+          "share": 0.75,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                12.0,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 30,
+          "clip": 1,
+          "frame": 73,
+          "share": 0.75,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                12.0,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 39,
+          "clip": 1,
+          "frame": 84,
+          "share": 0.816176,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                9.686279,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 49,
+          "clip": 1,
+          "frame": 94,
+          "share": 0.889706,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                4.332275,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 60,
+          "clip": 1,
+          "frame": 105,
+          "share": 0.970588,
+          "turns": [
+            {
+              "bone": "chest",
+              "layer": "l-2",
+              "turn": [
+                0.134766,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 72,
+          "hash": "great-sword-slash-hash",
+          "length": 2.4,
+          "mixamo": true,
+          "name": "Great Sword Slash",
+          "rest": false,
+          "trim": [
+            6,
+            58
+          ]
+        },
+        "blanks": [],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "joined": [
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 8,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 64,
+            "hash": "great-sword-thrust-hash",
+            "length": 2.1333334,
+            "mixamo": true,
+            "name": "Great Sword Thrust",
+            "rest": false,
+            "trim": [
+              4,
+              60
+            ]
+          }
+        ],
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-2",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "out",
+                "frame": 30,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    -18.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "clip": 1,
+                "ease": "smooth",
+                "frame": 20,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    52.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "clip": 1,
+                "ease": "linear",
+                "frame": 30,
+                "pose": {
+                  "chest": [
+                    12.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "clip": 1,
+                "ease": "smooth",
+                "frame": 62,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "replace",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 0.8
+            }
+          }
+        ],
+        "name": "Slash into thrust",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 0,
+            "from": 20,
+            "kind": "retime",
+            "speed": 1.6,
+            "to": 34
+          },
+          {
+            "at": 30,
+            "clip": 1,
+            "frames": 10,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      }
+    },
+    {
+      "clipFrames": [
+        {
+          "at": 0,
+          "clip": 0,
+          "frame": 0
+        },
+        {
+          "at": 7,
+          "clip": 0,
+          "frame": 7
+        },
+        {
+          "at": 14,
+          "clip": 0,
+          "frame": 14
+        },
+        {
+          "at": 21,
+          "clip": 0,
+          "frame": 21
+        },
+        {
+          "at": 28,
+          "clip": 0,
+          "frame": 28
+        },
+        {
+          "at": 35,
+          "clip": 0,
+          "frame": 35
+        },
+        {
+          "at": 42,
+          "clip": 0,
+          "frame": 42
+        },
+        {
+          "at": 49,
+          "clip": 0,
+          "frame": 49
+        },
+        {
+          "at": 56,
+          "clip": 0,
+          "frame": 56
+        }
+      ],
+      "keys": [
+        {
+          "bakeFrame": 0,
+          "clip": 0,
+          "frame": 0,
+          "share": 0.0
+        },
+        {
+          "bakeFrame": 40,
+          "clip": 0,
+          "frame": 40,
+          "share": 0.666667
+        }
+      ],
+      "limits": {
+        "hits": [],
+        "judged": 2
+      },
+      "name": "Pose from nothing",
+      "probes": [
+        {
+          "at": 0,
+          "clip": 0,
+          "frame": 0,
+          "share": 0.0,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                0.0,
+                -70.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 1,
+          "clip": 0,
+          "frame": 1,
+          "share": 0.016667,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -0.07375,
+                -69.907813
+              ]
+            }
+          ]
+        },
+        {
+          "at": 6,
+          "clip": 0,
+          "frame": 6,
+          "share": 0.1,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -2.43,
+                -66.9625
+              ]
+            }
+          ]
+        },
+        {
+          "at": 12,
+          "clip": 0,
+          "frame": 12,
+          "share": 0.2,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -8.64,
+                -59.2
+              ]
+            }
+          ]
+        },
+        {
+          "at": 18,
+          "clip": 0,
+          "frame": 18,
+          "share": 0.3,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -17.01,
+                -48.7375
+              ]
+            }
+          ]
+        },
+        {
+          "at": 24,
+          "clip": 0,
+          "frame": 24,
+          "share": 0.4,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -25.92,
+                -37.6
+              ]
+            }
+          ]
+        },
+        {
+          "at": 30,
+          "clip": 0,
+          "frame": 30,
+          "share": 0.5,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -33.75,
+                -27.8125
+              ]
+            }
+          ]
+        },
+        {
+          "at": 36,
+          "clip": 0,
+          "frame": 36,
+          "share": 0.6,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -38.88,
+                -21.4
+              ]
+            }
+          ]
+        },
+        {
+          "at": 39,
+          "clip": 0,
+          "frame": 39,
+          "share": 0.65,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -39.92625,
+                -20.092188
+              ]
+            }
+          ]
+        },
+        {
+          "at": 40,
+          "clip": 0,
+          "frame": 40,
+          "share": 0.666667,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -40.0,
+                -20.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 41,
+          "clip": 0,
+          "frame": 41,
+          "share": 0.683333,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -40.0,
+                -20.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 42,
+          "clip": 0,
+          "frame": 42,
+          "share": 0.7,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -40.0,
+                -20.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 48,
+          "clip": 0,
+          "frame": 48,
+          "share": 0.8,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -40.0,
+                -20.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 54,
+          "clip": 0,
+          "frame": 54,
+          "share": 0.9,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -40.0,
+                -20.0
+              ]
+            }
+          ]
+        },
+        {
+          "at": 60,
+          "clip": 0,
+          "frame": 60,
+          "share": 1.0,
+          "turns": [
+            {
+              "bone": "leftUpperArm",
+              "layer": "l-1",
+              "turn": [
+                0.0,
+                -40.0,
+                -20.0
+              ]
+            }
+          ]
+        }
+      ],
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "",
+          "length": 2.0,
+          "mixamo": false,
+          "name": "Rest pose",
+          "rest": true
+        },
+        "blanks": [],
+        "created": "2026-11-09T00:00:00.000Z",
+        "edited": "2026-11-09T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-1",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 0,
+                "pose": {
+                  "leftUpperArm": [
+                    0.0,
+                    0.0,
+                    -70.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 40,
+                "pose": {
+                  "leftUpperArm": [
+                    0.0,
+                    -40.0,
+                    -20.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "replace",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Pose from nothing",
+        "revision": 1,
+        "version": 1
+      }
+    }
+  ],
+  "eases": [
+    {
+      "at": [
+        0.0,
+        0.15625,
+        0.5,
+        0.84375,
+        1.0
+      ],
+      "ease": "smooth"
+    },
+    {
+      "at": [
+        0.0,
+        0.0625,
+        0.25,
+        0.5625,
+        1.0
+      ],
+      "ease": "in"
+    },
+    {
+      "at": [
+        0.0,
+        0.4375,
+        0.75,
+        0.9375,
+        1.0
+      ],
+      "ease": "out"
+    },
+    {
+      "at": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "ease": "linear"
+    },
+    {
+      "at": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "ease": "step"
+    }
+  ],
+  "limits": [
+    {
+      "bone": "hips",
+      "limits": null,
+      "words": [
+        "bend",
+        "twist",
+        "side"
+      ]
+    },
+    {
+      "bone": "chest",
+      "limits": {
+        "x": [
+          -25.0,
+          40.0
+        ],
+        "y": [
+          -45.0,
+          45.0
+        ],
+        "z": [
+          -30.0,
+          30.0
+        ]
+      },
+      "words": [
+        "bend",
+        "twist",
+        "side"
+      ]
+    },
+    {
+      "bone": "head",
+      "limits": {
+        "x": [
+          -40.0,
+          40.0
+        ],
+        "y": [
+          -70.0,
+          70.0
+        ],
+        "z": [
+          -35.0,
+          35.0
+        ]
+      },
+      "words": [
+        "bend",
+        "twist",
+        "side"
+      ]
+    },
+    {
+      "bone": "leftUpperArm",
+      "limits": {
+        "x": [
+          -90.0,
+          90.0
+        ],
+        "y": [
+          -110.0,
+          50.0
+        ],
+        "z": [
+          -95.0,
+          110.0
+        ]
+      },
+      "words": [
+        "twist",
+        "swing",
+        "raise"
+      ]
+    },
+    {
+      "bone": "rightUpperArm",
+      "limits": {
+        "x": [
+          -90.0,
+          90.0
+        ],
+        "y": [
+          -50.0,
+          110.0
+        ],
+        "z": [
+          -110.0,
+          95.0
+        ]
+      },
+      "words": [
+        "twist",
+        "swing",
+        "raise"
+      ]
+    },
+    {
+      "bone": "rightLowerArm",
+      "limits": {
+        "x": [
+          -90.0,
+          90.0
+        ],
+        "y": [
+          -5.0,
+          150.0
+        ],
+        "z": [
+          -15.0,
+          15.0
+        ]
+      },
+      "words": [
+        "twist",
+        "swing",
+        "raise"
+      ]
+    },
+    {
+      "bone": "leftLowerLeg",
+      "limits": {
+        "x": [
+          -5.0,
+          150.0
+        ],
+        "y": [
+          -15.0,
+          15.0
+        ],
+        "z": [
+          -15.0,
+          15.0
+        ]
+      },
+      "words": [
+        "bend",
+        "twist",
+        "side"
+      ]
+    },
+    {
+      "bone": "rightUpperLeg",
+      "limits": {
+        "x": [
+          -120.0,
+          30.0
+        ],
+        "y": [
+          -45.0,
+          45.0
+        ],
+        "z": [
+          -60.0,
+          30.0
+        ]
+      },
+      "words": [
+        "bend",
+        "twist",
+        "side"
+      ]
+    },
+    {
+      "bone": "rightIndexProximal",
+      "limits": {
+        "x": [
+          -15.0,
+          15.0
+        ],
+        "y": [
+          -25.0,
+          25.0
+        ],
+        "z": [
+          -20.0,
+          100.0
+        ]
+      },
+      "words": [
+        "twist",
+        "swing",
+        "raise"
+      ]
+    },
+    {
+      "bone": "leftThumbDistal",
+      "limits": {
+        "x": [
+          -60.0,
+          60.0
+        ],
+        "y": [
+          -60.0,
+          60.0
+        ],
+        "z": [
+          -60.0,
+          60.0
+        ]
+      },
+      "words": [
+        "twist",
+        "swing",
+        "raise"
+      ]
+    },
+    {
+      "bone": "rightEye",
+      "limits": {
+        "x": [
+          -25.0,
+          25.0
+        ],
+        "y": [
+          -35.0,
+          35.0
+        ],
+        "z": [
+          -5.0,
+          5.0
+        ]
+      },
+      "words": [
+        "bend",
+        "twist",
+        "side"
+      ]
+    }
+  ]
+}

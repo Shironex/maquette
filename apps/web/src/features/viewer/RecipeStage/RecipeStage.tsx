@@ -10,10 +10,11 @@ import type { ReachCheck } from '@/state/recipe-review';
 import type { StagePins } from '../recipe-pins';
 import type { RecipeMarker } from '../recipe-pose';
 import type { RoughPair } from '../rough-retarget';
-import { Controls } from '../ModelPreview/Controls';
+import { useOrbitControls } from '../ModelPreview/Controls/Controls.hooks';
+import PoseGizmo, { type PoseGizmoProps } from '../PoseGizmo';
 import { useFraming, useStudioRig } from '../ModelPreview/Studio/Studio.hooks';
 import { useMotionModel } from '../MotionStage/Scene/Scene.hooks';
-import type { Timeline } from '@/state/recipe-timeline';
+import type { Playable, Timeline } from '@/state/recipe-timeline';
 import {
   useJoinedSkeletons,
   useRecipeFrame,
@@ -39,12 +40,28 @@ export interface RecipeStageProps {
   play: { share: number; playing: boolean; onTick: (delta: number) => void };
   /** A recipe that joins, trims, retimes or mirrors: each clip's file and rate, and the timeline. */
   joined?: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null;
+  /**
+   * Laid over the changes: pose keys (the clips they stand on, and the gizmo
+   * while they are edited), then the pins held last, on the bake's frames.
+   */
+  laid?: { keys?: StageKeys | null; pins?: StagePins | null };
   onChecks?: (checks: ReachCheck[]) => void;
-  /** The pins to hold last, on the bake's frames. */
-  pins?: StagePins | null;
   onError?: (message: string) => void;
   label: string;
   className?: string;
+}
+
+/** The gizmo's props the stage does not fill in itself. */
+export type StageGizmo = Omit<PoseGizmoProps, 'rig' | 'size' | 'onDragging'>;
+
+/**
+ * A recipe's pose keys on the stage: the clips they stand on (the
+ * recipe's), so its pose key changes play, and the turn gizmo with the bone
+ * dots while one is edited.
+ */
+export interface StageKeys {
+  on: Playable;
+  gizmo: StageGizmo | null;
 }
 
 type SceneProps = Omit<RecipeStageProps, 'label' | 'className'>;
@@ -70,7 +87,8 @@ function Markers({
 }
 
 function Scene(props: SceneProps) {
-  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined, pins } = props;
+  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined } = props;
+  const keys = props.laid?.keys;
   const model = useMotionModel(modelUrl, onError);
   const skeleton = useMotionModel(clipUrl, onError);
   const framing = useFraming(model, undefined);
@@ -79,7 +97,18 @@ function Scene(props: SceneProps) {
   const setup = useRecipeSetup(model, clipUrl ? skeleton : 'rest', pairs, play);
   const origin = framing && model ? model.scene.position : null;
   const targets = useTargets(markers, framing?.box ?? null, setup?.rig.forward ?? null, origin);
-  useRecipeFrame(setup, layers, targets, props.play, onChecks, pins ?? null);
+  useRecipeFrame(
+    setup,
+    layers,
+    targets,
+    props.play,
+    onChecks,
+    props.laid?.pins ?? null,
+    keys?.on ?? null
+  );
+  const controls = useOrbitControls(false, framing?.target ?? null);
+  const box = framing?.box;
+  const size = box ? box.max.y - box.min.y || 1.7 : 1.7;
   const loads = extra.map(url => (
     <SkeletonLoad key={url} url={url} onLoad={onLoad} onError={onError} />
   ));
@@ -89,7 +118,16 @@ function Scene(props: SceneProps) {
       {rig ? <primitive object={rig} /> : null}
       {model ? <primitive object={model.scene} /> : null}
       <Markers markers={markers} targets={targets} />
-      <Controls turntable={false} target={framing?.target ?? null} />
+      {setup && keys?.gizmo ? (
+        <PoseGizmo
+          {...keys.gizmo}
+          rig={setup.rig}
+          size={size}
+          onDragging={dragging => {
+            controls.enabled = !dragging;
+          }}
+        />
+      ) : null}
     </>
   );
 }

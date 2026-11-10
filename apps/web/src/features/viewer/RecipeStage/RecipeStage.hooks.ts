@@ -23,7 +23,7 @@ import {
 } from '../recipe-pose';
 import { joinComposer } from '../recipe-join';
 import { roughRetarget, type RoughPair } from '../rough-retarget';
-import { frameOfShare, type Timeline } from '@/state/recipe-timeline';
+import { frameOfShare, type Playable, type Timeline } from '@/state/recipe-timeline';
 import type { LoadedMotion } from '../MotionStage/Scene/Scene.types';
 
 /** The model lined up to follow the clip (or in its rest pose), and what poses it at a share of the clip. */
@@ -122,6 +122,10 @@ function setUp(
   };
   // Read from the rig as it came, before the retarget lines its limbs up.
   const forward = rigForward(bone);
+  const restWorld = new Map<THREE.Object3D, THREE.Quaternion>();
+  model.scene.traverse(o => {
+    if (o instanceof THREE.Bone) restWorld.set(o, rotationOf(o));
+  });
   const base = skeleton === 'rest' ? REST_POSE : following(model, skeleton, pairs);
   if (!base) return null;
   // Every frame starts from the lined up rest, so a nudge's move never adds up.
@@ -141,6 +145,7 @@ function setUp(
     },
     forward,
     facing: b => facings.get(b) ?? new THREE.Vector3(0, 0, 1),
+    rest: b => restWorld.get(b),
   };
   const atRest = () => {
     put(rest);
@@ -255,6 +260,9 @@ export function useTargets(
   }, [key, height, x, z, ox, oy, oz]);
 }
 
+/** Poses before the frame's other work, so the pose keys gizmo reads the pose laid. */
+const POSE_FIRST = -1;
+
 /**
  * Poses the clip at `share` each frame with the changes laid over it and
  * the pins held last, moving the playhead while it plays, and measures each
@@ -267,29 +275,30 @@ export function useRecipeFrame(
   targets: ReadonlyMap<string, THREE.Vector3>,
   play: { share: number; playing: boolean; onTick: (delta: number) => void },
   onChecks?: (checks: ReachCheck[]) => void,
-  pins: StagePins | null = null
+  pins: StagePins | null = null,
+  keysOn: Playable | null = null
 ) {
   const report = useEffectEvent((checks: ReachCheck[]) => onChecks?.(checks));
   const spots = useRef<ReadonlyMap<string, PinSpot>>(new Map());
   const reportPins = useEffectEvent((checks: PinCheck[]) => pins?.onChecks?.(checks));
   useEffect(() => {
     if (!setup) return;
-    report(checkReaches(setup.frameAt, setup.rig, layers, targets));
+    report(checkReaches(setup.frameAt, setup.rig, layers, targets, keysOn));
     const spans = pins?.spans ?? [];
     const poseAt = poseAtOf(setup, pins?.frames ?? 0);
-    spots.current = pinSpots(poseAt, setup.rig, layers, targets, spans);
-    reportPins(checkPins(poseAt, setup.rig, layers, targets, spans, spots.current));
-  }, [setup, layers, targets, pins]);
+    spots.current = pinSpots(poseAt, setup.rig, layers, targets, spans, keysOn);
+    reportPins(checkPins(poseAt, setup.rig, layers, targets, spans, spots.current, keysOn));
+  }, [setup, layers, targets, pins, keysOn]);
   useFrame((_, delta) => {
     if (!setup) return;
     if (play.playing) play.onTick(delta);
     let share = play.share;
     if (setup.playAt) share = setup.playAt(play.share);
     else setup.frameAt(play.share);
-    poseRecipe(setup.rig, layers, targets, share);
+    poseRecipe(setup.rig, layers, targets, share, keysOn);
     if (pins?.spans.length)
       holdPins(setup.rig, pins.spans, spots.current, play.share * pins.frames);
-  });
+  }, POSE_FIRST);
 }
 
 /**

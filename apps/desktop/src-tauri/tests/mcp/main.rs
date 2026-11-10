@@ -25,6 +25,7 @@ mod plan_presets;
 mod plans;
 mod reads;
 mod recipe_bake;
+mod recipe_keys;
 mod recipe_library;
 mod recipe_starters;
 mod recipes;

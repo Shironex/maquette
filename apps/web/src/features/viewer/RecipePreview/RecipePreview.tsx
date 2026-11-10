@@ -5,6 +5,7 @@
  */
 import { Suspense } from 'react';
 import type { Timeline } from '@/state/recipe-timeline';
+import type { StageKeys } from '@/features/viewer/RecipeStage';
 import { StageLoader } from '@/features/common/ViewLoader';
 import { lazyAfterPaint } from '@/lib/after-paint';
 import { Icon, InlineBanner } from '@maquette/ui';
@@ -53,6 +54,8 @@ export interface RecipePreviewProps {
   onChecks?: (checks: ReachCheck[]) => void;
   /** The pins to hold last, on the bake's frames. */
   pins?: StagePins | null;
+  /** Pose keys: the clips they stand on, and the turn gizmo while they are edited. */
+  keys?: StageKeys | null;
   /** The words on the picture; the rough preview's own without. */
   label?: string;
   /** The figure's accessible name. */
@@ -107,7 +110,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
               markers={props.markers}
               play={props.play}
               onChecks={props.onChecks}
-              pins={props.pins}
+              laid={{ keys: props.keys, pins: props.pins }}
               onError={setFailed}
             />
           </Suspense>

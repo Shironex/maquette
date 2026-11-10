@@ -21,15 +21,16 @@ const weigh = (weight: number) => (l: RecipeLayer[]) =>
 const edit = (weight: number) =>
   act(() => useRecipeEditorStore.getState().edit(d => ({ ...d, layers: weigh(weight)(d.layers) })));
 
-/** An agent adds pose keys, which the editor only shows. */
-async function addPoseKeys(id: string) {
+/** An agent adds a grip, which the editor only shows. */
+async function addGrip(id: string) {
   const doc = await commands.recipeGet('frostveil', id);
   const keys: RecipeLayer = {
     id: 'l-9',
-    kind: 'pose',
-    bone: '',
+    kind: 'grip',
+    bone: 'rightHand',
     settings: { ...doc.recipe.layers[0]!.settings, target: null, start: 0, end: 1 },
-    keys: [{ clip: 0, frame: 4, pose: { chest: [0, -18, 0] } }],
+    mode: 'replace',
+    pose: { rightIndexProximal: [0, 0, 30] },
   };
   await commands.recipeUpdate('frostveil', id, {
     name: null,
@@ -188,15 +189,16 @@ describe('the recipe editor', () => {
     ).toBeNull();
   });
 
-  it('shows a recipe holding pose keys read only, with no Save and Apply off', async () => {
+  it('shows a recipe holding a grip read only, with no Save and Apply off', async () => {
     await openRecipe();
     const doc = useRecipeEditorStore.getState().editing!.doc;
     const keys: RecipeLayer = {
       id: 'l-9',
-      kind: 'pose',
-      bone: '',
+      kind: 'grip',
+      bone: 'rightHand',
       settings: { ...doc.recipe.layers[0]!.settings, target: null, start: 0, end: 1 },
-      keys: [{ clip: 1, frame: 4, pose: { chest: [0, -18, 0] } }],
+      mode: 'replace',
+      pose: { rightIndexProximal: [0, 0, 30] },
     };
     const changed = await commands.recipeUpdate('frostveil', doc.id, {
       name: null,
@@ -221,7 +223,7 @@ describe('the recipe editor', () => {
     expect(screen.getByRole('region', { name: 'Time edits' })).toHaveTextContent(
       'Freeze clip 2, frame 10 for 6 f'
     );
-    expect(screen.getByRole('region', { name: 'Changes' })).toHaveTextContent('Pose keys · 1 key');
+    expect(screen.getByRole('region', { name: 'Changes' })).toHaveTextContent('Grip');
     expect(screen.getByRole('region', { name: 'Mirror' })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
     expect(useRecipeEditorStore.getState().editing).toBeNull();
@@ -232,7 +234,7 @@ describe('the recipe editor', () => {
     render(<RecipeEditor />);
     edit(0.5);
     const id = useRecipeEditorStore.getState().editing!.id;
-    await addPoseKeys(id);
+    await addGrip(id);
     await act(() => useRecipeEditorStore.getState().onChanged('frostveil'));
     expect(
       screen.getByText('This recipe uses what this Maquette cannot edit or bake yet')
@@ -243,7 +245,7 @@ describe('the recipe editor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Stay' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save my edits' }));
     const saved = await commands.recipeGet('frostveil', id);
-    expect(saved.recipe.layers.some(l => l.kind === 'pose')).toBe(true);
+    expect(saved.recipe.layers.some(l => l.kind === 'grip')).toBe(true);
     expect(saved.recipe.layers[0]?.settings.weight).toBe(0.5);
     expect(screen.queryByText('You have unsaved edits')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
@@ -255,7 +257,7 @@ describe('the recipe editor', () => {
     render(<RecipeEditor />);
     edit(0.5);
     const id = useRecipeEditorStore.getState().editing!.id;
-    await addPoseKeys(id);
+    await addGrip(id);
     await act(() => useRecipeEditorStore.getState().onChanged('frostveil'));
     await userEvent.click(screen.getByRole('button', { name: 'Discard my edits' }));
     expect(screen.queryByText('You have unsaved edits')).toBeNull();

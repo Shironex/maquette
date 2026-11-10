@@ -2,6 +2,8 @@ import { Icon } from '@maquette/ui';
 import RecipePreview from '@/features/viewer/RecipePreview';
 import { checkLines } from '@/state/recipe-review';
 import { RecipeLanes } from '../RecipeLanes';
+import { PoseKeysBar } from './PoseKeysBar';
+import { usePoseGizmoProps } from './pose-gizmo';
 import { useRecipePlayer } from './RecipePlayer.hooks';
 
 /**
@@ -11,6 +13,7 @@ import { useRecipePlayer } from './RecipePlayer.hooks';
  */
 export default function RecipePlayer() {
   const p = useRecipePlayer();
+  const gizmo = usePoseGizmoProps();
   const lines = checkLines(p.checks, p.layers).map(line => (
     <li key={line} className="flex items-start gap-1.5 text-meta text-amber">
       <Icon name="warning" size={14} className="mt-0.5 flex-none" />
@@ -29,7 +32,9 @@ export default function RecipePlayer() {
         play={{ share: p.share, playing: p.playing, onTick: p.tick }}
         onChecks={p.setChecks}
         pins={p.pins}
+        keys={p.keysOn ? { on: p.keysOn, gizmo } : null}
       />
+      <PoseKeysBar />
       <RecipeLanes frame={p.frame} playing={p.playing} onToggle={p.toggle} onScrub={p.scrub} />
       {lines.length ? (
         <ul aria-label="Preview checks" className="flex list-none flex-col gap-1">

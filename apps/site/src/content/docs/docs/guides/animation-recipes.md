@@ -48,7 +48,20 @@ A recipe can play more than its one base clip. Its clip strip lists the clips in
 - **Freeze.** Stops on a frame and adds frames. **Hold over** keeps a pose across a range with the length unchanged. Both can breathe, so a long hold is not dead still.
 - **Mirror.** Swaps left and right for the whole recipe, so a right handed slash becomes a left handed one.
 
-The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with pose keys or grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
+The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
+
+## Pose keys
+
+A **Pose keys** change keeps only the bones and frames you set. Pick it, then pick a bone on the body map (its right is on your left), in the list, or by clicking its dot in the preview. Filled dots have keys.
+
+- **Turn.** Drag a ring of the turn gizmo, or type **Turn X**, **Y** and **Z** in degrees. **Local** rings turn about the bone's own axes, as keys are written; **World** rings about the world's. Turning a bone keys it on the playhead's frame.
+- **Where keys sit.** A key sits on a clip's own frame, so it moves with that clip when you trim, retime or join. On the rest pose it sits on the recipe's own frame.
+- **Ease.** How the motion eases into a key: **Smooth**, **In**, **Out**, **Linear** or **Step**, which holds the key before until this one.
+- **Laid on.** **Add to the clip** turns on top of what the clip does. **Replace it** turns from the rest pose instead. **Weight** sets how much shows.
+- **Lanes.** Each bone gets a lane of diamonds. Drag a diamond to move a key; Alt drag copies it.
+- **Shortcuts.** R shows or hides the rings, K keys the bone where it stands, [ and ] go to the key before or after, M mirrors the pose to the other side.
+
+A line under the form says how far the bone turns against its joint limits, for example "Chest twist 18 of 45 degrees". It only warns, and only keyed poses are judged; the bake review shows the same check. The preview and the bake blend the keys the same way, from the same timeline.
 
 ## Blanks
 

@@ -3,6 +3,7 @@ import type { LayerKind } from '@/ipc/client';
 import { LIMITS } from '@/state/recipe-check';
 import { num } from '@/state/recipe-draft';
 import { RecipePinForm } from '../RecipePinForm';
+import PoseKeysForm from '../PoseKeysForm';
 import { RecipeRange } from '../RecipeRange';
 import { useRecipeChangeForm } from './RecipeChangeForm.hooks';
 
@@ -14,6 +15,7 @@ export default function RecipeChangeForm({ id }: { id: string }) {
   const f = useRecipeChangeForm(id);
   const { layer } = f;
   if (!layer) return null;
+  if (layer.kind === 'pose') return <PoseKeysForm id={id} />;
   const s = layer.settings;
   const targeted = layer.kind === 'reach' || layer.kind === 'look-at';
   const triple = (what: 'rotation' | 'offset') =>

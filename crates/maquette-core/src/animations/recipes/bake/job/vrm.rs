@@ -102,6 +102,10 @@ pub(super) fn bones_for(
     let mut out = BTreeMap::new();
     let mut missing = Vec::new();
     for layer in layers {
+        // Pose keys name their bones in each key (`keys::pose_bones`).
+        if layer.kind == LayerKind::Pose {
+            continue;
+        }
         let mut wanted = vec![layer.bone.as_str()];
         if matches!(layer.kind, LayerKind::Reach | LayerKind::Pin)
             && let Some((upper, lower)) = limb_of(&layer.bone)

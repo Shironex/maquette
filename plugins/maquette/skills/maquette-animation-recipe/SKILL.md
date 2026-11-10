@@ -81,12 +81,19 @@ in the app: agents may propose a tour, never apply one.
 3. Joined clips and base edits also go through `update_recipe`: `clips` (base first, each a
    library `clip` or `keep` of an index, with `trim` [in, out] and `blend`
    `{ frames, curve, lineUp }`), `time` (`retime`, `freeze`, `hold-over` on a clip's own frames
-   before its trim) and `mirror`. They bake, and so do pins; pose keys and grips are refused
+   before its trim) and `mirror`. They bake, and so do pins and pose keys; grips are refused
    (`not-bakeable-yet`). `frames` in `get_recipe` is how long the bake runs.
    - A `pin` keeps `leftFoot`, `rightFoot`, `leftHand` or `rightHand` in place from `start` to
      `end`: where the bone is at its first frame, or on a blank in `target` (give a hand one).
      `easeIn` and `easeOut` are whole frames (3 unless set). A foot's `flat` is `toe-and-heel`
      (default), `heel` or `off`. Pins are solved last, after every other change.
+   - Pose keys: `set_recipe_keys`
+     `{ project, recipe, expected, layer?, mode?, weight?, set?, move?, remove? }` edits one pose
+     key change by bone and frame (a new one without `layer`).
+     A key sits on a clip's own frame (`clip`, `frame`); turns are degrees [x, y, z] about the
+     model's own axes, added to the clip (`add`) or from the rest pose (`replace`), eased in by the
+     later key (`smooth`, `in`, `out`, `linear`, `step`). `get_recipe_pose` `{ frame }` reads the
+     blended turns at a frame and the joint limits they pass; `overLimits` only warns.
    - Changes not sent with `clips` move with their clip. Taking out a clip a change sits on, or
      moving a clip away from the clip a change runs across from, is refused (`clip-in-use`).
 4. Tell the person in one line what the recipe does and which blanks you filled with what.

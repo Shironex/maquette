@@ -15,8 +15,10 @@ import type {
   TimeEdit,
 } from '@/ipc/client';
 import { deepEqual } from '@/lib/deepEqual';
+import { counted } from '@/lib/format';
 import { boneWords, bonesFor } from './recipe-bones';
 import { pinSettings } from './recipe-pins';
+import { emptyKeys } from './recipe-key-edits';
 
 /** What the editor changes, each list sent whole when it changed. */
 export interface RecipeDraft {
@@ -52,14 +54,21 @@ export const KIND_ABOUT: Record<LayerKind, string> = {
 };
 
 /**
- * The kinds the editor makes and edits. Pose keys and grips (recipe file
- * version 2) only show, read only, until the editor learns them.
+ * The kinds the editor makes and edits. Grips (recipe file version 2)
+ * only show, read only, until the editor learns them.
  */
-export const EDITABLE_KINDS: readonly LayerKind[] = ['reach', 'nudge', 'look-at', 'wave', 'pin'];
+export const EDITABLE_KINDS: readonly LayerKind[] = [
+  'reach',
+  'nudge',
+  'look-at',
+  'wave',
+  'pin',
+  'pose',
+];
 
 /**
  * Whether the editor can edit `recipe`: joined clips, trims, blends, the
- * mirror, time edits and pins it can; pose keys and grips it only shows.
+ * mirror, time edits, pins and pose keys it can; grips it only shows.
  */
 export const editable = (recipe: RecipeFile) =>
   recipe.layers.every(l => EDITABLE_KINDS.includes(l.kind));
@@ -140,12 +149,19 @@ const EMPTY: LayerSettings = {
   amount: null,
 };
 
-/** A new change of `kind` on its kind's first bone, over the middle half of the clip. */
+/** A new change of `kind` on its kind's first bone, over the middle half of the clip; pose keys start with none. */
 export function newLayer(
   kind: LayerKind,
   layers: readonly RecipeLayer[],
   blanks: readonly RecipeBlank[]
 ): RecipeLayer {
+  if (kind === 'pose')
+    return emptyKeys(
+      freeId(
+        'l',
+        layers.map(l => l.id)
+      )
+    );
   const bone = kind === 'nudge' ? 'spine' : (bonesFor(kind)[0] ?? 'hips');
   const preferred =
     kind === 'reach' || kind === 'wave' ? 'rightHand' : kind === 'pin' ? 'leftFoot' : bone;
@@ -227,6 +243,7 @@ export function layerLine(
   frames: number | ((share: number) => number)
 ): string {
   const s = layer.settings;
+  if (layer.kind === 'pose') return poseKeysLine(layer);
   const aim = s.target ? ` → ${s.target}` : '';
   const at = typeof frames === 'number' ? (share: number) => frameOf(share, frames) : frames;
   const span = `frames ${at(num(s.start))} to ${at(num(s.end, 1))}`;
@@ -239,4 +256,14 @@ export function blankFill(blank: RecipeBlank, assetName: (id: string) => string 
     return blank.prop ? (assetName(blank.prop) ?? blank.prop) : 'open, pick a prop';
   if (!blank.point) return 'open, set a point';
   return blank.point.map(v => `${num(v).toFixed(2)}`).join(', ') + ' m';
+}
+
+/** "Pose keys · 3 keys on 2 bones · Add": a pose key change in one line. */
+function poseKeysLine(layer: RecipeLayer): string {
+  const keys = layer.keys ?? [];
+  const bones = new Set(keys.flatMap(k => Object.keys(k.pose))).size;
+  const count = keys.length
+    ? `${counted(keys.length, 'key')} on ${counted(bones, 'bone')}`
+    : 'no keys yet';
+  return [KIND_WORDS.pose, count, layer.mode === 'replace' ? 'Replace' : 'Add'].join(' · ');
 }

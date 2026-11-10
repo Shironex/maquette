@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import type { AnimationItem, RecipeBase } from '@/ipc/client';
 import type { JoinedClip, RecipeMarker } from '@/features/viewer/RecipePreview';
 import { blankFilled, num } from '@/state/recipe-draft';
@@ -8,6 +8,7 @@ import { useAnimationsStore } from '@/state/use-animations-store';
 import { useLayoutStore } from '@/state/use-layout-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { usePoseKeysStore } from '@/state/use-pose-keys-store';
 import { clipFps, clipsOf } from '@/state/recipe-timeline';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 import { usePreviewPins } from './use-preview-pins';
@@ -52,6 +53,18 @@ export function useRecipePlayer() {
     });
     return { joined: clips, timeline: dt.timeline };
   }, [dt, library]);
+  const scrub = (frame: number) => {
+    setPlaying(false);
+    setPosition(Math.min(Math.max(frame, 0), frames));
+  };
+  // The pose keys editor keys the frame on show and moves the playhead to a key.
+  const shown = Math.round(position);
+  useEffect(() => usePoseKeysStore.getState().setFrame(shown), [shown]);
+  const scrubTo = useEffectEvent(scrub);
+  useEffect(() => {
+    usePoseKeysStore.getState().setSeek(frame => scrubTo(frame));
+    return () => usePoseKeysStore.getState().setSeek(null);
+  }, []);
   const blanks = editing?.draft.blanks;
   const project = editing?.project ?? null;
   const layout = useLayoutStore(s => (project && s.project === project ? s.view : null));
@@ -89,11 +102,10 @@ export function useRecipePlayer() {
     frame: Math.round(position),
     joined,
     playing,
+    /** The clips pose keys stand on. */
+    keysOn: dt?.recipe ?? null,
     toggle: () => setPlaying(p => !p),
-    scrub: (frame: number) => {
-      setPlaying(false);
-      setPosition(Math.min(Math.max(frame, 0), frames));
-    },
+    scrub,
     tick: (delta: number) => setPosition(p => (frames > 0 ? (p + delta * fps) % frames : 0)),
     checks,
     setChecks,

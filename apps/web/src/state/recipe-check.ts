@@ -7,6 +7,7 @@
 import type { RecipeBlank, RecipeLayer } from '@/ipc/client';
 import { HUMAN_BONES, bonesFor } from './recipe-bones';
 import { KIND_WORDS, num, type RecipeDraft } from './recipe-draft';
+import { poseKeysProblem } from './pose-keys-problem';
 import { pinProblem } from './recipe-pins';
 import { baseProblems } from './recipe-v2-check';
 
@@ -109,10 +110,19 @@ function settingsProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): st
   }
 }
 
-function layerProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): string | null {
+function layerProblem(
+  layer: RecipeLayer,
+  blanks: readonly RecipeBlank[],
+  clips: CheckedDraft['clips']
+): string | null {
   if (!isItemId(layer.id)) return `"${layer.id}" is not a change id.`;
   // Pose keys name their bones in each key, so the change itself has none.
-  if (layer.kind === 'pose') return layer.bone ? 'Pose keys name their bones in each key.' : null;
+  if (layer.kind === 'pose')
+    return layer.bone
+      ? 'Pose keys name their bones in each key.'
+      : clips
+        ? poseKeysProblem(layer, clips)
+        : null;
   const bones = bonesFor(layer.kind);
   if (!bones.includes(layer.bone)) {
     return bones === HUMAN_BONES
@@ -156,7 +166,7 @@ export function checkDraft(
   for (const layer of draft.layers) {
     const problem = ids.has(layer.id)
       ? `Two changes have the id ${layer.id}.`
-      : layerProblem(layer, draft.blanks);
+      : layerProblem(layer, draft.blanks, draft.clips);
     if (problem) out.layers[layer.id] = problem;
     ids.add(layer.id);
   }

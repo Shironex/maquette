@@ -22,6 +22,7 @@ use crate::recipes::{BlankKind, RecipeLayer};
 use crate::workspace::WorkspaceConfig;
 
 mod clip_name;
+mod keys;
 mod parts;
 mod ready;
 mod rest;
@@ -40,6 +41,7 @@ const RETARGET_FILE: &str = "retarget_clips.py";
 const SURFACE_FILE: &str = "surface.py";
 const MOTION_FILE: &str = "recipe_motion.py";
 const PINS_FILE: &str = "recipe_pins.py";
+const KEYS_FILE: &str = "recipe_keys.py";
 pub(super) const JOB_FILE: &str = "recipe.json";
 pub(super) const REPORT_FILE: &str = "result.json";
 pub(super) const PROGRESS_FILE: &str = "progress.json";
@@ -187,11 +189,14 @@ pub fn prepare(
             model.name
         ))
     })?;
-    let bones = bones_for(&doc.recipe.layers, &map, &model)?;
+    let mut bones = bones_for(&doc.recipe.layers, &map, &model)?;
+    let (keyed, unkeyed) = keys::pose_bones(&doc.recipe, &map, &model);
+    bones.extend(keyed);
     let (targets, props) = targets_of(&doc, &manifest, &dir, &request.asset)?;
     let warnings = std::iter::once(&doc.base)
         .chain(&doc.joined)
         .filter_map(|m| m.warning.clone())
+        .chain(unkeyed)
         .collect();
     let timeline = (!timeline::plain(&doc.recipe)).then(|| timeline::timeline(&doc.recipe));
     let pins = crate::recipes::pins::spans(&doc.recipe, &timeline::timeline(&doc.recipe));
@@ -293,6 +298,8 @@ struct RecipeSpec<'a> {
     mirror_pairs: &'a [[String; 2]],
     /// The pins on the bake's frames, solved after everything else.
     pins: &'a [crate::recipes::pins::PinSpan],
+    /// Each pose key change's keys with where they stand, by change id.
+    pose_keys: BTreeMap<String, keys::PoseLayerSpec>,
 }
 
 #[derive(Serialize)]
@@ -343,6 +350,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
         (SURFACE_FILE, surface),
         (MOTION_FILE, super::MOTION_SCRIPT),
         (PINS_FILE, super::PINS_SCRIPT),
+        (KEYS_FILE, super::KEYS_SCRIPT),
     ] {
         let path = work.join(name);
         crate::fs::write_atomic(&path, text.as_bytes()).map_err(|e| CoreError::io(&path, e))?;
@@ -367,6 +375,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
                 parts,
                 mirror_pairs: &prepared.mirror_pairs,
                 pins: &prepared.pins,
+                pose_keys: keys::pose_specs(&prepared.doc.recipe),
             },
             out: super::STAGED_FILE,
             report: REPORT_FILE,
