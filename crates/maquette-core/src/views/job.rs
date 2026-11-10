@@ -100,31 +100,27 @@ impl RunSink for Sink {
         if !run.state.is_finished() {
             return;
         }
-        let done = {
-            let mut pending = self.0.pending();
-            let key = pending
-                .iter()
-                .find(|(_, p)| p.run_id.as_deref() == Some(run.id.as_str()))
-                .map(|(k, _)| k.clone());
-            key.and_then(|k| pending.remove(&k))
-        };
-        let Some(done) = done else {
+        // The set stays pending until it has landed or its failure is kept:
+        // an ask in between joins it instead of starting a second render.
+        let done = self.0.pending().values().find_map(|p| {
+            (p.run_id.as_deref() == Some(run.id.as_str()))
+                .then(|| (p.request.clone(), p.key.clone(), p.cancelled))
+        });
+        let Some((request, key, cancelled)) = done else {
             return;
         };
-        if done.cancelled {
-            return;
-        }
-        let trouble = if run.state == RunState::Done {
-            land(&done.request, &done.key).err().map(|e| e.to_string())
+        let trouble = if cancelled {
+            None
+        } else if run.state == RunState::Done {
+            land(&request, &key).err().map(|e| e.to_string())
         } else {
-            let said = why(&run, &done.request.work.join(RUNS_DIR));
+            let said = why(&run, &request.work.join(RUNS_DIR));
             Some(format!("The views did not render. {said}"))
         };
         if let Some(message) = trouble {
-            self.0
-                .failed()
-                .insert(done.request.dir.clone(), (done.key, message));
+            self.0.failed().insert(request.dir.clone(), (key, message));
         }
+        self.0.pending().remove(&request.dir);
     }
 }
 
