@@ -429,3 +429,51 @@ fn key_edits_set_move_and_remove_by_bone_and_frame() {
     let not_pose = RecipeLayer::new("l-9", LayerKind::Nudge, "spine", LayerSettings::default());
     assert!(edit_keys(&not_pose, &KeyEdits::default()).is_err());
 }
+
+#[test]
+fn key_edits_refuse_lists_longer_than_a_change_holds_before_scanning() {
+    let layer = plain_keys().layers.remove(0);
+    let remove = |bones: Option<Vec<String>>| KeyRemove {
+        clip: 0,
+        frame: 0,
+        bones,
+    };
+    let refused = |edits: KeyEdits| {
+        let err = edit_keys(&layer, &edits).expect_err("too long");
+        assert!(err.to_string().contains("send at most"), "{err}");
+    };
+    refused(KeyEdits {
+        remove: vec![remove(None); MAX_KEYS + 1],
+        ..KeyEdits::default()
+    });
+    refused(KeyEdits {
+        moves: vec![
+            KeyMove {
+                clip: 0,
+                frame: 0,
+                to_clip: 0,
+                to_frame: 1,
+                bones: None,
+            };
+            MAX_KEYS + 1
+        ],
+        ..KeyEdits::default()
+    });
+    refused(KeyEdits {
+        set: vec![
+            KeySet {
+                clip: 0,
+                frame: 0,
+                ease: None,
+                pose: BonePose::default(),
+            };
+            MAX_KEYS + 1
+        ],
+        ..KeyEdits::default()
+    });
+    let names = (0..=MAX_KEY_BONES).map(|i| format!("b{i}")).collect();
+    refused(KeyEdits {
+        remove: vec![remove(Some(names))],
+        ..KeyEdits::default()
+    });
+}

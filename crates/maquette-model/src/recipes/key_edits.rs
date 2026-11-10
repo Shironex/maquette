@@ -7,7 +7,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{BonePose, KeyEase, LayerKind, LayerMode, LayerSettings, PoseKey, RecipeLayer};
+use super::{
+    BonePose, KeyEase, LayerKind, LayerMode, LayerSettings, MAX_KEY_BONES, MAX_KEYS, PoseKey,
+    RecipeLayer,
+};
 use crate::error::{CoreError, CoreResult};
 use crate::plans::trimmed;
 
@@ -109,12 +112,57 @@ fn put(keys: &mut Vec<PoseKey>, clip: u32, frame: u32, ease: Option<KeyEase>, po
     }
 }
 
+fn too_long(what: &str, len: usize, most: usize) -> CoreError {
+    CoreError::Invalid(format!(
+        "{len} {what} in one edit; send at most {most}. Split it into several edits."
+    ))
+}
+
+/// Refuses lists longer than a pose key change can hold, before any scan:
+/// each edit scans the keys, so the work grows with the product.
+fn check_sizes(edits: &KeyEdits) -> CoreResult<()> {
+    for (what, len) in [
+        ("keys to set", edits.set.len()),
+        ("keys to move", edits.moves.len()),
+        ("keys to remove", edits.remove.len()),
+    ] {
+        if len > MAX_KEYS {
+            return Err(too_long(what, len, MAX_KEYS));
+        }
+    }
+    let bones = edits
+        .set
+        .iter()
+        .map(|s| s.pose.len())
+        .chain(
+            edits
+                .moves
+                .iter()
+                .filter_map(|m| m.bones.as_ref())
+                .map(Vec::len),
+        )
+        .chain(
+            edits
+                .remove
+                .iter()
+                .filter_map(|r| r.bones.as_ref())
+                .map(Vec::len),
+        );
+    for len in bones {
+        if len > MAX_KEY_BONES {
+            return Err(too_long("bones on one key", len, MAX_KEY_BONES));
+        }
+    }
+    Ok(())
+}
+
 /// `layer` (a pose key change) with `edits` made.
 ///
 /// # Errors
 ///
-/// [`CoreError::Invalid`] for a change that is not pose keys, or a move or
-/// remove of a key or bone it does not have.
+/// [`CoreError::Invalid`] for a change that is not pose keys, an edit list
+/// longer than [`MAX_KEYS`] (or a bone list longer than [`MAX_KEY_BONES`]),
+/// or a move or remove of a key or bone it does not have.
 pub fn edit_keys(layer: &RecipeLayer, edits: &KeyEdits) -> CoreResult<RecipeLayer> {
     if layer.kind != LayerKind::Pose {
         return Err(CoreError::Invalid(format!(
@@ -122,6 +170,7 @@ pub fn edit_keys(layer: &RecipeLayer, edits: &KeyEdits) -> CoreResult<RecipeLaye
             layer.id
         )));
     }
+    check_sizes(edits)?;
     let id = layer.id.as_str();
     let mut keys = layer.keys.clone();
     for r in &edits.remove {
