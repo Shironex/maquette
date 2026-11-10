@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 149 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 151 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Start with `get_started`, then `create_project` when there is no project to work in. Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 ## Tool groups
 
@@ -20,7 +20,7 @@ Every tool belongs to one group, and its description starts with that group in b
 | `[plan]`       | 14    | Planning canvases and their nodes, the change log and a website's camera plan.           |
 | `[send]`       | 14    | Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads.          |
 | `[inbox]`      | 7     | Models waiting to be accepted: checks, accept, discard and restore.                      |
-| `[prepare]`    | 12    | Real size, fix-ups, parts, materials, assembling props and comparing versions.           |
+| `[prepare]`    | 14    | Real size, fix-ups, parts, materials, assembling props and comparing versions.           |
 | `[built]`      | 3     | Models a Blender script in the project makes, with no credits.                           |
 | `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.       |
 | `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                           |
@@ -79,6 +79,7 @@ These look at the workspace and change nothing.
 | `get_motion`                                    | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                                                                                                                                                                                                                                                                                               | Nothing | No       |
 | [`get_parts`](#set_parts)                       | An asset's parts as its newest model ships them: the name in the model, the name it ships as, triangles, materials, hidden and joined parts. Runs its split headless on a copy first when it has not run                                                                                                                                                                                                           | Nothing | No       |
 | `compare_versions`                              | Two versions of an asset (or one before and after its fix-ups) part by part: the parts Motion can move, draw calls, triangles, textures, transfer size and Inbox checks                                                                                                                                                                                                                                            | Nothing | No       |
+| [`get_model_facts`](#get_model_facts)           | The measured facts of an asset version: counts, the file's box, real size, the box at real size, facing with how it was decided, the layout entry and the ref images' paths                                                                                                                                                                                                                                        |
 | `list_built_assets`                             | Each built asset's script, helpers, state and last build                                                                                                                                                                                                                                                                                                                                                           | Nothing | No       |
 | `get_page_preview`                              | The site dev server's state, address, command, who started it and its last log lines                                                                                                                                                                                                                                                                                                                               | Nothing | No       |
 | `get_game`                                      | A game project's settings, each model against its folder's budget and the game templates (add `previews` for what each would change here)                                                                                                                                                                                                                                                                          | Nothing | No       |
@@ -150,6 +151,7 @@ These look at the workspace and change nothing.
 | `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                                                                                                                                                                             | Nothing | No       |
 | `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                                                                                                                                                                                | Nothing | No       |
 | `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                                                                                                                                                                                 | Nothing | No       |
+| [`render_views`](#render_views)                       | Renders an asset version from the standard views in the page light, beside its refs, or two versions with the same cameras                                                                                                                                             | Nothing |
 | `start_page_preview`                                  | Runs the site repo's dev command: starts the server the Page view shows, or reuses the running one. The first start of a repo an agent set waits for your approval                                                                                                     | Nothing | No       |
 | `stop_page_preview`                                   | Stops that server, whoever started it                                                                                                                                                                                                                                  | Nothing | No       |
 | `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                                                                                                                                                                           | Nothing | No       |
@@ -1104,6 +1106,64 @@ Lists the newest renders. A render Maquette closed on reads as `stopped`, and `d
 | --------- | ------ | -------- | ------------------- |
 | `id`      | string | yes      | The render id.      |
 | `choice`  | string | yes      | `stop` or `resume`. |
+
+### render_views
+
+`writes files`
+
+Renders one asset version from a fixed set of views in headless Blender, in [the page light](/docs/pipeline/page-light/), so a rebuild can be held beside its concept ref without a render script. The model may be built or from a provider. Five 1024 px PNGs:
+
+| View            | Where the camera stands                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `three-quarter` | 38 degrees round from the front towards the model's +X and 22 up, the view object refs are drawn at |
+| `front`         | Straight in front, on the model's +Z side, 6 degrees up                                             |
+| `top`           | Straight above, the front at the bottom of the picture                                              |
+| `close-up-1`    | From the three quarter side: the first half of the model along its longest side                     |
+| `close-up-2`    | The other half                                                                                      |
+
+They land in the project's `exports/renders/<asset>/views/v<n>/`, with `sheet.png` (every picture on one PNG, the asset's refs first) and `views.json`. The answer gives each picture's path, the camera that took it in words and numbers, what it frames, and the paths of the asset's refs with their views. The asset's fix-ups and real size are applied first, as Build scene places the model, so the pictures are in metres.
+
+`compare` renders a second version with the very same cameras, fitted to both models together, into `v<n>-vs-v<m>/` as `v3_front.png` and `v2_front.png`: a rebuild beside the model it replaces.
+
+A set that is already there answers at once. A render takes about a minute; past `waitSeconds` the answer has `status` `rendering`, and the same call again joins it. No credits, no approval.
+
+| Parameter     | Type     | Required | Notes                                                                                                                                                                                      |
+| ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project`     | string   | yes      | The project id.                                                                                                                                                                            |
+| `asset`       | string   | yes      | The asset id or its name.                                                                                                                                                                  |
+| `version`     | number   | no       | The version to render. The newest by default.                                                                                                                                              |
+| `compare`     | number   | no       | Another version, rendered with the same cameras.                                                                                                                                           |
+| `angle`       | object   | no       | `{ azimuth, elevation? }` in degrees moves the three quarter view (and the close ups) to match a ref drawn from elsewhere. A negative azimuth stands on the model's other side.            |
+| `closeUps`    | object[] | no       | Up to two of `{ node }` (an object of the model by name), `{ box }` (two corners in shares of the bounding box, x left to right, y bottom to top, z back to front) or `{ half }` (0 or 1). |
+| `asIs`        | boolean  | no       | Render the model files as they are, without fix-ups and real size.                                                                                                                         |
+| `cancel`      | boolean  | no       | Stop the render of this set that is running.                                                                                                                                               |
+| `waitSeconds` | number   | no       | How long to wait for Blender, 60 by default and 240 at most.                                                                                                                               |
+
+```json
+{ "project": "frostveil", "asset": "book-stack", "compare": 1, "closeUps": [{ "node": "mug" }] }
+```
+
+### get_model_facts
+
+`read only`
+
+Says what an asset version measures and where it stands, so nobody writes a measuring script. It reads the model file and the project's own data, and never runs Blender:
+
+- `counts`: triangles, vertices, meshes, `objects` (the nodes a page can move by name), primitives and materials. One object means a single mesh, whose parts have to be read off pictures.
+- `inFile`: the model file's own box. A provider's scan is not at real size in the file.
+- `realSize`: what `prepare.json` holds, the scale Build scene gives the file to reach it and the origin fix-up's shift. `atRealSize` is the box the layout places, in metres.
+- `facing`: the axis the front points along in the file and, turned by the layout, in the scene, with `how` it was decided (`rig`, read from the skeleton, or `convention`) and how `sure` it is (`measured` or `assumed`). A prop carries no front, so its facing is the format's and the answer says nobody measured it: check it on `render_views`' front picture.
+- `layout`: the entry in `layout.json` (position, rotation in degrees, scale) and the box it fills in the scene.
+- `refs`: the asset's ref images with their whole paths and views.
+- `notes`: what to make of the numbers.
+
+`axes` says how to read them: glTF and three.js share one frame, y up and the front at +z, which Blender imports as -y with z up.
+
+| Parameter | Type   | Required | Notes                                          |
+| --------- | ------ | -------- | ---------------------------------------------- |
+| `project` | string | yes      | The project id.                                |
+| `asset`   | string | yes      | The asset id or its name.                      |
+| `version` | number | no       | The version to measure. The newest by default. |
 
 ### import_animations
 
