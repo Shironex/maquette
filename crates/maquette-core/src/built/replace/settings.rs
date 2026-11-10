@@ -12,7 +12,9 @@
 //! |                                            | reset                                   |
 //! | Material tweaks                            | reset: the built asset's own take their |
 //! |                                            | place                                   |
-//! | Compression presets (per model file)       | not carried, reported                   |
+//! | Compression presets (per model file)       | not carried, reported; only the locked  |
+//! |                                            | character row follows, as the pipeline  |
+//! |                                            | moves it to the asset's newest model    |
 //! | Library origin                             | reset                                   |
 //!
 //! The real size is a measure ("30 cm on its longest side"), not a factor:
