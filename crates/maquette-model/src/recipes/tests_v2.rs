@@ -93,6 +93,7 @@ pub(super) fn grip(id: &str) -> RecipeLayer {
         ),
         from: Some(GripFrom {
             entry: "longsword-two-hands".into(),
+            uid: None,
             revision: 2,
         }),
         ..RecipeLayer::new(id, LayerKind::Grip, "rightHand", LayerSettings::default())

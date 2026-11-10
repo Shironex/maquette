@@ -59,23 +59,32 @@ pub fn flat_of(layer: &RecipeLayer) -> Option<PinFlat> {
     is_foot(&layer.bone).then(|| layer.settings.flat.unwrap_or(PinFlat::ToeAndHeel))
 }
 
-/// Where `layer`, a pin, holds on timeline `t`; none when no frame falls
-/// within its range.
-pub fn span_on(t: &Timeline, layer: &RecipeLayer) -> Option<PinSpan> {
-    let s = &layer.settings;
-    let start = super::timeline::wide(s.start);
-    let end = super::timeline::wide(s.end);
+/// The timeline frames a change that starts and ends at shares `start` and
+/// `end` holds on: the first frame whose share reaches its start and the
+/// last whose share is within its end. None when no frame falls within.
+/// Pins and grips both stand on these.
+pub fn frames_within(t: &Timeline, start: f32, end: f32) -> Option<(u32, u32)> {
+    let start = super::timeline::wide(start);
+    let end = super::timeline::wide(end);
     let first = t.keys.iter().position(|k| k.share >= start - EPS)?;
     let last = t.keys.iter().rposition(|k| k.share <= end + EPS)?;
     if last < first {
         return None;
     }
     let frame = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+    Some((frame(first), frame(last)))
+}
+
+/// Where `layer`, a pin, holds on timeline `t`; none when no frame falls
+/// within its range.
+pub fn span_on(t: &Timeline, layer: &RecipeLayer) -> Option<PinSpan> {
+    let s = &layer.settings;
+    let (first, last) = frames_within(t, s.start, s.end)?;
     Some(PinSpan {
         layer: layer.id.clone(),
         bone: layer.bone.clone(),
-        first: frame(first),
-        last: frame(last),
+        first,
+        last,
         ease_in: s.ease_in.unwrap_or(PIN_EASE_FRAMES),
         ease_out: s.ease_out.unwrap_or(PIN_EASE_FRAMES),
         weight: super::timeline::wide(s.weight).clamp(0.0, 1.0),
@@ -99,25 +108,33 @@ fn smooth(x: f64) -> f64 {
     x * x * (3.0 - 2.0 * x)
 }
 
+/// How much of a change that holds on frames `first` to `last` shows at
+/// timeline frame `frame`, 0 to 1: none outside its frames, easing in over
+/// `ease_in` frames from its first and out over `ease_out` to its last (an
+/// ease of 0 holds at once).
+pub fn eased(first: u32, last: u32, ease_in: u32, ease_out: u32, frame: f64) -> f64 {
+    let (first, last) = (f64::from(first), f64::from(last));
+    if frame < first - EPS || frame > last + EPS {
+        return 0.0;
+    }
+    let up = if ease_in > 0 {
+        smooth((frame - first) / f64::from(ease_in))
+    } else {
+        1.0
+    };
+    let down = if ease_out > 0 {
+        smooth((last - frame) / f64::from(ease_out))
+    } else {
+        1.0
+    };
+    up.min(down)
+}
+
 /// How much of `pin` holds at timeline frame `frame`, 0 to 1, weight in:
 /// none outside its frames, easing in from its first frame and out to its
 /// last (an ease of 0 holds at once).
 pub fn amount(pin: &PinSpan, frame: f64) -> f64 {
-    let (first, last) = (f64::from(pin.first), f64::from(pin.last));
-    if frame < first - EPS || frame > last + EPS {
-        return 0.0;
-    }
-    let up = if pin.ease_in > 0 {
-        smooth((frame - first) / f64::from(pin.ease_in))
-    } else {
-        1.0
-    };
-    let down = if pin.ease_out > 0 {
-        smooth((last - frame) / f64::from(pin.ease_out))
-    } else {
-        1.0
-    };
-    pin.weight * up.min(down)
+    pin.weight * eased(pin.first, pin.last, pin.ease_in, pin.ease_out, frame)
 }
 
 /// The frames of `pin` where it holds whole: past its ease in and before

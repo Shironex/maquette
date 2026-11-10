@@ -279,7 +279,19 @@ fn pins_and_grips_keep_to_their_bones() {
         &with(RecipeLayer {
             from: Some(GripFrom {
                 entry: "longsword".into(),
+                uid: None,
                 revision: 0,
+            }),
+            ..grip("l-3")
+        }),
+        "cannot be one",
+    );
+    refused(
+        &with(RecipeLayer {
+            from: Some(GripFrom {
+                entry: "longsword".into(),
+                uid: Some("not a uid".into()),
+                revision: 2,
             }),
             ..grip("l-3")
         }),

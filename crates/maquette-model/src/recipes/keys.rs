@@ -77,6 +77,13 @@ pub struct PoseKey {
 pub struct GripFrom {
     /// The library grip's id.
     pub entry: String,
+    /// The library grip's uid, made once with it. An entry of the same id
+    /// with another uid is another grip (the first was removed and its id
+    /// taken again), so the link reads as gone. A link written by hand may
+    /// leave it out; it then goes by the id alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub uid: Option<String>,
     /// Its revision, from 1.
     pub revision: u32,
 }
@@ -125,6 +132,7 @@ pub(super) fn layer_for(layer: &RecipeLayer) -> RecipeLayer {
         pose: layer.pose.as_ref().filter(|_| grip).map(pose_for),
         from: layer.from.as_ref().filter(|_| grip).map(|f| GripFrom {
             entry: trimmed(&f.entry).to_string(),
+            uid: f.uid.as_deref().map(|u| trimmed(u).to_string()),
             revision: f.revision,
         }),
     }

@@ -1,0 +1,1781 @@
+{
+  "grips": [
+    {
+      "applies": [
+        {
+          "bone": "rightHand",
+          "hands": null,
+          "pose": {
+            "leftHand": [
+              -2.0,
+              6.0,
+              9.0
+            ],
+            "leftIndexProximal": [
+              0.0,
+              0.0,
+              -58.0
+            ],
+            "rightHand": [
+              4.0,
+              0.0,
+              -8.0
+            ],
+            "rightIndexProximal": [
+              0.0,
+              0.0,
+              62.0
+            ],
+            "rightLowerArm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "rightThumbDistal": [
+              10.0,
+              -20.0,
+              5.0
+            ]
+          }
+        },
+        {
+          "bone": "rightHand",
+          "hands": "both",
+          "pose": {
+            "leftHand": [
+              -2.0,
+              6.0,
+              9.0
+            ],
+            "leftIndexProximal": [
+              0.0,
+              0.0,
+              -58.0
+            ],
+            "rightHand": [
+              4.0,
+              0.0,
+              -8.0
+            ],
+            "rightIndexProximal": [
+              0.0,
+              0.0,
+              62.0
+            ],
+            "rightLowerArm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "rightThumbDistal": [
+              10.0,
+              -20.0,
+              5.0
+            ]
+          }
+        },
+        {
+          "bone": "rightHand",
+          "hands": "right",
+          "pose": {
+            "rightHand": [
+              4.0,
+              0.0,
+              -8.0
+            ],
+            "rightIndexProximal": [
+              0.0,
+              0.0,
+              62.0
+            ],
+            "rightLowerArm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "rightThumbDistal": [
+              10.0,
+              -20.0,
+              5.0
+            ]
+          }
+        },
+        {
+          "bone": "leftHand",
+          "hands": "left",
+          "pose": {
+            "leftHand": [
+              -2.0,
+              6.0,
+              9.0
+            ],
+            "leftIndexProximal": [
+              0.0,
+              0.0,
+              -58.0
+            ]
+          }
+        }
+      ],
+      "grip": {
+        "hands": {
+          "holds": "right",
+          "supports": "left"
+        },
+        "name": "Longsword, two hands",
+        "pose": {
+          "leftHand": [
+            -2.0,
+            6.0,
+            9.0
+          ],
+          "leftIndexProximal": [
+            0.0,
+            0.0,
+            -58.0
+          ],
+          "rightHand": [
+            4.0,
+            0.0,
+            -8.0
+          ],
+          "rightIndexProximal": [
+            0.0,
+            0.0,
+            62.0
+          ],
+          "rightLowerArm": [
+            0.0,
+            12.0,
+            0.0
+          ],
+          "rightThumbDistal": [
+            10.0,
+            -20.0,
+            5.0
+          ]
+        },
+        "revision": 1,
+        "version": 1,
+        "weapon": "longsword"
+      },
+      "group": "swords",
+      "mirrored": {
+        "leftHand": [
+          4.0,
+          0.0,
+          8.0
+        ],
+        "leftIndexProximal": [
+          0.0,
+          0.0,
+          -62.0
+        ],
+        "leftLowerArm": [
+          0.0,
+          -12.0,
+          0.0
+        ],
+        "leftThumbDistal": [
+          10.0,
+          20.0,
+          -5.0
+        ],
+        "rightHand": [
+          -2.0,
+          -6.0,
+          -9.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          58.0
+        ]
+      },
+      "words": "both hands"
+    },
+    {
+      "applies": [
+        {
+          "bone": "rightHand",
+          "hands": null,
+          "pose": {
+            "rightHand": [
+              0.0,
+              30.0,
+              0.0
+            ],
+            "rightMiddleIntermediate": [
+              0.0,
+              0.0,
+              80.0
+            ]
+          }
+        },
+        {
+          "bone": "rightHand",
+          "hands": "both",
+          "pose": {
+            "leftHand": [
+              0.0,
+              -30.0,
+              0.0
+            ],
+            "leftMiddleIntermediate": [
+              0.0,
+              0.0,
+              -80.0
+            ],
+            "rightHand": [
+              0.0,
+              30.0,
+              0.0
+            ],
+            "rightMiddleIntermediate": [
+              0.0,
+              0.0,
+              80.0
+            ]
+          }
+        },
+        {
+          "bone": "rightHand",
+          "hands": "right",
+          "pose": {
+            "rightHand": [
+              0.0,
+              30.0,
+              0.0
+            ],
+            "rightMiddleIntermediate": [
+              0.0,
+              0.0,
+              80.0
+            ]
+          }
+        },
+        {
+          "bone": "leftHand",
+          "hands": "left",
+          "pose": {
+            "leftHand": [
+              0.0,
+              -30.0,
+              0.0
+            ],
+            "leftMiddleIntermediate": [
+              0.0,
+              0.0,
+              -80.0
+            ]
+          }
+        }
+      ],
+      "grip": {
+        "hands": {
+          "holds": "right"
+        },
+        "name": "Dagger, reverse",
+        "pose": {
+          "rightHand": [
+            0.0,
+            30.0,
+            0.0
+          ],
+          "rightMiddleIntermediate": [
+            0.0,
+            0.0,
+            80.0
+          ]
+        },
+        "revision": 1,
+        "version": 1,
+        "weapon": "dagger"
+      },
+      "group": "daggers",
+      "mirrored": {
+        "leftHand": [
+          0.0,
+          -30.0,
+          0.0
+        ],
+        "leftMiddleIntermediate": [
+          0.0,
+          0.0,
+          -80.0
+        ]
+      },
+      "words": "right hand"
+    },
+    {
+      "applies": [
+        {
+          "bone": "leftHand",
+          "hands": null,
+          "pose": {
+            "leftHand": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "leftLittleDistal": [
+              3.0,
+              4.0,
+              -18.5
+            ]
+          }
+        },
+        {
+          "bone": "leftHand",
+          "hands": "both",
+          "pose": {
+            "leftHand": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "leftLittleDistal": [
+              3.0,
+              4.0,
+              -18.5
+            ],
+            "rightHand": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rightLittleDistal": [
+              3.0,
+              -4.0,
+              18.5
+            ]
+          }
+        },
+        {
+          "bone": "rightHand",
+          "hands": "right",
+          "pose": {
+            "rightHand": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rightLittleDistal": [
+              3.0,
+              -4.0,
+              18.5
+            ]
+          }
+        },
+        {
+          "bone": "leftHand",
+          "hands": "left",
+          "pose": {
+            "leftHand": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "leftLittleDistal": [
+              3.0,
+              4.0,
+              -18.5
+            ]
+          }
+        }
+      ],
+      "grip": {
+        "hands": {
+          "holds": "left"
+        },
+        "name": "Empty hand, relaxed",
+        "pose": {
+          "leftHand": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "leftLittleDistal": [
+            3.0,
+            4.0,
+            -18.5
+          ]
+        },
+        "revision": 1,
+        "version": 1,
+        "weapon": "empty"
+      },
+      "group": "empty",
+      "mirrored": {
+        "rightHand": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rightLittleDistal": [
+          3.0,
+          -4.0,
+          18.5
+        ]
+      },
+      "words": "either hand"
+    }
+  ],
+  "keyed": [
+    {
+      "frame": 10,
+      "keep": null,
+      "layer": "l-2",
+      "pose": {
+        "leftHand": [
+          5.0,
+          0.0,
+          0.0
+        ],
+        "rightHand": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          10.0
+        ]
+      },
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 90,
+          "hash": "sword-idle-hash",
+          "length": 3.0,
+          "mixamo": true,
+          "name": "Sword Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-2",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 10,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    -18.0,
+                    0.0
+                  ],
+                  "leftHand": [
+                    5.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    10.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 40,
+                "pose": {
+                  "leftHand": [
+                    5.0,
+                    20.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    12.0,
+                    0.0,
+                    -9.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    70.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "add",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Keyed hands",
+        "revision": 1,
+        "version": 2
+      }
+    },
+    {
+      "frame": 25,
+      "keep": null,
+      "layer": "l-2",
+      "pose": {
+        "leftHand": [
+          5.0,
+          10.0,
+          0.0
+        ],
+        "rightHand": [
+          6.0,
+          0.0,
+          -4.5
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          40.0
+        ]
+      },
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 90,
+          "hash": "sword-idle-hash",
+          "length": 3.0,
+          "mixamo": true,
+          "name": "Sword Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-2",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 10,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    -18.0,
+                    0.0
+                  ],
+                  "leftHand": [
+                    5.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    10.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 40,
+                "pose": {
+                  "leftHand": [
+                    5.0,
+                    20.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    12.0,
+                    0.0,
+                    -9.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    70.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "add",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Keyed hands",
+        "revision": 1,
+        "version": 2
+      }
+    },
+    {
+      "frame": 40,
+      "keep": [
+        "rightHand",
+        "rightIndexProximal"
+      ],
+      "layer": "l-2",
+      "pose": {
+        "rightHand": [
+          12.0,
+          0.0,
+          -9.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          70.0
+        ]
+      },
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 90,
+          "hash": "sword-idle-hash",
+          "length": 3.0,
+          "mixamo": true,
+          "name": "Sword Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-2",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 10,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    -18.0,
+                    0.0
+                  ],
+                  "leftHand": [
+                    5.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    10.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 40,
+                "pose": {
+                  "leftHand": [
+                    5.0,
+                    20.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    12.0,
+                    0.0,
+                    -9.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    70.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "add",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Keyed hands",
+        "revision": 1,
+        "version": 2
+      }
+    },
+    {
+      "frame": 90,
+      "keep": [
+        "leftHand"
+      ],
+      "layer": "l-2",
+      "pose": {
+        "leftHand": [
+          5.0,
+          20.0,
+          0.0
+        ]
+      },
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 90,
+          "hash": "sword-idle-hash",
+          "length": 3.0,
+          "mixamo": true,
+          "name": "Sword Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "",
+            "id": "l-2",
+            "keys": [
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 10,
+                "pose": {
+                  "chest": [
+                    0.0,
+                    -18.0,
+                    0.0
+                  ],
+                  "leftHand": [
+                    5.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    10.0
+                  ]
+                }
+              },
+              {
+                "clip": 0,
+                "ease": "smooth",
+                "frame": 40,
+                "pose": {
+                  "leftHand": [
+                    5.0,
+                    20.0,
+                    0.0
+                  ],
+                  "rightHand": [
+                    12.0,
+                    0.0,
+                    -9.0
+                  ],
+                  "rightIndexProximal": [
+                    0.0,
+                    0.0,
+                    70.0
+                  ]
+                }
+              }
+            ],
+            "kind": "pose",
+            "mode": "add",
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Keyed hands",
+        "revision": 1,
+        "version": 2
+      }
+    }
+  ],
+  "made": [
+    {
+      "hands": null,
+      "holds": null,
+      "made": {
+        "hands": {
+          "holds": "right",
+          "supports": "left"
+        },
+        "pose": {
+          "leftHand": [
+            -2.0,
+            6.0,
+            9.0
+          ],
+          "leftIndexProximal": [
+            0.0,
+            0.0,
+            -58.0
+          ],
+          "rightHand": [
+            4.0,
+            0.0,
+            -8.0
+          ],
+          "rightIndexProximal": [
+            0.0,
+            0.0,
+            62.0
+          ],
+          "rightLowerArm": [
+            0.0,
+            12.0,
+            0.0
+          ],
+          "rightThumbDistal": [
+            10.0,
+            -20.0,
+            5.0
+          ]
+        }
+      },
+      "pose": {
+        "leftHand": [
+          -2.0,
+          6.0,
+          9.0
+        ],
+        "leftIndexProximal": [
+          0.0,
+          0.0,
+          -58.0
+        ],
+        "rightHand": [
+          4.0,
+          0.0,
+          -8.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          62.0
+        ],
+        "rightLowerArm": [
+          0.0,
+          12.0,
+          0.0
+        ],
+        "rightThumbDistal": [
+          10.0,
+          -20.0,
+          5.0
+        ]
+      }
+    },
+    {
+      "hands": "both",
+      "holds": "left",
+      "made": {
+        "hands": {
+          "holds": "left",
+          "supports": "right"
+        },
+        "pose": {
+          "leftHand": [
+            -2.0,
+            6.0,
+            9.0
+          ],
+          "leftIndexProximal": [
+            0.0,
+            0.0,
+            -58.0
+          ],
+          "rightHand": [
+            4.0,
+            0.0,
+            -8.0
+          ],
+          "rightIndexProximal": [
+            0.0,
+            0.0,
+            62.0
+          ],
+          "rightLowerArm": [
+            0.0,
+            12.0,
+            0.0
+          ],
+          "rightThumbDistal": [
+            10.0,
+            -20.0,
+            5.0
+          ]
+        }
+      },
+      "pose": {
+        "leftHand": [
+          -2.0,
+          6.0,
+          9.0
+        ],
+        "leftIndexProximal": [
+          0.0,
+          0.0,
+          -58.0
+        ],
+        "rightHand": [
+          4.0,
+          0.0,
+          -8.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          62.0
+        ],
+        "rightLowerArm": [
+          0.0,
+          12.0,
+          0.0
+        ],
+        "rightThumbDistal": [
+          10.0,
+          -20.0,
+          5.0
+        ]
+      }
+    },
+    {
+      "hands": "right",
+      "holds": null,
+      "made": {
+        "hands": {
+          "holds": "right"
+        },
+        "pose": {
+          "rightHand": [
+            4.0,
+            0.0,
+            -8.0
+          ],
+          "rightIndexProximal": [
+            0.0,
+            0.0,
+            62.0
+          ],
+          "rightLowerArm": [
+            0.0,
+            12.0,
+            0.0
+          ],
+          "rightThumbDistal": [
+            10.0,
+            -20.0,
+            5.0
+          ]
+        }
+      },
+      "pose": {
+        "leftHand": [
+          -2.0,
+          6.0,
+          9.0
+        ],
+        "leftIndexProximal": [
+          0.0,
+          0.0,
+          -58.0
+        ],
+        "rightHand": [
+          4.0,
+          0.0,
+          -8.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          62.0
+        ],
+        "rightLowerArm": [
+          0.0,
+          12.0,
+          0.0
+        ],
+        "rightThumbDistal": [
+          10.0,
+          -20.0,
+          5.0
+        ]
+      }
+    },
+    {
+      "hands": "left",
+      "holds": null,
+      "made": {
+        "hands": {
+          "holds": "left"
+        },
+        "pose": {
+          "leftHand": [
+            -2.0,
+            6.0,
+            9.0
+          ],
+          "leftIndexProximal": [
+            0.0,
+            0.0,
+            -58.0
+          ]
+        }
+      },
+      "pose": {
+        "leftHand": [
+          -2.0,
+          6.0,
+          9.0
+        ],
+        "leftIndexProximal": [
+          0.0,
+          0.0,
+          -58.0
+        ],
+        "rightHand": [
+          4.0,
+          0.0,
+          -8.0
+        ],
+        "rightIndexProximal": [
+          0.0,
+          0.0,
+          62.0
+        ],
+        "rightLowerArm": [
+          0.0,
+          12.0,
+          0.0
+        ],
+        "rightThumbDistal": [
+          10.0,
+          -20.0,
+          5.0
+        ]
+      }
+    },
+    {
+      "hands": null,
+      "holds": null,
+      "made": {
+        "hands": {
+          "holds": "right"
+        },
+        "pose": {
+          "rightHand": [
+            0.0,
+            30.0,
+            0.0
+          ],
+          "rightMiddleIntermediate": [
+            0.0,
+            0.0,
+            80.0
+          ]
+        }
+      },
+      "pose": {
+        "rightHand": [
+          0.0,
+          30.0,
+          0.0
+        ],
+        "rightMiddleIntermediate": [
+          0.0,
+          0.0,
+          80.0
+        ]
+      }
+    },
+    {
+      "hands": "both",
+      "holds": null,
+      "made": null,
+      "pose": {
+        "rightHand": [
+          0.0,
+          30.0,
+          0.0
+        ],
+        "rightMiddleIntermediate": [
+          0.0,
+          0.0,
+          80.0
+        ]
+      }
+    },
+    {
+      "hands": "left",
+      "holds": null,
+      "made": null,
+      "pose": {
+        "rightHand": [
+          0.0,
+          30.0,
+          0.0
+        ],
+        "rightMiddleIntermediate": [
+          0.0,
+          0.0,
+          80.0
+        ]
+      }
+    }
+  ],
+  "spans": [
+    {
+      "amounts": [
+        {
+          "amount": 0.0,
+          "frame": 0,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.15625,
+          "frame": 1,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.5,
+          "frame": 2,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 4,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 30,
+          "layer": "l-1"
+        },
+        {
+          "amount": 1.0,
+          "frame": 56,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.15625,
+          "frame": 59,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 60,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 61,
+          "layer": "l-1"
+        }
+      ],
+      "name": "Plain grip",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 60,
+          "hash": "standing-idle-hash",
+          "length": 2.0,
+          "mixamo": true,
+          "name": "Standing Idle",
+          "rest": false
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "rightHand",
+            "from": {
+              "entry": "longsword-two-hands",
+              "revision": 2,
+              "uid": "0a1b2c3d4e5f6071"
+            },
+            "id": "l-1",
+            "kind": "grip",
+            "mode": "replace",
+            "pose": {
+              "leftHand": [
+                -2.0,
+                6.0,
+                9.0
+              ],
+              "leftIndexProximal": [
+                0.0,
+                0.0,
+                -58.0
+              ],
+              "rightHand": [
+                4.0,
+                0.0,
+                -8.0
+              ],
+              "rightIndexProximal": [
+                0.0,
+                0.0,
+                62.0
+              ],
+              "rightLowerArm": [
+                0.0,
+                12.0,
+                0.0
+              ],
+              "rightThumbDistal": [
+                10.0,
+                -20.0,
+                5.0
+              ]
+            },
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 4,
+              "easeOut": 4,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Plain grip",
+        "revision": 1,
+        "version": 1
+      },
+      "spans": [
+        {
+          "bone": "rightHand",
+          "easeIn": 4,
+          "easeOut": 4,
+          "first": 0,
+          "last": 60,
+          "layer": "l-1",
+          "mode": "replace",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "amounts": [
+        {
+          "amount": 0.0,
+          "frame": 43,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 44,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 45,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 95,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.5,
+          "frame": 141,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.037037,
+          "frame": 146,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.0,
+          "frame": 147,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.0,
+          "frame": 148,
+          "layer": "l-5"
+        },
+        {
+          "amount": 0.0,
+          "frame": 75,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.0,
+          "frame": 76,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.15625,
+          "frame": 77,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.5,
+          "frame": 78,
+          "layer": "l-6"
+        },
+        {
+          "amount": 1.0,
+          "frame": 80,
+          "layer": "l-6"
+        },
+        {
+          "amount": 1.0,
+          "frame": 111,
+          "layer": "l-6"
+        },
+        {
+          "amount": 1.0,
+          "frame": 143,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.15625,
+          "frame": 146,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.0,
+          "frame": 147,
+          "layer": "l-6"
+        },
+        {
+          "amount": 0.0,
+          "frame": 148,
+          "layer": "l-6"
+        }
+      ],
+      "name": "Slash, gripped",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 72,
+          "hash": "great-sword-slash-hash",
+          "length": 2.4,
+          "mixamo": true,
+          "name": "Great Sword Slash",
+          "rest": false,
+          "trim": [
+            6,
+            58
+          ]
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "joined": [
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 8,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 64,
+            "hash": "great-sword-thrust-hash",
+            "length": 2.1333334,
+            "mixamo": true,
+            "name": "Great Sword Thrust",
+            "rest": false,
+            "trim": [
+              4,
+              60
+            ]
+          },
+          {
+            "blend": {
+              "curve": "smooth",
+              "frames": 6,
+              "lineUp": "hips-and-facing"
+            },
+            "byName": false,
+            "frames": 90,
+            "hash": "sword-idle-hash",
+            "length": 3.0,
+            "mixamo": true,
+            "name": "Sword Idle",
+            "rest": false,
+            "trim": [
+              0,
+              40
+            ]
+          }
+        ],
+        "layers": [
+          {
+            "bone": "rightHand",
+            "from": {
+              "entry": "longsword-two-hands",
+              "revision": 1,
+              "uid": "0a1b2c3d4e5f6071"
+            },
+            "id": "l-5",
+            "kind": "grip",
+            "mode": "add",
+            "pose": {
+              "rightHand": [
+                0.0,
+                30.0,
+                0.0
+              ],
+              "rightMiddleIntermediate": [
+                0.0,
+                0.0,
+                80.0
+              ]
+            },
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 0,
+              "easeOut": 6,
+              "end": 0.8,
+              "offset": null,
+              "rotation": null,
+              "start": 0.3,
+              "target": null,
+              "weight": 0.5
+            }
+          },
+          {
+            "bone": "leftHand",
+            "from": {
+              "entry": "longsword-two-hands",
+              "revision": 1,
+              "uid": "0a1b2c3d4e5f6071"
+            },
+            "id": "l-6",
+            "kind": "grip",
+            "mode": "replace",
+            "pose": {
+              "rightHand": [
+                0.0,
+                30.0,
+                0.0
+              ],
+              "rightMiddleIntermediate": [
+                0.0,
+                0.0,
+                80.0
+              ]
+            },
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "end": 1.0,
+              "offset": null,
+              "rotation": null,
+              "start": 0.5,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Slash, gripped",
+        "revision": 1,
+        "time": [
+          {
+            "clip": 0,
+            "from": 20,
+            "kind": "retime",
+            "speed": 1.6,
+            "to": 34
+          },
+          {
+            "at": 56,
+            "clip": 1,
+            "frames": 18,
+            "kind": "freeze"
+          }
+        ],
+        "version": 2
+      },
+      "spans": [
+        {
+          "bone": "rightHand",
+          "easeIn": 0,
+          "easeOut": 6,
+          "first": 44,
+          "last": 147,
+          "layer": "l-5",
+          "mode": "add",
+          "weight": 0.5
+        },
+        {
+          "bone": "leftHand",
+          "easeIn": 4,
+          "easeOut": 4,
+          "first": 76,
+          "last": 147,
+          "layer": "l-6",
+          "mode": "replace",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "amounts": [
+        {
+          "amount": 0.0,
+          "frame": 15,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 16,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.019676,
+          "frame": 17,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.5,
+          "frame": 22,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.84375,
+          "frame": 25,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.5,
+          "frame": 28,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.019676,
+          "frame": 33,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 34,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 35,
+          "layer": "l-1"
+        },
+        {
+          "amount": 0.0,
+          "frame": 0,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.104,
+          "frame": 1,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.352,
+          "frame": 2,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.0,
+          "frame": 3,
+          "layer": "l-2"
+        },
+        {
+          "amount": 0.0,
+          "frame": 5,
+          "layer": "l-2"
+        }
+      ],
+      "name": "Rest, short grip",
+      "recipe": {
+        "base": {
+          "byName": false,
+          "frames": 40,
+          "hash": "",
+          "length": 1.3333334,
+          "mixamo": false,
+          "name": "Rest pose",
+          "rest": true
+        },
+        "blanks": [],
+        "created": "2026-11-10T00:00:00.000Z",
+        "edited": "2026-11-10T00:00:00.000Z",
+        "from": null,
+        "layers": [
+          {
+            "bone": "rightHand",
+            "from": {
+              "entry": "longsword-two-hands",
+              "revision": 1,
+              "uid": "0a1b2c3d4e5f6071"
+            },
+            "id": "l-1",
+            "kind": "grip",
+            "mode": "replace",
+            "pose": {
+              "rightHand": [
+                0.0,
+                30.0,
+                0.0
+              ],
+              "rightMiddleIntermediate": [
+                0.0,
+                0.0,
+                80.0
+              ]
+            },
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 12,
+              "easeOut": 12,
+              "end": 0.6,
+              "offset": null,
+              "rotation": null,
+              "start": 0.4,
+              "target": null,
+              "weight": 1.0
+            }
+          },
+          {
+            "bone": "leftHand",
+            "from": {
+              "entry": "longsword-two-hands",
+              "revision": 1,
+              "uid": "0a1b2c3d4e5f6071"
+            },
+            "id": "l-2",
+            "kind": "grip",
+            "mode": "replace",
+            "pose": {
+              "rightHand": [
+                0.0,
+                30.0,
+                0.0
+              ],
+              "rightMiddleIntermediate": [
+                0.0,
+                0.0,
+                80.0
+              ]
+            },
+            "settings": {
+              "amount": null,
+              "cycles": null,
+              "easeIn": 5,
+              "easeOut": 0,
+              "end": 0.05,
+              "offset": null,
+              "rotation": null,
+              "start": 0.0,
+              "target": null,
+              "weight": 1.0
+            }
+          }
+        ],
+        "name": "Rest, short grip",
+        "revision": 1,
+        "time": [
+          {
+            "at": 20,
+            "clip": 0,
+            "frames": 10,
+            "kind": "freeze"
+          }
+        ],
+        "version": 1
+      },
+      "spans": [
+        {
+          "bone": "rightHand",
+          "easeIn": 12,
+          "easeOut": 12,
+          "first": 16,
+          "last": 34,
+          "layer": "l-1",
+          "mode": "replace",
+          "weight": 1.0
+        },
+        {
+          "bone": "leftHand",
+          "easeIn": 5,
+          "easeOut": 0,
+          "first": 0,
+          "last": 2,
+          "layer": "l-2",
+          "mode": "replace",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

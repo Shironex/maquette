@@ -11,6 +11,7 @@ fn the_motion_version_covers_what_moves_and_leaves_out_links() {
     let mut relinked = recipe.clone();
     relinked.layers[2].from = Some(GripFrom {
         entry: "longsword-two-hands".into(),
+        uid: Some("5e6f70810a1b2c3d".into()),
         revision: 3,
     });
     relinked.from = Some(RecipeFrom {
