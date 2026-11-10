@@ -535,6 +535,49 @@ fn a_grip_lays_a_copy_with_a_link_and_takes_a_newer_revision() {
 }
 
 #[test]
+fn an_exported_recipe_keeps_its_grip_pose_and_no_library_link() {
+    use crate::animations::recipes::library as recipe_library;
+    let w = ws();
+    let id = saved(&w, &longsword(), None).expect("r1").entry;
+    w.apply(ApplyGrip {
+        grip: id.clone(),
+        ..ApplyGrip::default()
+    })
+    .expect("apply");
+    let recipe = w.recipe();
+    let link = recipe.layers[1].from.clone().expect("a link");
+
+    // Exported, the grip's pose travels inside the recipe; its link stays here.
+    let text = recipe_library::export_text(&recipe).expect("export");
+    assert!(!text.contains("\"from\"") && !text.contains(&id), "{text}");
+    assert!(text.contains("rightIndexProximal"), "{text}");
+    // A file from elsewhere may name any grip: the link is dropped on the way in.
+    let file = w.root.join("held.recipe.json");
+    fs::write(&file, serde_json::to_string_pretty(&recipe).expect("json")).expect("write");
+    let read = recipe_library::read_import(&file).expect("import");
+    assert_eq!(read.layers[1].from, None);
+    assert_eq!(read.layers[1].pose, recipe.layers[1].pose);
+
+    // Saved to the recipe library of this workspace, the link is still good.
+    let plan =
+        recipe_library::plan_save(&w.root, &w.config.layout, &w.frost, RECIPE, None).expect("plan");
+    let kept = recipe_library::save_back(
+        &w.root,
+        &w.config.layout,
+        &recipe_library::RecipeSave {
+            project: w.frost.clone(),
+            recipe: RECIPE.into(),
+            entry: None,
+            expected: None,
+            recipe_expected: Some(plan.recipe_version),
+        },
+    )
+    .expect("save back");
+    let revision = recipe_library::get(&w.root, &kept.entry, None).expect("revision");
+    assert_eq!(revision.recipe.layers[1].from, Some(link));
+}
+
+#[test]
 fn laying_a_grip_refuses_what_the_recipe_would() {
     let w = ws();
     let id = saved(&w, &longsword(), None).expect("r1").entry;
