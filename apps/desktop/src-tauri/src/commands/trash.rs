@@ -10,8 +10,9 @@ use super::built::building;
 use crate::mcp::host::{AppHost, Host};
 use crate::session::Session;
 
-/// Tells the windows about every file a remove or restore touches.
-fn changed(host: &dyn Host, project: &maquette_core::ProjectManifest) {
+/// Tells the windows about every file a remove or restore touches. A
+/// replace with a built asset and its undo touch the same ones.
+pub(crate) fn changed(host: &dyn Host, project: &maquette_core::ProjectManifest) {
     host.project_changed(project);
     host.layout_changed(&project.id);
     host.prepare_changed(&project.id);

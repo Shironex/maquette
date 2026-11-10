@@ -20,7 +20,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [send] Refs to Tripo, Meshy or by hand, redos, splits, credits, By hand handoffs and downloads.
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.
 [prepare] Real size, fix-ups, parts, materials, assembling props, comparing versions.
-[built] Models a project's Blender script makes, no credits, no approval.
+[built] Blender-script models, free, no approval; replace_with_built_asset swaps one in.
 [pipeline] Runs, presets, bake settings, starter scripts, how a website ships, the site's dev server.
 [game] A game project's repo, format, budgets, imports and ship plan.
 [library] Models outside any project, copied, never linked; free.
@@ -39,7 +39,7 @@ WAITS FOR A PERSON (in the Maquette app; poll, never start the work again)
 - Canvases: removal proposals (Keep it or Remove), Mark as fine on a mechanics overlap and the Auto layout after agents switch.
 - Only a person can: save API keys, set the OpenAI image cap, sign in to Codex, install Blender and the tools, open a workspace.
 A waiting answer gives status \"waiting for approval\", pollEverySeconds and whereToApprove.
-Free: send_to_3d with provider by-hand, and add_built_asset.
+Free: send_to_3d with provider by-hand, add_built_asset.
 
 ALWAYS
 start_page_preview runs the site repo's dev command on this computer; only a repo a person set runs it unasked. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.

@@ -103,6 +103,12 @@ fn listed(item: &BuiltAsset) -> Value {
         "root": item.source.root,
         "missing": item.missing,
         "last": item.source.last.as_ref().map(to_value),
+        // Set when its model took the place of another: undo with replace_with_built_asset.
+        "replaced": item.source.replaced.as_ref().map(|r| json!({
+            "at": r.at,
+            "by": r.by.name,
+            "version": r.version(),
+        })),
     })
 }
 
@@ -225,7 +231,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "List a project's built assets: each one's script and helpers in built/, its root option, its state (new, current, stale when a file changed since the last build, failed, missing when a file is gone, building) and its last build (version, exported object and material names, triangles, warnings from the Inbox checks, error).",
+        description = "List a project's built assets: each one's script and helpers in built/, its root option, its state (new, current, stale when a file changed since the last build, failed, missing when a file is gone, building) and its last build (version, exported object and material names, triangles, warnings from the Inbox checks, error), and replaced when its model took the place of another asset's (when, by which built asset, the version before).",
         annotations(read_only_hint = true)
     )]
     async fn list_built_assets(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {

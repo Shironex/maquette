@@ -770,7 +770,7 @@ export const commands = {
 	name: string,
 	parts: AssemblePart[],
 } | null>("assemble_recipe", { project, asset }),
-	builtList: (project: string) => __TAURI_INVOKE<BuiltAsset[]>("built_list", { project }),
+	builtList: (project: string) => __TAURI_INVOKE<BuiltAsset_Serialize[]>("built_list", { project }),
 	/**
 	 *  Copies the script and helpers into the project's `built/` folder and
 	 *  puts the asset on the Board at Blender. Nothing is built yet.
@@ -781,6 +781,26 @@ export const commands = {
 	 *  good build answer at once.
 	 */
 	builtRebuild: (project: string, asset: string, force: boolean) => __TAURI_INVOKE<BuildOutcome>("built_rebuild", { project, asset, force }),
+	/**  What Use in place of a model would change. Reads only. */
+	builtReplacePlan: (project: string, asset: string, built: string) => __TAURI_INVOKE<ReplaceReport>("built_replace_plan", { project, asset, built }),
+	/**
+	 *  Puts the built asset's model in the place of `asset`'s. The asset keeps
+	 *  its id, its place in the layout and its name; the built asset's own card
+	 *  goes to the asset trash.
+	 */
+	builtReplace: (project: string, asset: string, built: string) => __TAURI_INVOKE<ReplaceDone>("built_replace", { project, asset, built }),
+	/**  What Bring back the old model would change. Reads only. */
+	builtReplaceUndoPlan: (project: string, asset: string) => __TAURI_INVOKE<UndoReport>("built_replace_undo_plan", { project, asset }),
+	/**
+	 *  Undoes a replace: the model the asset had is current again and the built
+	 *  asset's card comes back from the asset trash.
+	 */
+	builtReplaceUndo: (project: string, asset: string) => __TAURI_INVOKE<UndoDone>("built_replace_undo", { project, asset }),
+	/**
+	 *  The replaces no Ship has written yet, for the Ship approval and the Ship
+	 *  views.
+	 */
+	builtSwaps: (project: string) => __TAURI_INVOKE<ShipSwap[]>("built_swaps", { project }),
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
@@ -2328,10 +2348,23 @@ export type BuiltAdded = {
 };
 
 /**  One built asset as the Board and agents read it. */
-export type BuiltAsset = {
+export type BuiltAsset = BuiltAsset_Serialize | BuiltAsset_Deserialize;
+
+/**  One built asset as the Board and agents read it. */
+export type BuiltAsset_Deserialize = {
 	asset: string,
 	name: string,
-	source: BuiltSource,
+	source: BuiltSource_Deserialize,
+	state: BuiltState,
+	/**  The files of `source` that are not in the project. */
+	missing: string[],
+};
+
+/**  One built asset as the Board and agents read it. */
+export type BuiltAsset_Serialize = {
+	asset: string,
+	name: string,
+	source: BuiltSource_Serialize,
 	state: BuiltState,
 	/**  The files of `source` that are not in the project. */
 	missing: string[],
@@ -2346,7 +2379,10 @@ export type BuiltChanged = {
 };
 
 /**  One built asset's script and helpers. */
-export type BuiltSource = {
+export type BuiltSource = BuiltSource_Serialize | BuiltSource_Deserialize;
+
+/**  One built asset's script and helpers. */
+export type BuiltSource_Deserialize = {
 	/**  Relative to the project folder, for example `built/laptop.py`. */
 	script: string,
 	/**  The same, for the files the script imports or reads. */
@@ -2357,6 +2393,30 @@ export type BuiltSource = {
 	 */
 	root: string | null,
 	last: BuildRecord | null,
+	/**
+	 *  What the asset was before this script's model took its place, when
+	 *  it did. Left out for an asset that was added as built.
+	 */
+	replaced?: ReplacedModel | null,
+};
+
+/**  One built asset's script and helpers. */
+export type BuiltSource_Serialize = {
+	/**  Relative to the project folder, for example `built/laptop.py`. */
+	script: string,
+	/**  The same, for the files the script imports or reads. */
+	helpers: string[],
+	/**
+	 *  The object to export with its children. Without it, the object
+	 *  `build()` returns, else the whole scene.
+	 */
+	root: string | null,
+	last: BuildRecord | null,
+	/**
+	 *  What the asset was before this script's model took its place, when
+	 *  it did. Left out for an asset that was added as built.
+	 */
+	replaced?: ReplacedModel | null,
 };
 
 /**  How a built asset stands against its files. */
@@ -5327,6 +5387,16 @@ export type ModelPreset = {
 	lock: string | null,
 	/**  False when no row names the model and the defaults apply. */
 	hasRow: boolean,
+};
+
+/**  One version of the asset, by its file and numbers. */
+export type ModelRef = {
+	version: number,
+	/**  Relative to the project. */
+	file: string,
+	triangles: number | null,
+	/**  Bytes as a JS safe number. */
+	bytes: number | null,
 };
 
 export type ModelSource = 
@@ -8384,6 +8454,82 @@ export type RenderTarget = {
 	unreadable: string | null,
 };
 
+/**  What a replace did, with the project as it is now. */
+export type ReplaceDone = {
+	report: ReplaceReport,
+	project: ProjectManifest,
+};
+
+/**  What replacing a model with a built asset changes. */
+export type ReplaceReport = {
+	project: string,
+	/**  The asset that keeps its id, name and place. */
+	asset: string,
+	name: string,
+	/**  The built asset whose script and model take the place. */
+	built: string,
+	builtName: string,
+	/**  Its script, relative to the project. */
+	script: string,
+	old: SwapSide,
+	new: SwapSide,
+	/**  Whether the next run bakes the new model's light. */
+	bakes: boolean,
+	/**  The parts of the new model, by the names they ship under. */
+	parts: string[],
+	/**  Setting by setting: kept, carried, reset or brought along. */
+	settings: SwapSetting[],
+	/**
+	 *  What names a part or clip the new model does not have. It stays in
+	 *  the layout and does nothing until the model has it again.
+	 */
+	unresolved: string[],
+	warnings: string[],
+	/**  What the built model has to match, since nothing is aligned. */
+	note: string,
+	/**  Where the built asset's card went, once the replace is done. */
+	trash: string | null,
+};
+
+/**  The built asset whose script and model took the place. */
+export type ReplacedBy = {
+	/**  Its id and name on the Board before it left. */
+	asset: string,
+	name: string,
+	/**
+	 *  Where its card stood among the project's assets, so an undo puts it
+	 *  back there.
+	 */
+	index: number,
+	/**
+	 *  Its id in the asset trash once it left the Board; an undo restores
+	 *  it from there. `None` when it could not be taken off.
+	 */
+	trash: string | null,
+};
+
+/**  What an asset was before a built asset took its place. */
+export type ReplacedModel = {
+	/**  RFC 3339 UTC. */
+	at: string,
+	by: ReplacedBy,
+	/**
+	 *  The version numbers the asset had, in its order: the last one is the
+	 *  model an undo makes current again, and every version not in this
+	 *  list is taken off.
+	 */
+	versions: number[],
+	/**  The card's picture, library origin, status and stage as they were. */
+	thumbnail: string | null,
+	origin: AssetOrigin | null,
+	status: AssetStatus,
+	stage: Stage,
+	/**  Its real size, fix-ups and switches as `prepare.json` had them. */
+	prep: ModelPrep | null,
+	/**  Its material tweaks as `materials.json` had them. */
+	materials: ModelMaterials | null,
+};
+
 export type RepoInspection = {
 	path: string,
 	exists: boolean,
@@ -9546,6 +9692,30 @@ export type ShipStyle =
 /**  A hand-built site: one file per model, own origin, stable names. */
 "models";
 
+/**  One asset whose model a built asset replaced since the last Ship. */
+export type ShipSwap = {
+	asset: string,
+	name: string,
+	/**  The script that builds it now, relative to the project. */
+	script: string,
+	/**  RFC 3339 UTC, when the built model took the place. */
+	at: string,
+	/**
+	 *  The file the old model shipped as, and the one the built model ships
+	 *  as: a site's `planner_v2.glb` and `planner_v3.glb`, or a game's one
+	 *  `props/planner.glb` for both.
+	 */
+	oldFile: string | null,
+	newFile: string | null,
+	oldVersion: number,
+	newVersion: number,
+	/**  The numbers of the two model files, before the pipeline compresses them. */
+	oldTriangles: number | null,
+	newTriangles: number | null,
+	oldBytes: number | null,
+	newBytes: number | null,
+};
+
 /**  Where Ship writes in the site. */
 export type ShipTarget = {
 	/**  The site repo on this computer, when the project has one. */
@@ -10226,6 +10396,49 @@ export type Suggestion = {
 	matched: string,
 };
 
+/**  What a replace does with one setting. */
+export type SwapAction = 
+/**  Keyed by the asset, which keeps its id: nothing is written. */
+"kept" | 
+/**  Recorded for the old model and right for the new one too. */
+"carried" | 
+/**  Recorded for the old model only: taken off, and back with an undo. */
+"reset" | 
+/**  The built asset's own, which comes along with its model. */
+"brought";
+
+/**  One line of the settings table. */
+export type SwapSetting = {
+	what: string,
+	action: SwapAction,
+	/**  A sentence saying why. */
+	why: string,
+};
+
+/**  One side of a replace: a model file with its numbers. */
+export type SwapSide = {
+	/**  The version of the asset that keeps its place. */
+	version: number,
+	/**  Relative to the project, for example `models/planner_v2.glb`. */
+	file: string,
+	/**
+	 *  The file Ship writes for it: a site's `planner_v2.glb`, or a game's
+	 *  `props/planner.glb`. `None` for a model the project does not ship.
+	 */
+	shipsAs: string | null,
+	triangles: number | null,
+	/**  Bytes as a JS safe number. */
+	bytes: number | null,
+	/**
+	 *  Its bounds in its own frame as it stands once prepared (fix-ups and
+	 *  real size, before the layout's placement), metres with y up.
+	 */
+	min: [(number | null), (number | null), (number | null)] | null,
+	max: [(number | null), (number | null), (number | null)] | null,
+	/**  The scale its real size gives it, 1 without a real size. */
+	scale: number | null,
+};
+
 /**  A conflict copy of one of Maquette's data files. */
 export type SyncConflict = {
 	/**  The copy, relative to the workspace, with `/` between folders. */
@@ -10551,6 +10764,35 @@ export type TripoSplit = {
 };
 
 export type TripoTextureQuality = "standard" | "detailed" | "extreme";
+
+/**  What an undo did, with the project as it is now. */
+export type UndoDone = {
+	report: UndoReport,
+	project: ProjectManifest,
+};
+
+/**  What undoing a replace changes. */
+export type UndoReport = {
+	project: string,
+	asset: string,
+	name: string,
+	/**  The script that stops building this asset. */
+	script: string,
+	/**  The model that is current again. */
+	back: ModelRef,
+	/**
+	 *  The versions that leave the asset, oldest first: the built model and
+	 *  every version added since.
+	 */
+	takenOff: ModelRef[],
+	/**  Where their files went, relative to the workspace, once it is done. */
+	setAside: string | null,
+	/**  The built asset whose card comes back from the asset trash, by name. */
+	restores: string | null,
+	/**  What comes back with the model: its real size, fix-ups and the rest. */
+	settings: string[],
+	warnings: string[],
+};
 
 /**  A release the feed offers. */
 export type UpdateInfo = {

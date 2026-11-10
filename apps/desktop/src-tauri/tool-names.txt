@@ -111,6 +111,7 @@ rename_library_entry
 render_styles
 render_thumbnail
 render_views
+replace_with_built_asset
 restore_asset
 restore_inbox_model
 restore_to_library

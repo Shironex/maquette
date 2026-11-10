@@ -18,6 +18,8 @@ use tauri_specta::Event as _;
 
 use super::CommandResult;
 use super::thumbs::{self, Thumbs};
+
+pub mod replace;
 use crate::events::{BuiltChanged, ProjectChanged};
 use crate::session::Session;
 
