@@ -27,6 +27,18 @@ import { fail, type Args } from './backend-options';
 
 type Vec3 = [number, number, number];
 
+/** The mock's `prepare.json` store, as far as a replace reads and writes it. */
+export interface PrepStore {
+  entries: (project: string) => { models: Partial<Record<string, ModelPrep>> };
+  saveEntry: (project: string, asset: string, entry: ModelPrep) => void;
+  bounds: (file: string) => { min: Vec3; max: Vec3 } | null;
+}
+
+/** The mock's layout store, as far as a replace reads it. */
+export interface PlacementStore {
+  view: (project: string) => { layout: { models: Partial<Record<string, Placement>> } };
+}
+
 export interface ReplaceContext {
   project: (id: string) => ProjectManifest;
   saveProject: (next: ProjectManifest) => ProjectManifest;
@@ -181,7 +193,8 @@ export function createBuiltReplace(ctx: ReplaceContext) {
     };
   }
 
-  function run(id: string, assetId: string, builtId: string): ReplaceDone {
+  /** `tell` false is for a seed: it runs before the UI listens, so nothing is announced. */
+  function run(id: string, assetId: string, builtId: string, tell = true): ReplaceDone {
     const planned = report(id, assetId, builtId);
     const { p, asset, by, source, from } = pair(id, assetId, builtId);
     const at = clock.now().toISOString();
@@ -229,7 +242,7 @@ export function createBuiltReplace(ctx: ReplaceContext) {
       },
     });
     if (prep) ctx.savePrep(id, asset.id, { ...prep, fixups: [], skipBake: null, padEdges: null });
-    ctx.emit(id, saved);
+    if (tell) ctx.emit(id, saved);
     return { report: { ...planned, trash }, project: saved };
   }
 

@@ -18,7 +18,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { HOME } from './mock-paths';
 import { fail, slugify, type Args } from './backend-options';
-import { createBuiltReplace, type ReplaceContext } from './create-built-replace';
+import { createBuiltReplace, type PlacementStore, type PrepStore } from './create-built-replace';
 
 interface BuiltContext {
   project: (id: string) => ProjectManifest;
@@ -28,8 +28,6 @@ interface BuiltContext {
   seed: string | null;
   /** Milliseconds a fake build takes. */
   buildMs: number;
-  /** What a replace reads and writes besides the built assets. */
-  scene: Pick<ReplaceContext, 'prep' | 'savePrep' | 'placement' | 'bounds'>;
 }
 
 /** Where the dialog's pickers point: a folder of piece scripts. */
@@ -100,14 +98,16 @@ function seedAsset(id: string, name: string): Asset {
 }
 
 /** The built commands, and the two file pickers the Add built asset dialog uses. */
-export function createBuiltHandlers({
-  project,
-  saveProject,
-  emit,
-  seed,
-  buildMs,
-  scene,
-}: BuiltContext) {
+/**
+ * The built commands, and the two file pickers the Add built asset dialog
+ * uses. `prepare` and `layout` are the stores a replace reads the asset's
+ * settings and placement from.
+ */
+export function createBuiltHandlers(
+  prepare: PrepStore,
+  layout: PlacementStore,
+  { project, saveProject, emit, seed, buildMs }: BuiltContext
+) {
   const sources = new Map<string, Map<string, BuiltSource>>();
   /** `project/asset` of the builds running now. */
   const building = new Set<string>();
@@ -136,7 +136,7 @@ export function createBuiltHandlers({
     stale.add('frostveil/newtons-cradle');
     // The scan the swap replaces carries what an Inbox accept leaves on one.
     if (swapping)
-      scene.savePrep('frostveil', 'crystal-lantern', {
+      prepare.saveEntry('frostveil', 'crystal-lantern', {
         size: { axis: 'height', value: 1.8, unit: 'm' },
         fixups: [{ op: 'decimate', triangles: 8_000 }],
         skipBake: true,
@@ -284,8 +284,11 @@ export function createBuiltHandlers({
     emit,
     sources: of,
     stateOf: (id, asset) => list(id).find(b => b.asset === asset)?.state ?? null,
-    ...scene,
+    prep: (id, asset) => prepare.entries(id).models[asset] ?? null,
+    savePrep: prepare.saveEntry,
+    placement: (id, asset) => layout.view(id).layout.models[asset] ?? null,
+    bounds: prepare.bounds,
   });
-  if (seed === 'swapped') replace.run('frostveil', 'crystal-lantern', SWAP.id);
+  if (seed === 'swapped') replace.run('frostveil', 'crystal-lantern', SWAP.id, false);
   return { handlers: { ...handlers, ...replace.handlers } };
 }
