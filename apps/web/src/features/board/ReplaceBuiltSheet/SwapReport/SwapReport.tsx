@@ -19,7 +19,8 @@ const ROWS: readonly { label: string; cell: (side: SwapSide) => string | null }[
   { label: 'Model', cell: side => modelNumbers(side) || null },
   { label: 'Stands', cell: standingSize },
   { label: 'Real size', cell: scaleWords },
-  { label: 'Bounds, m', cell: boundsWords },
+  // Min and max each on a line of their own, so no number breaks in two.
+  { label: 'Bounds, m', cell: side => boundsWords(side)?.replace(' to ', '\nto ') ?? null },
 ];
 
 /**
@@ -34,10 +35,10 @@ export default function SwapReport({ report }: SwapReportProps) {
       <th scope="row" className="py-1.5 pr-3 text-left font-normal text-fg-mute">
         {row.label}
       </th>
-      <td className="py-1.5 pr-3 font-mono text-[11.5px] break-all text-fg-dim">
+      <td className="py-1.5 pr-3 font-mono text-[11.5px] wrap-anywhere whitespace-pre-line text-fg-dim">
         {row.cell(report.old) ?? '·'}
       </td>
-      <td className="py-1.5 font-mono text-[11.5px] break-all text-fg">
+      <td className="py-1.5 font-mono text-[11.5px] wrap-anywhere whitespace-pre-line text-fg">
         {row.cell(report.new) ?? '·'}
       </td>
     </tr>

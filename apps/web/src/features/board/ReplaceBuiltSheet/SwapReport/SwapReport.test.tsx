@@ -65,8 +65,8 @@ describe('SwapReport', () => {
     expect(cells('Stands')).toEqual(['1.4 × 1.8 × 1.1 m', '1.4 × 1.8 × 1.1 m']);
     expect(cells('Real size')).toEqual(['scaled by 1.38', 'not scaled']);
     expect(cells('Bounds, m')).toEqual([
-      '-0.68, 0, -0.57 to 0.68, 1.8, 0.57',
-      '-0.68, 0, -0.57 to 0.68, 1.8, 0.57',
+      '-0.68, 0, -0.57\nto 0.68, 1.8, 0.57',
+      '-0.68, 0, -0.57\nto 0.68, 1.8, 0.57',
     ]);
     expect(within(table).getByRole('columnheader', { name: 'Now, v2' })).toBeInTheDocument();
     expect(within(table).getByRole('columnheader', { name: 'Built, v3' })).toBeInTheDocument();
