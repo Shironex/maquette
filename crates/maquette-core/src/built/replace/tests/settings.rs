@@ -381,3 +381,37 @@ fn compression_presets_do_not_follow_to_the_new_file() {
         assert!(line.why.contains("spiral_planner_v2"), "{}", line.why);
     }
 }
+
+#[test]
+fn the_locked_character_preset_follows_and_the_report_says_so() {
+    let w = World::website();
+    let hero = w.scan("Hero");
+    let desk = w.built("Hero built", "hero.py");
+    project::modify(&w.root, &w.config.layout, &w.project, |m| {
+        assets::find_mut(m, &hero.id)?.kind = AssetKind::Character;
+        Ok(())
+    })
+    .expect("character");
+    // The pipeline gives a scene's character its locked row.
+    let def = crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
+    assert_eq!(def.presets[0].model, "hero_v1");
+    assert!(def.presets[0].lock.is_some());
+
+    let report = w.replace(&hero.id, &desk.id).report;
+
+    assert_eq!(
+        action_of(&report, "Compression preset of hero_v1"),
+        Some(SwapAction::Carried)
+    );
+    assert!(
+        report
+            .warnings
+            .iter()
+            .any(|w| w.starts_with("The locked character preset of hero_v1 follows")),
+        "{:?}",
+        report.warnings
+    );
+    // And it does: the next look at the pipeline moves the row to the built model.
+    let def = crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
+    assert_eq!(def.presets[0].model, "hero_v2");
+}

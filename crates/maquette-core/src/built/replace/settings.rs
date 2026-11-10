@@ -24,6 +24,7 @@
 use crate::assets::AssetOrigin;
 use crate::materials::{MaterialTweak, ModelMaterials};
 use crate::pipeline::CompressPreset;
+use crate::pipeline::template::CHARACTER_LOCK;
 use crate::prepare::{Fixup, FixupKind, ModelPrep, PartsPlan};
 
 use super::report::{SwapAction, SwapSetting};
@@ -298,8 +299,9 @@ fn preset_words(preset: &CompressPreset) -> String {
 }
 
 /// The compression presets of the two assets' model files. A preset belongs
-/// to one model file, so none follows to the new file, except a locked
-/// character row, which follows its asset's newest model.
+/// to one model file, so none follows to the new file, except the locked
+/// character row, which the pipeline moves to its asset's newest model
+/// (`template::fit_presets`).
 pub(super) fn preset_lines(
     presets: &[CompressPreset],
     old_stems: &[String],
@@ -319,15 +321,15 @@ pub(super) fn preset_lines(
             preset.model,
             preset_words(preset)
         );
-        if let Some(lock) = &preset.lock {
+        if preset.lock.as_deref() == Some(CHARACTER_LOCK) {
             warnings.push(format!(
-                "The locked compression preset of {} follows the asset's newest model, so it now applies to the built model ({lock}). Edit pipeline.json if the built model needs another.",
+                "The locked character preset of {} follows the asset's newest model, so it applies to the built model too ({CHARACTER_LOCK}). Edit pipeline.json if the built model needs another.",
                 preset.model
             ));
             lines.push(line(
                 what,
                 SwapAction::Carried,
-                "A locked row follows its asset's newest model.",
+                "The locked character row follows its asset's newest model.",
             ));
         } else {
             lines.push(line(
