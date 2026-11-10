@@ -20,6 +20,7 @@
 use serde::{Deserialize, Serialize};
 
 mod add;
+mod grips;
 mod job;
 mod pins;
 mod result;
@@ -31,7 +32,8 @@ pub use crate::recipes::baked::{
     MARK_KEY, RecipeBakeMark, RecipeBakeUse, mark_of, marked_mixamo, took_mixamo, write_mark,
 };
 pub use add::{AddClaim, BAKE_CHANGED, OUT_OF_DATE, ready_to_add};
-pub use job::{NOT_BAKEABLE_YET, Prepared, not_bakeable, open_blanks, prepare};
+pub use grips::RecipeGripResult;
+pub use job::{Prepared, open_blanks, prepare};
 pub use pins::{PIN_DRIFT_LIMIT_CM, RecipePinResult};
 pub use result::GAP_LIMIT_CM;
 pub use result::mark_for;
@@ -194,6 +196,9 @@ pub struct RecipeBakeResult {
     /// Each pin as the bake measured it. Empty in a record from before.
     #[serde(default)]
     pub pins: Vec<RecipePinResult>,
+    /// Each grip as the bake laid it. Empty in a record from before.
+    #[serde(default)]
+    pub grips: Vec<RecipeGripResult>,
     /// The keyed poses judged against the humanoid joint limits; none for a
     /// recipe with no pose keys (and in a record from before).
     #[serde(default)]
@@ -250,11 +255,15 @@ mod tests_add;
 #[cfg(test)]
 mod tests_blender;
 #[cfg(test)]
+mod tests_blender_grips;
+#[cfg(test)]
 mod tests_blender_joined;
 #[cfg(test)]
 mod tests_blender_keys;
 #[cfg(test)]
 mod tests_blender_pins;
+#[cfg(test)]
+mod tests_grips;
 #[cfg(test)]
 mod tests_joined;
 #[cfg(test)]

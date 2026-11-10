@@ -1,7 +1,6 @@
 //! What the recipe tools answer: a recipe, its clips and changes as an
 //! agent reads them, and the next steps after it.
 
-use maquette_core::animations::recipes::bake::not_bakeable;
 use maquette_core::animations::recipes::{BaseMatch, BaseStatus, RecipeDoc};
 use maquette_core::recipes::timeline::timeline;
 use maquette_core::recipes::{LayerKind, RecipeBase, RecipeLayer};
@@ -97,10 +96,6 @@ pub(in crate::mcp::tools) fn recipe_view(doc: &RecipeDoc) -> Value {
         out["mirror"] = json!(recipe.mirror);
         out["time"] = to_short_value(&recipe.time);
         out["frames"] = json!(timeline(recipe).frames);
-        if let Some(refusal) = not_bakeable(doc) {
-            out["bakeable"] = json!(false);
-            out["notBakeable"] = json!(refusal);
-        }
     }
     if !doc.warnings.is_empty() {
         out["warnings"] = json!(doc.warnings);

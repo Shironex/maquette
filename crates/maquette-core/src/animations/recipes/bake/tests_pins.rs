@@ -1,6 +1,6 @@
-//! Baking a recipe with pins: it is no longer refused, the job carries each
-//! pin on the bake's frames with the limb it solves, and the report's drift
-//! reads as the review's pin lines.
+//! Baking a recipe with pins: the job carries each pin on the bake's frames
+//! with the limb it solves, and the report's drift reads as the review's
+//! pin lines.
 
 use std::fs;
 
@@ -42,7 +42,6 @@ fn pinned() -> tests::Project {
 #[test]
 fn a_recipe_with_pins_bakes_and_stages_each_pin_on_the_bake_frames() {
     let p = pinned();
-    assert_eq!(not_bakeable(&p.recipe), None, "pins bake now");
     let prepared = prepare(p.root(), &p.config, &p.request()).expect("prepared");
     for vrm in [
         "leftUpperLeg",

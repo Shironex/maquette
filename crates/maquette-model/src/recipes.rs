@@ -75,7 +75,7 @@ pub use change::{RecipeChange, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use clip_moves::CLIP_IN_USE;
 pub use copies::{create_whole, link};
-pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, bake_unsupported, uses_v2};
+pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, uses_v2};
 pub use files::{
     RecipeGripUse, RecipeRead, RecipeSummary, TOO_BIG, create, create_joined, get, list, list_with,
     motion_version_of, names, remove, rename, rename_with, version,
