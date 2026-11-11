@@ -192,6 +192,8 @@ export default function RecipeLanes({ frame, playing, onToggle, onScrub }: Recip
           <Lane key={layer.id} label={KIND_WORDS[layer.kind]}>
             <ChangeBar
               layer={layer}
+              label={layer.kind === 'grip' ? v.gripLabel(layer) : undefined}
+              look={layer.kind === 'grip' ? 'bg-clay/45 text-fg' : undefined}
               frames={frames}
               toFrame={toFrame}
               toShare={toShare}

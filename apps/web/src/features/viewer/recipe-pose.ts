@@ -8,7 +8,8 @@
  */
 import * as THREE from 'three';
 import type { LayerKind, RecipeLayer } from '@/ipc/client';
-import { layerTurns } from '@/state/recipe-keys';
+import { gripAmount, type GripSpan } from '@/state/recipe-grips';
+import { layerTurns, type Turn } from '@/state/recipe-keys';
 import type { Playable } from '@/state/recipe-timeline';
 import { layKeys } from './recipe-keys-pose';
 
@@ -196,24 +197,58 @@ function wave(
   turnBy(bone, new THREE.Quaternion().setFromAxisAngle(rig.forward, angle));
 }
 
+/** The grips of a recipe on the bake's frames, and the frame being posed. */
+export interface GripsAt {
+  spans: readonly GripSpan[];
+  frame: number;
+}
+
+/**
+ * The grips a stage lays: each on the bake's frames (state/recipe-grips.ts),
+ * the bake's last frame, and the frame a change's share stands on.
+ */
+export interface StageGrips {
+  spans: readonly GripSpan[];
+  frames: number;
+  frameOf: (share: number) => number;
+}
+
+/** A grip's pose as turns by bone, a null read as 0. */
+const turnsOf = (pose: NonNullable<RecipeLayer['pose']>): Map<string, Turn> =>
+  new Map(Object.entries(pose).map(([bone, t]) => [bone, [num(t[0]), num(t[1]), num(t[2])]]));
+
 /**
  * Lays `layers` over the pose the model has now, in order, at `share` of
  * the clip. A change whose bone the model lacks or whose blank is open
  * leaves the pose alone. Pose keys blend between their keys on the clips
  * of `keysOn` (recipe-keys.ts), at their weight with no ramp; without it
- * they are left out. Pins are held after, on the bake's frames
- * (recipe-pins.ts).
+ * they are left out. A grip lays its pose by how much of it shows on the
+ * bake frame of `grips`, in place of the clip's turns unless it adds, as
+ * the bake does; without `grips` it is left out. Pins are held after, on
+ * the bake's frames (recipe-pins.ts).
  */
 export function poseRecipe(
   rig: RecipeRig,
   layers: readonly RecipeLayer[],
   targets: ReadonlyMap<string, THREE.Vector3>,
   share: number,
-  keysOn?: Playable | null
+  keysOn?: Playable | null,
+  grips?: GripsAt | null
 ) {
   for (const layer of layers) {
     const s = layer.settings;
     if (layer.kind === 'pin') continue;
+    if (layer.kind === 'grip') {
+      const span = grips?.spans.find(g => g.layer === layer.id);
+      if (span && grips && layer.pose && rig.rest)
+        layKeys(
+          { bone: rig.bone, forward: rig.forward, rest: rig.rest },
+          turnsOf(layer.pose),
+          span.mode,
+          gripAmount(span, grips.frame)
+        );
+      continue;
+    }
     if (layer.kind === 'pose') {
       if (keysOn && rig.rest)
         layKeys(

@@ -2,6 +2,7 @@ import { Button, Icon, NumberField, Select } from '@maquette/ui';
 import type { LayerKind } from '@/ipc/client';
 import { LIMITS } from '@/state/recipe-check';
 import { num } from '@/state/recipe-draft';
+import { RecipeGripForm } from '../RecipeGripForm';
 import { RecipePinForm } from '../RecipePinForm';
 import PoseKeysForm from '../PoseKeysForm';
 import { RecipeRange } from '../RecipeRange';
@@ -18,6 +19,7 @@ export default function RecipeChangeForm({ id }: { id: string }) {
   if (layer.kind === 'pose') return <PoseKeysForm id={id} />;
   const s = layer.settings;
   const targeted = layer.kind === 'reach' || layer.kind === 'look-at';
+  const grip = layer.kind === 'grip';
   const triple = (what: 'rotation' | 'offset') =>
     AXES.map((axis, i) => (
       <NumberField
@@ -40,14 +42,16 @@ export default function RecipeChangeForm({ id }: { id: string }) {
       className="flex flex-col gap-2.5 border-t border-line px-3 py-3"
     >
       <div className="grid grid-cols-2 gap-2">
-        <Select
-          label="Kind"
-          size="sm"
-          options={f.kinds}
-          value={layer.kind}
-          onChange={(k: LayerKind) => f.setKind(k)}
-        />
-        {layer.kind === 'pin' ? null : (
+        {grip ? null : (
+          <Select
+            label="Kind"
+            size="sm"
+            options={f.kinds}
+            value={layer.kind}
+            onChange={(k: LayerKind) => f.setKind(k)}
+          />
+        )}
+        {layer.kind === 'pin' || grip ? null : (
           <Select
             label="Bone"
             size="sm"
@@ -84,6 +88,7 @@ export default function RecipeChangeForm({ id }: { id: string }) {
         onChange={f.setRange}
       />
       {layer.kind === 'pin' ? <RecipePinForm id={layer.id} /> : null}
+      {grip ? <RecipeGripForm id={layer.id} /> : null}
       {layer.kind === 'nudge' ? (
         <>
           <div className="flex gap-2">{triple('rotation')}</div>

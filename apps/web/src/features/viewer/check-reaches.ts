@@ -8,23 +8,24 @@ import type * as THREE from 'three';
 import type { RecipeLayer } from '@/ipc/client';
 import type { ReachCheck } from '@/state/recipe-review';
 import type { Playable } from '@/state/recipe-timeline';
-import { bendOf, poseRecipe, worldPosition, type RecipeRig } from './recipe-pose';
+import { bendOf, poseRecipe, worldPosition, type GripsAt, type RecipeRig } from './recipe-pose';
 
 const num = (v: number | null | undefined, or = 0) =>
   typeof v === 'number' && Number.isFinite(v) ? v : or;
 
 /**
  * Poses the clip at each reach's end with `frameAt` (a share of the clip),
- * lays every change over it (pose keys too, when `keysOn` is given, as the
- * bake and the pin checks do) and measures. The caller poses the frame on
- * show again afterwards.
+ * lays every change over it (pose keys too, when `keysOn` is given, and the
+ * grips `gripsAt` gives for that share, as the bake and the pin checks do)
+ * and measures. The caller poses the frame on show again afterwards.
  */
 export function checkReaches(
   frameAt: (share: number) => void,
   rig: RecipeRig,
   layers: readonly RecipeLayer[],
   targets: ReadonlyMap<string, THREE.Vector3>,
-  keysOn: Playable | null = null
+  keysOn: Playable | null = null,
+  gripsAt?: (share: number) => GripsAt | null
 ): ReachCheck[] {
   const out: ReachCheck[] = [];
   for (const layer of layers) {
@@ -38,7 +39,7 @@ export function checkReaches(
     const bend = () =>
       bendOf(worldPosition(limb.upper), worldPosition(limb.lower), worldPosition(end));
     const before = bend();
-    poseRecipe(rig, layers, targets, share, keysOn);
+    poseRecipe(rig, layers, targets, share, keysOn, gripsAt?.(share));
     const after = bend();
     const flipped = before.lengthSq() > 1e-10 && after.lengthSq() > 1e-10 && before.dot(after) < 0;
     out.push({ layer: layer.id, gap: worldPosition(end).distanceTo(target), flipped });

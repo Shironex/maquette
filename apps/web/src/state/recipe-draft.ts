@@ -54,24 +54,21 @@ export const KIND_ABOUT: Record<LayerKind, string> = {
 };
 
 /**
- * The kinds the editor makes and edits. Grips (recipe file version 2)
- * only show, read only, until the editor learns them.
+ * The kinds the Add change picker offers, in its order. A grip comes from
+ * the grip library, so picking it opens the grip picker.
  */
-export const EDITABLE_KINDS: readonly LayerKind[] = [
+export const ADD_KINDS: readonly LayerKind[] = [
   'reach',
   'nudge',
   'look-at',
   'wave',
   'pin',
   'pose',
+  'grip',
 ];
 
-/**
- * Whether the editor can edit `recipe`: joined clips, trims, blends, the
- * mirror, time edits, pins and pose keys it can; grips it only shows.
- */
-export const editable = (recipe: RecipeFile) =>
-  recipe.layers.every(l => EDITABLE_KINDS.includes(l.kind));
+/** The kinds a change can switch between in its form; pose keys and grips keep their own. */
+export const SWITCH_KINDS: readonly LayerKind[] = ['reach', 'nudge', 'look-at', 'wave', 'pin'];
 
 export const BLANK_WORDS: Record<BlankKind, string> = { prop: 'Prop', point: 'Point' };
 
@@ -247,6 +244,7 @@ export function layerLine(
   const aim = s.target ? ` → ${s.target}` : '';
   const at = typeof frames === 'number' ? (share: number) => frameOf(share, frames) : frames;
   const span = `frames ${at(num(s.start))} to ${at(num(s.end, 1))}`;
+  if (layer.kind === 'grip') return [gripWords(layer) + aim, span].join(' · ');
   return [`${KIND_WORDS[layer.kind]} · ${boneWords(layer.bone)}${aim}`, span].join(' · ');
 }
 
@@ -256,6 +254,23 @@ export function blankFill(blank: RecipeBlank, assetName: (id: string) => string 
     return blank.prop ? (assetName(blank.prop) ?? blank.prop) : 'open, pick a prop';
   if (!blank.point) return 'open, set a point';
   return blank.point.map(v => `${num(v).toFixed(2)}`).join(', ') + ' m';
+}
+
+const HANDS_WORDS = { both: 'Both hands', right: 'Right hand', left: 'Left hand' } as const;
+
+/**
+ * "Grip · Both hands · scythe-staff-grip r1": the hands its pose turns and
+ * the library grip it was copied from, when it has a link.
+ */
+export function gripWords(layer: RecipeLayer, name?: string | null): string {
+  const bones = Object.keys(layer.pose ?? {});
+  const left = bones.some(b => b.startsWith('left'));
+  const right = bones.some(b => b.startsWith('right'));
+  const hands = left && right ? 'both' : left ? 'left' : right ? 'right' : null;
+  const from = layer.from ? `${name ?? layer.from.entry} r${layer.from.revision}` : null;
+  return [KIND_WORDS.grip, hands ? HANDS_WORDS[hands] : boneWords(layer.bone), from]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** "Pose keys · 3 keys on 2 bones · Add": a pose key change in one line. */

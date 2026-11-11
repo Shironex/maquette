@@ -6,7 +6,7 @@
 
 use maquette_core::animations::recipes::bake::{
     OUT_OF_DATE, RecipeBakeRecord, RecipeBakeRequest, RecipeBakeStarter, RecipeBakeState,
-    RecipeBakes, not_bakeable, open_blanks, ready_to_add,
+    RecipeBakes, open_blanks, ready_to_add,
 };
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
@@ -22,9 +22,6 @@ use crate::mcp::hub::Hub;
 
 /// The code of a bake refused for a recipe with open blanks.
 pub(super) const OPEN_BLANKS: &str = "open-blanks";
-/// The code of a bake refused for a recipe using format 2 features (grips)
-/// that this Maquette cannot bake yet.
-pub(super) const NOT_BAKEABLE: &str = "not-bakeable-yet";
 /// The code of an add refused for a bake that is out of date.
 pub(super) const STALE_BAKE: &str = "stale-bake";
 
@@ -123,30 +120,25 @@ fn refused_add(err: maquette_core::CoreError) -> ToolError {
 
 impl McpTools {
     /// Every recipe tool: making and changing recipes, baking them, and the
-    /// recipe library.
+    /// recipe and grip libraries.
     pub(super) fn recipe_routers() -> ToolRouter<Self> {
         Self::recipes_router()
             + Self::recipe_bake_router()
             + Self::recipe_library_router()
             + Self::recipe_keys_router()
+            + Self::grips_router()
     }
 }
 
 #[tool_router(router = recipe_bake_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Bake an animation recipe onto a rigged model of its project in headless Blender, as Apply does: its clips go on through the retarget and play as the preview plays them (trims and time edits, blends lined up at each seam, then mirror), then the recipe's changes are solved over it exactly (reach by IK, look-at clamped to 80 degrees, nudge and wave eased) then pins held last by IK, into one new clip named after the recipe. It answers at once; poll get_recipe_bake. The model is staged in the workspace cache, not added to the project: add_recipe_bake asks a person to review it and add it as the next version in the app. A recipe with open blanks is refused (open-blanks) naming them. Pose keys bake; grips are refused (not-bakeable-yet). A bake counts as Mixamo's when any of its clips is: its model carries a mark, recorded on the asset when a marked file comes in as a version, so export packs leave its clips out and save_model_clips skips its clip, and add_model_file refuses the staged file (staged-bake). Every clip an earlier bake of this recipe made is replaced, whatever its name; another same-named clip stays and the new one takes _2. One bake per recipe runs at a time and replaces the staged one. Spends no credits."
+        description = "Bake an animation recipe onto a rigged model of its project in headless Blender, as Apply does: its clips go on through the retarget and play as the preview plays them (trims and time edits, blends lined up at each seam, then mirror), then the recipe's changes are solved over it exactly (reach by IK, look-at clamped to 80 degrees, nudge and wave eased) then pins held last by IK, into one new clip named after the recipe. It answers at once; poll get_recipe_bake. The model is staged in the workspace cache, not added to the project: add_recipe_bake asks a person to review it and add it as the next version in the app. A recipe with open blanks is refused (open-blanks) naming them. Pose keys and grips bake; a grip skips bones the rig lacks. A bake counts as Mixamo's when any of its clips is: its model carries a mark, recorded on the asset when a marked file comes in as a version, so export packs leave its clips out and save_model_clips skips its clip, and add_model_file refuses the staged file (staged-bake). Every clip an earlier bake of this recipe made is replaced, whatever its name; another same-named clip stays and the new one takes _2. One bake per recipe runs at a time and replaces the staged one. Spends no credits."
     )]
     async fn bake_recipe(&self, Parameters(args): Parameters<BakeRecipeArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let doc = recipes::get(host.session(), &args.project, &args.recipe)?;
-                if let Some(message) = not_bakeable(&doc) {
-                    return Err(ToolError {
-                        message,
-                        code: NOT_BAKEABLE.to_string(),
-                    });
-                }
                 let open = open_blanks(&doc);
                 if !open.is_empty() {
                     return Err(ToolError {
@@ -179,7 +171,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a recipe's last bake, or bake null if never baked: its state (running, done, failed or cancelled), who started it, progress while it runs, why it stopped, and when done the result: the recipe version and clip hashes it was baked from (base, then joinedClips), mixamo, the new clip's name and frames, the facing read from the rig, the feet's worst slide in cm and the rig's worst stretch in mm (each with the base clip's own), each reach's gap to its target in cm at its end and the first frame its elbow or knee flips, each pin's worst drift from its spot in cm (and without the pin), and the timings; review holds each number against its limit as pass, warn or not-measured (hand or foot gap 2 cm, elbow or knee no flip, pin drift 1 cm, foot slide 1.5 cm over the base clip's own, rig stretch 5 mm over the base clip's) with how many warn, never stopping an add; clipNote says whether the clip replaces this recipe's own older ones or took a _2 name; stale says why a finished bake is out of date (the recipe, a clip or the model changed); bake it again then. While a person has an add_recipe_bake of it to answer, status is waiting for approval with the approval id; once added, state is added with addedVersion. Reads only.",
+        description = "Read a recipe's last bake, or bake null if never baked: its state (running, done, failed or cancelled), who started it, progress while it runs, why it stopped, and when done the result: the recipe version and clip hashes it was baked from (base, then joinedClips), mixamo, the new clip's name and frames, the facing read from the rig, the feet's worst slide in cm and the rig's worst stretch in mm (each with the base clip's own), each reach's gap to its target in cm at its end and the first frame its elbow or knee flips, each pin's worst drift from its spot in cm (and without the pin) and each grip's bones the rig lacks; review holds each number against its limit as pass, warn or not-measured (hand or foot gap 2 cm, elbow or knee no flip, pin drift 1 cm, foot slide 1.5 cm over the base clip's own, rig stretch 5 mm over the base clip's) with how many warn, never stopping an add; clipNote says whether the clip replaces this recipe's own older ones or took a _2 name; stale says why a finished bake is out of date (the recipe, a clip or the model changed). While a person has an add_recipe_bake of it to answer, status is waiting for approval with the approval id; once added, state is added with addedVersion. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe_bake(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {

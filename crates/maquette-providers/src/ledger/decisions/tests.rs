@@ -149,6 +149,7 @@ fn only_the_app_cards_count_as_card_sources() {
         DecisionSource::RigDoctor,
         DecisionSource::RecipeReview,
         DecisionSource::RecipeSave,
+        DecisionSource::GripSave,
         DecisionSource::JobsCancelled,
         DecisionSource::RunCancelled,
         DecisionSource::QuestionChanged,

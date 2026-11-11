@@ -30,6 +30,7 @@ use crate::workspace::is_single_segment;
 
 pub(crate) mod blender;
 pub mod copy;
+pub mod grips;
 pub mod import;
 pub mod names;
 pub mod recipes;

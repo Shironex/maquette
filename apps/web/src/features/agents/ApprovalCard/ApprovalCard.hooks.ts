@@ -10,6 +10,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useGripSaveStore } from '@/state/use-grip-save-store';
 import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { useRigStore } from '@/state/use-rig-store';
 
@@ -213,13 +214,20 @@ function useRestPose(approval: Approval) {
         if (ask) void useRecipeSaveStore.getState().show(project, ask.recipe, ask.entry);
         return;
       }
+      if (approval.kind === 'grip-save') {
+        const ask = approval.recipeSave;
+        if (ask?.grip)
+          void useGripSaveStore.getState().show(project, ask.recipe, ask.entry, ask.grip);
+        return;
+      }
       if (asset) useAvatarStore.getState().open(project, asset, version ?? null);
     },
     deny: async (by: DecidedBy) => {
       if (
         approval.kind === 'rig-doctor' ||
         approval.kind === 'recipe-bake' ||
-        approval.kind === 'recipe-save'
+        approval.kind === 'recipe-save' ||
+        approval.kind === 'grip-save'
       ) {
         await useAgentsStore.getState().decide(approval.id, false, by);
         return;

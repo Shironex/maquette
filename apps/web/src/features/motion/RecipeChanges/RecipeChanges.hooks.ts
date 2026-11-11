@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { LayerKind } from '@/ipc/client';
 import { LIMITS, checkDraft } from '@/state/recipe-check';
-import { EDITABLE_KINDS, KIND_ABOUT, KIND_WORDS, newLayer } from '@/state/recipe-draft';
+import { ADD_KINDS, KIND_ABOUT, KIND_WORDS, newLayer } from '@/state/recipe-draft';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 
@@ -24,13 +24,15 @@ export function useRecipeChanges() {
     toggle: (id: string) => pick(picked === id ? null : { what: 'layer', id }),
     // Short labels, as the change form's kind picker has them, so the closed
     // select is never cut off; what the picked kind does shows on hover.
-    kinds: EDITABLE_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
+    kinds: ADD_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
     kindAbout: KIND_ABOUT[kind],
     kind,
     setKind,
     addBlocked: full ? `A recipe holds at most ${LIMITS.layers} changes` : undefined,
     add: () => {
       if (!draft || full) return;
+      // A grip comes from the grip library: Add a grip's picker shows instead.
+      if (kind === 'grip') return pick({ what: 'grips', id: '' });
       const layer = newLayer(kind, draft.layers, draft.blanks);
       edit(d => ({ ...d, layers: [...d.layers, layer] }));
       pick({ what: 'layer', id: layer.id });

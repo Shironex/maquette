@@ -9,6 +9,7 @@ add_model_file
 add_nodes
 add_recipe_bake
 add_to_library
+apply_grip
 assemble_prop
 attach_download
 bake_back
@@ -40,6 +41,7 @@ get_codex_usage
 get_concepts
 get_credits
 get_game
+get_grip
 get_image_backend
 get_inbox_checks
 get_layout
@@ -77,6 +79,7 @@ list_assets
 list_built_assets
 list_canvases
 list_fixups
+list_grips
 list_handoffs
 list_inbox
 list_library
@@ -94,6 +97,7 @@ pick_concepts
 preview_fixups
 prioritize_concept_jobs
 propose_camera_plan
+propose_grip_save
 propose_recipe_save
 propose_removal
 rebuild_built_asset

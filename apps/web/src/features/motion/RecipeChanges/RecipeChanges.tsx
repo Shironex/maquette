@@ -66,7 +66,7 @@ export default function RecipeChanges() {
           disabledReason={c.addBlocked}
           onClick={c.add}
         >
-          Add change
+          {c.kind === 'grip' ? 'Add a grip' : 'Add change'}
         </Button>
       </div>
       {c.layers.length ? (

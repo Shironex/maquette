@@ -227,46 +227,6 @@ fn a_recipe_with_open_blanks_or_no_changes_is_refused_naming_what_to_fix() {
 }
 
 #[test]
-fn a_recipe_using_what_the_bake_cannot_make_yet_is_refused_naming_it() {
-    let mut p = reaching();
-    let manifest = crate::project::load(p.root(), &p.config.layout, &p.id).expect("manifest");
-    p.recipe = library_recipes::update(
-        p.root(),
-        &p.dir,
-        &manifest,
-        &p.recipe.id,
-        RecipeChange {
-            layers: Some(vec![
-                reach("l-1", "rightHand", "b-1"),
-                RecipeLayer {
-                    pose: Some(
-                        [("rightIndexProximal".to_string(), [62.0, 0.0, 0.0])]
-                            .into_iter()
-                            .collect(),
-                    ),
-                    ..RecipeLayer::new(
-                        "l-2",
-                        LayerKind::Grip,
-                        "rightHand",
-                        LayerSettings::default(),
-                    )
-                },
-            ]),
-            expected: Some(p.recipe.version.clone()),
-            ..RecipeChange::default()
-        },
-    )
-    .expect("a grip");
-    let refused = refusal(&p, &p.request());
-    assert!(matches!(refused, CoreError::Invalid(_)));
-    let words = refused.to_string();
-    assert!(words.starts_with(NOT_BAKEABLE_YET), "{words}");
-    assert!(words.contains("it uses grips"), "{words}");
-    assert_eq!(not_bakeable(&p.recipe), Some(words));
-    assert_eq!(not_bakeable(&reaching().recipe), None);
-}
-
-#[test]
 fn a_prop_blank_holding_the_model_it_bakes_onto_is_refused() {
     let mut p = project_with(humanoid());
     p.change(

@@ -13,6 +13,7 @@ const ICONS: Record<BaseEditItem['what'], IconName> = {
   mirror: 'arrows-left-right',
   layer: 'sliders-horizontal',
   blank: 'map-pin',
+  grips: 'hand-pointing',
 };
 
 function Form({ item }: { item: BaseEditItem }) {

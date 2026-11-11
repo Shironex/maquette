@@ -2,9 +2,10 @@
 //! them and agents read them: each reach's gap to its target (2 cm) and its
 //! elbow or knee (no flip), each pin's drift from its spot (1 cm), the
 //! planted feet's slide (1.5 cm over the base clip's own on this model),
-//! the rig's stretch (5 mm over the base clip's) and, with pose keys, each
-//! keyed turn against the humanoid joint limits. A warn asks for a look; it
-//! never stops the bake being added.
+//! the rig's stretch (5 mm over the base clip's), with pose keys, each
+//! keyed turn against the humanoid joint limits, and per grip how many of
+//! its bones the model takes. A warn asks for a look; it never stops the
+//! bake being added.
 
 use serde::{Deserialize, Serialize};
 
@@ -30,9 +31,9 @@ pub enum RecipeReviewStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeReviewLine {
-    /// `gap-l-1`, `flip-l-1`, `feet` or `stretch`.
+    /// `gap-l-1`, `flip-l-1`, `pin-l-1`, `joints`, `grip-l-1`, `feet` or `stretch`.
     pub id: String,
-    /// "Hand gap", "Elbow", "Foot slide", "Rig stretch".
+    /// "Hand gap", "Elbow", "Pin drift", "Joint limits", "Grip", "Foot slide", "Rig stretch".
     pub label: String,
     /// The bone and change it is about, for a reach.
     pub about: Option<String>,
@@ -233,11 +234,13 @@ fn joints_line(result: &RecipeBakeResult) -> Option<RecipeReviewLine> {
 }
 
 /// The review of `result`: each reach's gap and joint, each pin's drift,
-/// the keyed poses against the joint limits, then the feet and the rig.
+/// the keyed poses against the joint limits, each grip's bones, then the
+/// feet and the rig.
 pub fn review_of(result: &RecipeBakeResult) -> RecipeBakeReview {
     let mut lines = reach_lines(result);
     lines.extend(super::pins::pin_lines(result));
     lines.extend(joints_line(result));
+    lines.extend(super::grips::grip_lines(result));
     lines.push(feet_line(result));
     lines.push(stretch_line(result));
     let warns = lines

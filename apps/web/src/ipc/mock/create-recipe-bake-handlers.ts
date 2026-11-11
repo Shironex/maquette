@@ -4,6 +4,7 @@
  * changed event, and ends with made up numbers: each reach within its 2 cm,
  * a small stretch and a foot slide past its limit. Cancel stops it with nothing staged. A
  * recipe with open blanks or no changes is refused as the core refuses it.
+ * Every change kind bakes, grips too: each grip says how many bones it posed.
  * A finished bake carries its review as the core works it out, and Add
  * makes it the model's next version (refused once out of date). With
  * `?library=demo`, Frostveil's lantern recipe opens with a finished bake for
@@ -22,6 +23,7 @@ import { clock } from '@/lib/clock';
 import { frameOfShare, plain, timeline } from '@/state/recipe-timeline';
 import { fail, type Args } from './backend-options';
 import { currentAsks } from './recipe-bake-asks';
+import { gripLines, gripResultsOf } from './recipe-grips';
 import { pinLines, pinResultsOf } from './recipe-pins';
 import { jointLines, jointsOf } from './recipe-key-review';
 
@@ -42,20 +44,6 @@ interface BakeContext {
    */
   standInClip: (asset: string) => string | null;
   state: string | null;
-}
-
-/** The change kinds of file version 2 a bake cannot make yet. */
-const NOT_BAKEABLE: Record<string, string> = { grip: 'grips' };
-
-/**
- * The core's `not-bakeable-yet`: what in the recipe this Maquette cannot
- * bake yet, or null. Joined clips, trims, blends, the mirror and time edits
- * bake, and so do pins and pose keys; grips do not yet.
- */
-export function notBakeable(doc: RecipeDoc): string | null {
-  const kinds = [...new Set(doc.recipe.layers.flatMap(l => NOT_BAKEABLE[l.kind] ?? []))];
-  if (!kinds.length) return null;
-  return `${doc.recipe.name} holds ${kinds.join(', ')}, which this Maquette cannot bake yet. Take them out to bake it, or bake it with a later Maquette.`;
 }
 
 /** The core's words for a bake that is out of date. */
@@ -102,7 +90,7 @@ export function reviewOf(result: RecipeBakeResult): RecipeBakeReview {
           : `The ${joint.toLowerCase()} bends the other way than the clip has it from there.`,
     });
   }
-  lines.push(...pinLines(result), ...jointLines(result));
+  lines.push(...pinLines(result), ...jointLines(result), ...gripLines(result));
   const slideMax = round((result.baseSlideCm ?? 0) + 1.5);
   lines.push({
     id: 'feet',
@@ -216,6 +204,7 @@ function resultOf(
     })),
     pins: pinResultsOf(doc),
     joints: jointsOf(doc),
+    grips: gripResultsOf(doc),
     blenderSeconds: 2.1,
     seconds: 2.6,
     warnings: doc.base.warning ? [doc.base.warning] : [],
@@ -314,8 +303,6 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       const doc = ctx.doc(r.project, r.recipe);
       if (r.expected != null && r.expected !== doc.version)
         fail('moved', `${doc.recipe.name} changed since it was read, so it was not baked.`);
-      const later = notBakeable(doc);
-      if (later) fail('not-bakeable-yet', later);
       const open = doc.recipe.blanks.filter(b => (b.kind === 'prop' ? !b.prop : !b.point));
       if (open.length)
         fail(
@@ -325,7 +312,7 @@ export function createRecipeBakeHandlers(ctx: BakeContext) {
       if (!doc.recipe.layers.length)
         fail(
           'invalid',
-          `${doc.recipe.name} has no changes yet. Add a reach, nudge, look at or wave first.`
+          `${doc.recipe.name} has no changes yet. Add one first: a reach, a pin, pose keys or a grip, say.`
         );
       const itself = doc.recipe.blanks.find(b => b.kind === 'prop' && b.prop === r.asset);
       if (itself)

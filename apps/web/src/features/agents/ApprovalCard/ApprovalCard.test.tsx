@@ -7,6 +7,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useGripSaveStore } from '@/state/use-grip-save-store';
 import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { useRigStore } from '@/state/use-rig-store';
 import { openAvatar } from '@/test/open-avatar';
@@ -274,5 +275,47 @@ describe('an approval card', () => {
     expect(saved).not.toHaveBeenCalled();
     useAgentsStore.setState({ decide: kept });
     useRecipeSaveStore.setState(useRecipeSaveStore.getInitialState(), true);
+  });
+
+  it('opens an agent proposed grip save in the save a grip sheet, never saving', async () => {
+    const show = vi.fn().mockResolvedValue(undefined);
+    useGripSaveStore.setState({ show });
+    const saved = vi.spyOn(commands, 'gripLibrarySave');
+    const grip = {
+      layer: 'l-1',
+      frame: 30,
+      name: 'Scythe, staff grip',
+      weapon: 'scythe',
+      hands: { holds: 'right' as const, supports: 'left' as const },
+      bones: Array.from({ length: 33 }, (_, i) => `bone${i}`),
+      latest: 2,
+      file: 'library/grips/scythe-staff-grip/r3.grip.json',
+    };
+    const ask = {
+      id: 'grip-save-approval-1',
+      kind: 'grip-save',
+      project: 'frostveil',
+      runId: null,
+      runNumber: null,
+      step: null,
+      job: 'scythe-charge-held',
+      assetName: 'Scythe, staff grip r3',
+      service: null,
+      detail: 'From the pose keys on both hands in Scythe charge, held, at frame 30.',
+      items: [],
+      requestedAtMs: 0,
+      recipeSave: { recipe: 'scythe-charge-held', entry: 'scythe-staff-grip', revision: 3, grip },
+    } satisfies Approval;
+    render(<ApprovalCard approval={ask} />);
+    expect(
+      screen.getByRole('alertdialog', { name: 'Save a grip: Scythe, staff grip r3' })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/From the pose keys on both hands/)).toBeVisible();
+    expect(screen.getByText('library/grips/scythe-staff-grip · 33 bones · r2 to r3')).toBeVisible();
+    expect(screen.getByText(/save this grip to the grip library/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(show).toHaveBeenCalledWith('frostveil', 'scythe-charge-held', 'scythe-staff-grip', grip);
+    expect(saved).not.toHaveBeenCalled();
+    useGripSaveStore.setState(useGripSaveStore.getInitialState(), true);
   });
 });

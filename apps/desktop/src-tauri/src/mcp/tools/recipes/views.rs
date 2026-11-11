@@ -1,7 +1,7 @@
 //! What the recipe tools answer: a recipe, its clips and changes as an
 //! agent reads them, and the next steps after it.
 
-use maquette_core::animations::recipes::bake::not_bakeable;
+use maquette_core::animations::grips::GripLink;
 use maquette_core::animations::recipes::{BaseMatch, BaseStatus, RecipeDoc};
 use maquette_core::recipes::timeline::timeline;
 use maquette_core::recipes::{LayerKind, RecipeBase, RecipeLayer};
@@ -97,15 +97,32 @@ pub(in crate::mcp::tools) fn recipe_view(doc: &RecipeDoc) -> Value {
         out["mirror"] = json!(recipe.mirror);
         out["time"] = to_short_value(&recipe.time);
         out["frames"] = json!(timeline(recipe).frames);
-        if let Some(refusal) = not_bakeable(doc) {
-            out["bakeable"] = json!(false);
-            out["notBakeable"] = json!(refusal);
-        }
     }
     if !doc.warnings.is_empty() {
         out["warnings"] = json!(doc.warnings);
     }
     out
+}
+
+/// Adds to each grip change of a recipe view how its library grip stands:
+/// `library` with the grip's name, its newest revision and `newer` when
+/// that is later than the one copied, or `gone` when the grip was removed.
+pub(in crate::mcp::tools) fn with_grip_links(out: &mut Value, links: &[GripLink]) {
+    let Some(changes) = out.get_mut("changes").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for link in links {
+        let Some(change) = changes.iter_mut().find(|c| c["id"] == link.layer.as_str()) else {
+            continue;
+        };
+        change["library"] = match (link.gone, link.latest) {
+            (true, _) => json!({ "gone": true }),
+            (false, Some(latest)) => {
+                json!({ "name": link.name, "latest": latest, "newer": link.newer })
+            }
+            (false, None) => json!({ "unreadable": true }),
+        };
+    }
 }
 
 /// What to do next with a recipe: fill its blanks, add changes, or import
@@ -132,4 +149,22 @@ pub(super) fn after(doc: &RecipeDoc) -> Vec<Value> {
         ));
     }
     next
+}
+
+/// A step for the newest grip revision the library offers, when a grip
+/// change of the recipe copied an older one.
+pub(super) fn grip_offer(links: &[GripLink]) -> Option<Value> {
+    links.iter().find(|l| l.newer).map(|link| {
+        step(
+            "apply_grip",
+            &format!(
+                "The library has r{} of the grip {} and the change {} copied r{}: send layer {} to take it, or keep it.",
+                link.latest.unwrap_or_default(),
+                link.entry,
+                link.layer,
+                link.revision,
+                link.layer
+            ),
+        )
+    })
 }

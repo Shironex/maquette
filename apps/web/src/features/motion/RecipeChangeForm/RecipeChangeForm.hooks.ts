@@ -1,7 +1,7 @@
 import type { LayerKind, LayerSettings, RecipeLayer } from '@/ipc/client';
 import { boneWords, bonesFor } from '@/state/recipe-bones';
 import { checkDraft } from '@/state/recipe-check';
-import { EDITABLE_KINDS, KIND_WORDS, withKind } from '@/state/recipe-draft';
+import { KIND_WORDS, SWITCH_KINDS, withKind } from '@/state/recipe-draft';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 
@@ -25,7 +25,7 @@ export function useRecipeChangeForm(id: string) {
     frames: dt?.timeline.frames ?? 0,
     convert: dt ? { toFrame: dt.toFrame, toShare: dt.toShare } : undefined,
     problem,
-    kinds: EDITABLE_KINDS.filter(k => k !== 'pose').map(k => ({ value: k, label: KIND_WORDS[k] })),
+    kinds: SWITCH_KINDS.map(k => ({ value: k, label: KIND_WORDS[k] })),
     bones: layer ? bonesFor(layer.kind).map(b => ({ value: b, label: boneWords(b) })) : [],
     targets: [
       { value: '', label: blanks.length ? 'Pick a blank' : 'No blanks yet' },

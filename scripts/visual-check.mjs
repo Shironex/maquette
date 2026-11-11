@@ -76,7 +76,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=posekeys, ONLY=timeline, ONLY=plan, ONLY=projects, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=sheets, ONLY=minsize, ONLY=firstrun, ONLY=groups or ONLY=size
+ * ONLY=posekeys, ONLY=grips, ONLY=timeline, ONLY=plan, ONLY=projects, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=sheets, ONLY=minsize, ONLY=firstrun, ONLY=groups or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -103,6 +103,7 @@ import { shipShots } from './visual-check/ship.mjs';
 import { minSizeShots } from './visual-check/minsize.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { poseKeyShots } from './visual-check/pose-keys.mjs';
+import { gripShots } from './visual-check/grips.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { partsShots } from './visual-check/parts.mjs';
 import { rendersShots } from './visual-check/renders.mjs';
@@ -1105,6 +1106,7 @@ try {
   await settle();
   if (!only || only === 'motion') await motionShots({ open, shot });
   if (!only || only === 'posekeys') await poseKeyShots({ open, shot });
+  if (!only || only === 'grips') await gripShots({ open, shot });
   await settle();
   if (!only || only === 'timeline') await timelineShots({ open, shot });
   await settle();

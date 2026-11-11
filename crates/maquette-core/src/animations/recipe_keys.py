@@ -1,5 +1,6 @@
-"""Pose keys for the recipe bake: each keyed bone blended between its keys
-at a frame's share, then laid on the pose as it stands.
+"""Pose keys and grips for the recipe bake: each keyed bone blended between
+its keys at a frame's share, or a grip's bones as its pose holds them, then
+laid on the pose as it stands.
 
 bake_recipe.py imports this from beside it. The job holds each pose key
 change as
@@ -20,6 +21,15 @@ from rest P, add turns the bone by P (B K B^-1) P^-1 on top of the clip, and
 replace sets its world rotation to P (B K B^-1) R, R its rest. B turns the
 model's axes to the world's, so a key reads the same on any rig. Parents go
 before their children.
+
+A grip is one pose with no keys: the job holds each grip change as
+
+    {"first": 0, "last": 120, "easeIn": 4, "easeOut": 4, "weight": 1.0,
+     "mode": "replace", "pose": {"rightHand": [4, 0, -8], ...}}
+
+and bake_recipe.py lays its pose (lay_pose) at every frame by how much of
+the grip shows there: in place of the clip's turns on those bones unless it
+says add. A bone the model has not got is left alone.
 """
 
 import math
@@ -97,12 +107,17 @@ def lay(rig, spec, share):
     """Lays one pose key change at `share` over the pose as it stands."""
     if not spec or not spec.get("keys"):
         return
-    weight = min(max(float(spec.get("weight", 1.0)), 0.0), 1.0)
+    lay_pose(rig, turns_at(spec["keys"], share), spec.get("mode") == "replace", spec.get("weight", 1.0))
+
+
+def lay_pose(rig, pose, replace, weight):
+    """Lays `pose` (degrees per VRM bone) over the pose as it stands, `weight`
+    of the way: in place of each bone's turn, from its rest, or on top of it."""
+    weight = min(max(float(weight), 0.0), 1.0)
     if weight <= 0.0:
         return
-    replace = spec.get("mode") == "replace"
     bones = []
-    for vrm, degrees in turns_at(spec["keys"], share).items():
+    for vrm, degrees in pose.items():
         pb = rig.pose_bone(vrm)
         if pb is not None:
             bones.append((pb, degrees))

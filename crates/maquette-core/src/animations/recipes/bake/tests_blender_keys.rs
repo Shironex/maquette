@@ -42,7 +42,7 @@ fn keyed(recipe: &RecipeFile, frame: u32, layer: &str, bone: &str) -> f64 {
         .map_or(0.0, |t| t.turn.iter().map(|v| v * v).sum::<f64>().sqrt())
 }
 
-fn rest_of(glb: &Glb, node: usize) -> Vec<f64> {
+pub(super) fn rest_of(glb: &Glb, node: usize) -> Vec<f64> {
     glb.json["nodes"][node]["rotation"].as_array().map_or_else(
         || vec![0.0, 0.0, 0.0, 1.0],
         |a| a.iter().filter_map(serde_json::Value::as_f64).collect(),

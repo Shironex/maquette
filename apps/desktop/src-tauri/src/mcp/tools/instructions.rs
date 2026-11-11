@@ -24,7 +24,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [pipeline] Runs, presets, bake settings, starter scripts, how a website ships, the site's dev server.
 [game] A game project's repo, format, budgets, imports and ship plan.
 [library] Models outside any project, copied, never linked; free.
-[animation] Clips, recipes and baking them onto a rigged model. Mixamo clips stay on this computer. Recipes: use_recipe, update_recipe, set_recipe_keys, get_recipe_pose, bake_recipe, get_recipe_bake, add_recipe_bake.
+[animation] Clips, recipes, grips and baking them onto a rigged model. Mixamo clips stay on this computer. Recipes: use_recipe, update_recipe, set_recipe_keys, get_recipe_pose, apply_grip, bake_recipe.
 [export] Packs for other engines and render styles: headless Blender, no credits.
 [avatar-rig] VRM avatars and the rig doctor.
 
@@ -34,7 +34,7 @@ WAITS FOR A PERSON (in the Maquette app; poll, never start the work again)
 - Shipping: run_pipeline at Ship while Ask before shipping is on; always in a game, with repo, or into a site repo an agent set (follow get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview on a repo an agent set, first and when its path or command changes (follow get_page_preview).
 - Avatars: new weights, rest pose and spring chains (follow get_avatar). Rig doctor: a joint move, adding its draft as a version.
-- Recipes: add_recipe_bake, propose_recipe_save (follow get_recipe_bake, get_recipe).
+- Recipes: add_recipe_bake, propose_recipe_save, propose_grip_save (follow get_recipe_bake, get_recipe, get_grip).
 - Camera plan: agents propose with propose_camera_plan; the person's Apply writes layout.json.
 - Canvases: removal proposals (Keep it or Remove), Mark as fine on a mechanics overlap and the Auto layout after agents switch.
 - Only a person can: save API keys, set the OpenAI image cap, sign in to Codex, install Blender and the tools, open a workspace.

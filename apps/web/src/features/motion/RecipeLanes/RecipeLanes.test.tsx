@@ -65,3 +65,14 @@ describe('the pin lane', () => {
     expect(useRecipeEditorStore.getState().picked).toEqual({ what: 'layer', id: 'l-8' });
   });
 });
+
+describe('the grip lane', () => {
+  it('names the library grip and revision a grip was copied from', async () => {
+    await openRecipe('scythe-charge-held');
+    render(<RecipeLanes frame={0} playing={false} onToggle={vi.fn()} onScrub={vi.fn()} />);
+    const bar = await screen.findByRole('button', { name: /^Grip l-2, frames/ });
+    expect(await screen.findByText('Scythe, staff grip r1')).toBeVisible();
+    await userEvent.click(bar);
+    expect(useRecipeEditorStore.getState().picked).toEqual({ what: 'layer', id: 'l-2' });
+  });
+});

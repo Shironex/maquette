@@ -5,6 +5,7 @@ import { AnimationFilters } from '../AnimationFilters';
 import { ClipCard } from '../ClipCard';
 import { ClipDetail } from '../ClipDetail';
 import { ClipRow } from '../ClipRow';
+import { LibraryGrips } from '../LibraryGrips';
 import { LibraryRecipes } from '../LibraryRecipes';
 import { PressToggle } from '@/features/common/PressToggle';
 import { useAnimationsView, useClipsWindow } from './AnimationsView.hooks';
@@ -15,7 +16,7 @@ const IMPORT_TIP = 'Add Mixamo FBX files or a pack zip; Blender reads them headl
  * The workspace's animation library: clips kept once outside any project,
  * skeleton only, that rigged models take by baking. Each preview is the
  * clip on its own skeleton, so no model is needed to look at one. Show
- * switches to the library's recipes.
+ * switches to the library's recipes or its grips.
  */
 export default function AnimationsView() {
   const v = useAnimationsView();
@@ -70,6 +71,7 @@ export default function AnimationsView() {
               options={[
                 { value: 'clips', label: 'Clips', icon: 'person-simple' },
                 { value: 'recipes', label: 'Recipes', icon: 'flask' },
+                { value: 'grips', label: 'Grips', icon: 'hand-pointing' },
               ]}
               value={show}
               onChange={setShow}
@@ -103,6 +105,8 @@ export default function AnimationsView() {
       />
       {show === 'recipes' ? (
         <LibraryRecipes />
+      ) : show === 'grips' ? (
+        <LibraryGrips />
       ) : v.loaded && v.items.length === 0 ? (
         <main className="flex min-h-0 flex-1 items-center justify-center p-6">
           <EmptyState

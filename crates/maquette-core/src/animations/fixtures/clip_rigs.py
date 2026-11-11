@@ -18,6 +18,8 @@
   written as GLB: the model a library clip is retargeted onto.
 - model_x: the same model turned to face +X (glTF axes), its rig and box
   turned with it.
+- model_fingers: the same model with three finger bones under its hands,
+  named as Mixamo names them (RightHandIndex1), which a grip poses.
 """
 
 import math
@@ -82,6 +84,14 @@ MODEL_NAMES = {
     "RightToeBase": "toe.R",
 }
 
+# Finger bones under the hands, as Mixamo names them. The bone map leaves
+# fingers to the model's own names, so a grip finds these by name.
+FINGERS = [
+    ("RightHandIndex1", "RightHand", (-0.76, 0, 1.4), (-0.80, 0, 1.4)),
+    ("RightHandIndex2", "RightHandIndex1", (-0.80, 0, 1.4), (-0.83, 0, 1.4)),
+    ("LeftHandIndex1", "LeftHand", (0.76, 0, 1.4), (0.80, 0, 1.4)),
+]
+
 CHAIN = [
     ("base", None, (0, 0, 0), (0, 0, 0.3)),
     ("seg_a", "base", (0, 0, 0.3), (0, 0, 0.6)),
@@ -102,10 +112,11 @@ def reset():
 
 
 def a_pose(bones):
-    """Lowers the arms 45 degrees, the way many hand made rigs stand."""
+    """Lowers the arms 45 degrees, the way many hand made rigs stand, with
+    the hands and the fingers under them."""
     out = []
     for name, parent, head, tail in bones:
-        if name.endswith(("Arm", "ForeArm", "Hand")) and "Shoulder" not in name:
+        if (name.endswith(("Arm", "ForeArm")) or "Hand" in name) and "Shoulder" not in name:
             side = 1 if name.startswith("Left") else -1
             pivot = Vector((0.15 * side, 0, 1.4))
             def lower(p):
@@ -242,7 +253,7 @@ def make_custom(path):
 
 def make_model(path, extra=(), turn=0.0):
     reset()
-    arm = armature("elsheria_rig", [*a_pose(T_POSE), *extra], lambda n: MODEL_NAMES.get(n, n))
+    arm = armature("elsheria_rig", a_pose([*T_POSE, *extra]), lambda n: MODEL_NAMES.get(n, n))
     box = skinned_box(arm, size=0.4)
     if turn:
         # Turned in its rest, not by its object: the rig itself faces the other way.
@@ -277,6 +288,8 @@ def main():
     elif which == "model_x":
         # Blender's -Y (glTF +Z) turned 90 degrees about Z faces +X.
         make_model(out, turn=90.0)
+    elif which == "model_fingers":
+        make_model(out, FINGERS)
     elif which == "model_socket":
         # A bone only on the model, off the hips, nowhere near the hand.
         make_model(out, [("sword_socket", "Hips", (0.4, 0, 1.0), (0.4, 0, 1.1))])

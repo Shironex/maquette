@@ -22,6 +22,7 @@ use crate::recipes::{BlankKind, RecipeLayer};
 use crate::workspace::WorkspaceConfig;
 
 mod clip_name;
+mod grips;
 mod keys;
 mod parts;
 mod ready;
@@ -29,7 +30,7 @@ mod rest;
 mod vrm;
 pub(crate) use clip_name::clip_name;
 use clip_name::clip_note;
-pub use ready::{NOT_BAKEABLE_YET, not_bakeable, open_blanks};
+pub use ready::open_blanks;
 use rest::RestSpec;
 use vrm::bones_for;
 pub(crate) use vrm::model_bone;
@@ -82,6 +83,10 @@ pub struct Prepared {
     pub(crate) mirror_pairs: Vec<[String; 2]>,
     /// The pins on the bake's frames, solved last.
     pub(crate) pins: Vec<crate::recipes::pins::PinSpan>,
+    /// Each grip on the bake's frames with its pose, by change id.
+    pub(crate) grips: BTreeMap<String, grips::GripSpec>,
+    /// Each grip as the review reads it: the bones the model has and lacks.
+    pub(crate) grip_results: Vec<super::grips::RecipeGripResult>,
     pub asset: String,
     pub(crate) model: Model,
     pub(crate) setting: ClipSetting,
@@ -128,9 +133,6 @@ pub fn prepare(
             doc.recipe.name
         )));
     }
-    if let Some(refusal) = not_bakeable(&doc) {
-        return invalid(refusal);
-    }
     let open = open_blanks(&doc);
     if !open.is_empty() {
         return invalid(format!(
@@ -141,7 +143,7 @@ pub fn prepare(
     }
     if doc.recipe.layers.is_empty() {
         return invalid(format!(
-            "{} has no changes yet. Add a reach, nudge, look at or wave first.",
+            "{} has no changes yet. Add one first: a reach, a pin, pose keys or a grip, say.",
             doc.recipe.name
         ));
     }
@@ -192,14 +194,18 @@ pub fn prepare(
     let mut bones = bones_for(&doc.recipe.layers, &map, &model)?;
     let (keyed, unkeyed) = keys::pose_bones(&doc.recipe, &map, &model);
     bones.extend(keyed);
+    let whole = timeline::timeline(&doc.recipe);
+    let (gripped, grip_results) = grips::grip_bones(&doc.recipe, &whole, &map, &model);
+    bones.extend(gripped);
     let (targets, props) = targets_of(&doc, &manifest, &dir, &request.asset)?;
     let warnings = std::iter::once(&doc.base)
         .chain(&doc.joined)
         .filter_map(|m| m.warning.clone())
         .chain(unkeyed)
         .collect();
-    let timeline = (!timeline::plain(&doc.recipe)).then(|| timeline::timeline(&doc.recipe));
-    let pins = crate::recipes::pins::spans(&doc.recipe, &timeline::timeline(&doc.recipe));
+    let pins = crate::recipes::pins::spans(&doc.recipe, &whole);
+    let grips = grips::grip_specs(&doc.recipe, &whole);
+    let timeline = (!timeline::plain(&doc.recipe)).then_some(whole);
     let mirror_pairs = if doc.recipe.mirror {
         vrm::mirror_pairs(&map, &model.joints)
     } else {
@@ -214,6 +220,8 @@ pub fn prepare(
         timeline,
         mirror_pairs,
         pins,
+        grips,
+        grip_results,
         model,
         setting,
         map,
@@ -300,6 +308,8 @@ struct RecipeSpec<'a> {
     pins: &'a [crate::recipes::pins::PinSpan],
     /// Each pose key change's keys with where they stand, by change id.
     pose_keys: BTreeMap<String, keys::PoseLayerSpec>,
+    /// Each grip change on the bake's frames with its pose, by change id.
+    grips: &'a BTreeMap<String, grips::GripSpec>,
 }
 
 #[derive(Serialize)]
@@ -376,6 +386,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
                 mirror_pairs: &prepared.mirror_pairs,
                 pins: &prepared.pins,
                 pose_keys: keys::pose_specs(&prepared.doc.recipe),
+                grips: &prepared.grips,
             },
             out: super::STAGED_FILE,
             report: REPORT_FILE,

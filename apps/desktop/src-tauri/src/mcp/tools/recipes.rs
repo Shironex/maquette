@@ -19,7 +19,7 @@ mod views;
 
 pub(super) use args::RecipeArgs;
 use args::{CreateRecipeArgs, UpdateRecipeArgs, blank_of, layer_of, picks_of, time_of};
-use views::after;
+use views::{after, grip_offer, with_grip_links};
 pub(super) use views::{change_view, recipe_view};
 
 /// The code of an update_recipe that sends lists without the version it read.
@@ -70,7 +70,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, rest when it runs on the model's rest pose with no clip, and library: found, hash-differs, missing or rest, as matched in this computer's animation library by name and frame count, or by name alone when the hash is empty (a starter's clip), with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's when any clip does: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project lost reads as open, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clips' frames end to end, and its kind's settings). Format 2 also answers format, clips (base first, with library, trim, blend), mirror, time, frames (the bake's length) and, with grips, bakeable false with notBakeable; changes may be pin, pose (mode, keys) or grip (pose, mode, from). library names the library recipe and revision it came from or was saved as, the library's newest revision and newer when that is later (or gone); saveWaiting is the approval of a save a person has not answered yet. Reads only.",
+        description = "Read an animation recipe: its name, revision, base clip (name, frames, seconds, hash, rest when it runs on the model's rest pose with no clip, and library: found, hash-differs, missing or rest, as matched in this computer's library by name and frame count, or by name alone when the hash is empty (a starter's clip), with the clip id and a warning when not exact), mixamo (a bake counts as Mixamo's when any clip does: kept out of export packs and never saved to the clip library), its blanks (targets filled per project: a prop's asset id or a point; a prop the project lost reads as open, with a warning) and its changes in order (kind, humanoid bone, weight, start and end as shares of the clips' frames end to end, and its kind's settings). Format 2 also answers format, clips (base first, with library, trim, blend), mirror, time and frames (the bake's length); changes may be pin, pose (mode, keys) or grip (pose, mode, from). library names the library recipe and revision it came from or was saved as, the library's newest revision and newer when that is later (or gone); a grip change's library says the same of its grip, taken by apply_grip. saveWaiting and gripSavesWaiting are saves a person has not answered yet. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_recipe(&self, Parameters(args): Parameters<RecipeArgs>) -> Out {
@@ -96,7 +96,24 @@ impl McpTools {
                 if let Some(waiting) = hub.recipe_save_for(&args.project, &args.recipe) {
                     out["saveWaiting"] = json!(waiting.id);
                 }
-                Ok(with_next(out, after(&doc)))
+                let links = crate::commands::grip_library::links(host.session(), &doc.recipe)
+                    .unwrap_or_default();
+                with_grip_links(&mut out, &links);
+                let waiting: Vec<Value> = doc
+                    .recipe
+                    .layers
+                    .iter()
+                    .filter_map(|l| {
+                        let ask = hub.grip_save_for(&args.project, &args.recipe, &l.id)?;
+                        Some(json!({ "layer": l.id, "approval": ask.id }))
+                    })
+                    .collect();
+                if !waiting.is_empty() {
+                    out["gripSavesWaiting"] = json!(waiting);
+                }
+                let mut next = after(&doc);
+                next.extend(grip_offer(&links));
+                Ok(with_next(out, next))
             })
             .await;
         respond(found)
@@ -170,7 +187,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an animation recipe: its name (the file and id stay), changes, blanks, clips, time edits, mirror, or any of them. changes, blanks, clips and time each replace the list whole, so read get_recipe first and send every entry you keep. All is checked first: bones, weights, spans, targets naming blanks, nudge, wave, pose key, grip, clip and time limits, and prop blanks naming project assets. A clip sent with keep stays as it was (trim and blend too unless sent), and keys, changes and time edits not sent move with it; dropping a clip they sit on, or parting clips a change spans, is refused (clip-in-use). A file too big to open again is refused (recipe-too-big). Nothing new keeps format 1, which an older Maquette opens; clips, trims, mirror, time, pins, pose keys or grips make format 2, which bakes unless it has grips (not-bakeable-yet). Blanks left out stay as they are: one whose asset is gone keeps its prop, reads as open, and warnings says which; one sent open keeps it too unless clear names it. Sending anything but the name needs expected, the version get_recipe answered with: a recipe changed since is refused (moved) and nothing is written. Answers as get_recipe does. Nothing is baked."
+        description = "Change an animation recipe: its name (the file and id stay), changes, blanks, clips, time edits, mirror, or any of them. changes, blanks, clips and time each replace the list whole, so read get_recipe first and send every entry you keep. All is checked first: bones, weights, spans, targets naming blanks, nudge, wave, pose key, grip, clip and time limits, and prop blanks naming project assets. A clip sent with keep stays as it was (trim and blend too unless sent), and keys, changes and time edits not sent move with it; dropping a clip they sit on, or parting clips a change spans, is refused (clip-in-use). A file too big to open again is refused (recipe-too-big). Nothing new keeps format 1, which an older Maquette opens; clips, trims, mirror, time, pins, pose keys or grips make format 2, which bakes too. Blanks left out stay as they are: one whose asset is gone keeps its prop, reads as open, and warnings says which; one sent open keeps it too unless clear names it. Sending anything but the name needs expected, the version get_recipe answered with: a recipe changed since is refused (moved) and nothing is written. Answers as get_recipe does. Nothing is baked."
     )]
     async fn update_recipe(&self, Parameters(args): Parameters<UpdateRecipeArgs>) -> Out {
         let found = self

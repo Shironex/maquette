@@ -62,6 +62,7 @@ mod clip_moves;
 mod copies;
 mod edits;
 mod files;
+pub mod grips;
 pub mod joint_limits;
 mod key_edits;
 mod keys;
@@ -74,9 +75,9 @@ pub use change::{RecipeChange, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use clip_moves::CLIP_IN_USE;
 pub use copies::{create_whole, link};
-pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, bake_unsupported, uses_v2};
+pub use edits::{BlendCurve, BlendWindow, LineUp, TimeEdit, TimeKind, uses_v2};
 pub use files::{
-    RecipeRead, RecipeSummary, TOO_BIG, create, create_joined, get, list, list_with,
+    RecipeGripUse, RecipeRead, RecipeSummary, TOO_BIG, create, create_joined, get, list, list_with,
     motion_version_of, names, remove, rename, rename_with, version,
 };
 pub use key_edits::{KeyEdits, KeyMove, KeyRemove, KeySet, edit_keys, empty_pose_layer};
@@ -596,13 +597,15 @@ pub fn unique_name<S: AsRef<str>>(name: &str, taken: &[S]) -> String {
 }
 
 pub fn register(types: specta::Types) -> specta::Types {
-    types
-        .register::<RecipeFile>()
-        .register::<RecipeSummary>()
-        .register::<RecipeChange>()
-        .register::<RecipeFrom>()
-        .register::<TimeEdit>()
-        .register::<PoseKey>()
+    grips::register(
+        types
+            .register::<RecipeFile>()
+            .register::<RecipeSummary>()
+            .register::<RecipeChange>()
+            .register::<RecipeFrom>()
+            .register::<TimeEdit>()
+            .register::<PoseKey>(),
+    )
 }
 
 #[cfg(test)]
@@ -637,3 +640,12 @@ mod tests_pose_keys;
 
 #[cfg(test)]
 mod tests_key_edits;
+
+#[cfg(test)]
+mod tests_grips;
+
+#[cfg(test)]
+mod tests_grips_apply;
+
+#[cfg(test)]
+mod tests_grips_file;

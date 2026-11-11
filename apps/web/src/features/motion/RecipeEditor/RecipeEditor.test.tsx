@@ -21,7 +21,7 @@ const weigh = (weight: number) => (l: RecipeLayer[]) =>
 const edit = (weight: number) =>
   act(() => useRecipeEditorStore.getState().edit(d => ({ ...d, layers: weigh(weight)(d.layers) })));
 
-/** An agent adds a grip, which the editor only shows. */
+/** An agent adds a grip over MCP. */
 async function addGrip(id: string) {
   const doc = await commands.recipeGet('frostveil', id);
   const keys: RecipeLayer = {
@@ -189,83 +189,49 @@ describe('the recipe editor', () => {
     ).toBeNull();
   });
 
-  it('shows a recipe holding a grip read only, with no Save and Apply off', async () => {
-    await openRecipe();
-    const doc = useRecipeEditorStore.getState().editing!.doc;
-    const keys: RecipeLayer = {
-      id: 'l-9',
-      kind: 'grip',
-      bone: 'rightHand',
-      settings: { ...doc.recipe.layers[0]!.settings, target: null, start: 0, end: 1 },
-      mode: 'replace',
-      pose: { rightIndexProximal: [0, 0, 30] },
-    };
-    const changed = await commands.recipeUpdate('frostveil', doc.id, {
-      name: null,
-      layers: [...doc.recipe.layers, keys],
-      blanks: null,
-      clips: [{ ...doc.recipe.base, trim: [2, 30] }, doc.recipe.base],
-      time: [{ kind: 'freeze', clip: 1, at: 10, frames: 6 }],
-      mirror: true,
-    });
-    expect(changed.recipe.version).toBe(2);
-    useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
-    await useRecipeEditorStore.getState().open('frostveil', doc.id);
+  it('edits and saves a recipe holding a grip, with Save and Apply', async () => {
+    await openRecipe('scythe-charge-held');
     render(<RecipeEditor />);
-    expect(
-      screen.getByText('This recipe uses what this Maquette cannot edit or bake yet')
-    ).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.getByRole('button', { name: /apply/i })).toHaveAttribute('aria-disabled', 'true');
-    const clips = screen.getByRole('region', { name: 'Clips' });
-    expect(clips).toHaveTextContent(/keeps 2 to 30/);
-    expect(clips).toHaveTextContent(/blend 8 f/);
-    expect(screen.getByRole('region', { name: 'Time edits' })).toHaveTextContent(
-      'Freeze clip 2, frame 10 for 6 f'
+    expect(screen.getByRole('region', { name: 'Changes' })).toHaveTextContent(
+      'Grip · Both hands · scythe-staff-grip r1'
     );
-    expect(screen.getByRole('region', { name: 'Changes' })).toHaveTextContent('Grip');
-    expect(screen.getByRole('region', { name: 'Mirror' })).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
-    expect(useRecipeEditorStore.getState().editing).toBeNull();
+    expect(screen.getByRole('button', { name: /apply/i })).toBeVisible();
+    act(() =>
+      useRecipeEditorStore.getState().edit(d => ({
+        ...d,
+        layers: d.layers.map(l =>
+          l.kind === 'grip' ? { ...l, settings: { ...l.settings, weight: 0.5 } } : l
+        ),
+      }))
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const saved = await commands.recipeGet('frostveil', 'scythe-charge-held');
+    expect(saved.recipe.layers.find(l => l.kind === 'grip')?.settings.weight).toBe(0.5);
+    expect(screen.getByText(/ · saved$/)).toBeInTheDocument();
   });
 
-  it('keeps the leave question and the edits when an agent turns the recipe into version 2', async () => {
+  it('merges a grip an agent adds into unsaved edits, and saves both', async () => {
     await openRecipe();
     render(<RecipeEditor />);
     edit(0.5);
     const id = useRecipeEditorStore.getState().editing!.id;
     await addGrip(id);
     await act(() => useRecipeEditorStore.getState().onChanged('frostveil'));
-    expect(
-      screen.getByText('This recipe uses what this Maquette cannot edit or bake yet')
-    ).toBeVisible();
-    expect(screen.getByText('You have unsaved edits')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
-    expect(screen.getByRole('dialog', { name: 'Save the recipe first?' })).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Stay' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Save my edits' }));
+    expect(useRecipeEditorStore.getState().editing?.draft.layers.at(-1)?.kind).toBe('grip');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     const saved = await commands.recipeGet('frostveil', id);
     expect(saved.recipe.layers.some(l => l.kind === 'grip')).toBe(true);
     expect(saved.recipe.layers[0]?.settings.weight).toBe(0.5);
-    expect(screen.queryByText('You have unsaved edits')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
-    expect(useRecipeEditorStore.getState().editing).toBeNull();
   });
 
-  it('discards the edits from the read only view, or drops them on leaving', async () => {
+  it('shows Add a grip in place of the preview and the changes until it closes', async () => {
     await openRecipe();
     render(<RecipeEditor />);
-    edit(0.5);
-    const id = useRecipeEditorStore.getState().editing!.id;
-    await addGrip(id);
-    await act(() => useRecipeEditorStore.getState().onChanged('frostveil'));
-    await userEvent.click(screen.getByRole('button', { name: 'Discard my edits' }));
-    expect(screen.queryByText('You have unsaved edits')).toBeNull();
-    expect((await commands.recipeGet('frostveil', id)).recipe.layers[0]?.settings.weight).not.toBe(
-      0.5
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Recipes' }));
-    expect(useRecipeEditorStore.getState().editing).toBeNull();
+    act(() => useRecipeEditorStore.getState().pick({ what: 'grips', id: '' }));
+    expect(screen.getByRole('region', { name: 'Add a grip' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Changes' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('region', { name: 'Changes' })).toBeVisible();
   });
 
   it('goes back to version 1 once nothing new is used', async () => {

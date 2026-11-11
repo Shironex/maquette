@@ -48,11 +48,13 @@ const n = (v: number | null | undefined, or: number) =>
 export const flatOf = (layer: Pick<RecipeLayer, 'bone' | 'settings'>): PinFlat | undefined =>
   isFoot(layer.bone) ? (layer.settings.flat ?? 'toe-and-heel') : undefined;
 
-/** Where `layer`, a pin, holds on timeline `t`; null when no frame falls within its range. */
-export function spanOn(t: Timeline, layer: RecipeLayer): PinSpan | null {
-  const s = layer.settings;
-  const start = n(s.start, 0);
-  const end = n(s.end, 1);
+/**
+ * The timeline frames a change that starts and ends at shares `start` and
+ * `end` holds on: the first frame whose share reaches its start and the
+ * last within its end. Null when no frame falls within. Pins and grips both
+ * stand on these.
+ */
+export function framesWithin(t: Timeline, start: number, end: number): [number, number] | null {
   const first = t.keys.findIndex(k => k.share >= start - EPS);
   let last = -1;
   for (let i = t.keys.length - 1; i >= 0; i -= 1) {
@@ -61,7 +63,15 @@ export function spanOn(t: Timeline, layer: RecipeLayer): PinSpan | null {
       break;
     }
   }
-  if (first < 0 || last < first) return null;
+  return first < 0 || last < first ? null : [first, last];
+}
+
+/** Where `layer`, a pin, holds on timeline `t`; null when no frame falls within its range. */
+export function spanOn(t: Timeline, layer: RecipeLayer): PinSpan | null {
+  const s = layer.settings;
+  const frames = framesWithin(t, n(s.start, 0), n(s.end, 1));
+  if (!frames) return null;
+  const [first, last] = frames;
   const flat = flatOf(layer);
   return {
     layer: layer.id,
@@ -85,13 +95,23 @@ const smooth = (x: number) => {
   return c * c * (3 - 2 * c);
 };
 
-/** How much of `pin` holds at timeline frame `frame`, 0 to 1, weight in. */
-export function pinAmount(pin: PinSpan, frame: number): number {
-  if (frame < pin.first - EPS || frame > pin.last + EPS) return 0;
-  const up = pin.easeIn > 0 ? smooth((frame - pin.first) / pin.easeIn) : 1;
-  const down = pin.easeOut > 0 ? smooth((pin.last - frame) / pin.easeOut) : 1;
-  return pin.weight * Math.min(up, down);
+/**
+ * How much of a change that holds on frames `first` to `last` shows at
+ * timeline frame `frame`, 0 to 1: none outside, easing in over `easeIn`
+ * frames from its first and out over `easeOut` to its last.
+ */
+export function eased(
+  span: { first: number; last: number; easeIn: number; easeOut: number },
+  frame: number
+): number {
+  if (frame < span.first - EPS || frame > span.last + EPS) return 0;
+  const up = span.easeIn > 0 ? smooth((frame - span.first) / span.easeIn) : 1;
+  const down = span.easeOut > 0 ? smooth((span.last - frame) / span.easeOut) : 1;
+  return Math.min(up, down);
 }
+
+/** How much of `pin` holds at timeline frame `frame`, 0 to 1, weight in. */
+export const pinAmount = (pin: PinSpan, frame: number): number => pin.weight * eased(pin, frame);
 
 /** The frames where `pin` holds whole, which the drift check measures; null when none. */
 export function heldFrames(pin: PinSpan): [number, number] | null {

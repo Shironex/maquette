@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Approval, McpStatus } from '@/ipc/client';
-import { approvalTitle, approvalsLabel, clockTime, mcpStatusItem, serverLine } from './agents';
+import {
+  approvalTitle,
+  approvalsLabel,
+  clockTime,
+  gripSaveLine,
+  mcpStatusItem,
+  serverLine,
+} from './agents';
 
 const base: McpStatus = {
   enabled: true,
@@ -127,5 +134,42 @@ describe('agents', () => {
     expect(approvalsLabel([approval])).toBe('1 run waits for approval');
     expect(approvalsLabel([send, { ...send, id: 'approval-3' }])).toBe('2 sends wait for approval');
     expect(approvalsLabel([approval, send])).toBe('2 requests wait for approval');
+  });
+
+  it('titles a grip save and says where it goes', () => {
+    const grip = {
+      ...approval,
+      kind: 'grip-save' as const,
+      assetName: 'Scythe, staff grip r3',
+      recipeSave: {
+        recipe: 'scythe-charge-held',
+        entry: 'scythe-staff-grip',
+        revision: 3,
+        grip: {
+          layer: 'l-1',
+          frame: 30,
+          name: 'Scythe, staff grip',
+          weapon: 'scythe',
+          hands: { holds: 'right' as const, supports: 'left' as const },
+          bones: ['rightHand'],
+          latest: 2,
+          file: 'library/grips/scythe-staff-grip/r3.grip.json',
+        },
+      },
+    };
+    expect(approvalTitle(grip)).toBe('Save a grip: Scythe, staff grip r3');
+    expect(approvalsLabel([grip])).toBe('1 grip save waits for approval');
+    expect(gripSaveLine(grip)).toBe('library/grips/scythe-staff-grip · 1 bone · r2 to r3');
+    const fresh = {
+      ...grip,
+      recipeSave: {
+        ...grip.recipeSave,
+        entry: null,
+        revision: 1,
+        grip: { ...grip.recipeSave.grip, latest: null, file: 'library/grips/held/r1.grip.json' },
+      },
+    };
+    expect(gripSaveLine(fresh)).toBe('library/grips/held · 1 bone · a new grip');
+    expect(gripSaveLine(approval)).toBeNull();
   });
 });

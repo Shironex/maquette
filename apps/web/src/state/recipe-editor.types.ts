@@ -27,9 +27,10 @@ export interface RecipeOutside {
 /**
  * The change, blank or base edit whose settings show: a base edit's id is
  * the clip's or time edit's index, or empty for the clips and the mirror.
+ * `grips` is Add a grip's picker, its id the library grip picked in it.
  */
 export type RecipePick = {
-  what: 'layer' | 'blank' | 'clips' | 'trim' | 'time' | 'mirror';
+  what: 'layer' | 'blank' | 'clips' | 'trim' | 'time' | 'mirror' | 'grips';
   id: string;
 } | null;
 

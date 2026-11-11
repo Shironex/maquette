@@ -18,6 +18,7 @@ const summary = (over: Partial<RecipeSummary> = {}): RecipeSummary => ({
   warnings: [],
   problem: null,
   from: null,
+  grips: [],
   ...over,
 });
 

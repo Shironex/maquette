@@ -210,7 +210,7 @@ fn check_eases(layer: &RecipeLayer, word: &str) -> CoreResult<()> {
 
 /// A pose of at most `most` humanoid bones, each turned within
 /// [`MAX_TURN_DEGREES`] each way; `what` names it in a refusal.
-fn check_bone_pose(pose: &BonePose, most: usize, what: &str) -> CoreResult<()> {
+pub(super) fn check_bone_pose(pose: &BonePose, most: usize, what: &str) -> CoreResult<()> {
     if pose.is_empty() {
         return invalid(format!(
             "The {what} turns no bone. Turn one, or take it out."
@@ -300,7 +300,9 @@ pub(super) fn check_grip(layer: &RecipeLayer, blanks: &[RecipeBlank]) -> CoreRes
     };
     check_bone_pose(pose, MAX_GRIP_BONES, &format!("grip {id}"))?;
     if let Some(from) = &layer.from
-        && (!is_item_id(&from.entry) || from.revision == 0)
+        && (!is_item_id(&from.entry)
+            || from.revision == 0
+            || from.uid.as_deref().is_some_and(|u| !super::is_entry_uid(u)))
     {
         return invalid(format!(
             "The grip {id} names a library grip that cannot be one."

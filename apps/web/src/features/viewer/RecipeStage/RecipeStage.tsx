@@ -8,7 +8,7 @@ import type * as THREE from 'three';
 import type { RecipeLayer } from '@/ipc/client';
 import type { ReachCheck } from '@/state/recipe-review';
 import type { StagePins } from '../recipe-pins';
-import type { RecipeMarker } from '../recipe-pose';
+import type { RecipeMarker, StageGrips } from '../recipe-pose';
 import type { RoughPair } from '../rough-retarget';
 import { useOrbitControls } from '../ModelPreview/Controls/Controls.hooks';
 import PoseGizmo, { type PoseGizmoProps } from '../PoseGizmo';
@@ -40,11 +40,7 @@ export interface RecipeStageProps {
   play: { share: number; playing: boolean; onTick: (delta: number) => void };
   /** A recipe that joins, trims, retimes or mirrors: each clip's file and rate, and the timeline. */
   joined?: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null;
-  /**
-   * Laid over the changes: pose keys (the clips they stand on, and the gizmo
-   * while they are edited), then the pins held last, on the bake's frames.
-   */
-  laid?: { keys?: StageKeys | null; pins?: StagePins | null };
+  laid?: StageLaid;
   onChecks?: (checks: ReachCheck[]) => void;
   onError?: (message: string) => void;
   label: string;
@@ -53,6 +49,17 @@ export interface RecipeStageProps {
 
 /** The gizmo's props the stage does not fill in itself. */
 export type StageGizmo = Omit<PoseGizmoProps, 'rig' | 'size' | 'onDragging'>;
+
+/**
+ * Laid over the changes: pose keys (the clips they stand on, and the gizmo
+ * while they are edited), the grips on the bake's frames, then the pins
+ * held last.
+ */
+export interface StageLaid {
+  keys?: StageKeys | null;
+  pins?: StagePins | null;
+  grips?: StageGrips | null;
+}
 
 /**
  * A recipe's pose keys on the stage: the clips they stand on (the
@@ -97,15 +104,11 @@ function Scene(props: SceneProps) {
   const setup = useRecipeSetup(model, clipUrl ? skeleton : 'rest', pairs, play);
   const origin = framing && model ? model.scene.position : null;
   const targets = useTargets(markers, framing?.box ?? null, setup?.rig.forward ?? null, origin);
-  useRecipeFrame(
-    setup,
-    layers,
-    targets,
-    props.play,
-    onChecks,
-    props.laid?.pins ?? null,
-    keys?.on ?? null
-  );
+  useRecipeFrame(setup, layers, targets, props.play, onChecks, {
+    pins: props.laid?.pins,
+    keysOn: keys?.on,
+    grips: props.laid?.grips,
+  });
   const controls = useOrbitControls(false, framing?.target ?? null);
   const box = framing?.box;
   const size = box ? box.max.y - box.min.y || 1.7 : 1.7;

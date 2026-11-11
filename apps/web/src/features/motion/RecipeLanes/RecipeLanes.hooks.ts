@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import type { RecipeLayer } from '@/ipc/client';
 import type { RecipePick } from '@/state/recipe-editor.types';
 import {
   blendBlocks,
@@ -8,6 +9,7 @@ import {
   timeBlocks,
   trimBlocks,
 } from '@/state/recipe-lanes';
+import { useGripLibraryStore } from '@/state/use-grip-library-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { pinRows } from '@/state/recipe-pins';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
@@ -21,7 +23,14 @@ export function useRecipeLanes() {
   const dt = useRecipeTimeline();
   const editing = useRecipeEditorStore(s => s.editing);
   const picked = useRecipeEditorStore(s => s.picked);
+  const grips = useGripLibraryStore(s => s.list);
   const draft = editing?.draft ?? null;
+  const holdsGrip = draft?.layers.some(l => l.kind === 'grip') ?? false;
+  useEffect(() => {
+    // The grip bars name their library grip, so read the library once a recipe holds one.
+    if (holdsGrip && !useGripLibraryStore.getState().list)
+      void useGripLibraryStore.getState().load();
+  }, [holdsGrip]);
   const doc = editing?.doc ?? null;
   const lanes = useMemo(() => {
     if (!dt || !draft || !doc) return null;
@@ -47,6 +56,12 @@ export function useRecipeLanes() {
     layers: (draft?.layers ?? []).filter(l => l.kind !== 'pin'),
     pins,
     mirror: draft?.mirror ?? false,
+    /** A grip's bar: "Scythe, staff grip r1" from its library link, else "Grip". */
+    gripLabel: (layer: RecipeLayer) => {
+      const from = layer.from;
+      if (!from) return 'Grip';
+      return `${grips?.find(g => g.id === from.entry)?.name ?? from.entry} r${from.revision}`;
+    },
     isPicked,
     /** Shows the settings of `what`, or hides them when they show. */
     toggle: (what: NonNullable<RecipePick>['what'], id = '') =>

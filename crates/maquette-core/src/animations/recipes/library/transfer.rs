@@ -1,7 +1,8 @@
 //! Recipe files in and out: exporting a project's recipe or a library
 //! revision to one `.recipe.json`, and importing one into a project or the
-//! library. An exported file is a version 1 recipe with no `from`, so it
-//! names no library entry and no path. An imported file is untrusted: its
+//! library. An exported file is a recipe with no `from`, so it names no
+//! library entry and no path; a grip in it keeps its pose and loses the
+//! link to this computer's grip library. An imported file is untrusted: its
 //! size is checked before it is parsed, it passes every v1 check and cap
 //! (32 changes, 16 blanks, 256 KB), and nothing in it becomes a path: the
 //! new id is made from a slug of the file's name or the recipe's, fresh
@@ -89,14 +90,24 @@ pub fn source_recipe(
     Ok(recipe)
 }
 
-/// The text of `recipe` as it is exported: normalised, version 1, no `from`.
+/// `recipe` with no link to a library of this computer: neither its own
+/// `from` nor a grip's. Each grip keeps its copy of the pose.
+fn unlinked(mut recipe: RecipeFile) -> RecipeFile {
+    recipe.from = None;
+    for layer in &mut recipe.layers {
+        layer.from = None;
+    }
+    recipe
+}
+
+/// The text of `recipe` as it is exported: normalised, with no `from` of
+/// its own and none on its grips.
 ///
 /// # Errors
 ///
 /// Fails when the recipe does not validate.
 pub fn export_text(recipe: &RecipeFile) -> CoreResult<String> {
-    let mut out = recipes::normalized(recipe);
-    out.from = None;
+    let out = recipes::normalized(&unlinked(recipe.clone()));
     recipes::validate(&out)?;
     let mut value = serde_json::to_value(&out)
         .map_err(|e| CoreError::Invalid(format!("The recipe could not be written: {e}")))?;
@@ -243,7 +254,8 @@ pub fn agent_import_path(root: &Path, given: &str) -> CoreResult<PathBuf> {
 }
 
 /// Reads a recipe file to import: at most 256 KB, checked before parsing,
-/// then every v1 check. Its `from` is dropped.
+/// then every check. Its `from` is dropped, and so is each grip's: a file
+/// from elsewhere names no grip of this computer's library.
 ///
 /// # Errors
 ///
@@ -252,9 +264,7 @@ pub fn read_import(file: &Path) -> CoreResult<RecipeFile> {
     if file.extension().is_none_or(|e| e != "json") {
         return Err(CoreError::Invalid("Import a .recipe.json file.".into()));
     }
-    let mut recipe = recipes::load_file(file)?;
-    recipe.from = None;
-    Ok(recipe)
+    Ok(unlinked(recipes::load_file(file)?))
 }
 
 /// The file's name without `.recipe.json` (or `.json`), as a seed for an id.

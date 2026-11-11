@@ -42,7 +42,7 @@ pub(super) fn invalid<T>(message: String) -> CoreResult<T> {
 }
 
 /// One line of at most `max` characters, not blank.
-fn check_line(text: &str, what: &str, max: usize) -> CoreResult<()> {
+pub(super) fn check_line(text: &str, what: &str, max: usize) -> CoreResult<()> {
     let text = trimmed(text);
     if text.is_empty() {
         return invalid(format!("Give the {what} a name."));

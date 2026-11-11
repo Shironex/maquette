@@ -64,7 +64,6 @@ fn joined() -> Project {
 #[test]
 fn joined_clips_trims_freezes_and_mirror_bake_now() {
     let p = joined();
-    assert_eq!(not_bakeable(&p.recipe), None);
     let prepared = prepare(p.root(), &p.config, &p.request()).expect("prepared");
     assert_eq!(prepared.joined.len(), 1);
     let work = p.root().join("work");

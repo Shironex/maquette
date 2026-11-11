@@ -1,5 +1,7 @@
 import { useEffect, useEffectEvent, useMemo } from 'react';
 import { checkDraft } from '@/state/recipe-check';
+import { isGripBone } from '@/state/recipe-grips';
+import { useGripSaveStore } from '@/state/use-grip-save-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { usePoseKeyEditing, type PoseKeyEditing } from '@/state/use-pose-key-editing';
 
@@ -48,6 +50,14 @@ export function usePoseKeysForm(id: string) {
     ...e,
     counts,
     problem,
+    /** Save a grip waits for a key on a hand or a finger. */
+    gripBlocked: [...counts.keys()].some(b => isGripBone(b) && !/Arm$/.test(b))
+      ? undefined
+      : 'Key a hand or its fingers first',
+    saveGrip: () => {
+      const editing = useRecipeEditorStore.getState().editing;
+      if (editing) void useGripSaveStore.getState().open(editing.project, editing.id, id, e.frame);
+    },
     removeChange: () => {
       const { edit, pick } = useRecipeEditorStore.getState();
       edit(d => ({ ...d, layers: d.layers.filter(l => l.id !== id) }));

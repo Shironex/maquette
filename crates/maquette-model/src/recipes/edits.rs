@@ -1,7 +1,6 @@
 //! The base edits of version 2: the blend window between joined clips and
 //! the time edits on a clip's own frames (retime ranges, freezes and holds
-//! over), plus which file version a recipe needs and what of version 2 a
-//! bake cannot make yet.
+//! over), plus which file version a recipe needs.
 
 use serde::{Deserialize, Serialize};
 
@@ -209,16 +208,4 @@ pub fn uses_v2(recipe: &RecipeFile) -> bool {
                 || l.settings.ease_out.is_some()
                 || l.settings.flat.is_some()
         })
-}
-
-/// What of version 2 `recipe` uses that a bake cannot make yet, in words
-/// ("grips"), none for a recipe a bake takes. Joined clips, trims, mirror,
-/// time edits, pins and pose keys bake.
-pub fn bake_unsupported(recipe: &RecipeFile) -> Vec<&'static str> {
-    use super::LayerKind;
-    [(LayerKind::Grip, "grips")]
-        .into_iter()
-        .filter(|(kind, _)| recipe.layers.iter().any(|l| l.kind == *kind))
-        .map(|(_, word)| word)
-        .collect()
 }

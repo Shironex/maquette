@@ -102,8 +102,6 @@ function Row({
     { open: recipe.open, layers: recipe.layers },
     { version: recipe.version || null, motionVersion: recipe.motionVersion || null }
   );
-  // A recipe holding grips is refused by the bake itself
-  // (not-bakeable-yet): the list's summary does not say which kinds it holds.
   const blocked = bake.blocked;
   if (recipe.problem) {
     return (

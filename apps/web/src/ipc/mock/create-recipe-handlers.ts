@@ -11,7 +11,10 @@
  * torch prop is gone. The lantern recipe came from r1 of a library recipe
  * whose newest is r3 (see create-recipe-library-handlers.ts). A third joins
  * three clips with trims, a retime, a freeze and blends; a fourth lays
- * pose keys over a slash and a block (demo-pose-keys.ts).
+ * pose keys over a slash and a block (demo-pose-keys.ts); a fifth keys both
+ * hands and holds a library grip an older revision of which it copied
+ * (grip-library-fixtures.ts). The grip library's own commands are in
+ * create-grip-library-handlers.ts.
  */
 import type {
   AnimationClip,
@@ -26,6 +29,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { checkDraft } from '@/state/recipe-check';
 import { fail, type Args } from './backend-options';
+import { createGripLibraryHandlers } from './create-grip-library-handlers';
 import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
 import { createRecipeLibraryHandlers } from './create-recipe-library-handlers';
 import {
@@ -42,6 +46,7 @@ import { checkSize, followClips, v2Problem, withVersion } from './recipe-v2';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 import { POSE_KEYS_DEMO, poseKeysRecipe } from './demo-pose-keys';
+import { GRIP_DEMO, gripRecipe } from './grip-library-fixtures';
 
 interface RecipeContext {
   clips: () => readonly AnimationClip[];
@@ -100,6 +105,8 @@ function demoRecipes(
   if (joined) out.set('slash-into-block', joined);
   const keyed = poseKeysRecipe(clips);
   if (keyed) out.set(POSE_KEYS_DEMO, keyed);
+  const held = gripRecipe(clips);
+  if (held) out.set(GRIP_DEMO, held);
   return out;
 }
 
@@ -217,6 +224,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       problem: null,
       from: stored.from ?? null,
       format: stored.version,
+      grips: stored.layers.flatMap(l => (l.from ? [{ layer: l.id, from: l.from }] : [])),
     };
   };
   /**
@@ -249,6 +257,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
   };
 
   return {
+    ...createGripLibraryHandlers({ state: ctx.state }),
     ...createRecipeLibraryHandlers({
       clips: ctx.clips,
       project: ctx.project,

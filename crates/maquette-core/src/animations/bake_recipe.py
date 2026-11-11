@@ -47,6 +47,10 @@ half of its range and held to its end, the others over a quarter each way):
 - pose keys turn each keyed bone as blended between its keys at the frame's
   share, added to the clip or in its place (recipe_keys.py), with no ease
   in or out: "poseKeys" in the recipe holds each change's keys by id.
+- a grip turns its bones to its pose, in place of the clip's turns on them
+  unless it says add, by how much of it shows on that frame: "grips" in the
+  recipe holds each grip change by id with the bake frames it holds on and
+  the frames it eases in and out over, as a pin's are, and its pose.
 - pins come last, after every other change (recipe_pins.py): a hand or foot
   held on its spot (where it is at the pin's first frame, or a blank's
   target) by IK, a foot kept flat and a hand kept turned as it was.
@@ -458,7 +462,9 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             rig.facings[pb.name] = rest.inverted() @ rig.ahead
     layers = recipe["layers"]
     pose_keys = recipe.get("poseKeys") or {}
-    keys = load_sibling(os.path.dirname(os.path.abspath(at(job["out"]))), "recipe_keys") if pose_keys else None
+    grips = recipe.get("grips") or {}
+    posed = pose_keys or grips
+    keys = load_sibling(os.path.dirname(os.path.abspath(at(job["out"]))), "recipe_keys") if posed else None
     reaches = {}
     for layer in layers:
         if layer["kind"] != "reach":
@@ -468,7 +474,8 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             raise RuntimeError(f"the reach {layer['id']} has no target")
         reaches[layer["id"]] = Reach(rig, layer, target, scene)
     folder = os.path.dirname(at(job["out"]))
-    pins = load_sibling(folder, "recipe_pins").Pins(rig, recipe.get("pins") or [], targets, scene)
+    pinning = load_sibling(folder, "recipe_pins")
+    pins = pinning.Pins(rig, recipe.get("pins") or [], targets, scene)
 
     rt.play(arm, action)
     count = int(job["frames"])
@@ -510,6 +517,12 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             if layer["kind"] == "pose":
                 if keys is not None:
                     keys.lay(rig, pose_keys.get(layer["id"]), share)
+                continue
+            if layer["kind"] == "grip":
+                grip = grips.get(layer["id"])
+                if grip:
+                    # A grip stands on the bake's frames, eased as a pin is.
+                    keys.lay_pose(rig, grip["pose"], grip.get("mode") != "add", pinning.amount(grip, i))
                 continue
             s = layer["settings"]
             amount = num(s.get("weight"), 1.0) * envelope(layer["kind"], num(s.get("start")), num(s.get("end"), 1.0), share)

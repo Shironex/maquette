@@ -2,6 +2,7 @@ import { ImportSheet } from '../ImportSheet';
 import { RecipeClipPicker } from '../RecipeClipPicker';
 import { RecipeCompareSheet } from '../RecipeCompareSheet';
 import { SaveClipsSheet } from '../SaveClipsSheet';
+import { SaveGripSheet } from '../SaveGripSheet';
 import { SaveRecipeSheet } from '../SaveRecipeSheet';
 import { UseRecipeSheet } from '../UseRecipeSheet';
 
@@ -14,6 +15,7 @@ export default function AnimationDialogs() {
       <RecipeClipPicker />
       <UseRecipeSheet />
       <SaveRecipeSheet />
+      <SaveGripSheet />
       <RecipeCompareSheet />
     </>
   );

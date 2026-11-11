@@ -203,10 +203,9 @@ fn an_ease_of_none_holds_at_once_and_weight_scales_it() {
 }
 
 #[test]
-fn pins_bake_and_pose_keys_and_grips_still_wait() {
+fn a_pin_needs_version_2() {
     let mut recipe = on("Pinned", clip("Standing Idle", 60));
     recipe.layers = vec![pin("l-1", "leftFoot")];
     let recipe = normalized(&recipe);
-    assert!(bake_unsupported(&recipe).is_empty());
     assert_eq!(recipe.version, RECIPE_VERSION, "a pin needs version 2");
 }

@@ -19,6 +19,7 @@ import type {
 import { deepEqual } from '@/lib/deepEqual';
 import { boneWords } from './recipe-bones';
 import { KIND_WORDS, type RecipeDraft } from './recipe-draft';
+import { mirrorPose } from './recipe-key-edits';
 import { followLayers, placesOfMove, type StrandedChange } from './recipe-shares';
 import { DEFAULT_BLEND, blendMost } from './recipe-v2-check';
 
@@ -249,9 +250,13 @@ export function otherSide(bone: string): string {
 export const swapsOf = (layers: readonly RecipeLayer[]) =>
   layers.filter(l => otherSide(l.bone) !== l.bone).map(l => ({ layer: l, to: otherSide(l.bone) }));
 
-/** The changes with each bone on its other side. */
+/** The changes with each bone on its other side; a grip's pose mirrors with its hand. */
 export const swapSides = (layers: readonly RecipeLayer[]): RecipeLayer[] =>
-  layers.map(l => (otherSide(l.bone) === l.bone ? l : { ...l, bone: otherSide(l.bone) }));
+  layers.map(l => {
+    if (otherSide(l.bone) === l.bone) return l;
+    const swapped = { ...l, bone: otherSide(l.bone) };
+    return l.kind === 'grip' && l.pose ? { ...swapped, pose: mirrorPose(l.pose) } : swapped;
+  });
 
 /** The time edits on clip `index` that sit outside `trim`, which stay in the file. */
 export function outsideTrim(time: readonly TimeEdit[], index: number, trim: [number, number]) {

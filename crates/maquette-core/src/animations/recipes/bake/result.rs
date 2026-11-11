@@ -145,6 +145,7 @@ pub(crate) fn result_of(
         stretch_note: run.stretch_note.clone(),
         reaches: run.reaches.iter().map(reach).collect(),
         pins: run.pins.iter().map(super::pins::pin_result).collect(),
+        grips: prepared.grip_results.clone(),
         joints: doc
             .recipe
             .layers

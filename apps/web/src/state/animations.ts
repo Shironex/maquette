@@ -26,8 +26,8 @@ export const SINGLES = 'Singles';
 
 export type AnimationLayout = 'grid' | 'list';
 
-/** What the Animations library shows: its clips or its recipes. */
-export type AnimationShow = 'clips' | 'recipes';
+/** What the Animations library shows: its clips, its recipes or its grips. */
+export type AnimationShow = 'clips' | 'recipes' | 'grips';
 
 export interface AnimationFilters {
   query: string;

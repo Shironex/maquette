@@ -53,10 +53,22 @@ pub struct RecipeSummary {
     pub problem: Option<String>,
     /// The library recipe and revision it came from or was last saved as.
     pub from: Option<RecipeFrom>,
-    /// The file's version: 1, or 2 once it uses something of version 2,
-    /// which a bake cannot make yet. 0 when it could not be read.
+    /// The file's version: 1, or 2 once it uses something of version 2.
+    /// 0 when it could not be read.
     #[specta(optional)]
     pub format: u32,
+    /// Each grip change that came from a library grip, so a list can say
+    /// when the library has a newer revision without reading every recipe.
+    pub grips: Vec<RecipeGripUse>,
+}
+
+/// A grip change of a recipe and the library grip it was copied from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeGripUse {
+    /// The change's id.
+    pub layer: String,
+    pub from: super::GripFrom,
 }
 
 /// A recipe as read for its project, prop blanks the project no longer
@@ -152,6 +164,16 @@ pub(super) fn summary(
         problem: None,
         from: recipe.from.clone(),
         format: recipe.version,
+        grips: recipe
+            .layers
+            .iter()
+            .filter_map(|l| {
+                l.from.as_ref().map(|from| RecipeGripUse {
+                    layer: l.id.clone(),
+                    from: from.clone(),
+                })
+            })
+            .collect(),
     }
 }
 
@@ -173,6 +195,7 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         problem: Some(problem),
         from: None,
         format: 0,
+        grips: Vec::new(),
     }
 }
 

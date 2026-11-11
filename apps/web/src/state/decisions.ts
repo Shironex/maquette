@@ -45,6 +45,7 @@ const WHERE: Record<DecisionSource, string> = {
   'rig-doctor': 'in the Rig doctor',
   'recipe-review': 'in the recipe review',
   'recipe-save': 'in the save to library sheet',
+  'grip-save': 'in the save a grip sheet',
   'jobs-cancelled': 'as its jobs were cancelled',
   'run-cancelled': 'as its run was cancelled',
   'question-changed': 'as the command changed',

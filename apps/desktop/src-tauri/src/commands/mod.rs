@@ -14,6 +14,7 @@ pub mod credits;
 pub mod dialogs;
 pub mod downloads;
 pub mod game;
+pub mod grip_library;
 pub mod image_api;
 pub mod inbox;
 pub mod inspect;

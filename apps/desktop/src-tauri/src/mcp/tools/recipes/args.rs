@@ -107,6 +107,8 @@ pub(super) struct KeyArg {
 pub(super) struct GripFromArg {
     /// The library grip's id.
     pub entry: String,
+    /// The library grip's uid, as get_recipe answers it; apply_grip fills it.
+    pub uid: Option<String>,
     /// Its revision, from 1.
     pub revision: u32,
 }
@@ -442,6 +444,7 @@ pub(super) fn layer_of(arg: ChangeArg) -> Result<RecipeLayer, ToolError> {
         pose: arg.pose,
         from: arg.from.map(|f| GripFrom {
             entry: f.entry,
+            uid: f.uid,
             revision: f.revision,
         }),
     })

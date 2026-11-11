@@ -20,6 +20,7 @@ export function useRecipeEditor() {
   const unreadable = useRecipeEditorStore(s => s.unreadable);
   const outside = useRecipeEditorStore(s => s.outside);
   const leaving = useRecipeEditorStore(s => s.leaving);
+  const pickingGrip = useRecipeEditorStore(s => s.picked?.what === 'grips');
   // Escape closes the clash question without choosing; saves stay blocked until it is answered.
   const [hidden, setHidden] = useState<RecipeOutside | null>(null);
   const draft = editing?.draft ?? null;
@@ -34,6 +35,8 @@ export function useRecipeEditor() {
   return {
     editing,
     dirty,
+    /** Add a grip is open: the grip picker shows in place of the preview and the changes. */
+    pickingGrip,
     /** "Slash + Block + Idle · 147 f · slash.recipe.json · saved". */
     meta: [clips, `${dt?.timeline.frames ?? 0} f`, editing?.doc.file ?? '', status].join(' · '),
     saving,
