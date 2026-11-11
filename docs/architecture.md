@@ -1038,9 +1038,12 @@ anything, and the app is the only caller: no MCP tool removes or restores a proj
   beside it. The site or game repo is never touched, and providers.json keeps the sends' records.
 - **Restore.** It moves the folder back and is refused when a project with the same id exists
   again. The check and the move share a lock with `project::create`, so a new project cannot claim
-  the folder in between. A repo path that comes back is marked as set by an agent, so its dev
-  command waits for a person again, and so does an agent's Ship into it. There is no permanent
-  delete, as the asset trash has none.
+  the folder in between. Removing never clears the project's entry in this computer's repo map, so a
+  restore usually finds its repo path still there, and that path keeps the mark it had (set by a
+  person or by an agent). Only a path the map no longer holds (cleared since, or a workspace from
+  another computer) is written back from the trash record, and that one is marked as set by an
+  agent, so its dev command waits for a person again, and so does an agent's Ship into it. There is
+  no permanent delete, as the asset trash has none.
 - **Agents.** A removed project is left out of `list_projects`, and a tool given its id fails with
   not-found, saying it was removed to the workspace trash and only a person can restore it.
 - **Edges.** The Tauri commands are in `commands/project_trash.rs`. The web state is
