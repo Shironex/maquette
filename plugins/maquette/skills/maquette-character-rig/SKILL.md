@@ -40,7 +40,9 @@ needed) `round-2` on a copy, each answering at once; follow with `get_rig_doctor
 at its sheets. Its numbers: stretch past the body (a row is flagged from about 80 mm) and seam gap
 (from 5 mm), in mm. An inbox model must be accepted first (step 2). The result lands only when the
 person adds it as the next version on the approval card in the app: no tool does that or approves
-a joint move. Come back to the manual steps below when the doctor refuses a model or stops.
+a joint move. When wings or a cape on the arm bones still stretch after the fix, `run_rig_doctor`
+`{ id, step: "rigid", parts, bone? }` binds the case's `parts` to a body bone (Spine2 by default) on
+a copy of the draft; the person uses it or not. Come back to the manual steps below when the doctor refuses a model or stops.
 
 ## Hard rules
 
