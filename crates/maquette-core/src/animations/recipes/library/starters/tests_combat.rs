@@ -83,6 +83,7 @@ fn a_combo_fits_the_clips_it_finds_and_a_left_copy_only_mirrors() {
     let starter = get(root, "starter:scythe-charge").expect("starter");
     assert_eq!(starter.base.status, BaseStatus::Found);
     assert_eq!(starter.joined, vec!["Great Sword Idle".to_string()]);
+    assert_eq!(starter.missing, starter.joined, "no idle of its names yet");
     assert_eq!(starter.time.len(), 1);
     let found = checked(&recipe(root, "starter:scythe-charge").expect("recipe"));
     assert_eq!(found.base.frames, 18);

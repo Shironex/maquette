@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use super::use_in::{RecipeUsed, UseRecipe, landed, open_missing_props};
 use super::{RecipeImported, transfer::add_entry};
 use crate::animations::AnimationClip;
-use crate::animations::recipes::{BaseMatch, base_of, clip_named, match_base};
+use crate::animations::recipes::{BaseMatch, BaseStatus, base_of, clip_named, match_base};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, now_rfc3339};
 use crate::recipes::{RecipeBase, RecipeBlank, RecipeFile, RecipeLayer};
@@ -67,6 +67,11 @@ pub struct RecipeStarter {
     #[serde(default)]
     #[specta(optional)]
     pub mirror: bool,
+    /// The joined clips no clip of the clip library stands for yet, by the
+    /// first name each tries.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub missing: Vec<String>,
     /// Its holds and other time edits, as on the clips it would take.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[specta(optional)]
@@ -169,6 +174,12 @@ fn view(starter: Starter, clips: &[AnimationClip]) -> RecipeStarter {
         mixamo: recipe.base.mixamo,
         base_name: clip.map_or(recipe.base.name.clone(), |c| c.name.clone()),
         joined: recipe.joined.iter().map(|c| c.name.clone()).collect(),
+        missing: recipe
+            .joined
+            .iter()
+            .filter(|c| match_base(clips, c).0.status == BaseStatus::Missing)
+            .map(|c| c.name.clone())
+            .collect(),
         mirror: recipe.mirror,
         time: recipe.time,
         blanks: recipe.blanks,
