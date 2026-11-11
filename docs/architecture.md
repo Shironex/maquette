@@ -1041,8 +1041,8 @@ action that one action undoes. It is pipeline in the layer map, like `built::bui
   scene scales the new model to it from its own bounds, never twice), the old model's fix-ups,
   skip bake, pad edges and material tweaks are reset to the built asset's own, part names carry
   where the new model has that part, the library origin goes, and compression presets stay with
-  their model file (the locked character preset follows its asset's newest model, as
-  `template::fit_presets` moves it, and the report says so). `links.rs` checks what names a part
+  their model file (a locked character row follows where `template::fit_presets` moves it, a
+  scene project's first character, which the report asks that fit, and says so). `links.rs` checks what names a part
   or clip against the new model and reports what no longer resolves; nothing leaves the layout.
 - **Report.** `report.rs` measures both models the way the layout does
   (`layout::prepared_with`): file names as they ship, triangles, bytes, prepared bounds and the
@@ -1051,12 +1051,18 @@ action that one action undoes. It is pipeline in the layer map, like `built::bui
 - **Record and undo.** What the asset was is kept on its built source (`ReplacedModel` in the
   model crate: its version numbers, picture, library origin, status, stage, `prepare.json`
   entry, material tweaks and where the built asset's card went). The built asset's own card
-  leaves through the asset trash. `undo.rs` restores that card, puts the record back and takes
-  the versions added since off the asset; their files go to a folder in the workspace trash
-  (`assets::remove::set_aside`), so nothing is deleted.
-- **Ship.** `swaps.rs` lists the replaces no run has shipped yet (a run whose Ship step ran and
-  finished after the replace, from the run history each computer keeps), with both file names
-  and both models' triangles and bytes.
+  leaves through the asset trash. `undo.rs` restores that card, puts the record back, moves a
+  locked character row that names a leaving version back to the old model and takes the
+  versions added since off the asset; their files go to a folder in the workspace trash
+  (`assets::remove::set_aside`), so nothing is deleted. The record lists the versions a build
+  made (`built`, kept by `built::build`); an undo that would take off any other version names
+  it in `notBuilt`, and the MCP tool refuses it for agents.
+- **Ship.** `swaps.rs` lists the replaces no run has shipped yet, with both file names and both
+  models' triangles and bytes. A swap counts as shipped once a run finishes after it whose Ship
+  step ran into the project's own repo (`RunRecord::repo_for_run` is empty) and whose steps
+  before Ship all ran or were up to date, read from the run history each computer keeps. An
+  undo after such a run keeps what the built model shipped as under `undone` in `built.json`,
+  listed the other way round until the next such run.
 - **Edges.** `commands/built/replace.rs` has `built_replace_plan`, `built_replace`,
   `built_replace_undo_plan`, `built_replace_undo` and `built_swaps`, and the tool is in
   `mcp/tools/built.rs`. The web side is `state/built-replace.ts`,
