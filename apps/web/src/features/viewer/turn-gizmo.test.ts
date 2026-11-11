@@ -38,6 +38,13 @@ describe('turn gizmo math', () => {
     const t = turnOfQuaternion(keyTurn([20, -30, 40]));
     expect(t).toEqual([20, -30, 40]);
   });
+
+  it('keeps a drag past 90 degrees of Y moving on, never flipping X and Z by 180', () => {
+    const past = turnedKey([0, 80, 30], v(0, 1, 0), THREE.MathUtils.degToRad(20));
+    expect(past).toEqual([0, 100, 30]);
+    const back = turnedKey(past, v(0, 1, 0), THREE.MathUtils.degToRad(-20));
+    expect(back).toEqual([0, 80, 30]);
+  });
 });
 
 describe('pose keys on the preview', () => {

@@ -67,5 +67,5 @@ export function onRingPlane(
 /** `turn` turned a further `angle` radians round `axis` (in the key's own frame). */
 export function turnedKey(turn: Turn, axis: THREE.Vector3, angle: number): Turn {
   const step = new THREE.Quaternion().setFromAxisAngle(axis.clone().normalize(), angle);
-  return turnOfQuaternion(step.multiply(keyTurn(turn)));
+  return turnOfQuaternion(step.multiply(keyTurn(turn)), turn);
 }
