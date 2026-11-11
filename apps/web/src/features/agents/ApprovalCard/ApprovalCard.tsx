@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import { Button, Icon, cn } from '@maquette/ui';
 import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
-import { COMMAND_SOURCE, approvalTitle } from '@/state/agents';
+import { COMMAND_SOURCE, approvalTitle, gripSaveLine } from '@/state/agents';
 import { formatCredits } from '@/state/credits';
 import { decidedBy } from '@/state/decisions';
 import { useApprovalCard } from './ApprovalCard.hooks';
@@ -39,13 +39,15 @@ export default function ApprovalCard({
   const chains = approval.kind === 'springs';
   const doctor = approval.kind === 'rig-doctor';
   const recipeBake = approval.kind === 'recipe-bake';
-  const recipeSave = approval.kind === 'recipe-save';
+  const gripSave = approval.kind === 'grip-save';
+  const recipeSave = approval.kind === 'recipe-save' || gripSave;
   const recipe = recipeBake || recipeSave;
   const rest = approval.kind === 'rest-pose' || weights || chains || doctor || recipe;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
   const preview = approval.kind === 'page-preview' ? approval.preview : null;
-  const shipTo = approval.kind === 'ship' ? approval.detail : null;
+  const shipTo =
+    approval.kind === 'ship' ? approval.detail : gripSave ? gripSaveLine(approval) : null;
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
   const items = approval.items.map(item => (
     <li
@@ -83,17 +85,19 @@ export default function ApprovalCard({
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
           <Icon
             name={
-              recipe
-                ? 'flask'
-                : rest
-                  ? 'person-arms-spread'
-                  : preview
-                    ? 'terminal-window'
-                    : round
-                      ? 'image'
-                      : send
-                        ? 'cube'
-                        : 'rocket-launch'
+              gripSave
+                ? 'hand-pointing'
+                : recipe
+                  ? 'flask'
+                  : rest
+                    ? 'person-arms-spread'
+                    : preview
+                      ? 'terminal-window'
+                      : round
+                        ? 'image'
+                        : send
+                          ? 'cube'
+                          : 'rocket-launch'
             }
             size={17}
           />
@@ -115,8 +119,9 @@ export default function ApprovalCard({
             </p>
           ) : recipeSave ? (
             <p className="mt-0.5 text-meta text-fg-mute">
-              An agent asked to save this recipe to the recipe library over MCP. Nothing is saved
-              until you look at what changes and save it yourself.
+              An agent asked to save this {gripSave ? 'grip to the grip' : 'recipe to the recipe'}{' '}
+              library over MCP. Nothing is saved until you look at what changes and save it
+              yourself.
             </p>
           ) : recipeBake ? (
             <p className="mt-0.5 text-meta text-fg-mute">
@@ -296,13 +301,15 @@ export default function ApprovalCard({
                 variant="primary"
                 icon="magnifying-glass"
                 tooltip={
-                  recipeSave
-                    ? 'Opens the save to library sheet in the Motion view, to read what changes and save there'
-                    : recipeBake
-                      ? 'Opens the bake in the Motion view, to review it and add it there'
-                      : doctor
-                        ? 'Opens the rig doctor, to add the draft or discard it there'
-                        : 'Opens the before and after sheets large, to approve or deny there'
+                  gripSave
+                    ? 'Opens the save a grip sheet in the Motion view, to read what changes and save there'
+                    : recipeSave
+                      ? 'Opens the save to library sheet in the Motion view, to read what changes and save there'
+                      : recipeBake
+                        ? 'Opens the bake in the Motion view, to review it and add it there'
+                        : doctor
+                          ? 'Opens the rig doctor, to add the draft or discard it there'
+                          : 'Opens the before and after sheets large, to approve or deny there'
                 }
                 onClick={pose.open}
               >

@@ -88,6 +88,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   if (approval.kind === 'recipe-save') {
     return `Save ${approval.assetName ?? 'the recipe'} to the recipe library?`;
   }
+  if (approval.kind === 'grip-save') {
+    return `Save a grip: ${approval.assetName ?? 'a hand pose'}`;
+  }
   if (approval.kind === 'reweight') {
     return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
   }
@@ -100,6 +103,20 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
     return `Send ${what ?? 'this asset'} to ${approval.service ?? '3D'}?`;
   }
   return `Ship ${projectName ?? approval.project}, run ${approval.runNumber ?? '?'}?`;
+}
+
+/**
+ * "library/grips/scythe-staff-grip · 33 bones · r2 to r3" (or "· a new
+ * grip") for a grip save approval; null for any other.
+ */
+export function gripSaveLine(approval: Approval): string | null {
+  const ask = approval.recipeSave?.grip;
+  if (approval.kind !== 'grip-save' || !ask) return null;
+  const folder = ask.file.replace(/\/r\d+\.grip\.json$/, '');
+  const bones = `${ask.bones.length} ${ask.bones.length === 1 ? 'bone' : 'bones'}`;
+  const to = approval.recipeSave?.revision ?? 1;
+  const revisions = ask.latest === null ? 'a new grip' : `r${ask.latest} to r${to}`;
+  return [folder, bones, revisions].join(' · ');
 }
 
 /** "1 run waits", "2 sends wait", "3 requests wait" for approval. */
@@ -125,7 +142,9 @@ export function approvalsLabel(approvals: Approval[]): string {
                     ? 'recipe bake'
                     : kinds.has('recipe-save')
                       ? 'recipe save'
-                      : 'send';
+                      : kinds.has('grip-save')
+                        ? 'grip save'
+                        : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 
