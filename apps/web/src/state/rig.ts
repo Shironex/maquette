@@ -222,3 +222,22 @@ export function worseWarning(r: RigRecord): string | null {
 /** The shape a route's cells are rendered in, so a picture fills its frame. */
 export const cellAspect = (r: RigRecord) =>
   r.route === 'creature' ? 'aspect-[6/5]' : 'aspect-[3/4]';
+
+/** Why a joint move keeps a bind from starting, as the core refuses it: each makes its own draft. */
+export function jointMoveHoldsBind(r: RigRecord): string | null {
+  if (r.jointMove?.state === 'asked')
+    return "Answer the joint move first: it and a bind each make a draft from the fix's, and only one can be used.";
+  if (r.jointMove?.state === 'approved')
+    return "The joints of this draft were moved: a bind needs the fix's weights only draft.";
+  return null;
+}
+
+/** Why a bind keeps the joint move's yes back, as the core refuses it. */
+export function bindHoldsJointMove(r: RigRecord): string | null {
+  const state = r.rigid?.state;
+  if (state === 'making' || state === 'asked')
+    return "Answer the bind first: the joint move was made on the fix's draft, without the bound parts.";
+  if (state === 'approved')
+    return "Undo the bound parts first: the joint move was made on the fix's draft, without them.";
+  return null;
+}

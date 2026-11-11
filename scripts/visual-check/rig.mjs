@@ -4,8 +4,8 @@
  * and before and after enlarged, and both on the creature route, and an
  * agent's fixed draft with its card answered in place and another case's card
  * floating clear of Add, also at the minimum window size and over an Inbox
- * model's Accept; a winged character's rigid parts, an agent's measured bind
- * and a bind in the draft; and a walk that goes against its face in the Inbox
+ * model's Accept; a winged character's rigid parts, an agent's measured bind,
+ * a bind held by a joint move and a bind in the draft; and a walk that goes against its face in the Inbox
  * checks. Mock mode draws the pictures; the real renders are checked by the
  * core's Blender tests.
  */
@@ -100,6 +100,12 @@ export async function rigShots({ open, shot }) {
   await ask.scrollIntoViewIfNeeded();
   await shot(asked, 'rig-rigid-asked');
   await asked.context().close();
+  const held = await openCase(open, 'rigid-held', /Winged imp/);
+  const waits = held.getByText(/Answer the joint move first/);
+  await waits.waitFor();
+  await waits.scrollIntoViewIfNeeded();
+  await shot(held, 'rig-rigid-held');
+  await held.context().close();
   const bound = await openCase(open, 'rigid-bound', /Winged imp/);
   await bound.getByText('Parts 1 and 2 follow Spine2 in the draft').waitFor();
   await bound.getByRole('button', { name: 'Undo the bind' }).scrollIntoViewIfNeeded();

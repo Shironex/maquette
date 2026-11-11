@@ -5,6 +5,7 @@
  */
 import type { RigPart, RigRecord, RigRigid, RigRow, RigStarter } from '../client';
 import { fail } from './backend-options';
+import { bindHoldsJointMove, jointMoveHoldsBind } from '@/state/rig';
 import { DIR, fixedCase } from './rig-fixtures';
 
 const PARTS: RigPart[] = [
@@ -29,6 +30,7 @@ export function wingedCase(): RigRecord {
   const c = fixedCase('winged-imp-v1', 'Winged imp');
   return {
     ...c,
+    jointMove: null,
     parts: PARTS,
     bodyBones: BODY_BONES.map(b => `mixamorig:${b}`),
     rigid: null,
@@ -90,6 +92,10 @@ export const rigidSeeds = {
     const c = wingedCase();
     return { ...c, rigid: askedBind(c, [1, 2], 'mixamorig:Spine2', 'agent') };
   },
+  'rigid-held': () => ({
+    ...wingedCase(),
+    jointMove: fixedCase('winged-imp-v1', 'Winged imp').jointMove,
+  }),
   'rigid-bound': () => {
     const c = wingedCase();
     const bind = askedBind(c, [1, 2], 'mixamorig:Spine2', 'person');
@@ -101,6 +107,8 @@ export const rigidSeeds = {
 export function bindRigid(c: RigRecord, parts: number[], bone: string | null): RigRecord {
   if (c.route !== 'humanoid' || c.state !== 'fixed' || !c.draft)
     fail('invalid', 'Run the fix first: the parts are bound on its draft.');
+  const held = jointMoveHoldsBind(c);
+  if (held) fail('invalid', held);
   if (c.rigid?.state === 'approved')
     fail('invalid', "Undo the bound parts first: a new bind starts from the fix's draft.");
   if (parts.length === 0) fail('invalid', 'Pick at least one part.');
@@ -108,6 +116,12 @@ export function bindRigid(c: RigRecord, parts: number[], bone: string | null): R
   const whole = (c.bodyBones ?? []).find(b => b === named || b.endsWith(`:${named}`));
   if (!whole) fail('invalid', `${named} is not a body bone of this model.`);
   return { ...c, rigid: askedBind(c, parts, whole, 'person') };
+}
+
+/** Refuses the joint move's yes while a bind is asked or in the draft, as the core does. */
+export function refuseHeldJointMove(c: RigRecord, approve: boolean) {
+  const held = bindHoldsJointMove(c);
+  if (approve && held) fail('invalid', held);
 }
 
 /** rig_decide_rigid: yes uses the bound draft, no keeps the fix's, no after a yes undoes. */

@@ -71,4 +71,29 @@ describe('RigRigid', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Undo the bind' }));
     expect(decide).toHaveBeenCalledWith(c.id, false);
   });
+
+  it('holds the bind while a joint move waits, and says why', async () => {
+    const c = rigidSeeds['rigid-held']();
+    const bind = vi.spyOn(commands, 'rigBindRigid').mockResolvedValue(c);
+    show(c);
+    const button = screen.getByRole('button', { name: 'Bind rigidly' });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText(/Answer the joint move first/)).toBeInTheDocument();
+    await userEvent.click(button);
+    expect(bind).not.toHaveBeenCalled();
+  });
+
+  it('holds the joint move yes while a bind is in the draft, but not its no', async () => {
+    const c = rigidSeeds['rigid-bound']();
+    const held = { ...c, jointMove: fixedCase('a-v1', 'A').jointMove };
+    const decide = vi.spyOn(commands, 'rigDecideJoints').mockResolvedValue(held);
+    show(held);
+    expect(screen.getByRole('button', { name: 'Approve and move' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByText(/Undo the bound parts first/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep weights only' }));
+    expect(decide).toHaveBeenCalledWith(c.id, false);
+  });
 });

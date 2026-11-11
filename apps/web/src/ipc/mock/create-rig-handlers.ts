@@ -20,7 +20,7 @@ import {
 } from './rig-cases';
 import { registerMockFile } from '../files';
 import { figure, fixedCase, readCase, testedCase } from './rig-fixtures';
-import { bindRigid, decideRigid, rigidSeeds } from './rig-rigid';
+import { bindRigid, decideRigid, refuseHeldJointMove, rigidSeeds } from './rig-rigid';
 
 interface RigContext {
   state: string | null;
@@ -232,6 +232,7 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
         const c = get(args.id as string);
         const move = c.jointMove;
         if (!move) fail('invalid', 'No joint move waits for an answer.');
+        refuseHeldJointMove(c, Boolean(args.approve));
         return put({
           ...c,
           jointMove: { ...move, state: args.approve ? 'approved' : 'declined' },

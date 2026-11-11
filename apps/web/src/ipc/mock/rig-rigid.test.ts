@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RigRecord } from '../client';
 import { createRigHandlers } from './create-rig-handlers';
+import { refuseHeldJointMove } from './rig-rigid';
 
 const seeded = (state: string) => {
   const rig = createRigHandlers(state, 0, () => undefined);
@@ -32,5 +33,14 @@ describe('the rigid bind in mock mode', () => {
     const undone = h.rig_decide_rigid({ id: c.id, approve: false }) as RigRecord;
     expect(undone.rigid?.state).toBe('declined');
     expect(undone.draft).toBe(c.draft);
+  });
+
+  it('keeps a bind and a joint move from both landing, in either order', () => {
+    const held = seeded('rigid-held');
+    expect(() => held.h.rig_bind_rigid({ id: held.c.id, parts: [1], bone: null })).toThrow();
+    const bound = seeded('rigid-bound');
+    const withMove = { ...bound.c, jointMove: seeded('rigid-held').c.jointMove };
+    expect(() => refuseHeldJointMove(withMove, true)).toThrow();
+    expect(() => refuseHeldJointMove(withMove, false)).not.toThrow();
   });
 });

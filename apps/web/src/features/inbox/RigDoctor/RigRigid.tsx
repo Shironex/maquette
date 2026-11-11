@@ -1,6 +1,6 @@
 import { Button, Checkbox, Icon, Select } from '@maquette/ui';
 import type { RigPart, RigRecord, RigRigid } from '@/ipc/client';
-import { changeLines, WAIT_FOR_ANSWER } from '@/state/rig';
+import { changeLines, jointMoveHoldsBind, WAIT_FOR_ANSWER } from '@/state/rig';
 import { useChoice, useRigActions } from './RigDoctor.hooks';
 
 const bare = (bone: string) => bone.slice(bone.lastIndexOf(':') + 1);
@@ -20,6 +20,7 @@ function Picker({ record, parts }: { record: RigRecord; parts: RigPart[] }) {
   const bones = record.bodyBones ?? [];
   const [picked, setPicked] = useChoice<number[]>(parts.map(p => p.part));
   const [bone, setBone] = useChoice(bones.find(b => bare(b) === 'Spine2') ?? bones[0] ?? '');
+  const held = jointMoveHoldsBind(record);
   const toggle = (n: number, on: boolean) =>
     setPicked(on ? [...picked, n].sort((a, b) => a - b) : picked.filter(p => p !== n));
   const rows = parts.map(p => (
@@ -37,6 +38,7 @@ function Picker({ record, parts }: { record: RigRecord; parts: RigPart[] }) {
   ));
   return (
     <>
+      {held ? <p className="m-0 text-meta text-amber">{held}</p> : null}
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">{rows}</ul>
       <div className="flex items-end justify-between gap-2">
         <Select
@@ -50,8 +52,10 @@ function Picker({ record, parts }: { record: RigRecord; parts: RigPart[] }) {
           size="sm"
           variant="secondary"
           icon="bone"
-          disabled={busy || picked.length === 0}
-          disabledReason={picked.length === 0 ? 'Pick at least one part' : WAIT_FOR_ANSWER}
+          disabled={busy || picked.length === 0 || Boolean(held)}
+          disabledReason={
+            held ?? (picked.length === 0 ? 'Pick at least one part' : WAIT_FOR_ANSWER)
+          }
           onClick={() => void bindRigid(picked, bone || null)}
         >
           Bind rigidly
