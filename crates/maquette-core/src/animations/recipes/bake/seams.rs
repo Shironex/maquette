@@ -179,8 +179,10 @@ fn seam_line(
     let others = if more == 0 {
         String::new()
     } else {
-        let popping = seams.iter().skip(1).filter(|s| s.pops).count();
-        format!(" {more} more, {popping} of them past the limit.")
+        match seams.iter().skip(1).filter(|s| s.pops).count() {
+            0 => format!(" {more} more, none past the limit."),
+            popping => format!(" {more} more, {popping} of them past the limit."),
+        }
     };
     Some(RecipeReviewLine {
         id: id.to_string(),

@@ -149,7 +149,7 @@ function seamLine(id: string, label: string, seams: SeamCheck[], place: (s: Seam
     max: hips ? SEAM_HIPS_CM : SEAM_TURN_DEGREES,
     unit: hips ? 'cm' : 'deg',
     status: s.pops ? 'warn' : 'pass',
-    note: `${place(s)}${step}${more ? ` ${more} more, ${popping} of them past the limit.` : ''}`,
+    note: `${place(s)}${step}${more ? ` ${more} more, ${popping ? `${popping} of them` : 'none'} past the limit.` : ''}`,
   };
   return [line];
 }
