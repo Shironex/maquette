@@ -5,7 +5,7 @@
 //! and their files go to a folder in the workspace trash: nothing is deleted.
 //! The layout was never touched, so it needs nothing.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,7 +17,9 @@ use crate::assets::remove;
 use crate::assets::{self, Asset, AssetVersion};
 use crate::built::{ReplacedModel, load, update};
 use crate::error::CoreResult;
+use crate::layout::stem;
 use crate::materials;
+use crate::pipeline::template::CHARACTER_LOCK;
 use crate::prepare;
 use crate::project::{self, ProjectManifest, now_rfc3339};
 
@@ -83,6 +85,9 @@ struct Planned {
     paths: Vec<String>,
     /// The trash id the built asset's card comes back from.
     trash: Option<String>,
+    /// The stem the locked character row goes back to, when it names a
+    /// version that leaves.
+    preset: Option<String>,
 }
 
 /// The file of a version, or the folder an `.obj` version keeps its files in.
@@ -124,6 +129,21 @@ fn settings_back(record: &ReplacedModel) -> Vec<String> {
         ));
     }
     out
+}
+
+/// The stem the locked character compression row goes back to: the row
+/// follows its asset's newest model (`template::fit_presets`), so after the
+/// replace it may name a version that leaves, which no file matches any more.
+fn preset_back(project_dir: &Path, taken: &[&AssetVersion], back: &AssetVersion) -> Option<String> {
+    let def = crate::pipeline::load(project_dir).ok().flatten()?;
+    let row = def
+        .presets
+        .iter()
+        .find(|p| p.lock.as_deref() == Some(CHARACTER_LOCK))?;
+    taken
+        .iter()
+        .any(|v| stem(&v.file).eq_ignore_ascii_case(&row.model))
+        .then(|| stem(&back.file))
 }
 
 /// Whether the built asset's card can come back, and what to say if not.
@@ -202,6 +222,13 @@ fn planned(env: &ReplaceEnv<'_>, asset_id: &str) -> CoreResult<Planned> {
         paths.push(thumb_of(&asset.id, version.version));
     }
     let (trash, gone) = card_back(env, &manifest, &record)?;
+    let preset = preset_back(&project_dir, &taken, back);
+    let mut settings = settings_back(&record);
+    if let Some(stem) = &preset {
+        settings.push(format!(
+            "Locked character compression preset, back on {stem}"
+        ));
+    }
     Ok(Planned {
         report: UndoReport {
             project: manifest.id.clone(),
@@ -212,13 +239,14 @@ fn planned(env: &ReplaceEnv<'_>, asset_id: &str) -> CoreResult<Planned> {
             taken_off: taken.into_iter().map(ModelRef::of).collect(),
             set_aside: None,
             restores: trash.as_ref().map(|_| record.by.name.clone()),
-            settings: settings_back(&record),
+            settings,
             warnings: gone.into_iter().collect(),
         },
         project_dir,
         record,
         paths,
         trash,
+        preset,
     })
 }
 
@@ -262,6 +290,7 @@ pub fn undo(env: &ReplaceEnv<'_>, asset: &str) -> CoreResult<UndoDone> {
         record,
         paths,
         trash,
+        preset,
     } = planned(env, asset)?;
     let layout = &env.config.layout;
     let id = report.asset.clone();
@@ -316,8 +345,21 @@ pub fn undo(env: &ReplaceEnv<'_>, asset: &str) -> CoreResult<UndoDone> {
     })?;
     set_prep(&project_dir, &id, record.prep.as_ref())?;
     set_looks(&project_dir, &id, record.materials.as_ref())?;
+    let manifest = project::load(env.root, layout, env.project)?;
+    if let Some(stem) = preset {
+        crate::pipeline::update(&project_dir, &manifest, |def| {
+            let row = def
+                .presets
+                .iter_mut()
+                .find(|p| p.lock.as_deref() == Some(CHARACTER_LOCK));
+            if let Some(row) = row {
+                row.model = stem;
+            }
+            Ok(())
+        })?;
+    }
     Ok(UndoDone {
         report,
-        project: project::load(env.root, layout, env.project)?,
+        project: manifest,
     })
 }

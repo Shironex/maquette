@@ -203,6 +203,40 @@ fn an_undo_goes_on_when_the_built_assets_card_cannot_come_back() {
     assert!(w.dir.join("built/planner.py").is_file(), "the script stays");
 }
 
+#[test]
+fn the_undo_moves_the_locked_character_preset_back_to_the_old_model() {
+    let w = World::website();
+    let hero = w.scan("Hero");
+    let desk = w.built("Hero built", "hero.py");
+    project::modify(&w.root, &w.config.layout, &w.project, |m| {
+        assets::find_mut(m, &hero.id)?.kind = AssetKind::Character;
+        Ok(())
+    })
+    .expect("character");
+    crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
+    w.replace(&hero.id, &desk.id);
+    // The next look at the pipeline moves the row to the built model.
+    let def = crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
+    assert_eq!(def.presets[0].model, "hero_v2");
+
+    let plan = undo_plan(&w.env(), &hero.id).expect("plan");
+    let undone = undo(&w.env(), &hero.id).expect("undo");
+
+    let row = "Locked character compression preset, back on hero_v1";
+    assert!(
+        plan.settings.iter().any(|s| s == row),
+        "{:?}",
+        plan.settings
+    );
+    assert!(undone.report.settings.iter().any(|s| s == row));
+    let def = crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
+    assert_eq!(
+        def.presets[0].model, "hero_v1",
+        "the row follows the old model back"
+    );
+    assert!(def.presets[0].lock.is_some());
+}
+
 #[cfg(unix)]
 mod rebuilding {
     use super::*;
