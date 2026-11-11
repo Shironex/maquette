@@ -5,7 +5,8 @@
  * blend is shorter than 10 frames (the extra hip move is spread over the
  * window, so a wider blend fixes it), a hold seam passes. A two handed grip's
  * hands keep within 0.8 cm, and a mirror swaps every pair. Each seam is held to
- * the clips around it, never to a near seam, so two near joins each pop alone.
+ * the clips around it, never to a near seam, so two near joins each pop alone;
+ * a seam with no frame around it outside the seams is not measured.
  */
 import type {
   RecipeBakeResult,
@@ -23,6 +24,10 @@ export const SEAM_TURN_DEGREES = 25;
 export const GRIP_GAP_LIMIT_CM = 2;
 /** The extra hip move a mock join spreads over its window, cm frames. */
 const JOIN_EXTRA_CM = 24.8;
+/** The hips' walk each frame away from any join, cm. */
+const HIPS_WALK_CM = 1.2;
+/** How many frames either side of a seam stand for the clips around it. */
+const AROUND_FRAMES = 6;
 
 type Window = Pick<SeamCheck, 'kind' | 'clip' | 'at' | 'freeze' | 'first' | 'last'>;
 
@@ -68,6 +73,14 @@ export function windowsOf(doc: RecipeDoc, t: Timeline): Window[] {
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
+/** The steps either side of `w` within `frames`, none inside another seam, as the core takes them. */
+function aroundOf(w: Window, all: Window[], frames: number): number[] {
+  const out: number[] = [];
+  for (let i = Math.max(w.first - AROUND_FRAMES, 1); i < w.first; i++) out.push(i);
+  for (let i = w.last + 1; i <= Math.min(w.last + AROUND_FRAMES, frames); i++) out.push(i);
+  return out.filter(i => !all.some(o => o.first <= i && i <= o.last));
+}
+
 /** Each seam of `doc` as a fake bake measures it. */
 export function seamsOf(doc: RecipeDoc): SeamCheck[] {
   const recipe = doc.recipe;
@@ -76,25 +89,36 @@ export function seamsOf(doc: RecipeDoc): SeamCheck[] {
     const c = clips[i];
     return c ? (c.trim ? c.trim[1] - c.trim[0] : c.frames) : 0;
   };
-  return windowsOf(doc, timeline(recipe)).map(w => {
+  const t = timeline(recipe);
+  const all = windowsOf(doc, t);
+  const extraOf = (w: Window) =>
+    w.kind === 'join' ? JOIN_EXTRA_CM / Math.max(clips[w.clip]?.blend?.frames ?? 0, 1) : 0;
+  /** The hips' step into frame `i`: the walk, plus the extra of a join it sits in. */
+  const stepAt = (i: number) =>
+    HIPS_WALK_CM +
+    all.filter(o => o.first <= i && i <= o.last).reduce((m, o) => Math.max(m, extraOf(o)), 0);
+  return all.map(w => {
     const join = w.kind === 'join';
     const blend = join ? (clips[w.clip]?.blend?.frames ?? 0) : null;
-    const hipsAround = 1.2;
-    const hipsOver = join ? round(JOIN_EXTRA_CM / Math.max(blend ?? 0, 1)) : 0;
+    const around = aroundOf(w, all, t.frames);
+    const hips = HIPS_WALK_CM + extraOf(w);
+    const hipsAround = around.reduce((m, i) => Math.max(m, stepAt(i)), 0);
+    const hipsOver = round(Math.max(hips - hipsAround, 0));
+    const measured = around.length > 0;
     const edit = join
       ? null
       : (recipe.time ?? []).find(e => e.kind !== 'retime' && e.clip === w.clip && e.at === w.at);
     const check: SeamCheck = {
       ...w,
       frame: join ? w.first + Math.floor((w.last - w.first) / 2) : w.last,
-      hipsCm: round(hipsAround + hipsOver),
-      hipsAroundCm: hipsAround,
+      hipsCm: round(hips),
+      hipsAroundCm: round(hipsAround),
       hipsOverCm: hipsOver,
       bone: 'chest',
       turnDegrees: join ? 6 : 9,
       turnAroundDegrees: join ? 4 : 3,
       turnOverDegrees: join ? 2 : 6,
-      pops: hipsOver > SEAM_HIPS_CM,
+      pops: measured && hipsOver > SEAM_HIPS_CM,
       about: join
         ? `${clips[w.clip - 1]?.name ?? ''} into ${clips[w.clip]?.name ?? ''}`
         : (clips[w.clip]?.name ?? ''),
@@ -102,7 +126,7 @@ export function seamsOf(doc: RecipeDoc): SeamCheck[] {
       blendMost: join ? Math.floor(Math.min(kept(w.clip), kept(w.clip - 1)) / 2) : null,
       ease: edit ? ((w.kind === 'hold-in' ? edit.easeIn : edit.easeOut) ?? 0) : null,
       easeMost: edit?.frames ?? null,
-      measured: true,
+      measured,
     };
     return check;
   });
@@ -129,8 +153,17 @@ export function withGaps(doc: RecipeDoc, grips: RecipeGripResult[]): RecipeGripR
 export const mirrorOf = (doc: RecipeDoc): RecipeMirrorResult | null =>
   doc.recipe.mirror ? { pairs: 26, unpaired: [] } : null;
 
-/** A seam line when the bake reported no hips motion, as the core words it. */
-const notMeasured = (id: string, label: string, s: SeamCheck): RecipeReviewLine => ({
+/**
+ * A seam line when nothing measured a seam (no hips motion there, or no
+ * frames around to hold it to), as the core words it: `left` of `all` were not.
+ */
+const notMeasured = (
+  id: string,
+  label: string,
+  s: SeamCheck,
+  left: number,
+  all: number
+): RecipeReviewLine => ({
   id,
   label,
   about: s.about,
@@ -140,20 +173,35 @@ const notMeasured = (id: string, label: string, s: SeamCheck): RecipeReviewLine 
   max: null,
   unit: null,
   status: 'not-measured',
-  note: 'The bake reported no hips motion, so no seam was measured.',
+  note:
+    left === all
+      ? 'The bake reported no hips motion there, or no frames around to hold it to, so no seam was measured.'
+      : `${left} of ${all} seams were not measured (no hips motion there, or no frames around to hold them to); the rest stay within the limit.`,
 });
 
+/**
+ * The line for `seams`: the worst measured seam when it pops, else not
+ * measured while any seam was not, else the worst one's pass.
+ */
 function seamLine(id: string, label: string, seams: SeamCheck[], place: (s: SeamCheck) => string) {
-  const sorted = [...seams].sort((a, b) => ratioOf(b) - ratioOf(a));
-  const s = sorted[0];
-  if (!s) return [];
-  if (s.measured === false) return [notMeasured(id, label, s)];
+  const first = seams[0];
+  if (!first) return [];
+  const judged = seams.filter(x => x.measured !== false).sort((a, b) => ratioOf(b) - ratioOf(a));
+  const left = seams.length - judged.length;
+  const s = judged[0];
+  if (!s || (left > 0 && !s.pops)) {
+    const unmeasured = seams.find(x => x.measured === false) ?? first;
+    return [notMeasured(id, label, unmeasured, left, seams.length)];
+  }
   const hips = hipsWorse(s);
-  const more = sorted.length - 1;
-  const popping = sorted.slice(1).filter(x => x.pops).length;
+  const more = judged.length - 1;
+  const popping = judged.slice(1).filter(x => x.pops).length;
   const step = hips
     ? `Hips move ${(s.hipsCm ?? 0).toFixed(1)} cm in one frame; the clips around move ${(s.hipsAroundCm ?? 0).toFixed(1)} cm.`
     : `${s.bone ?? 'A bone'} turns ${(s.turnDegrees ?? 0).toFixed(0)} deg in one frame; around it, ${(s.turnAroundDegrees ?? 0).toFixed(0)} deg.`;
+  const others = more
+    ? ` ${more} more, ${popping ? `${popping} of them` : 'none'} past the limit.`
+    : '';
   const line: RecipeReviewLine = {
     id,
     label,
@@ -166,7 +214,7 @@ function seamLine(id: string, label: string, seams: SeamCheck[], place: (s: Seam
     max: hips ? SEAM_HIPS_CM : SEAM_TURN_DEGREES,
     unit: hips ? 'cm' : 'deg',
     status: s.pops ? 'warn' : 'pass',
-    note: `${place(s)}${step}${more ? ` ${more} more, ${popping ? `${popping} of them` : 'none'} past the limit.` : ''}`,
+    note: `${place(s)}${step}${others}${left ? ` ${left} not measured.` : ''}`,
   };
   return [line];
 }
