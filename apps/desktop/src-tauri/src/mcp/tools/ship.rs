@@ -60,6 +60,9 @@ pub struct SetShipArgs {
     pub assets: Vec<AssetShipEdit>,
     /// The site's models folder, relative to the site repo, for example
     /// "apps/landing/public/room/models". Written to the site's maquette.site.json.
+    /// Folders set here (models, posters or data) count as an agent's: run_pipeline then
+    /// waits for a person before every Ship until a person saves the folders in the Ship
+    /// view. Refused while the project has a run going.
     pub models: Option<String>,
     /// The site's posters folder, or null for none. Written with models.
     #[serde(default, deserialize_with = "explicit")]
@@ -182,7 +185,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change how a website project ships, as the Ship view does: style (scene or models), textures (ktx2, webp or avif), quality (1 to 100), per asset choice (auto, never, always) and file name (without .glb, null for the default), the site repo (siteRepo, null clears it), and the site's folders (models, posters, data; written to the site's maquette.site.json, keeping its other keys). Only the given fields change; everything is checked before anything is written. Spends nothing. Returns what get_ship_settings returns.",
+        description = "Change how a website project ships, as the Ship view does: style (scene or models), textures (ktx2, webp or avif), quality (1 to 100), per asset choice (auto, never, always) and file name (without .glb, null for the default), the site repo (siteRepo, null clears it), and the site's folders (models, posters, data; written to the site's maquette.site.json, keeping its other keys). A repo or folders set here make every Ship wait for a person until a person sets them. Only the given fields change; everything is checked before anything is written. Spends nothing. Returns what get_ship_settings returns.",
         annotations(idempotent_hint = true)
     )]
     async fn set_ship_settings(&self, Parameters(args): Parameters<SetShipArgs>) -> Out {
@@ -197,7 +200,7 @@ impl McpTools {
                     .map_or(manifest.site_repo.as_deref(), Option::as_deref);
                 let save = args.save(&view, &manifest, repo.as_ref())?;
                 // Everything is checked against where it goes before anything moves.
-                commands::check_save(host.session(), &args.project, &save, at)?;
+                commands::check_save(host.session(), host.runner(), &args.project, &save, at)?;
                 if let Some(repo) = repo {
                     let moved = set_repo(
                         host.session(),
@@ -209,7 +212,13 @@ impl McpTools {
                     )?;
                     host.project_changed(&moved);
                 }
-                let saved = commands::save(host.session(), &args.project, save)?;
+                let saved = commands::save(
+                    host.session(),
+                    host.runner(),
+                    &args.project,
+                    save,
+                    RepoSetBy::Agent,
+                )?;
                 host.pipeline_changed(&args.project);
                 Ok(view_value(&saved))
             })

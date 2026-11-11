@@ -123,3 +123,102 @@ fn an_agents_repo_keeps_asking_through_a_rename_and_a_restore() {
     save("New name", &dir.path().join("site"));
     assert_eq!(waits(&session, &id, None), None, "picked again");
 }
+
+/// What Ship says while it waits because an agent set the site's folders.
+const FOLDERS: &str = "an agent chose the folders";
+
+/// Saves the site's folders in `id` as `by` would, with the models folder
+/// `models`, or only a setting when `models` is None.
+fn save_folders(session: &Session, id: &str, models: Option<&str>, by: RepoSetBy) {
+    use crate::commands::ship::{ShipSave, save};
+    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let target = models.map(|models| maquette_core::site::SiteTarget {
+        models: models.into(),
+        posters: None,
+        data: Some("src/scene/shipped.json".into()),
+    });
+    let change = ShipSave {
+        target,
+        ..ShipSave::default()
+    };
+    save(session, &runner, id, change, by).expect("save");
+}
+
+#[test]
+fn folders_an_agent_set_wait_whatever_the_rule_says() {
+    for rule in [false, true] {
+        let (dir, session, id) = shipping(rule, RepoSetBy::Person);
+        save_folders(&session, &id, Some("public/elsewhere"), RepoSetBy::Agent);
+        let why = waits(&session, &id, None).expect("an agent's folders ask");
+        assert!(why.contains(FOLDERS), "rule {rule}: {why}");
+        let written = std::fs::read_to_string(dir.path().join("site/maquette.site.json"));
+        assert!(written.expect("site file").contains("public/elsewhere"));
+    }
+}
+
+#[test]
+fn a_persons_save_of_the_folders_takes_the_agents_mark_off() {
+    let (_dir, session, id) = shipping(false, RepoSetBy::Person);
+    save_folders(&session, &id, Some("public/elsewhere"), RepoSetBy::Agent);
+    // A save of settings alone says nothing about the folders.
+    save_folders(&session, &id, None, RepoSetBy::Person);
+    assert!(waits(&session, &id, None).is_some(), "still the agent's");
+    // The person saves the very folders the agent set: now they are theirs.
+    save_folders(&session, &id, Some("public/elsewhere"), RepoSetBy::Person);
+    assert_eq!(
+        waits(&session, &id, None),
+        None,
+        "their own folders, unasked"
+    );
+
+    let (_dir, session, id) = shipping(true, RepoSetBy::Person);
+    save_folders(&session, &id, Some("public/elsewhere"), RepoSetBy::Agent);
+    save_folders(&session, &id, Some("public/models"), RepoSetBy::Person);
+    let why = waits(&session, &id, None).expect("the rule still asks");
+    assert!(why.contains(STARTED), "{why}");
+}
+
+#[test]
+fn an_agents_repo_says_so_over_its_folders() {
+    let (_dir, session, id) = shipping(false, RepoSetBy::Agent);
+    save_folders(&session, &id, Some("public/elsewhere"), RepoSetBy::Agent);
+    let why = waits(&session, &id, None).expect("asks");
+    assert!(why.contains(CHOSE), "{why}");
+}
+
+#[test]
+fn an_agents_folders_keep_asking_through_a_restore() {
+    let (dir, session, id) = shipping(false, RepoSetBy::Person);
+    save_folders(&session, &id, Some("public/elsewhere"), RepoSetBy::Agent);
+    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let lab = Concepts::new(None, 1, |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
+    let running = Running {
+        runner: &runner,
+        lab: &lab,
+        studio: &studio,
+        building: Vec::new(),
+    };
+    let gone = remove(&session, &running, None, None, &id).expect("remove");
+    restore(&session, &gone.removed.trash).expect("restore");
+    // The repo came back unconfirmed, so a person sets it again first.
+    let other = dir.path().join("other");
+    std::fs::create_dir_all(other.join(".git")).expect("other");
+    let repo = Some(other.display().to_string());
+    set_repo(
+        &session,
+        &runner,
+        &id,
+        "Moon Island".into(),
+        repo,
+        RepoSetBy::Person,
+    )
+    .expect("repo");
+    let why = waits(&session, &id, None).expect("the folders still ask");
+    assert!(why.contains(FOLDERS), "{why}");
+}

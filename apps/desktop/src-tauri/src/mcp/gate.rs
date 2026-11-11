@@ -1,6 +1,6 @@
 //! "Ask before shipping": a run an agent starts stops before its Ship step
-//! until someone approves it in the app. A Ship into a repo an agent chose
-//! stops there whatever that rule says.
+//! until someone approves it in the app. A Ship into a repo, or site folders,
+//! an agent chose stops there whatever that rule says.
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -26,6 +26,9 @@ pub enum ShipReason {
     /// An agent started the run and chose the repo it ships into, so it asks
     /// whatever "Ask before shipping" says.
     AgentRepo,
+    /// An agent started the run into site folders (models, posters, data
+    /// file) an agent set, so it asks whatever "Ask before shipping" says.
+    AgentFolders,
     /// A game project: Ship writes into the game repo, so it always asks.
     Game,
 }
@@ -33,8 +36,9 @@ pub enum ShipReason {
 pub struct ShipGate {
     pub hub: Arc<Hub>,
     pub reason: ShipReason,
-    /// The folder Ship writes into, shown on the approval. None when it has
-    /// no repo and only fills the project's shipped folder.
+    /// Where Ship writes, shown on the approval: the repo, and for a website
+    /// the site's folders in it. None when it has no repo and only fills the
+    /// project's shipped folder.
     pub destination: Option<String>,
 }
 
@@ -51,6 +55,10 @@ impl StepGate for ShipGate {
             ),
             ShipReason::AgentRepo => format!(
                 "{} waits for approval in Maquette, because an agent chose the repo it writes into.",
+                step.name
+            ),
+            ShipReason::AgentFolders => format!(
+                "{} waits for approval in Maquette, because an agent chose the folders it writes into.",
                 step.name
             ),
             ShipReason::Game => format!(

@@ -818,7 +818,10 @@ export const commands = {
 	pipelineUpdateStarters: (project: string, scripts: string[], replace: boolean) => __TAURI_INVOKE<PipelineView>("pipeline_update_starters", { project, scripts, replace }),
 	/**  The ship settings, the plan of the next Ship and the size report. */
 	shipGet: (project: string) => __TAURI_INVOKE<ShipView_Serialize>("ship_get", { project }),
-	/**  Saves the ship settings and, with a target, the site's folders. */
+	/**
+	 *  Saves the ship settings and, with a target, the site's folders: a
+	 *  person's, so the folders lose an agent's mark.
+	 */
 	shipSave: (project: string, change: ShipSave_Deserialize) => __TAURI_INVOKE<ShipView_Serialize>("ship_save", { project, change }),
 	/**
 	 *  Starts (or reuses) the site's dev server and opens it in the browser.
@@ -1299,6 +1302,12 @@ export type AppState = {
 	 *  the paths themselves.
 	 */
 	agentSetRepos: { [key in string]: string[] },
+	/**
+	 *  The projects whose site folders (models, posters, data file) an agent
+	 *  set and no person has saved since, keyed like `agent_set_repos`.
+	 *  Files from before this have none.
+	 */
+	agentSetFolders: { [key in string]: string[] },
 	/**
 	 *  The dev commands a person approved for an agent-set repo: the repo's
 	 *  folder, then each question's key (`site::preview::PreviewAsk::key`).
@@ -9975,6 +9984,11 @@ export type ShipTarget = {
 	modelsExist: boolean,
 	/**  Why the site config could not be read. */
 	error: string | null,
+	/**
+	 *  True when an agent set these folders and no person has saved them
+	 *  since, so a Ship into them waits for a person. The app fills it in.
+	 */
+	setByAgent?: boolean,
 };
 
 export type ShipView = ShipView_Serialize | ShipView_Deserialize;

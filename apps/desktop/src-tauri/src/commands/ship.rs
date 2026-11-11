@@ -4,13 +4,16 @@
 
 use std::path::Path;
 
-use maquette_core::pipeline;
+use maquette_core::app_state::RepoSetBy;
+use maquette_core::pipeline::{self, runner::PipelineRunner};
 use maquette_core::ship::{self, ShipSettings, ShipSettingsChange, SiteShipPlan, SizeReport};
 use maquette_core::site::{self, SiteTarget};
 use maquette_core::{ProjectTarget, project};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use super::project::refuse_during_run;
+use super::site::gate::{folders_set_by_agent, mark_folders};
 use super::{CommandResult, invalid};
 use crate::session::Session;
 
@@ -49,6 +52,7 @@ pub(crate) fn view(session: &Session, project_id: &str) -> CommandResult<ShipVie
     if let Some(repo) = &plan.target.repo {
         plan.target.repo = Some(session.display(Path::new(repo)));
     }
+    plan.target.set_by_agent = folders_set_by_agent(session, &root, project_id);
     Ok(ShipView {
         project: manifest.id.clone(),
         settings: ship::load_or_default(&dir),
@@ -58,9 +62,11 @@ pub(crate) fn view(session: &Session, project_id: &str) -> CommandResult<ShipVie
 }
 
 /// Checks a save against `repo`, writing nothing, so a save cannot stop
-/// half way and leave a file behind.
+/// half way and leave a file behind. The folders cannot change while a run
+/// is going: its Ship card names the ones it writes to.
 pub(crate) fn check_save(
     session: &Session,
+    runner: &PipelineRunner,
     project_id: &str,
     change: &ShipSave,
     repo: Option<&str>,
@@ -85,22 +91,37 @@ pub(crate) fn check_save(
             invalid("This project has no site repo yet. Pick one in Settings > Project.")
         })?;
         site::check_target(Path::new(repo), target)?;
+        refuse_during_run(runner, project_id, "the site's folders")?;
     }
     Ok(())
 }
 
+/// Saves `change`. Folders `by` an agent carry its mark until a person saves
+/// them: a Ship into them waits for a person (`pipeline::agent_run`).
 pub(crate) fn save(
     session: &Session,
+    runner: &PipelineRunner,
     project_id: &str,
     change: ShipSave,
+    by: RepoSetBy,
 ) -> CommandResult<ShipView> {
     let (root, config) = session.workspace()?;
+    // The turn a run's gate reads the folders' mark in.
+    let _turn = session.repo_turn();
     let manifest = project::load(&root, &config.layout, project_id)?;
     let repo = manifest.site_repo.as_deref();
-    check_save(session, project_id, &change, repo)?;
+    check_save(session, runner, project_id, &change, repo)?;
     let dir = project::dir(&root, &config.layout, project_id)?;
     if let (Some(target), Some(repo)) = (&change.target, repo) {
+        // An agent's mark goes down before its folders do, so a failure in
+        // between asks; a person's comes off once theirs are written.
+        if by == RepoSetBy::Agent {
+            mark_folders(session, &root, project_id, by)?;
+        }
         site::save_target(Path::new(repo), target)?;
+        if by == RepoSetBy::Person {
+            mark_folders(session, &root, project_id, by)?;
+        }
     }
     ship::update(&dir, change.settings)?;
     view(session, project_id)
@@ -113,13 +134,15 @@ pub fn ship_get(session: State<'_, Session>, project: String) -> CommandResult<S
     view(&session, &project)
 }
 
-/// Saves the ship settings and, with a target, the site's folders.
+/// Saves the ship settings and, with a target, the site's folders: a
+/// person's, so the folders lose an agent's mark.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn ship_save(
     session: State<'_, Session>,
+    pipelines: State<'_, super::pipeline::Pipelines>,
     project: String,
     change: ShipSave,
 ) -> CommandResult<ShipView> {
-    save(&session, &project, change)
+    save(&session, &pipelines.0, &project, change, RepoSetBy::Person)
 }

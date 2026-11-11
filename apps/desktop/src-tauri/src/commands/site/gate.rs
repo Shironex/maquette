@@ -73,6 +73,29 @@ pub(crate) fn repo_set_by_agent(session: &Session, root: &Path, project: &str) -
         .repo_set_by_agent(&repos::root_key(root), project)
 }
 
+/// Records who set a project's site folders, on this computer.
+pub(crate) fn mark_folders(
+    session: &Session,
+    root: &Path,
+    project: &str,
+    by: RepoSetBy,
+) -> CommandResult<()> {
+    let key = repos::root_key(root);
+    if session.app_state().folders_set_by_agent(&key, project) == (by == RepoSetBy::Agent) {
+        return Ok(());
+    }
+    session.update_app_state(|state| state.mark_folders(&key, project, by))?;
+    Ok(())
+}
+
+/// True when an agent set `project`'s site folders and no person has saved
+/// them since.
+pub(crate) fn folders_set_by_agent(session: &Session, root: &Path, project: &str) -> bool {
+    session
+        .app_state()
+        .folders_set_by_agent(&repos::root_key(root), project)
+}
+
 /// True when `ask` needs a person's yes before it runs.
 fn must_ask(session: &Session, project: &str, ask: &PreviewAsk) -> CommandResult<bool> {
     let (root, _) = session.workspace()?;

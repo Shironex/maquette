@@ -45,6 +45,22 @@ pub(crate) fn destination(setup: &RunSetup) -> Option<String> {
         .cloned()
 }
 
+/// Where a website's Ship writes, for its card: the repo and the folders in
+/// it, as the site's `maquette.site.json` says now (the folders cannot
+/// change while the run goes). Only the repo when that file cannot be read.
+fn site_destination(repo: String) -> String {
+    let Ok(site) = maquette_core::site::load_config(Path::new(&repo)) else {
+        return repo;
+    };
+    let posters = site
+        .posters
+        .map_or_else(|| "no posters".to_string(), |p| format!("posters in {p}"));
+    let data = site
+        .data
+        .map_or_else(|| "no data file".to_string(), |d| format!("data in {d}"));
+    format!("{repo}: models in {}, {posters}, {data}", site.models)
+}
+
 pub(crate) fn setup(
     session: &Session,
     project_id: &str,
@@ -109,8 +125,9 @@ pub(crate) fn setup(
 /// [`setup`] for a run an agent starts, with the gate it passes before Ship.
 /// A game's Ship always waits. A website's waits when an agent chose the
 /// repo it ships into (the run names one, or an agent set the project's and
-/// no person has set it since), whatever "Ask before shipping" says, and
-/// otherwise while that rule is on.
+/// no person has set it since) or the site folders in it (an agent set them
+/// and no person has saved them since), whatever "Ask before shipping" says,
+/// and otherwise while that rule is on.
 pub(crate) fn agent_run(
     session: &Session,
     hub: &Arc<Hub>,
@@ -119,7 +136,7 @@ pub(crate) fn agent_run(
     tools: Toolbox,
 ) -> CommandResult<(RunSetup, Option<Arc<dyn StepGate>>)> {
     let named_here = ask.repo.is_some();
-    // One turn for the repo `setup` reads and the mark read below: a save
+    // One turn for the repo `setup` reads and the marks read below: a save
     // landing between the two would have the gate answer for another repo.
     let _turn = session.repo_turn();
     let setup = setup(session, project_id, ask, tools)?;
@@ -129,8 +146,11 @@ pub(crate) fn agent_run(
     }
     let (root, config) = session.workspace()?;
     let by_agent = crate::commands::site::gate::repo_set_by_agent(session, &root, project_id);
+    let folders = crate::commands::site::gate::folders_set_by_agent(session, &root, project_id);
     let reason = if named_here || by_agent {
         ShipReason::AgentRepo
+    } else if folders {
+        ShipReason::AgentFolders
     } else if config.agents.rules.ask_before_shipping {
         ShipReason::Agent
     } else {
@@ -139,7 +159,7 @@ pub(crate) fn agent_run(
     let gate = ShipGate {
         hub: Arc::clone(hub),
         reason,
-        destination: to,
+        destination: to.map(site_destination),
     };
     Ok((setup, Some(Arc::new(gate))))
 }
