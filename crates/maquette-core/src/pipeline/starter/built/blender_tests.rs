@@ -218,6 +218,12 @@ fn join_and_finish_keep_every_face_on_its_own_material() {
         found["slots"],
         serde_json::json!(["red", "blue", null, "green"])
     );
+    // An object given twice joins once and is still there.
+    assert_eq!(
+        found["twice"],
+        serde_json::json!({ "name": "twice", "faces": 6 }),
+        "{found}"
+    );
     // Mirrored faces were turned back to face out.
     assert_eq!(found["outward"], true, "{found}");
     // finish() fills in only for the faces with no material, and changes no slot.

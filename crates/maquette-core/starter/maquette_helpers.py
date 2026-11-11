@@ -719,8 +719,11 @@ def join(objects, name=None):
     every face stays where it stands, and every face keeps its own material:
     the materials of all the pieces become the slots of the result, each
     once, in the order they first appear. Faces of a piece with no material
-    stay without one."""
-    pieces = [obj for obj in objects if obj is not None]
+    stay without one. An object given twice counts once."""
+    pieces = []
+    for obj in objects:
+        if obj is not None and all(obj != piece for piece in pieces):
+            pieces.append(obj)
     if not pieces:
         raise ValueError("join() needs one or more objects")
     for piece in pieces:

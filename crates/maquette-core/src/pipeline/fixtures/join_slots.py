@@ -78,4 +78,12 @@ said["untouchedSlots"] = [m.name if m else None for m in joined.data.materials]
 mq.finish(joined, material=fill)
 said["finished"] = faces(joined)
 said["finishedSlots"] = [m.name if m else None for m in joined.data.materials]
+
+# The same object given twice (and a None) joins as one piece and survives.
+twice = mq.box("twice", (0.1, 0.1, 0.1), (0, 1, 0), red)
+try:
+    kept = mq.join([twice, None, twice], "twice")
+    said["twice"] = {"name": kept.name, "faces": len(kept.data.polygons)}
+except ReferenceError as gone:
+    said["twice"] = {"error": str(gone)}
 print("SLOTS " + json.dumps(said))
