@@ -95,3 +95,24 @@ pub struct UndoneReplace {
     /// Bytes as a JS safe number.
     pub bytes: Option<f64>,
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::built::BuiltFile;
+
+    #[test]
+    fn a_built_file_from_before_undone_and_built_still_reads() {
+        let text = r#"{"version":1,"assets":{"planner":{"script":"built/planner.py",
+            "helpers":[],"root":null,"last":null,"replaced":{"at":"2026-11-10T09:30:00.000Z",
+            "by":{"asset":"planner-built","name":"Planner built","index":4,"trash":null},
+            "versions":[1],"thumbnail":null,"origin":null,"status":"done","stage":"web",
+            "prep":null,"materials":null}}}}"#;
+        let file: BuiltFile = serde_json::from_str(text).expect("older built.json");
+        assert!(file.undone.is_empty());
+        let record = file.assets["planner"].replaced.as_ref().expect("record");
+        assert!(record.built.is_empty(), "no version counts as built");
+        // Nothing new is written for an empty undone list.
+        let back = serde_json::to_value(&file).expect("json");
+        assert!(back.get("undone").is_none());
+    }
+}
