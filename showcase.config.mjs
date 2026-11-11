@@ -123,6 +123,9 @@ export default defineConfig({
         async page => {
           // Keep the edited export script, as most projects would, so its notice goes.
           await page.getByRole('button', { name: 'Keep mine' }).click();
+          // The live log names the sample's character as it goes; let the step reach its last
+          // line before the renaming runs, so no line arrives after it.
+          await page.getByText(/exporting .+\.glb, 2 clips/).waitFor();
         }
       ),
       delayMs: 1500,
@@ -382,6 +385,70 @@ export default defineConfig({
       delayMs: 1200,
     },
     {
+      id: 'recipe-editor',
+      title: 'Animation recipes',
+      caption: 'Animation recipes: pose keys laid over a clip, with a rough preview of the bake.',
+      nav: view('scenario=configured&motion=demo&library=demo', 'motion', 'Recipes', async page => {
+        await page.getByRole('tab', { name: 'Recipes' }).click();
+        await page
+          .getByRole('list', { name: 'Project recipes' })
+          .getByRole('listitem')
+          .filter({ hasText: 'Slash with a lean' })
+          .getByRole('button', { name: 'Edit' })
+          .click();
+        await page.getByRole('img', { name: /rough preview$/ }).waitFor();
+        await page.waitForTimeout(2500);
+        // Hold the preview on a chest key, so the pose is the same every run.
+        await page.getByRole('button', { name: 'Pause' }).click();
+        await page.getByRole('button', { name: 'Pose keys l-1' }).click();
+        await page.getByRole('slider', { name: 'Playhead' }).fill('20');
+        await page.getByRole('group', { name: 'Change l-1 settings' }).waitFor();
+        await page.evaluate(() => document.activeElement?.blur());
+        await page.waitForTimeout(900);
+      }),
+      delayMs: 1500,
+    },
+    {
+      id: 'recipe-review',
+      title: 'Recipe review',
+      caption: 'Recipe review: the exact bake judged at its seams, with fixes best first.',
+      nav: view('scenario=configured&motion=demo&library=demo', 'motion', 'Recipes', async page => {
+        await page.getByRole('tab', { name: 'Recipes' }).click();
+        const row = page
+          .getByRole('list', { name: 'Project recipes' })
+          .getByRole('listitem')
+          .filter({ hasText: 'Slash into block' });
+        await row.getByRole('button', { name: 'Apply' }).click();
+        await row.getByRole('button', { name: 'Review' }).waitFor({ timeout: 15000 });
+        await row.getByRole('button', { name: 'Review' }).click();
+        await page.getByRole('list', { name: 'Review numbers' }).getByText('Seam pop').waitFor();
+        const sheet = page.getByRole('region', { name: 'Pose sheet' });
+        await sheet.locator('img[src^="data:"]').first().waitFor({ timeout: 20000 });
+        await page.waitForTimeout(2500);
+        await sheet.getByRole('button', { name: /seam 1/ }).click();
+        await page.waitForTimeout(800);
+      }),
+      delayMs: 1500,
+    },
+    {
+      id: 'built-replace',
+      title: 'Built in place',
+      caption:
+        "Built in place: a script made model takes a generated one's place, settings and all.",
+      nav: view('scenario=configured&built=swap', 'board', /^Lantern rebuilt/, async page => {
+        await page.getByRole('button', { name: 'More for Lantern rebuilt' }).click();
+        await page.getByRole('menuitem', { name: 'Use in place of a model...' }).click();
+        const sheet = page.getByRole('dialog', { name: /in place of a model$/ });
+        await sheet.waitFor();
+        await sheet
+          .getByRole('combobox', { name: /Takes the place of/ })
+          .selectOption({ label: 'Crystal lantern' });
+        await sheet.getByRole('table').waitFor();
+        await page.waitForTimeout(800);
+      }),
+      delayMs: 1200,
+    },
+    {
       id: 'tool-groups',
       title: 'Tool groups',
       caption: 'Tool groups: switch off the MCP tools an agent never needs.',
@@ -399,7 +466,7 @@ export default defineConfig({
           // whole width, with no empty column beside it.
           await page.setViewportSize({ width: 1200, height: 1000 });
           await page.getByRole('switch', { name: 'Avatar and rig tools' }).uncheck({ force: true });
-          await page.getByText('140 of 147 tools offered').waitFor();
+          await page.getByText('149 of 156 tools offered').waitFor();
           await page
             .getByText('Tool groups', { exact: true })
             .first()
@@ -415,6 +482,8 @@ export default defineConfig({
       caption:
         'Removed projects: a project moves to the workspace trash and comes back with Restore.',
       nav: view('scenario=configured', 'board', 'Board', async page => {
+        // The tool groups shot before this one narrows the window; take the usual size back.
+        await page.setViewportSize({ width: 1440, height: 1000 });
         const switcher = page.locator('[aria-haspopup=menu]').first();
         await switcher.click();
         await page.getByRole('menuitem', { name: 'New project' }).click();
