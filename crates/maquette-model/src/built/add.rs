@@ -27,7 +27,8 @@ pub struct NewBuilt {
     /// The object to export with its children, when `build()` does not
     /// return it.
     pub root: Option<String>,
-    /// Overwrite files in `built/` that differ from these.
+    /// Overwrite files in `built/` that differ from these, each kept first
+    /// as `<name>.bak` (`.bak2` and on when that is taken).
     pub replace: bool,
 }
 
@@ -150,6 +151,12 @@ fn copy_in(dir: &Path, files: &[Incoming]) -> CoreResult<()> {
             continue;
         }
         let bytes = fs::read(&file.from).map_err(|e| CoreError::io(&file.from, e))?;
+        if target.exists() {
+            // Written over only with `replace`: the file there may hold
+            // edits, so it is kept as `<name>.bak`, as a starter update does.
+            let backup = crate::fs::backup_path(&target);
+            fs::copy(&target, &backup).map_err(|e| CoreError::io(&backup, e))?;
+        }
         crate::fs::write_atomic(&target, &bytes).map_err(|e| CoreError::io(&target, e))?;
     }
     Ok(())

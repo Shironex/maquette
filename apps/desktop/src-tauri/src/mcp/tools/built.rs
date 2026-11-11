@@ -42,7 +42,8 @@ pub struct AddBuiltArgs {
     /// The object to export with its children, when the script's build() does not return
     /// its root (one script that builds several pieces can feed several assets this way).
     pub root: Option<String>,
-    /// Overwrite files in built/ that have other content. Defaults to false, which refuses.
+    /// Overwrite files in built/ that have other content, each kept first as <name>.bak.
+    /// Defaults to false, which refuses.
     #[serde(default)]
     pub replace: bool,
     /// Build it right away. Defaults to true.

@@ -135,6 +135,27 @@ fn a_shared_helper_is_kept_once_and_a_different_one_is_refused() {
         fs::read_to_string(f.project_dir.join("built/common.py")).expect("copy"),
         "PALETTE = 2\n"
     );
+    // The file written over is kept beside it, as a starter update keeps
+    // an edited script; the same file again needs no backup.
+    let kept = fs::read_to_string(f.project_dir.join("built/common.py.bak")).expect("backup");
+    assert_ne!(kept, "PALETTE = 2\n");
+    let backups = || {
+        fs::read_dir(f.project_dir.join("built"))
+            .expect("built")
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".bak"))
+            .count()
+    };
+    assert_eq!(backups(), 1, "only the file that differed");
+    fs::write(f.src.join("common.py"), "PALETTE = 3\n").expect("edit again");
+    fs::write(f.src.join("lamp.py"), "import common\n").expect("lamp");
+    let mut again = new_built(&f, "Lamp", "lamp.py");
+    again.replace = true;
+    add(&f.root, &f.config.layout, &f.project, &again).expect("replace again");
+    assert_eq!(
+        fs::read_to_string(f.project_dir.join("built/common.py.bak2")).expect("second backup"),
+        "PALETTE = 2\n"
+    );
 }
 
 #[test]
