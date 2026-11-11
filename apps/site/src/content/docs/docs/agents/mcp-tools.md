@@ -25,7 +25,7 @@ Every tool belongs to one group, and its description starts with that group in b
 | `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.       |
 | `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                           |
 | `[library]`    | 12    | Models kept outside any project, copied in and out.                                      |
-| `[animation]`  | 18    | The clip library, baking clips onto a rigged model, animation recipes and their library. |
+| `[animation]`  | 24    | The clip library, baking clips onto a rigged model, animation recipes and their library. |
 | `[export]`     | 8     | Export packs for other engines and render styles.                                        |
 | `[avatar-rig]` | 7     | VRM avatars and the rig doctor.                                                          |
 
