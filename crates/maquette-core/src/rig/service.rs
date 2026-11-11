@@ -11,7 +11,7 @@ use std::thread;
 use super::run::{Run, check_can_run};
 use super::{
     JointMoveState, RigRecord, RigRun, RigSource, RigStarter, RigState, RigStep, RigStop,
-    RigStopKind, read, record,
+    RigStopKind, RigidState, read, record,
 };
 use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
@@ -172,6 +172,14 @@ impl RigDoctors {
             };
             found.progress = None;
             found.error = Some("The app closed during this run. Run it again.".to_string());
+            // A bind the app closed on made nothing.
+            if found
+                .rigid
+                .as_ref()
+                .is_some_and(|r| r.state == RigidState::Making)
+            {
+                found.rigid = None;
+            }
         }
         Ok(found)
     }
@@ -211,7 +219,11 @@ impl RigDoctors {
         match what {
             RigRun::PoseTest => case.step = RigStep::Before,
             RigRun::Fix | RigRun::Round2 => case.step = RigStep::Fix,
-            RigRun::WalkProof => {}
+            RigRun::WalkProof | RigRun::Rigid => {}
+        }
+        // A new sheet or draft leaves any bind behind: it was measured on the old one.
+        if matches!(what, RigRun::PoseTest | RigRun::Fix | RigRun::Round2) {
+            case.rigid = None;
         }
         case.error = None;
         case.stop = None;

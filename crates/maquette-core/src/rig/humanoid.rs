@@ -8,7 +8,7 @@ use super::defects::{self, count, num};
 use super::run::Run;
 use super::{
     DefectKind, JointMove, JointMoveState, MAX_ROUNDS, RigRecord, RigSheet, RigStat, RigState,
-    RigStep, clips, steps, verdict,
+    RigStep, clips, rigid, steps, verdict,
 };
 use crate::error::{CoreError, CoreResult};
 
@@ -42,15 +42,15 @@ fn clip_frames(case: &RigRecord) -> Vec<String> {
     }
 }
 
-struct Render<'a> {
-    glbs: Vec<(&'a Path, &'a str)>,
-    views: &'a str,
-    out: &'a str,
-    rows: &'a str,
-    xray: bool,
+pub(super) struct Render<'a> {
+    pub glbs: Vec<(&'a Path, &'a str)>,
+    pub views: &'a str,
+    pub out: &'a str,
+    pub rows: &'a str,
+    pub xray: bool,
 }
 
-fn render(run: &Run, name: &str, job: &Render<'_>) -> CoreResult<f64> {
+pub(super) fn render(run: &Run, name: &str, job: &Render<'_>) -> CoreResult<f64> {
     let case = run.snapshot();
     let mut args = Vec::new();
     for (glb, _) in &job.glbs {
@@ -98,6 +98,7 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
             &[arg(&input), "--json".to_string(), arg(&probe_file)],
         )?;
         probe = read_json(&probe_file)?;
+        rigid::read_parts(run, &input)?;
         Ok(format!(
             "{} bones, {} islands",
             num(&probe, "joints"),
