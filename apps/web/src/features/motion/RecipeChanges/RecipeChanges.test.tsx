@@ -34,6 +34,7 @@ describe('the recipe changes', () => {
       'Wave',
       'Pin',
       'Pose keys',
+      'Grip',
     ]);
     expect(picker).toHaveAttribute('title', 'A hand or foot reaches a blank');
     await userEvent.selectOptions(picker, 'nudge');
@@ -72,5 +73,17 @@ describe('adding a pin', () => {
       settings: { easeIn: 3, easeOut: 3, flat: 'toe-and-heel' },
     });
     expect(screen.getByRole('group', { name: 'Pin, left foot' })).toBeVisible();
+  });
+});
+
+describe('adding a grip', () => {
+  it('opens the grip picker instead of adding a change', async () => {
+    await openRecipe();
+    render(<RecipeChanges />);
+    const before = useRecipeEditorStore.getState().editing?.draft.layers.length;
+    await userEvent.selectOptions(screen.getByLabelText('Kind of change'), 'grip');
+    await userEvent.click(screen.getByRole('button', { name: 'Add a grip' }));
+    expect(useRecipeEditorStore.getState().picked).toEqual({ what: 'grips', id: '' });
+    expect(useRecipeEditorStore.getState().editing?.draft.layers).toHaveLength(before!);
   });
 });

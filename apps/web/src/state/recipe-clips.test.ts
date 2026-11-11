@@ -148,3 +148,17 @@ describe('the clips of a recipe draft', () => {
     expect(swapSides(draft.layers).map(l => l.bone)).toEqual(['leftHand', 'head']);
   });
 });
+
+describe('swapping sides with a grip', () => {
+  it('mirrors the grip pose with its hand', () => {
+    const grip: RecipeLayer = {
+      ...newLayer('reach', [], []),
+      kind: 'grip',
+      bone: 'rightHand',
+      pose: { rightHand: [4, 10, -8], rightIndexProximal: [0, 0, 60] },
+    };
+    const [swapped] = swapSides([grip]);
+    expect(swapped?.bone).toBe('leftHand');
+    expect(swapped?.pose).toEqual({ leftHand: [4, -10, 8], leftIndexProximal: [0, 0, -60] });
+  });
+});

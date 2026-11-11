@@ -7,6 +7,7 @@
 import type { RecipeBlank, RecipeLayer } from '@/ipc/client';
 import { HUMAN_BONES, bonesFor } from './recipe-bones';
 import { KIND_WORDS, num, type RecipeDraft } from './recipe-draft';
+import { gripProblem } from './grip-problem';
 import { poseKeysProblem } from './pose-keys-problem';
 import { pinProblem } from './recipe-pins';
 import { baseProblems } from './recipe-v2-check';
@@ -102,10 +103,10 @@ function settingsProblem(layer: RecipeLayer, blanks: readonly RecipeBlank[]): st
     }
     case 'pin':
       return pinProblem(layer, blanks);
-    // Recipe file version 2 kinds: the editor shows them read only and the
-    // core checks them on every write.
-    case 'pose':
     case 'grip':
+      return gripProblem(layer, blanks);
+    // Pose keys are checked before the settings, in layerProblem.
+    case 'pose':
       return null;
   }
 }

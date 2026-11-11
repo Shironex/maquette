@@ -1,4 +1,4 @@
-import { Button, Icon, InlineBanner } from '@maquette/ui';
+import { Icon } from '@maquette/ui';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import type { useRecipeEditor } from './RecipeEditor.hooks';
 
@@ -6,9 +6,7 @@ type Editor = ReturnType<typeof useRecipeEditor>;
 
 /**
  * The open recipe's questions: save before leaving with unsaved edits, and
- * which side wins when an agent changed what the person edited. Shown over
- * the editor and over the read only view alike, so neither can trap the
- * person.
+ * which side wins when an agent changed what the person edited.
  */
 export function EditorDialogs({ v, file }: { v: Editor; file: string }) {
   return (
@@ -60,44 +58,5 @@ export function EditorDialogs({ v, file }: { v: Editor; file: string }) {
         </ChoiceDialog>
       ) : null}
     </>
-  );
-}
-
-/**
- * Edits made before an agent turned the recipe into one the editor can
- * only show: save the changes and blanks onto it, or discard them.
- */
-export function PendingEdits({ v }: { v: Editor }) {
-  if (!v.dirty && !v.outside) return null;
-  const actions = (
-    <>
-      {v.outside && !v.outside.asking ? (
-        <Button size="sm" icon="warning" onClick={v.outside.ask}>
-          Answer clash
-        </Button>
-      ) : null}
-      <Button size="sm" disabled={!v.dirty || v.saving} onClick={v.discard}>
-        Discard my edits
-      </Button>
-      <Button
-        size="sm"
-        variant="primary"
-        icon="check"
-        loading={v.saving}
-        disabled={Boolean(v.saveBlocked)}
-        disabledReason={v.saveBlocked}
-        onClick={v.save}
-      >
-        Save my edits
-      </Button>
-    </>
-  );
-  return (
-    <InlineBanner
-      tone="warning"
-      title="You have unsaved edits"
-      detail="An agent changed this recipe while you edited it. Save your changes and blanks onto it as it is now, or discard them."
-      actions={actions}
-    />
   );
 }

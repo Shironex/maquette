@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RecipeBlank } from '@/ipc/client';
+import type { LayerSettings, RecipeBlank, RecipeLayer } from '@/ipc/client';
 import { checkDraft, problemCount } from './recipe-check';
 import { newLayer } from './recipe-draft';
 
@@ -50,5 +50,37 @@ describe('recipe checks', () => {
       'Elsheria is the model this recipe animates. Pick another prop.'
     );
     expect(problemCount(checkDraft(draft, { asset: 'shiro', name: 'Shiro' }))).toBe(0);
+  });
+});
+
+describe('grip checks', () => {
+  const grip = (more: Partial<RecipeLayer> = {}, settings: Partial<LayerSettings> = {}) => {
+    const base = newLayer('reach', [], []);
+    return {
+      ...base,
+      id: 'g-1',
+      kind: 'grip',
+      bone: 'rightHand',
+      mode: 'replace',
+      pose: { rightHand: [0, 0, 10], rightIndexProximal: [0, 0, 60] },
+      ...more,
+      settings: { ...base.settings, target: null, easeIn: 4, easeOut: 4, ...settings },
+    } as RecipeLayer;
+  };
+  const problem = (layer: RecipeLayer, blanks: RecipeBlank[] = []) =>
+    checkDraft({ layers: [layer], blanks }).layers['g-1'] ?? null;
+
+  it('passes a grip with a pose, whole frame eases and no blank', () => {
+    expect(problem(grip())).toBeNull();
+  });
+
+  it('says what the core would refuse', () => {
+    expect(problem(grip({}, { target: 'staff' }))).toMatch(/holds the blank staff/);
+    expect(problem(grip({ pose: null }))).toMatch(/needs its pose/);
+    expect(problem(grip({ pose: {} }))).toMatch(/turns no bone/);
+    expect(problem(grip({ pose: { rightHand: [0, 200, 0] } }))).toMatch(/more than 180 degrees/);
+    expect(problem(grip({ pose: { rightTail: [0, 0, 0] } }))).toMatch(/not a humanoid bone/);
+    expect(problem(grip({}, { easeIn: 2.5 }))).toMatch(/whole frames/);
+    expect(problem(grip({ bone: 'chest' }))).toMatch(/moves leftHand, rightHand/);
   });
 });

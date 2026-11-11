@@ -1,12 +1,11 @@
 import { Button, InlineBanner } from '@maquette/ui';
-import { editable } from '@/state/recipe-draft';
 import { RecipeBaseEdits } from '../RecipeBaseEdits';
 import { RecipeBlanks } from '../RecipeBlanks';
+import { GripPicker } from '../GripPicker';
 import { RecipeChanges } from '../RecipeChanges';
 import { RecipePlayer } from '../RecipePlayer';
 import { ApplyButton, EditorBake } from './EditorApply';
-import { EditorDialogs, PendingEdits } from './EditorDialogs';
-import RecipeReadOnly from './RecipeReadOnly';
+import { EditorDialogs } from './EditorDialogs';
 import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
 
 /**
@@ -14,10 +13,9 @@ import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
  * blanks. Edits stay here until Save, through leaving the tab; leaving the
  * recipe with unsaved edits asks first, and an agent's edit made meanwhile
  * merges or asks which side wins. Base edits (joined clips, trims, time
- * edits, the mirror) sit above the changes. A recipe holding pose
- * keys or grips, which the editor cannot edit yet, shows read only, with
- * the same questions and a way to save or discard edits made before an
- * agent changed it.
+ * edits, the mirror) sit above the changes. Add a grip shows the grip
+ * library's picker in place of the preview and the changes until a grip is
+ * added or the picker is closed.
  */
 export default function RecipeEditor() {
   const v = useRecipeEditor();
@@ -25,12 +23,6 @@ export default function RecipeEditor() {
   const { editing } = v;
   if (!editing) return null;
   const { doc } = editing;
-  if (!editable(doc.recipe))
-    return (
-      <RecipeReadOnly doc={doc} onBack={v.back} pending={<PendingEdits v={v} />}>
-        <EditorDialogs v={v} file={doc.file} />
-      </RecipeReadOnly>
-    );
   const general = v.general.map(line => <InlineBanner key={line} tone="danger" title={line} />);
   return (
     <div
@@ -87,14 +79,18 @@ export default function RecipeEditor() {
       ) : null}
       {v.merged ? <InlineBanner tone="info" title={v.merged} /> : null}
       {general}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,1fr)]">
-        <RecipePlayer />
-        <div className="flex min-w-0 flex-col gap-3">
-          <RecipeBaseEdits />
-          <RecipeChanges />
-          <RecipeBlanks />
+      {v.pickingGrip ? (
+        <GripPicker />
+      ) : (
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,1fr)]">
+          <RecipePlayer />
+          <div className="flex min-w-0 flex-col gap-3">
+            <RecipeBaseEdits />
+            <RecipeChanges />
+            <RecipeBlanks />
+          </div>
         </div>
-      </div>
+      )}
       <EditorDialogs v={v} file={doc.file} />
     </div>
   );

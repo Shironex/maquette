@@ -80,6 +80,19 @@ describe('recipe drafts', () => {
     expect(layerLine(newLayer('reach', [], [lantern]), 120)).toBe(
       'Reach · Right hand → lantern · frames 30 to 90'
     );
+    const grip = {
+      ...newLayer('reach', [], []),
+      kind: 'grip' as const,
+      pose: {
+        rightHand: [0, 0, 0] as [number, number, number],
+        leftHand: [0, 0, 0] as [number, number, number],
+      },
+      from: { entry: 'scythe-staff-grip', revision: 2 },
+    };
+    expect(layerLine(grip, 120)).toBe('Grip · Both hands · scythe-staff-grip r2 · frames 30 to 90');
+    expect(layerLine({ ...grip, pose: { leftHand: [0, 0, 0] }, from: null }, 120)).toBe(
+      'Grip · Left hand · frames 30 to 90'
+    );
     expect(blankFill(lantern, () => 'Lantern post')).toBe('Lantern post');
     expect(blankFill({ ...lantern, prop: null }, () => null)).toBe('open, pick a prop');
     expect(
