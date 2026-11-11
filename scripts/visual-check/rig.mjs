@@ -4,7 +4,7 @@
  * and before and after enlarged, and both on the creature route, and an
  * agent's fixed draft with its card answered in place and another case's card
  * floating clear of Add, also at the minimum window size and over an Inbox
- * model's Accept. Mock mode draws the pictures; the real renders are checked
+ * model's Accept, and a walk that goes against its face in the Inbox checks. Mock mode draws the pictures; the real renders are checked
  * by the core's Blender tests.
  */
 
@@ -84,4 +84,11 @@ export async function rigShots({ open, shot }) {
   await unchanged.getByText('The fix changed nothing', { exact: false }).waitFor();
   await shot(unchanged, 'rig-no-change');
   await unchanged.context().close();
+
+  // A walk clip that carries the model backwards is flagged in the Inbox checks.
+  const walk = await open('&scenario=configured&inbox=walk', '#/inbox');
+  await walk.getByText('Ash walker').first().click();
+  await walk.getByText('Walk travels against the face').waitFor();
+  await shot(walk, 'inbox-walk-against-face');
+  await walk.context().close();
 }

@@ -11,6 +11,7 @@
 import type { DiscardedModel, InboxItem, InboxLink, Provider } from '../client';
 import { inboxItems, thumbsDir } from './inbox-fixtures';
 import { linkForRedo } from './redo-fixtures';
+import { walkingBackwards } from './walking-backwards';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -199,6 +200,16 @@ export function seedInbox(state: string | null, dir: string, now: number): Inbox
   if (state === 'retexture') {
     const base = listed.find(i => i.id === 'veil_gate.glb')!;
     return [repaintedFern(base, dir, now), splitWaitingToPaint(base, dir, now), ...listed];
+  }
+  if (state === 'walk') {
+    return [
+      walkingBackwards(
+        listed.find(i => i.kind === 'character')!,
+        dir,
+        now
+      ),
+      ...listed,
+    ];
   }
   if (state !== 'triage') return listed;
   const gate = listed.find(i => i.id === 'veil_gate.glb')!;

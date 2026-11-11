@@ -54,7 +54,7 @@ export type Args = Record<string, unknown>;
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
  * and a month of earlier ones. `?inbox=triage` adds eight more models and
  * three discarded ones, `?inbox=clear` empties the inbox but keeps those
- * three, `?inbox=retexture` adds a re-texture that lost its parts (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
+ * three, `?inbox=retexture` adds a re-texture that lost its parts (see `triage-fixtures.ts`), `?inbox=walk` a character whose walk goes against its face (see `walking-backwards.ts`). `?arrival=named|unmatched|look` drops downloads
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * `?render=` what the Render tab opens with (see `create-render-handlers.ts`).
  * `?built=demo` adds two built assets to Frostveil (see
