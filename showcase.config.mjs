@@ -435,17 +435,22 @@ export default defineConfig({
       title: 'Built in place',
       caption:
         "Built in place: a script made model takes a generated one's place, settings and all.",
-      nav: view('scenario=configured&built=swap', 'board', /^Lantern rebuilt/, async page => {
-        await page.getByRole('button', { name: 'More for Lantern rebuilt' }).click();
-        await page.getByRole('menuitem', { name: 'Use in place of a model...' }).click();
-        const sheet = page.getByRole('dialog', { name: /in place of a model$/ });
-        await sheet.waitFor();
-        await sheet
-          .getByRole('combobox', { name: /Takes the place of/ })
-          .selectOption({ label: 'Crystal lantern' });
-        await sheet.getByRole('table').waitFor();
-        await page.waitForTimeout(800);
-      }),
+      nav: view(
+        'scenario=configured&built=swap&library=demo',
+        'board',
+        /^Lantern rebuilt/,
+        async page => {
+          await page.getByRole('button', { name: 'More for Lantern rebuilt' }).click();
+          await page.getByRole('menuitem', { name: 'Use in place of a model...' }).click();
+          const sheet = page.getByRole('dialog', { name: /in place of a model$/ });
+          await sheet.waitFor();
+          await sheet
+            .getByRole('combobox', { name: /Takes the place of/ })
+            .selectOption({ label: 'Crystal lantern' });
+          await sheet.getByRole('table').waitFor();
+          await page.waitForTimeout(800);
+        }
+      ),
       delayMs: 1200,
     },
     {
