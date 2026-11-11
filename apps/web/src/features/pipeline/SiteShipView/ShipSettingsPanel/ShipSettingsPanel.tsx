@@ -147,8 +147,8 @@ export default function ShipSettingsPanel({
         {plan.target.setByAgent ? (
           <p className="m-0 flex items-start gap-1.5 text-meta text-fg-dim">
             <Icon name="robot" size={14} className="mt-px flex-none text-amber" />
-            An agent set these folders, so every Ship into them waits for your approval. Save them
-            to make them yours.
+            An agent set these folders, so every run an agent starts into them waits for your
+            approval before Ship. Save them to make them yours.
           </p>
         ) : null}
         <div className="flex items-center justify-between gap-2">
@@ -165,7 +165,7 @@ export default function ShipSettingsPanel({
             disabledReason={block ?? undefined}
             tooltip={
               plan.target.setByAgent
-                ? 'Writes the folders as you see them, and Ship into them stops asking'
+                ? "Writes the folders as you see them, and an agent's Ship into them stops asking"
                 : "Writes the folders into the site's maquette.site.json, keeping its other keys"
             }
             onClick={() => void onTarget(targetOf(draft))}
