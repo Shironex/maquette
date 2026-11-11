@@ -72,7 +72,7 @@ Nothing here costs credits. The agent makes the recipe, fills its changes and bl
 
 Prompt: "Rebuild the desk lamp as a built asset."
 
-Nothing here costs credits or needs an approval. The agent renders the old model, writes the script, and goes through at least three rounds of renders and written fault lists before it swaps the built model into the lamp's place, where the lamp keeps its layout, camera stops and file name. It ends with a side by side of old and new from the same cameras and stops: Ship waits until you looked, and one call (or the Board) brings the old model back. See [Built assets](/docs/guides/built-assets/).
+Nothing here costs credits or needs an approval. The agent renders the old model, writes the script, and goes through at least three rounds of renders and written fault lists before it swaps the built model into the lamp's place, where the lamp keeps its layout, camera stops and file name. It checks facing by holding the built model's top view beside the old model's, rendered with its own fix-ups before the swap, and ends with a side by side of old and new from the same cameras. Then it stops: Ship waits until you looked, and one call (or the Board) brings the old model back. See [Built assets](/docs/guides/built-assets/).
 
 ## Rules every skill keeps
 

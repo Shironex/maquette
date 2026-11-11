@@ -38,7 +38,8 @@ in the app: agents may propose a tour, never apply one.
 - Never capture the screen. Every picture is a file `render_views` writes headless; read the PNGs.
 - Work in a scratch folder outside the repo and the workspace for notes and fault lists. The
   script itself lives in the project's `built/` folder once added.
-- Never undo a replace a person made, and never delete a version or a card yourself.
+- Only undo a replace you made yourself in this session (`list_built_assets` says when an asset
+  was replaced, not who did it), and never delete a version or a card yourself.
 
 ## Time budget
 
@@ -60,21 +61,23 @@ The person names it ("the desk lamp"). `list_assets` `{ project }` finds its id.
 2. `get_ref_views` `{ project, asset }`: which ref shows which side. The front ref leads the
    critique. No ref at all: ask the person for one, or make one with `maquette-lab-round`.
 3. `get_material_tweaks` `{ project, asset }` and `get_parts` `{ project, asset }`: the old model's
-   materials and colours, and its named objects. A page may look up an object by name (a lid, a
+   material names with their stored tweaks, and its named objects. Neither gives base colours:
+   read colours from the renders and the ref. A page may look up an object by name (a lid, a
    switch): keep those names.
 4. `get_style_board` `{ project }`: the project's palette (#rrggbb).
 5. `list_built_assets` `{ project }`: the project's other built assets and their scripts, the style
    to match. If the asset to replace is listed there already, it is built: skip the swap, edit its
    script and use `rebuild_built_asset` (step 6).
-6. Round 0: `render_views` `{ project, asset }` on the old model. Its `sheet` (refs first, then the
-   views) and its close ups are what the rebuild must beat. Write down what is wrong with it.
+6. Round 0: `render_views` `{ project, asset }` on the old model, with its own fix-ups and real
+   size applied. Its `sheet` (refs first, then the views) and its close ups are what the rebuild
+   must beat; its `top` view is the facing reference for step 5. Write down what is wrong with it.
 
 ## 2. Rules for the script
 
 - Real size, in metres, the old model's orientation: Blender space is z up, the front faces -y,
   the origin at the bottom centre (`mq.ground`). Match `atRealSize` to 2 percent per axis.
 - Palette colours first: take each colour from the style board, then from the old model's
-  materials, then from the ref; a colour of your own only when none fits, and say which. One
+  renders and the ref; a colour of your own only when none fits, and say which. One
   `mq.flat_material` per colour, named for what it is (`cover`, `brass`, `shade`).
 - A triangle budget: a game project's budget for its folder (`get_game`), else the number the
   person gave, else at or under the old model's count. Spend triangles on silhouettes and rims, not
@@ -118,8 +121,9 @@ Each round:
    An empty list in round one or two means you did not look closely: look at the close ups again.
 4. Fix the script and rebuild. A rebuild that adds no version changed nothing in the model.
 
-Renders stay in `exports/renders/<asset>/views/v<n>/` (a compare in `v<n>-vs-v<m>/`) per version,
-so every round's pictures are kept without copying. Name them in each round's fault list.
+Renders stay in `exports/renders/<asset>/views/v<n>/` per version (a compare in `v<n>-vs-v<m>/`,
+a set with `closeUps` or `angle` in a folder of its own ending in `-<8 hex>`), so every round's
+pictures are kept without copying. Name them in each round's fault list.
 
 Stop the loop only when a round's list has no fault in the quality bar's rows, and never before
 round three. A fifth or sixth round is normal for a prop with several materials.
@@ -142,17 +146,24 @@ there reads right on the page, so judge colour only in these pictures.
 
 ## 5. Proof
 
-1. The export, not the scene: `render_views` loads the built model file
-   (`models/<id>_v<n>.glb`) into a fresh Blender, so its pictures are the re-import of the export.
-   Check its `boundsRendered` against `atRealSize`, and `get_model_facts` on the built asset for
-   its `facing` and counts.
+1. The export, not the scene: `render_views` loads the built model file (`models/<id>_v<n>.glb`,
+   with the id's hyphens as underscores) into a fresh Blender, so its pictures are the re-import of
+   the export. Check its `boundsRendered` against `atRealSize`, and `get_model_facts` on the built
+   asset for its counts. Its `facing` is always assumed by convention for a built asset, so it
+   proves nothing: the top views below do.
 2. A dry run first, `replace_with_built_asset` with `dryRun: true` and the arguments of step 6:
    it lists every setting as kept, carried, reset or brought, what no longer resolves (a part or
    clip the new model lacks) and the old and new min and max. Each unresolved name is a fault.
-3. Facing, top down, one camera for old and new: after the swap in step 6, `render_views`
-   `{ project, asset: <old>, compare: <the version before> }` renders both with the same cameras.
-   In its `top` view the front is at the bottom of the picture for both. A model turned the wrong
-   way: `replace_with_built_asset` with `undo: true`, turn it in the script, rebuild, swap again.
+3. Facing, top down, before the swap: hold the built asset's `top` view beside the old model's
+   round 0 `top` view. Both look straight down with the front at the bottom of the picture, and
+   the old one carries its own fix-ups, so the same side must face down in both. A model turned
+   the wrong way: turn it in the script and rebuild, then look again.
+4. The side by side, after the swap in step 6: `render_views` `{ project, asset: <old>, compare:
+<the version before> }` renders old and new with the same cameras. It renders both with the
+   asset's settings as they are after the swap, which reset the fix-ups to the built model's: the
+   old row shows the old file without its own fix-ups. So it proves facing only when the old
+   model had none (`list_fixups` before the swap); otherwise step 3 decides, and a turned old row
+   is said in the report, not fixed.
 
 ## 6. Finish
 
@@ -161,7 +172,8 @@ there reads right on the page, so judge colour only in these pictures.
    fix-ups and material tweaks reset to the built model's. The built card goes to the asset trash.
    It is refused for a built asset that is not current: rebuild first. An asset that was already
    built is never swapped: `rebuild_built_asset` on it is its new version.
-2. Render the side by side (step 5.3) and keep its `sheet` path.
+2. Render the side by side (step 5.4) and keep its `sheet` path, with the round 0 and last round
+   `top` views of step 5.3.
 3. Stop. Do not call `run_pipeline` without `buildOnly`. The person looks at the side by side and
    at the Board, and ships when they are happy. `replace_with_built_asset` with `undo: true` brings
    the old model back as it was, while no version came from elsewhere.
