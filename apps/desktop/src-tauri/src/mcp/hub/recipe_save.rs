@@ -53,6 +53,27 @@ pub struct GripSaveAsk {
     pub file: String,
 }
 
+/// Whether two grip save asks ask for the same grip: the same recipe, pose
+/// keys, frame, target entry, name, weapon, hands and bones. The library's
+/// newest revision, the revision it would be and its file are left out:
+/// they move when the library does while the ask waits, and the ask stays
+/// the same.
+fn same_ask(a: &RecipeSaveAsk, b: &RecipeSaveAsk) -> bool {
+    let grip = |ask: &RecipeSaveAsk| {
+        ask.grip.as_ref().map(|g| {
+            (
+                g.layer.clone(),
+                g.frame,
+                g.name.clone(),
+                g.weapon.clone(),
+                g.hands,
+                g.bones.clone(),
+            )
+        })
+    };
+    a.recipe == b.recipe && a.entry == b.entry && grip(a) == grip(b)
+}
+
 impl Hub {
     /// Records that saving a recipe to the library waits for a person. One
     /// per recipe: asking again returns the same id.
@@ -102,7 +123,7 @@ impl Hub {
 
     /// Records that saving a grip to the library waits for a person. One
     /// per pose key change of a recipe: asking again for the same grip
-    /// returns the same id, and asking for another grip while one waits is
+    /// ([`same_ask`]) returns the same id, and asking for another grip while one waits is
     /// refused with the waiting id (`Err`), so the card never shows another
     /// grip than the agent was answered with.
     pub fn request_grip_save(
@@ -128,7 +149,11 @@ impl Hub {
             }),
         };
         if let Some(found) = self.grip_save_for(&source.project, &source.recipe, &source.layer) {
-            return if found.recipe_save.as_ref() == Some(&ask) {
+            return if found
+                .recipe_save
+                .as_ref()
+                .is_some_and(|was| same_ask(was, &ask))
+            {
                 Ok(found.id)
             } else {
                 Err(found.id)
@@ -358,6 +383,17 @@ mod tests {
             hub.request_grip_save(&grip_plan(None), &source("l-2"), "Scythe charge, held"),
             Err(first.clone()),
             "another grip while one waits: refused with the waiting id"
+        );
+        // The library moved on while it waits (a newer revision, so another
+        // number and file): the same ask still gets the same approval.
+        let mut moved = grip_plan(Some("scythe-staff-grip"));
+        moved.latest = Some(3);
+        moved.revision = 4;
+        moved.file = "library/grips/scythe-staff-grip/r4.grip.json".into();
+        assert_eq!(
+            hub.request_grip_save(&moved, &source("l-2"), "Scythe charge, held"),
+            Ok(first.clone()),
+            "the library moving is not another grip"
         );
         let second = hub
             .request_grip_save(&grip_plan(None), &source("l-5"), "Scythe charge, held")
