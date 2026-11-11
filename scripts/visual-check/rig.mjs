@@ -88,19 +88,19 @@ export async function rigShots({ open, shot }) {
   await unchanged.context().close();
 
   // Wings on the arm bones: the parts to bind, an agent's measured ask, and a bind in the draft.
-  const winged = await openCase(open, 'rigid', /Moth/);
+  const winged = await openCase(open, 'rigid', /Winged imp/);
   const parts = winged.getByRole('region', { name: 'Rigid parts' });
   await parts.getByText('Part 1, left').waitFor();
   await parts.scrollIntoViewIfNeeded();
   await shot(winged, 'rig-rigid-parts');
   await winged.context().close();
-  const asked = await openCase(open, 'rigid-asked', /Moth/);
+  const asked = await openCase(open, 'rigid-asked', /Winged imp/);
   const ask = asked.getByRole('alertdialog', { name: 'Use the bound parts?' });
   await ask.waitFor();
   await ask.scrollIntoViewIfNeeded();
   await shot(asked, 'rig-rigid-asked');
   await asked.context().close();
-  const bound = await openCase(open, 'rigid-bound', /Moth/);
+  const bound = await openCase(open, 'rigid-bound', /Winged imp/);
   await bound.getByText('Parts 1 and 2 follow Spine2 in the draft').waitFor();
   await bound.getByRole('button', { name: 'Undo the bind' }).scrollIntoViewIfNeeded();
   await shot(bound, 'rig-rigid-bound');

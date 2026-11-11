@@ -26,7 +26,7 @@ const BOUND_STRETCH: Record<string, number> = {
 
 /** A fixed case with a wing on each arm and nothing bound yet. */
 export function wingedCase(): RigRecord {
-  const c = fixedCase('moth-v1', 'Moth');
+  const c = fixedCase('winged-imp-v1', 'Winged imp');
   return {
     ...c,
     parts: PARTS,
