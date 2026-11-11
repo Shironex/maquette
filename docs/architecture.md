@@ -678,6 +678,34 @@ from the spot over the frames it holds whole and how far it would move without t
 reads that as a Pin drift line per pin (`pin-<layer>`, 1 cm). The web app's step for step copy is
 `state/recipe-pins.ts`, held to `recipes/fixtures/pins.json`.
 
+Seams are judged on the baked frames. `recipes/seams.rs` lays each join's blend window and each
+freeze or hold over's ease in and out on the timeline, and `bake/seams.rs` measures, per seam, how
+far the hips move and the most any bone turns in one frame against the clips around it: past 2 cm
+of hips or 25 deg of turn it pops (warn only). The review gives a Seam pop and a Hold seam line,
+each for its worst seam, a Grip hand gap line per two handed grip (how far the hands drift from
+where they sit at its first whole frame, 2 cm) and a Mirror line naming side bones with no other
+side. `bake/sheet.rs` picks the frames worth a look (seams, keys, holds) for the pose sheet, which
+the web app draws from the baked clip in `features/viewer/pose-snapshots.ts`, and `bake/fixes.rs`
+orders fixes best first (a wider blend, a longer ease, a smaller key turn), each a recipe edit the review's Try
+it lays on the editor's draft unsaved (`state/apply-fix.ts`). The mock's copy is
+`ipc/mock/recipe-seams.ts`.
+
+Draft marks (`recipes/drafts.rs`) record what agents changed since a person last saved: the
+changes and keys they added or changed, and whether they made the recipe or touched its clips, time
+edits, blanks or mirror. They live beside the recipe at `recipes/<id>.drafts.json`, never in the
+recipe file, gathered over writes and pruned of what is gone. The MCP writes (`create_recipe`,
+`update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`) land in the file at once and bake
+as they are, then mark the diff under the client's name; a person's Save in the editor clears the
+marks, and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
+banner, a drafted tag on each change and blue keys (`state/recipe-drafts.ts`).
+
+The built in starters live in `animations::recipes::library::starters`: five plain ones and four
+combat ones (`starters/combat.rs`: a slash combo and a scythe charge, each with a left handed copy
+that mirrors it). A combat starter names its clips by name only, a few names tried in order, and
+lays its pose keys, hold and blend windows as shares of the clips it finds, with a grip held across
+the recipe; a clip the library lacks is listed in `RecipeStarter::missing` and the recipe guesses
+its length until it is imported.
+
 A write that leaves the blanks out keeps them as stored, and a prop blank sent open whose stored prop
 is no longer an asset keeps that prop: only reads open it (`RecipeRead::gone` lists them), so
 restoring the asset fills it again, unless the write names the blank in `clear`. A write may carry
