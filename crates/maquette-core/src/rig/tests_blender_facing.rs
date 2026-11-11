@@ -19,9 +19,9 @@ fn an_upright_creature_facing_plus_x_reads_plus_x_with_its_head_on_top() {
         .open(
             root,
             &config,
-            "Keeper",
+            "Strider",
             &file,
-            at_v1("keeper"),
+            at_v1("strider"),
             RigStarter::Person,
         )
         .expect("open");

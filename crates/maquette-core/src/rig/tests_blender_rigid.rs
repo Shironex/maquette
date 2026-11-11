@@ -24,9 +24,9 @@ fn wings_on_the_arm_bones_bind_to_the_chest_and_stretch_less() {
         .open(
             root,
             &config,
-            "Moth",
+            "Winged imp",
             &file,
-            at_v1("moth"),
+            at_v1("winged-imp"),
             RigStarter::Agent,
         )
         .expect("open");

@@ -37,17 +37,17 @@ fn part(n: u32) -> RigPart {
 /// A fixed humanoid case with two parts, changed by `change`, on disk.
 fn fixed(root: &std::path::Path, change: impl FnOnce(&mut RigRecord)) {
     let config = WorkspaceConfig::default();
-    let dir = work_dir(root, &config, "moth-v1");
+    let dir = work_dir(root, &config, "winged-imp-v1");
     std::fs::create_dir_all(&dir).expect("dir");
     let mut c = record::blank(
-        "moth-v1".to_string(),
-        "Moth".to_string(),
+        "winged-imp-v1".to_string(),
+        "Winged imp".to_string(),
         &dir,
         &dir.join("in.glb"),
         RigSource {
             inbox: None,
             project: Some("p".to_string()),
-            asset: Some("moth".to_string()),
+            asset: Some("winged-imp".to_string()),
             version: Some(1),
         },
     );
@@ -93,7 +93,7 @@ fn bind(root: &std::path::Path, parts: &[u32], bone: Option<&str>) -> String {
     doctors()
         .bind_rigid(
             (root, &config, tools),
-            "moth-v1",
+            "winged-imp-v1",
             (parts, bone),
             RigStarter::Agent,
         )
@@ -127,7 +127,9 @@ fn the_bind_follows_spine2_unless_a_bone_is_named() {
     let dir = tempfile::tempdir().expect("dir");
     fixed(dir.path(), |_| {});
     let config = WorkspaceConfig::default();
-    let case = doctors().get(dir.path(), &config, "moth-v1").expect("case");
+    let case = doctors()
+        .get(dir.path(), &config, "winged-imp-v1")
+        .expect("case");
     assert_eq!(default_bone(&case).as_deref(), Some("mixamorig:Spine2"));
     let check = rigid::cannot_bind(&case, &[1, 2], "mixamorig:Hips");
     assert_eq!(check, None);
@@ -139,7 +141,7 @@ fn a_rigid_run_cannot_start_without_a_bind_named() {
     let (root, config) = (dir.path(), WorkspaceConfig::default());
     fixed(root, |_| {});
     let tools = crate::pipeline::tools::Toolbox::default();
-    let answer = doctors().run(root, &config, tools, "moth-v1", RigRun::Rigid);
+    let answer = doctors().run(root, &config, tools, "winged-imp-v1", RigRun::Rigid);
     assert!(answer.is_err_and(|e| e.to_string().contains("Name the parts")));
 }
 
@@ -149,17 +151,22 @@ fn a_persons_yes_uses_the_bound_draft_and_a_no_after_it_puts_the_fix_back() {
     let (root, config) = (dir.path(), WorkspaceConfig::default());
     fixed(root, |c| c.rigid = Some(asked(true)));
     let d = doctors();
-    let yes = d.decide_rigid(root, &config, "moth-v1", true).expect("yes");
+    let yes = d
+        .decide_rigid(root, &config, "winged-imp-v1", true)
+        .expect("yes");
     assert_eq!(yes.draft.as_deref(), Some("rigid.glb"));
     let rigid = yes.rigid.expect("bind");
     assert_eq!(rigid.state, RigidState::Approved);
     assert_eq!(rigid.earlier.as_deref(), Some("draft.glb"));
     let undo = d
-        .decide_rigid(root, &config, "moth-v1", false)
+        .decide_rigid(root, &config, "winged-imp-v1", false)
         .expect("undo");
     assert_eq!(undo.draft.as_deref(), Some("draft.glb"));
     assert_eq!(undo.rigid.expect("bind").state, RigidState::Declined);
-    assert!(d.decide_rigid(root, &config, "moth-v1", true).is_err());
+    assert!(
+        d.decide_rigid(root, &config, "winged-imp-v1", true)
+            .is_err()
+    );
 }
 
 #[test]
@@ -168,11 +175,11 @@ fn a_no_keeps_the_fix_and_a_failed_check_cannot_be_approved() {
     let (root, config) = (dir.path(), WorkspaceConfig::default());
     fixed(root, |c| c.rigid = Some(asked(true)));
     let no = doctors()
-        .decide_rigid(root, &config, "moth-v1", false)
+        .decide_rigid(root, &config, "winged-imp-v1", false)
         .expect("no");
     assert_eq!(no.draft.as_deref(), Some("draft.glb"));
     assert_eq!(no.rigid.expect("bind").state, RigidState::Declined);
     fixed(root, |c| c.rigid = Some(asked(false)));
-    let yes = doctors().decide_rigid(root, &config, "moth-v1", true);
+    let yes = doctors().decide_rigid(root, &config, "winged-imp-v1", true);
     assert!(yes.is_err_and(|e| e.to_string().contains("did not hold")));
 }
