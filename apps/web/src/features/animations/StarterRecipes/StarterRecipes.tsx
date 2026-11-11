@@ -22,7 +22,7 @@ function Row({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const missing = !starter.rest && starter.base.status === 'missing';
+  const missing = !starter.rest && (starter.base.status === 'missing' || !!starter.missing?.length);
   return (
     <li>
       <button

@@ -8180,6 +8180,11 @@ export type RecipeStarter_Deserialize = {
 	joined?: string[],
 	/**  Left and right swap across the whole recipe: a left handed copy. */
 	mirror?: boolean,
+	/**
+	 *  The joined clips no clip of the clip library stands for yet, by the
+	 *  first name each tries.
+	 */
+	missing?: string[],
 	/**  Its holds and other time edits, as on the clips it would take. */
 	time?: TimeEdit_Deserialize[],
 };
@@ -8212,6 +8217,11 @@ export type RecipeStarter_Serialize = {
 	joined?: string[],
 	/**  Left and right swap across the whole recipe: a left handed copy. */
 	mirror?: boolean,
+	/**
+	 *  The joined clips no clip of the clip library stands for yet, by the
+	 *  first name each tries.
+	 */
+	missing?: string[],
 	/**  Its holds and other time edits, as on the clips it would take. */
 	time?: TimeEdit_Serialize[],
 };

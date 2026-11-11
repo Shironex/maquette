@@ -46,8 +46,11 @@ export const starterTimeLines = (s: RecipeStarter): string[] =>
 export function starterBase(s: RecipeStarter): { text: string; missing: boolean } {
   if (s.rest)
     return { text: "Runs on the model's rest pose, so it needs no clip.", missing: false };
+  const joins = s.missing?.length
+    ? ` It also joins ${s.missing.join(', ')}, not in the clip library yet: a copy waits for ${s.missing.length === 1 ? 'it' : 'them'} before it bakes.`
+    : '';
   if (s.base.status === 'found')
-    return { text: `Runs on ${s.baseName} from the clip library.`, missing: false };
+    return { text: `Runs on ${s.baseName} from the clip library.${joins}`, missing: !!joins };
   const names = s.clips.join(', ');
   return {
     text: `Runs on a clip called ${names}. None is in the clip library yet: a copy still works, and waits for the clip before it bakes.`,

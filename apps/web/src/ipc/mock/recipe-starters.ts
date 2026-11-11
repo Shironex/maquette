@@ -124,6 +124,9 @@ export function starterList(clips: readonly AnimationClip[]): RecipeStarter[] {
     const id = `${STARTER_PREFIX}${spec.key}`;
     const file = starterFile(id, clips) as RecipeFile;
     const [base, clip] = matchBase(clips, file.base);
+    const missing = (file.joined ?? [])
+      .filter(c => matchBase(clips, c)[0].status === 'missing')
+      .map(c => c.name);
     return {
       id,
       name: spec.name,
@@ -136,6 +139,7 @@ export function starterList(clips: readonly AnimationClip[]): RecipeStarter[] {
       base,
       mixamo: file.base.mixamo,
       ...(file.joined?.length ? { joined: file.joined.map(c => c.name) } : {}),
+      ...(missing.length ? { missing } : {}),
       mirror: Boolean(file.mirror),
       ...(file.time?.length ? { time: file.time } : {}),
     };
