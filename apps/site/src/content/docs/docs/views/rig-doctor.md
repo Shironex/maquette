@@ -42,7 +42,7 @@ Click a cell to enlarge it; in a comparison, before and draft open together unde
 
 Bones with no weight, or next to none, down their whole branch make no chain and do not count as legs. They stay in the file, and a line under the table names them.
 
-A creature's chains are read from the bone tree, so the guess needs a person. Its **Front** is the axis it faces in the file, as glTF and three.js name it: read from where its feet and toes point, and from where the head sits past the body when there are no feet. On two legs the head is the chain that reaches highest. The **Chains** table lists what each one was read as, with a **Not checked yet** mark until you answer. **Edit** lets you change what a chain is read as, and a leg's side. The body, neck and head, and the grouped spike rows stay as read.
+A creature's chains are read from the bone tree, so the guess needs a person. Its **Front** is the axis it faces in the file, as glTF and three.js name it: on two legs read from where its feet and toes point, where the head is the chain that reaches highest; on four legs or none, from where the head sits past the body. The **Chains** table lists what each one was read as, with a **Not checked yet** mark until you answer. **Edit** lets you change what a chain is read as, and a leg's side. The body, neck and head, and the grouped spike rows stay as read.
 
 - **Chains are right** marks them **Checked by you** and keeps the sheets.
 - **Save and start over** keeps your corrections and sends the case back to the pose test. An existing draft is removed.
@@ -62,6 +62,8 @@ A chain that sits off its mesh gets its weights mirrored from the other side. Mo
 Wings, a cape or a braid that an auto rig weighted to the arm bones swing with the arms, and a reweight can make them stretch more, not less. After the fix, a humanoid lists them under **Parts on the arm bones**: each connected patch of surface that an arm chain holds away from the arm, with its side, its size and the bones holding it. They are read from the model's own weights during the pose test, so they work on a single continuous mesh, where picking an island would not.
 
 Tick the parts, pick the bone they follow (**Spine2** by default, or another body bone), and click **Bind rigidly**. The bind runs on a copy of the draft: the parts get that one bone, blended into the few rings of surface around them so nothing tears where they meet the rest, and then the poses are tested again. Only weights change. The card shows the pose the draft stretched most in, its worst stretch before and after, and every row the bind moved. **Use bound parts** makes it the draft; **Keep the fix's weights** leaves the draft as it was. Once used, **Undo the bind** puts the fix's draft back. A check that did not hold keeps **Use bound parts** off.
+
+A bind and a joint move each make their own draft from the fix's, so only one of them can be in the draft. While the joint move waits for an answer, or after you approved it, **Bind rigidly** waits and says why. While a bind waits or is in the draft, **Approve and move** waits: answer or undo the bind first. **Keep weights only** always works.
 
 When one island holds nearly the whole model, the per island fix would tear sleeves and legs, so it does not run. On a humanoid, a narrow reweight moves only the arm and hand weight far from the arms, and the doctor says so. There is no second round.
 
