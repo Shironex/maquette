@@ -309,3 +309,17 @@ fn a_file_is_named_for_a_send_under_any_case_extension_and_copy_number() {
     assert_eq!(odd, "maq_lamp_v-x_tripo");
     assert!(is_named("maq_lamp_v-x_tripo (1).glb", &odd));
 }
+
+#[test]
+fn letters_with_marks_fold_and_the_number_is_read_as_a_number() {
+    // The web mock pins the same strings.
+    assert_eq!(
+        project_part("\u{141}\u{f3}d\u{17a} Bay"),
+        "lodz-bay--e69188"
+    );
+    assert_eq!(project_part("Caf\u{e9} \u{d6}lberg"), "cafe-olberg--d524a0");
+    assert_eq!(project_part("\u{96ea} island"), "island--38c7be");
+    let stem = |job: &str| export_stem("moon", job, "lamp", ProviderId::Tripo);
+    assert_eq!(stem("lamp-07"), "maq_moon_lamp_v7_tripo");
+    assert_eq!(stem("lamp-x"), "maq_moon_lamp_v-x_tripo");
+}
