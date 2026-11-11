@@ -135,7 +135,8 @@ function layerProblem(
 
 /**
  * The core's refusal of a pin holding its bone with IK over shares another
- * pin or a reach on that bone also holds, said on the later of the two.
+ * pin or a reach on that bone also holds (touching at one share counts:
+ * both hold that frame), said on the later of the two.
  */
 function ikOverlap(layer: RecipeLayer, before: readonly RecipeLayer[]): string | null {
   const ik = (l: RecipeLayer) => l.kind === 'pin' || l.kind === 'reach';
@@ -148,8 +149,8 @@ function ikOverlap(layer: RecipeLayer, before: readonly RecipeLayer[]): string |
       ik(b) &&
       (b.kind === 'pin' || layer.kind === 'pin') &&
       b.bone === layer.bone &&
-      bStart < end &&
-      start < bEnd
+      bStart <= end &&
+      start <= bEnd
     );
   });
   return other
