@@ -406,7 +406,7 @@ export const commands = {
 	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
 	/**
 	 *  Replaces a recipe's name, changes, blanks or any of them in one write,
-	 *  checked whole first.
+	 *  checked whole first. A person saves here ([`save`]).
 	 */
 	recipeUpdate: (project: string, id: string, change: RecipeChange_Deserialize) => __TAURI_INVOKE<RecipeDoc_Serialize>("recipe_update", { project, id, change }),
 	/**  Moves the recipe file into the workspace trash; returns where it went. */
@@ -3381,6 +3381,14 @@ export type DownloadsWatch = {
 	enabled: boolean,
 	/**  `None`: the system's Downloads folder. */
 	folder: string | null,
+};
+
+/**  A pose key an agent added or changed. */
+export type DraftKey = {
+	/**  The change it sits on. */
+	layer: string,
+	clip: number,
+	frame: number,
 };
 
 export type Easing = "linear" | 
@@ -7658,6 +7666,11 @@ export type RecipeDoc_Deserialize = {
 	 *  bookkeeping; a bake is out of date when this changes, not `version`.
 	 */
 	motionVersion: string,
+	/**
+	 *  What agents changed since a person last saved it, which the editor
+	 *  shows as drafted; none when a person has saved since.
+	 */
+	drafts?: RecipeDrafts | null,
 };
 
 /**  One recipe as the view and agents get it. */
@@ -7691,6 +7704,35 @@ export type RecipeDoc_Serialize = {
 	 *  bookkeeping; a bake is out of date when this changes, not `version`.
 	 */
 	motionVersion: string,
+	/**
+	 *  What agents changed since a person last saved it, which the editor
+	 *  shows as drafted; none when a person has saved since.
+	 */
+	drafts?: RecipeDrafts | null,
+};
+
+/**  What agents changed in a recipe since a person saved it. */
+export type RecipeDrafts = {
+	/**  The agent of the newest write, as people see its name. */
+	by?: string,
+	/**  When it wrote, RFC 3339. */
+	at?: string,
+	/**  How many agent writes the marks gather. */
+	writes?: number,
+	/**  An agent made the recipe. */
+	made?: boolean,
+	/**  Changes an agent added or changed, by id. */
+	layers?: string[],
+	/**  Pose keys an agent added or changed. */
+	keys?: DraftKey[],
+	/**  An agent changed the clips (which, their trims or blends). */
+	clips?: boolean,
+	/**  An agent changed the time edits. */
+	time?: boolean,
+	/**  An agent changed the blanks. */
+	blanks?: boolean,
+	/**  An agent turned the mirror on or off. */
+	mirror?: boolean,
 };
 
 /**  Where an export went. */

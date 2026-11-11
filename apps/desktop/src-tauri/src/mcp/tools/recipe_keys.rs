@@ -12,13 +12,15 @@ use maquette_core::recipes::{
     KeyEase, KeyEdits, KeyMove, KeyRemove, KeySet, LayerKind, LayerMode, RecipeChange, edit_keys,
     empty_pose_layer,
 };
+use rmcp::RoleServer;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router};
+use rmcp::{Peer, schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::hints::{step, with_next};
-use super::recipes::change_view;
+use super::plans::agent_name;
+use super::recipes::{change_view, drafts_view};
 use super::{McpTools, Out, ToolError, respond, to_short_value, to_value};
 use crate::commands::recipes as commands;
 
@@ -192,7 +194,12 @@ impl McpTools {
     #[tool(
         description = "Add, move or remove pose keys on one pose key change of an animation recipe, by bone and frame, as the Motion view's pose keys do. A key sits on a clip's own frame (clip 0 the base, then the joined clips; on the rest pose the recipe's own frame) and turns only the bones sent, degrees [x, y, z] about the model's own axes (X to its left, Y up, Z ahead) as the bone stands under its parent: added to the clip (add, the default) or in place of its turn, from the rest pose (replace). Each bone blends between the keys that turn it, as the later key's ease says (smooth, in, out, linear or step); before its first key and after its last it holds. remove goes first, then move, then set; a key left with no bones goes. layer names the change; left out or new, a pose key change is added at the end. Needs expected, the version get_recipe answered with; a recipe changed since is refused (moved). Checked like update_recipe (64 keys a change, 32 bones a key, 256 keys and 1024 bone turns a recipe, turns within 180). Answers the change, its keys, bones and the keyed turns past the humanoid joint limits (warn only). Pose keys bake. Nothing is baked or spent."
     )]
-    async fn set_recipe_keys(&self, Parameters(args): Parameters<SetRecipeKeysArgs>) -> Out {
+    async fn set_recipe_keys(
+        &self,
+        peer: Peer<RoleServer>,
+        Parameters(args): Parameters<SetRecipeKeysArgs>,
+    ) -> Out {
+        let by = agent_name(None, &peer);
         let found = self
             .blocking(move |host, _| {
                 let edits = edits_of(&args)?;
@@ -229,7 +236,10 @@ impl McpTools {
                     expected: Some(args.expected.clone()),
                     ..RecipeChange::default()
                 };
-                let doc = commands::update(host.session(), &args.project, &args.recipe, change)?;
+                let mut done =
+                    commands::update(host.session(), &args.project, &args.recipe, change)?;
+                commands::drafted(host.session(), &args.project, Some(&doc.recipe), &mut done, &by);
+                let doc = done;
                 host.recipe_changed(&args.project);
                 let layer = doc
                     .recipe
@@ -249,13 +259,16 @@ impl McpTools {
                         })
                     })
                     .collect();
-                let out = json!({
+                let mut out = json!({
                     "recipe": doc.id, "version": doc.version, "frames": timeline(&doc.recipe).frames,
                     "layer": change_view(layer),
                     "keys": layer.keys.len(),
                     "bones": keyed_bones(layer).into_iter().collect::<Vec<_>>(),
                     "overLimits": over,
                 });
+                if let Some(drafts) = &doc.drafts {
+                    out["drafts"] = drafts_view(drafts);
+                }
                 Ok(with_next(
                     out,
                     vec![

@@ -8,8 +8,10 @@ use maquette_core::CoreError;
 use maquette_core::animations::recipes::{self as library_recipes, ClipPick, RecipeDoc};
 use maquette_core::assets::remove::project_trash;
 use maquette_core::error::ErrorPayload;
+use maquette_core::project::now_rfc3339;
 use maquette_core::project::{self, ProjectManifest};
-use maquette_core::recipes::{self, RecipeBase, RecipeChange, RecipeSummary};
+use maquette_core::recipes::drafts;
+use maquette_core::recipes::{self, RecipeBase, RecipeChange, RecipeFile, RecipeSummary};
 use tauri::State;
 
 use super::CommandResult;
@@ -106,6 +108,25 @@ pub(crate) fn update(
     library_recipes::update(&root, &dir, &manifest, id, change).map_err(coded)
 }
 
+/// Marks what the agent `by` changed in `doc` (from `before`, none when it
+/// made it) as drafts, and puts the marks on `doc`. The write itself has
+/// landed; a mark that cannot be written only loses the editor's hint.
+pub(crate) fn drafted(
+    session: &Session,
+    project: &str,
+    before: Option<&RecipeFile>,
+    doc: &mut RecipeDoc,
+    by: &str,
+) {
+    let Ok(dir) = project_dir(session, project) else {
+        return;
+    };
+    match drafts::mark(&dir, &doc.id, before, &doc.recipe, by, &now_rfc3339()) {
+        Ok(marks) => doc.drafts = marks,
+        Err(err) => tracing::warn!("recipe draft marks for {}: {err}", doc.id),
+    }
+}
+
 pub(crate) fn remove(session: &Session, project: &str, id: &str) -> CommandResult<String> {
     let (root, config) = session.workspace()?;
     let dir = project_dir(session, project)?;
@@ -159,7 +180,7 @@ pub fn recipe_rename(
 }
 
 /// Replaces a recipe's name, changes, blanks or any of them in one write,
-/// checked whole first.
+/// checked whole first. A person saves here ([`save`]).
 #[tauri::command(async)]
 #[specta::specta]
 pub fn recipe_update(
@@ -168,7 +189,25 @@ pub fn recipe_update(
     id: String,
     change: RecipeChange,
 ) -> CommandResult<RecipeDoc> {
-    update(&session, &project, &id, change)
+    save(&session, &project, &id, change)
+}
+
+/// A person's save of the recipe `id` in the editor: the change, and the
+/// draft marks cleared, since what agents drafted is theirs now.
+///
+/// # Errors
+///
+/// As the change is refused, or when the marks cannot be cleared.
+pub fn save(
+    session: &Session,
+    project: &str,
+    id: &str,
+    change: RecipeChange,
+) -> CommandResult<RecipeDoc> {
+    let mut doc = update(session, project, id, change)?;
+    drafts::clear(&project_dir(session, project)?, id)?;
+    doc.drafts = None;
+    Ok(doc)
 }
 
 /// Moves the recipe file into the workspace trash; returns where it went.

@@ -9,12 +9,14 @@ use maquette_core::animations::recipes::library::starters::{RecipeStarter, start
 use maquette_core::animations::recipes::library::{
     self, AGENT_EXPORTS, ExportSource, LibraryRecipeDoc, RecipeUsed, UseRecipe,
 };
+use rmcp::RoleServer;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router};
+use rmcp::{Peer, schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::hints::{step, with_next};
+use super::plans::agent_name;
 use super::recipes::{change_view, recipe_view};
 use super::{McpTools, Out, ToolError, WAITING, respond, to_value, workspace};
 use crate::commands::{recipe_library as commands, recipes};
@@ -223,7 +225,12 @@ impl McpTools {
     #[tool(
         description = "Copy a library recipe's revision (the newest by default) into a project as a new recipe, as the Animations library's Use in project does. It remembers the library recipe and revision, so get_recipe can say when the library has a newer one. A starter id (starter:...) copies that starter instead, with no library link: its base is the first clip of the clip library with one of its names (whatever its frames), else the first name, reading as missing; a rest pose starter needs no clip. Point blanks keep their points; a prop blank whose asset the project does not have opens, and notes says which. The base clip is matched in the clip library by name and frame count: missing, the recipe is still made and says so; another hash warns. Writes one file, spends nothing. Website and game projects both take recipes."
     )]
-    async fn use_recipe(&self, Parameters(args): Parameters<UseRecipeArgs>) -> Out {
+    async fn use_recipe(
+        &self,
+        peer: Peer<RoleServer>,
+        Parameters(args): Parameters<UseRecipeArgs>,
+    ) -> Out {
+        let by = agent_name(None, &peer);
         let found = self
             .blocking(move |host, _| {
                 let request = UseRecipe {
@@ -232,7 +239,14 @@ impl McpTools {
                     revision: args.revision,
                     name: args.name,
                 };
-                let used = commands::use_in(host.session(), &request)?;
+                let mut used = commands::use_in(host.session(), &request)?;
+                crate::commands::recipes::drafted(
+                    host.session(),
+                    &request.project,
+                    None,
+                    &mut used.doc,
+                    &by,
+                );
                 host.recipe_changed(&request.project);
                 Ok(used_view(&used))
             })
