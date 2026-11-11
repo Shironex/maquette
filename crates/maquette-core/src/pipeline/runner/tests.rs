@@ -975,3 +975,44 @@ fn a_repo_given_for_one_run_stays_on_its_record() {
     let plain = runner.run_blocking(s).expect("run");
     assert_eq!(plain.repo_for_run, None, "the project's own repo");
 }
+
+#[test]
+fn a_run_only_queued_on_a_repo_counts_and_the_repo_frees_once_it_ends() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("wait", "tools/wait.sh", &[], &[])],
+    );
+    // The first run holds the lane until its gate file appears.
+    script(
+        &s,
+        "wait.sh",
+        "echo started\nwhile [ ! -f \"$1/go\" ]; do sleep 0.05; done\n",
+    );
+    let sink = Arc::new(Recorder::default());
+    let runner = PipelineRunner::new(sink.clone());
+    let into = |repo: &str| {
+        let mut forced = s.clone();
+        forced.force = true;
+        forced.vars.insert("siteRepo".into(), repo.into());
+        forced
+    };
+    let on_site = |runner: &PipelineRunner| runner.any_run_with("siteRepo", |r| r == "/work/site");
+    runner.submit(into("/work/other")).expect("first");
+    assert!(sink.wait_for_line("started", Duration::from_secs(10)));
+    let queued = runner.submit(into("/work/site")).expect("second");
+    assert_eq!(queued.state, RunState::Queued);
+    assert!(on_site(&runner), "a queued run into the repo counts");
+    assert!(!runner.any_run_with("siteRepo", |r| r == "/work/elsewhere"));
+
+    fs::write(s.project_dir.join("go"), b"").expect("go");
+    let started = Instant::now();
+    while runner.active("moon").0.is_some() || !runner.active("moon").1.is_empty() {
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "the runs did not end"
+        );
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(!on_site(&runner), "the repo frees once its run ends");
+}
