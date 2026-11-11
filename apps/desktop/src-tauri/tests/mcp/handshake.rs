@@ -498,7 +498,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(
         hub.approvals()[0].detail,
         Some(format!(
-            "Writes to {}",
+            "Writes to {}: models in public/models, posters in public/posters, no data file",
             maquette_core::fs::real_folder(&ship_repo).display()
         )),
         "the prompt says where Ship writes"
