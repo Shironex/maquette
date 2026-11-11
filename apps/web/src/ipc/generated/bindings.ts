@@ -5608,7 +5608,10 @@ export type NewBuilt = {
 	 *  return it.
 	 */
 	root: string | null,
-	/**  Overwrite files in `built/` that differ from these. */
+	/**
+	 *  Overwrite files in `built/` that differ from these, each kept first
+	 *  as `<name>.bak` (`.bak2` and on when that is taken).
+	 */
 	replace: boolean,
 };
 
@@ -9723,8 +9726,9 @@ export type SeamCheck = {
 	ease: number | null,
 	easeMost: number | null,
 	/**
-	 *  The bake reported the hips over the window; when not, nothing of
-	 *  it was measured and it never pops.
+	 *  The bake reported the hips over the window and there are steps
+	 *  around it, outside every seam, to hold it to; when not, nothing of it
+	 *  was measured and it never pops.
 	 */
 	measured?: boolean,
 };
