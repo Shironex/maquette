@@ -41,6 +41,8 @@ export interface GripSheet {
   name: string;
   weapon: string;
   hands: GripHands;
+  /** The hand that holds a two hand grip: right unless an agent asked for left. */
+  holds: GripSide;
   /** The bones kept, by VRM name. */
   bones: string[];
   /** The library grip it becomes a revision of; null for a new grip. */
@@ -54,7 +56,9 @@ export interface GripSheet {
 }
 
 /** What the sheet opens with besides the pose: an agent's proposal. */
-export type GripPreset = Partial<Pick<GripSheet, 'name' | 'weapon' | 'hands' | 'bones' | 'entry'>>;
+export type GripPreset = Partial<
+  Pick<GripSheet, 'name' | 'weapon' | 'hands' | 'holds' | 'bones' | 'entry'>
+>;
 
 /** The choices the person makes in the sheet. */
 export type GripChoice = Partial<Pick<GripSheet, 'name' | 'weapon' | 'hands' | 'bones' | 'entry'>>;
@@ -84,7 +88,7 @@ export const handsOfHolds = (hands: GripSaveAsk['hands']): GripHands =>
   hands.supports ? 'both' : hands.holds;
 
 /**
- * The grip `sheet` would save: its kept bones for its hands, the right
+ * The grip `sheet` would save: its kept bones for its hands, its holding
  * hand holding a two hand grip; null while the pose is not read or turns
  * no bone on a side asked for.
  */
@@ -93,7 +97,7 @@ export function gripOfSheet(sheet: GripSheet): GripFile | null {
   const kept: GripPose = Object.fromEntries(
     Object.entries(sheet.pose).filter(([bone]) => sheet.bones.includes(bone))
   );
-  const made = gripOf(kept, sheet.hands, 'right' as GripSide);
+  const made = gripOf(kept, sheet.hands, sheet.holds);
   if (!made) return null;
   return {
     version: GRIP_VERSION,
@@ -149,6 +153,7 @@ export const useGripSaveStore = create<GripSaveStore>((set, get) => {
         name: preset.name ?? '',
         weapon: preset.weapon ?? 'other',
         hands: preset.hands ?? 'both',
+        holds: preset.holds ?? 'right',
         bones: preset.bones ?? [],
         entry: preset.entry ?? null,
         plan: null,
@@ -201,6 +206,7 @@ export const useGripSaveStore = create<GripSaveStore>((set, get) => {
         name: ask.name,
         weapon: ask.weapon,
         hands: handsOfHolds(ask.hands),
+        holds: ask.hands.holds,
         bones: ask.bones,
         entry,
       });

@@ -117,6 +117,22 @@ describe('the save a grip sheet', () => {
     expect(sheet().plan?.revision).toBe(3);
   });
 
+  it('keeps the hand an agent asked to hold a two hand grip', async () => {
+    await openRecipe('scythe-charge-held');
+    await store().show('frostveil', 'scythe-charge-held', null, {
+      layer: 'l-1',
+      frame: 30,
+      name: 'Staff, left lead',
+      weapon: 'staff',
+      hands: { holds: 'left', supports: 'right' },
+      bones: ['rightHand', 'leftHand'],
+      latest: null,
+      file: 'library/grips/staff-left-lead/r1.grip.json',
+    });
+    expect(sheet()).toMatchObject({ hands: 'both', holds: 'left' });
+    expect(sheet().plan?.grip.hands).toEqual({ holds: 'left', supports: 'right' });
+  });
+
   it('says when the change turns no hand at the frame', async () => {
     await openRecipe('scythe-charge-held');
     await store().open('frostveil', 'scythe-charge-held', 'l-2', 30);
