@@ -1193,12 +1193,18 @@ its gate from `commands/pipeline/run.rs::agent_run`, which `run_pipeline` calls.
 whatever that rule says, when an agent chose the repo the run ships into (`ShipReason::AgentRepo`):
 the run's own `repo`, or a project in `AppState.agent_set_repos`, the mark the Page view's Ask
 first keeps. `agent_run` reads the repo and its mark in one `Session::repo_turn`, so no save lands
-between the two. The site folders an agent set wait the same way (`ShipReason::AgentFolders`):
-`commands/ship.rs::save` takes who saves, puts `AppState.agent_set_folders` down before an agent's
-folders are written and takes it off once a person's are (the Ship view's Save folders, which a
-person may press on the agent's folders unchanged, `ShipTarget.setByAgent`). A folder change is
-refused while the project has a run going, and the card names the repo with the folders in it
-from `maquette.site.json` (`run.rs::site_destination`).
+between the two. The site folders an agent set wait the same way (`ShipReason::AgentFolders`).
+`AppState.agent_set_folders` is keyed by the repo's real folder, not a project, because the
+folders live in that repo's `maquette.site.json`: a run from any project or workspace whose repo
+resolves there waits. `commands/ship.rs::save` takes who saves, puts the mark down before an
+agent's folders are written and takes it off once a person's are (the Ship view's Save folders,
+which a person may press on the agent's folders unchanged, `ShipTarget.setByAgent`). An agent's
+data file that names a file already in the site, other than its data file, is refused
+(`refuse_foreign_data`). A folder change is refused while the project has a run going, and
+`agent_run` hands the setup and gate to a `submit` closure and holds the repo turn until it has
+queued the run, so no save lands between the gate's answer and the queued run. The card names the
+repo with the folders from `maquette.site.json` (`run.rs::site_destination`). A `state.json` from
+before the mark has none, so folders an agent wrote before then count as a person's.
 
 ## Baked light
 
