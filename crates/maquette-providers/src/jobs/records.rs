@@ -117,8 +117,11 @@ impl ProviderJobs {
             for item in items.iter_mut() {
                 // The job that saved the file, then its name: one job of one
                 // project, or no link.
-                let Some(job) = owner_of(item.inbox_name(), jobs.iter().map(|e| &e.stored.job))
-                else {
+                let Some(job) = owner_of(
+                    item.inbox_name(),
+                    item.modified_ms(),
+                    jobs.iter().map(|e| &e.stored.job),
+                ) else {
                     continue;
                 };
                 item.link_send(InboxLink {
@@ -246,10 +249,12 @@ impl ProviderJobs {
         closed.then_some(key.id)
     }
 
-    /// The job the inbox file `item` belongs to, if it is one job's.
+    /// The job the inbox file `item` belongs to, if it is one job's. Its
+    /// time is not known here, so a bare id reaches no send: one that took
+    /// the file by its id saved it as its own when the inbox was listed.
     fn owner(&self, item: &str) -> Option<JobKey> {
         let jobs = self.shared.jobs();
-        owner_of(item, jobs.iter().map(|e| &e.stored.job)).map(JobKey::of)
+        owner_of(item, None, jobs.iter().map(|e| &e.stored.job)).map(JobKey::of)
     }
 
     /// Brings a model someone picked an asset for (a download the watcher

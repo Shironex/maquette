@@ -922,9 +922,10 @@ verdicts, the MCP approval waits), the Tauri commands and the web store pass bot
 - **Inbox.** The inbox is one folder for the workspace and its files are named after job ids.
   `jobs/owner.rs` finds the job a file belongs to: the one that saved it and is in the Inbox state,
   else the send that waits for that export name, else the longest job id the name starts with,
-  among sends still waiting or with their model in the inbox (waiting first). A job that is over
-  never gets a file by its id: another project's send of it may be gone with its project. Two
-  candidates left means no link. `write_inbox` picks
+  among sends still waiting or with their model in the inbox (waiting first) that were made before
+  the file was written (with the Downloads watch's one minute of slack). A job that is over, or a
+  send newer than the file, never gets it by its id: another project's send of that id may be gone
+  with its project. Two candidates left means no link. `write_inbox` picks
   the name and writes under one lock, so two projects' jobs of one id never take the same file.
 - **Files.** A split or re-texture keeps the model it went out with in
   `<cache>/sends/<project>/<job id>/` (`jobs/split_files.rs`). A job from the older numbering keeps

@@ -12,6 +12,7 @@ use super::records::write_inbox;
 use super::split_files::{SOURCE_FILE, files_dir, source_of};
 use super::tests::meshy_job;
 use super::{JobState, Provider, ProviderJob, Stored, Workspace};
+use crate::handback::SLACK_MS;
 use maquette_model::workspace::WorkspaceConfig;
 
 /// A job `id` of `project` in `state`, by hand on Tripo unless said.
@@ -50,6 +51,9 @@ fn handed(mut job: ProviderJob, name: &str) -> ProviderJob {
     job
 }
 
+/// A file time after every job's: a bare id may reach a waiting send.
+const AFTER: Option<f64> = Some(f64::MAX);
+
 fn key(job: Option<&ProviderJob>) -> Option<(&str, &str)> {
     job.map(|j| (j.project.as_str(), j.id.as_str()))
 }
@@ -75,7 +79,7 @@ fn the_job_whose_model_is_in_the_inbox_owns_the_file_not_one_that_had_the_name()
         Some(("bay", "lamp-1"))
     );
     assert_eq!(
-        key(owner_of("lamp-1.glb", jobs.iter())),
+        key(owner_of("lamp-1.glb", AFTER, jobs.iter())),
         Some(("bay", "lamp-1"))
     );
     assert_eq!(key(saved_owner("lamp-2.glb", jobs.iter())), None);
@@ -97,19 +101,19 @@ fn a_file_saved_by_hand_is_one_sends_or_nobodys() {
     // One send waits under the id: the file is its model.
     let one = [waiting("moon"), job("bay", "lamp-1", JobState::Accepted)];
     assert_eq!(
-        key(owner_of("Lamp_1_final.glb", one.iter())),
+        key(owner_of("Lamp_1_final.glb", AFTER, one.iter())),
         Some(("moon", "lamp-1"))
     );
     // Two wait under it, in two projects: no guess.
     let two = [waiting("moon"), waiting("bay")];
-    assert_eq!(key(owner_of("lamp-1.glb", two.iter())), None);
+    assert_eq!(key(owner_of("lamp-1.glb", AFTER, two.iter())), None);
     // None waits, one has its model in the inbox under another name.
     let landed = [
         job("moon", "lamp-1", JobState::Accepted),
         job("bay", "lamp-1", JobState::Inbox),
     ];
     assert_eq!(
-        key(owner_of("lamp-1-b.glb", landed.iter())),
+        key(owner_of("lamp-1-b.glb", AFTER, landed.iter())),
         Some(("bay", "lamp-1"))
     );
     // Only finished ones are left: nobody's, also when one job alone has
@@ -118,10 +122,18 @@ fn a_file_saved_by_hand_is_one_sends_or_nobodys() {
         job("moon", "lamp-1", JobState::Accepted),
         job("bay", "lamp-1", JobState::Cancelled),
     ];
-    assert_eq!(key(owner_of("lamp-1.glb", over.iter())), None);
-    assert_eq!(key(owner_of("lamp-1.glb", over[..1].iter())), None);
-    assert_eq!(key(owner_of("lamp-1.glb", over[1..].iter())), None);
-    assert_eq!(key(owner_of("crate-1.glb", two.iter())), None);
+    assert_eq!(key(owner_of("lamp-1.glb", AFTER, over.iter())), None);
+    assert_eq!(key(owner_of("lamp-1.glb", AFTER, over[..1].iter())), None);
+    assert_eq!(key(owner_of("lamp-1.glb", AFTER, over[1..].iter())), None);
+    assert_eq!(key(owner_of("crate-1.glb", AFTER, two.iter())), None);
+    // A file older than the send that waits under its id, or of no known
+    // time, is not its model.
+    let made = one[0].created_at_ms;
+    let at = |ms: f64| key(owner_of("lamp-1.glb", Some(ms), one.iter()));
+    assert_eq!(at(made - SLACK_MS - 1.0), None);
+    assert_eq!(at(made - SLACK_MS + 1.0), Some(("moon", "lamp-1")));
+    assert_eq!(key(owner_of("lamp-1.glb", None, one.iter())), None);
+    assert_eq!(key(owner_of("lamp-1-b.glb", None, landed.iter())), None);
 }
 
 #[test]
@@ -143,7 +155,7 @@ fn an_export_name_says_which_projects_send_a_file_is_for() {
         // A card from before export names: the older form, from its id.
         job("cove", "crate-2", JobState::Waiting),
     ];
-    let owner = |file: &str| key(owner_of(file, jobs.iter()));
+    let owner = |file: &str| key(owner_of(file, AFTER, jobs.iter()));
     assert_eq!(owner("maq_bay_lamp_v1_tripo.glb"), Some(("bay", "lamp-1")));
     assert_eq!(
         owner("MAQ_Moon_Lamp_V1_Tripo (2).glb"),

@@ -137,6 +137,13 @@ pub trait SendLinked {
     /// Links it to its send.
     fn link_send(&mut self, link: InboxLink);
 
+    /// When its file was last written, in milliseconds since the epoch, if
+    /// known. A file named only by a job id links to a send only when it
+    /// came after the send was made.
+    fn modified_ms(&self) -> Option<f64> {
+        None
+    }
+
     /// Takes what the send record says: its kind, unless someone picked
     /// one, and the maps and texture size it asked for. `folder` is the
     /// game folder budget of the asset it was sent for, in a game project.

@@ -7,6 +7,7 @@
 use std::path::Path;
 
 use super::{JobState, ProviderJob};
+use crate::handback::SLACK_MS;
 use crate::naming::is_named;
 
 /// Lower case with `_` and spaces read as `-`, for matching file names to
@@ -79,11 +80,15 @@ pub(super) fn saved_owner<'a>(
 /// handed out with, else the longest job id the name starts with (how a
 /// model saved into the inbox by hand under its send's id reads). A bare id
 /// only reaches a send still waiting for its model or one whose model is in
-/// the inbox: a job that is over may share the id with a send of another
-/// project, one that is gone (removed with its project, say), and a link
-/// would hand that model, its accept and its redo to the wrong asset.
+/// the inbox, and only when the file was written after that send was made
+/// (`modified_ms`, with the Downloads watch's slack; unknown means no). A
+/// job that is over, or a send newer than the file, may share the id with
+/// a send of another project that is gone (removed with its project, say),
+/// and a link would hand that model, its accept and its redo to the wrong
+/// asset.
 pub(super) fn owner_of<'a>(
     item: &str,
+    modified_ms: Option<f64>,
     jobs: impl Iterator<Item = &'a ProviderJob>,
 ) -> Option<&'a ProviderJob> {
     let jobs: Vec<&'a ProviderJob> = jobs.collect();
@@ -102,6 +107,7 @@ pub(super) fn owner_of<'a>(
         .iter()
         .copied()
         .filter(|job| matches!(job.state, JobState::Waiting | JobState::Inbox))
+        .filter(|job| modified_ms.is_some_and(|at| at + SLACK_MS >= job.created_at_ms))
         .collect();
     let id = match_job(&file_stem(item), open.iter().map(|job| job.id.as_str()))?;
     let named: Vec<&'a ProviderJob> = open.iter().copied().filter(|job| job.id == id).collect();
