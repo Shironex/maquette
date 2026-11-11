@@ -140,14 +140,18 @@ function layerProblem(
 function ikOverlap(layer: RecipeLayer, before: readonly RecipeLayer[]): string | null {
   const ik = (l: RecipeLayer) => l.kind === 'pin' || l.kind === 'reach';
   if (!ik(layer)) return null;
-  const other = before.find(
-    b =>
+  const span = (l: RecipeLayer) => [l.settings.start ?? 0, l.settings.end ?? 1] as const;
+  const [start, end] = span(layer);
+  const other = before.find(b => {
+    const [bStart, bEnd] = span(b);
+    return (
       ik(b) &&
       (b.kind === 'pin' || layer.kind === 'pin') &&
       b.bone === layer.bone &&
-      b.settings.start < layer.settings.end &&
-      layer.settings.start < b.settings.end
-  );
+      bStart < end &&
+      start < bEnd
+    );
+  });
   return other
     ? `The ${other.kind} ${other.id} and the ${layer.kind} ${layer.id} both hold ${layer.bone} with IK over the same part of the recipe. Move one so they do not overlap, or take one out.`
     : null;
