@@ -111,6 +111,28 @@ describe('the recipe review', () => {
     expect(useRecipeBakesStore.getState().bakes[`frostveil/${LANTERN}`]?.state).toBe('running');
   });
 
+  it('says on the add card when the bake holds agent drafts nobody saved', async () => {
+    await openReview();
+    expect(screen.queryByText(/agent drafts you have not saved/)).toBeNull();
+    await useRecipeEditorStore.getState().open('frostveil', LANTERN);
+    const editing = useRecipeEditorStore.getState().editing;
+    if (!editing) throw new Error('not open');
+    const drafts = {
+      by: 'Motion agent',
+      at: '',
+      writes: 1,
+      made: false,
+      layers: ['l-1'],
+      keys: [],
+      clips: false,
+      time: false,
+      blanks: false,
+      mirror: false,
+    };
+    useRecipeEditorStore.setState({ editing: { ...editing, doc: { ...editing.doc, drafts } } });
+    expect(await screen.findByText(/agent drafts you have not saved/)).toBeTruthy();
+  });
+
   it('says when an agent asked to add the bake', async () => {
     await openReview();
     useAgentsStore.setState({

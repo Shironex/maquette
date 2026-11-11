@@ -6,6 +6,7 @@ import RecipePreview from '@/features/viewer/RecipePreview';
 import { fileUrl } from '@/ipc/files';
 import type { RecipeReviewLine } from '@/ipc/client';
 import { lazyAfterPaint } from '@/lib/after-paint';
+import { DRAFTS_NOT_SAVED } from '@/state/recipe-drafts';
 import { useKeepClearOfFloating } from '@/lib/useFloatingClearance';
 import {
   STATUS_LOOK,
@@ -259,6 +260,7 @@ export default function RecipeReview() {
         <p className="min-w-0 flex-1 text-meta text-fg-dim">
           Adds {result.clip} to {result.assetName} as v{result.fromVersion + 1}
           {result.mixamo ? ', marked as a Mixamo bake' : ''}. The staged model is cleared.
+          {r.drafted ? ` ${DRAFTS_NOT_SAVED}` : ''}
         </p>
         <Button variant="secondary" onClick={r.close}>
           Close

@@ -46,6 +46,12 @@ export function useRecipeReview() {
         a => a.kind === 'recipe-bake' && a.project === project && a.job === recipe
       ) ?? null
   );
+  // What agents drafted and nobody has saved yet, when the editor holds it.
+  const drafted = useRecipeEditorStore(s =>
+    s.editing?.project === project && s.editing.id === recipe
+      ? Boolean(s.editing.doc.drafts)
+      : false
+  );
   const [show, setShow] = useState<ReviewShow>('both');
   const [share, setShare] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -77,6 +83,7 @@ export function useRecipeReview() {
     busy,
     addError,
     approval,
+    drafted,
     model: model ? { asset: model.asset, name: model.name, file: model.file } : null,
     clip: item ? { id: item.clip.id, name: item.clip.name, file: item.file } : null,
     rest,

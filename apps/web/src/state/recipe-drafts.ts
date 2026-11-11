@@ -9,6 +9,9 @@ import { formatAgo } from '@/lib/format';
 
 /** The legend under the banner. */
 export const DRAFTS_LEGEND = 'Blue: drafted by an agent, until you save.';
+/** The add card's note when the bake holds agent drafts nobody has saved. */
+export const DRAFTS_NOT_SAVED =
+  'It bakes agent drafts you have not saved yet: look at them in the editor first.';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
