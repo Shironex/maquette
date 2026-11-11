@@ -69,6 +69,7 @@ mod keys;
 mod normal;
 pub mod pins;
 pub mod pose_keys;
+pub mod seams;
 pub mod timeline;
 
 pub use change::{RecipeChange, update};
@@ -604,7 +605,8 @@ pub fn register(types: specta::Types) -> specta::Types {
             .register::<RecipeChange>()
             .register::<RecipeFrom>()
             .register::<TimeEdit>()
-            .register::<PoseKey>(),
+            .register::<PoseKey>()
+            .register::<seams::SeamCheck>(),
     )
 }
 
@@ -649,3 +651,6 @@ mod tests_grips_apply;
 
 #[cfg(test)]
 mod tests_grips_file;
+
+#[cfg(test)]
+mod tests_seams;
