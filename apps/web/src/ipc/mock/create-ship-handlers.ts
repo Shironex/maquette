@@ -6,7 +6,8 @@
  * a `crystal_lantern.glb` Maquette shipped before that is smaller than the new one,
  * so the plan shows both holds. `snow_drift.glb` is the site's own model.
  * `?ship=hand-built` opens Frostveil already set to the models style with
- * WebP textures and the observatory arch set to never ship.
+ * WebP textures and the observatory arch set to never ship. `?ship=agent-folders`
+ * opens it with site folders an agent set, which Save folders makes a person's.
  */
 import type {
   AssetShip_Serialize as Entry,
@@ -111,6 +112,16 @@ export function createShipHandlers({
 }: ShipContext): Record<string, (args: Args) => unknown> {
   const settings = new Map<string, Settings>();
   const targets = new Map<string, SiteTarget>();
+  // Projects whose folders an agent set and no person has saved since.
+  const byAgent = new Set<string>();
+  if (state === 'agent-folders') {
+    targets.set('frostveil', {
+      models: 'apps/landing/public/veil/models',
+      posters: null,
+      data: 'apps/landing/src/veil/shipped.json',
+    });
+    byAgent.add('frostveil');
+  }
   if (state === 'hand-built') {
     settings.set('frostveil', {
       ...DEFAULTS,
@@ -168,6 +179,7 @@ export function createShipHandlers({
           configured: targets.has(id),
           modelsExist: true,
           error: null,
+          setByAgent: byAgent.has(id),
         },
         style: s.style,
         textures: s.textures,
@@ -227,7 +239,11 @@ export function createShipHandlers({
         quality,
         assets,
       });
-      if (target) targets.set(pid, target);
+      if (target) {
+        targets.set(pid, target);
+        // A person's save makes the folders theirs.
+        byAgent.delete(pid);
+      }
       return shipView(pid);
     },
   };

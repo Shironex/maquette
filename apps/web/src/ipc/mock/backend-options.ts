@@ -151,7 +151,10 @@ export interface BackendOptions {
    * `diorama`: up to 66 models, so the Layout and Paths tabs have a heavy scene to load.
    */
   inspect?: string | null;
-  /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */
+  /**
+   * `hand-built`: Frostveil ships as a hand-built site. `agent-folders`: an agent set
+   * Frostveil's site folders (see create-ship-handlers.ts).
+   */
   ship?: string | null;
   /** `many`: Frostveil's runner lists 24 models that all skip the bake (see pipeline-many.ts). */
   pipeline?: string | null;

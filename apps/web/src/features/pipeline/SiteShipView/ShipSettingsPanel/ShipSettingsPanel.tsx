@@ -144,6 +144,13 @@ export default function ShipSettingsPanel({
           hint={noRepo ?? 'Empty writes no scene data, as a hand-built site wants'}
           onChange={e => change({ data: e.target.value })}
         />
+        {plan.target.setByAgent ? (
+          <p className="m-0 flex items-start gap-1.5 text-meta text-fg-dim">
+            <Icon name="robot" size={14} className="mt-px flex-none text-amber" />
+            An agent set these folders, so every Ship into them waits for your approval. Save them
+            to make them yours.
+          </p>
+        ) : null}
         <div className="flex items-center justify-between gap-2">
           <span className="text-meta text-fg-mute">
             {plan.target.configured
@@ -156,7 +163,11 @@ export default function ShipSettingsPanel({
             loading={saving}
             disabled={block !== null}
             disabledReason={block ?? undefined}
-            tooltip="Writes the folders into the site's maquette.site.json, keeping its other keys"
+            tooltip={
+              plan.target.setByAgent
+                ? 'Writes the folders as you see them, and Ship into them stops asking'
+                : "Writes the folders into the site's maquette.site.json, keeping its other keys"
+            }
             onClick={() => void onTarget(targetOf(draft))}
           >
             Save folders

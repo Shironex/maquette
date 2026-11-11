@@ -73,9 +73,45 @@ describe('the Ship settings panel', () => {
     });
   });
 
+  it('lets a person save the folders an agent set as they are', async () => {
+    const onTarget = vi.fn().mockResolvedValue(true);
+    render(
+      <ShipSettingsPanel
+        settings={settings}
+        plan={plan({ setByAgent: true })}
+        repo="~/sites/room"
+        saving={false}
+        onSettings={vi.fn()}
+        onTarget={onTarget}
+      />
+    );
+    expect(screen.getByText(/An agent set these folders/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save folders' }));
+    expect(onTarget).toHaveBeenCalledWith({
+      models: 'public/models',
+      posters: 'public/posters',
+      data: null,
+    });
+  });
+
+  it("says nothing of an agent for a person's folders", () => {
+    render(
+      <ShipSettingsPanel
+        settings={settings}
+        plan={plan()}
+        repo="~/sites/room"
+        saving={false}
+        onSettings={vi.fn()}
+        onTarget={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/An agent set these folders/)).toBeNull();
+  });
+
   it('says why the folders cannot be saved', () => {
     const same = { models: 'public/models', posters: 'public/posters', data: '' };
     expect(folderBlock(same, target)).toBe('Nothing changed yet');
+    expect(folderBlock(same, { ...target, setByAgent: true })).toBeNull();
     expect(folderBlock(same, { ...target, repo: null })).toBe('Waits for a site repo');
     expect(folderBlock({ ...same, models: ' ' }, target)).toBe('Name the models folder');
     expect(targetOf({ models: 'a/', posters: '', data: 'src/x.json' })).toEqual({

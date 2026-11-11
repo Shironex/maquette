@@ -30,7 +30,8 @@ export function folderBlock(draft: FolderDraft, target: ShipTarget): string | nu
   if (!next.models) return 'Name the models folder';
   const same =
     next.models === target.models && next.posters === target.posters && next.data === target.data;
-  if (same && target.configured) return 'Nothing changed yet';
+  // An agent's folders can be saved as they are: that makes them yours.
+  if (same && target.configured && !target.setByAgent) return 'Nothing changed yet';
   return null;
 }
 
