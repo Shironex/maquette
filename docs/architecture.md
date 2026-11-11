@@ -1067,8 +1067,8 @@ action that one action undoes. It is pipeline in the layer map, like `built::bui
   `built_replace_undo_plan`, `built_replace_undo` and `built_swaps`, and the tool is in
   `mcp/tools/built.rs`. The web side is `state/built-replace.ts`,
   `features/board/ReplaceBuiltSheet` (the confirm sheet with the report, opened from a card's
-  menu) and `features/common/SwapNotes`, which the two Ship views mount; the Ship approval card
-  shows the same lines. A replace asks no approval: it changes nothing outside the project, one
+  menu) and `features/common/SwapNotes`, which the two Ship views mount; the Ship approval card,
+  when a run waits on one, shows the same lines. A replace asks no approval: it changes nothing outside the project, one
   action undoes it, and Ship is gated on its own.
 
 ## Website ship settings

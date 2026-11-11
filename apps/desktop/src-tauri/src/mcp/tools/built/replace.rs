@@ -2,7 +2,8 @@
 //! model, as the Board's Use in place of a model does, through the same
 //! helpers in `commands/built/replace.rs`. It needs no approval: it changes
 //! nothing outside the project, one call undoes it, and Ship is gated on its
-//! own (the Ship approval shows the swap).
+//! own (the Ship views, and the Ship approval card when a run waits on
+//! one, show the swap).
 
 use maquette_core::built::replace::UndoReport;
 use maquette_core::project;
@@ -35,8 +36,9 @@ pub(super) struct ReplaceArgs {
     /// Bring back the model the asset had before the replace, with its real size, fix-ups,
     /// material tweaks and library origin, and restore the built asset's card from the trash.
     /// The versions added since move to the workspace trash. Refused when one of them did not
-    /// come from the script (notBuilt, an Inbox accept): a person undoes that on the Board. After
-    /// a Ship wrote the built model, the next Ship approval names the swap back. Defaults to false.
+    /// come from the script (notBuilt, an Inbox accept): a person undoes that on the Board.
+    /// After a Ship wrote the built model, get_ship_plan and a Ship approval name the swap
+    /// back. Defaults to false.
     #[serde(default)]
     pub undo: bool,
 }
