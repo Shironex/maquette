@@ -140,15 +140,17 @@ async function headerMenuShots({ open, shot }) {
   await preview.waitFor();
   await asked.mouse.move(0, 0);
   await shot(asked, 'approvals-collapsed');
-  // A double-click on Review opens the card and approves nothing.
+  // A double-click on Review approves nothing. The stack scrolls as the card
+  // opens, so the second click can fold it again: open it then to go on.
   const review = asked.getByRole('button', {
     name: 'Review: Make 2 images for Frozen lake arena with OpenAI Images?',
   });
   await review.dblclick();
   await asked.waitForTimeout(700);
-  await asked.getByRole('button', { name: /^Approve and make 2/ }).waitFor();
   if ((await asked.getByRole('alertdialog').count()) !== 4)
     throw new Error('a double-click on Review answered an approval');
+  if (await review.count()) await review.click();
+  await asked.getByRole('button', { name: /^Approve and make 2/ }).waitFor();
   await asked.getByRole('button', { name: /^Hide: Make 2 images/ }).click();
   await asked.getByRole('button', { name: 'Review: Send 3 assets to Tripo?' }).click();
   await asked.mouse.move(0, 0);
