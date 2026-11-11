@@ -8,32 +8,71 @@ use maquette_core::rig::{RigRecord, RigStarter, RigState, RigidState};
 
 use super::{Approval, ApprovalKind, Hub};
 
+/// An agent's bind on the case waits for a person.
+fn agent_bind_asked(case: &RigRecord) -> bool {
+    case.rigid
+        .as_ref()
+        .is_some_and(|r| r.asked_by == RigStarter::Agent && r.state == RigidState::Asked)
+}
+
+/// What the card says: the bind an agent asked for while it waits, else the fix.
+fn rig_detail(case: &RigRecord) -> String {
+    if let Some(r) = case.rigid.as_ref().filter(|_| agent_bind_asked(case)) {
+        return format!(
+            "An agent asks to bind {} part{} rigidly to {}. Only weights change.",
+            r.parts.len(),
+            if r.parts.len() == 1 { "" } else { "s" },
+            maquette_core::inbox::analyse::bare_joint_name(&r.bone)
+        );
+    }
+    let fixed = case.defects.iter().filter(|d| d.fixed).count();
+    format!(
+        "The rig doctor fixed {fixed} defect{}. Only joints and weights changed.",
+        if fixed == 1 { "" } else { "s" }
+    )
+}
+
 impl Hub {
     /// A case changed: a draft an agent's run left asks a person, once, and
-    /// so does a rigid bind an agent asked for.
+    /// so does a rigid bind an agent asked for. A card already up follows
+    /// the case's words, and one raised only for a bind closes once a
+    /// person answered the bind.
     pub fn ask_about_rig_draft(&self, case: &RigRecord) {
-        let agent = case.started_by == RigStarter::Agent
-            || case.agent_opened
-            || case
-                .rigid
-                .as_ref()
-                .is_some_and(|r| r.asked_by == RigStarter::Agent && r.state == RigidState::Asked);
-        if agent && case.state == RigState::Fixed {
-            self.request_rig_doctor(case);
+        let agents_case = case.started_by == RigStarter::Agent || case.agent_opened;
+        if case.state != RigState::Fixed || !(agents_case || agent_bind_asked(case)) {
+            if !agents_case && case.state == RigState::Fixed {
+                let answered = case.rigid.as_ref().map(|r| r.state);
+                let decision = match answered {
+                    Some(RigidState::Approved) => Some(Decision::Approved),
+                    Some(RigidState::Declined) | None => Some(Decision::Denied),
+                    _ => None,
+                };
+                if let Some(decision) = decision {
+                    self.close_rig_doctor(&case.id, decision);
+                }
+            }
+            return;
         }
+        self.request_rig_doctor(case);
     }
 
     /// Records that a case's draft waits for a person. One per case: asking
-    /// again returns the same id.
+    /// again returns the same id, with its words brought up to date.
     pub fn request_rig_doctor(&self, case: &RigRecord) -> String {
+        let detail = rig_detail(case);
         if let Some(found) = self.rig_doctor_for(&case.id) {
+            if found.detail.as_deref() != Some(detail.as_str()) {
+                if let Some(card) = self.lock().approvals.iter_mut().find(|a| a.id == found.id) {
+                    card.detail = Some(detail);
+                }
+                (self.on_change)();
+            }
             return found.id;
         }
         let sheet = |s: &Option<maquette_core::rig::RigSheet>| {
             s.as_ref().map(|s| s.file.clone()).unwrap_or_default()
         };
         let next = case.source.version.unwrap_or(1) + 1;
-        let fixed = case.defects.iter().filter(|d| d.fixed).count();
         self.push(|id| Approval {
             id,
             kind: ApprovalKind::RigDoctor,
@@ -44,20 +83,7 @@ impl Hub {
             job: Some(case.id.clone()),
             asset_name: Some(format!("{} v{next}", case.name)),
             service: None,
-            detail: Some(
-                match case.rigid.as_ref().filter(|r| r.state == RigidState::Asked) {
-                    Some(r) => format!(
-                        "An agent asks to bind {} part{} rigidly to {}. Only weights change.",
-                        r.parts.len(),
-                        if r.parts.len() == 1 { "" } else { "s" },
-                        maquette_core::inbox::analyse::bare_joint_name(&r.bone)
-                    ),
-                    None => format!(
-                        "The rig doctor fixed {fixed} defect{}. Only joints and weights changed.",
-                        if fixed == 1 { "" } else { "s" }
-                    ),
-                },
-            ),
+            detail: Some(detail),
             items: Vec::new(),
             requested_at_ms: now_ms(),
             estimate: None,
@@ -168,13 +194,38 @@ mod tests {
         hub.ask_about_rig_draft(&fixed);
         assert!(hub.approvals().is_empty(), "nothing measured yet");
         bind.state = RigidState::Asked;
-        fixed.rigid = Some(bind);
+        fixed.rigid = Some(bind.clone());
         hub.ask_about_rig_draft(&fixed);
         let waiting = hub.approvals();
         assert_eq!(waiting.len(), 1);
         assert_eq!(
             waiting[0].detail.as_deref(),
             Some("An agent asks to bind 2 parts rigidly to Spine2. Only weights change.")
+        );
+        // The person turns it down in the Rig doctor: the card has nothing left to ask.
+        bind.state = RigidState::Declined;
+        fixed.rigid = Some(bind.clone());
+        hub.ask_about_rig_draft(&fixed);
+        assert!(hub.rig_doctor_for("hero-v1").is_none());
+
+        // On an agent's own draft the card stays, and its words follow the bind.
+        let mut agents = case(RigStarter::Agent, RigState::Fixed);
+        hub.ask_about_rig_draft(&agents);
+        let fix_words = hub.rig_doctor_for("hero-v1").and_then(|a| a.detail);
+        bind.state = RigidState::Asked;
+        agents.rigid = Some(bind.clone());
+        hub.ask_about_rig_draft(&agents);
+        let card = hub.rig_doctor_for("hero-v1").and_then(|a| a.detail);
+        assert!(
+            card.as_deref()
+                .is_some_and(|d| d.starts_with("An agent asks to bind"))
+        );
+        bind.state = RigidState::Declined;
+        agents.rigid = Some(bind);
+        hub.ask_about_rig_draft(&agents);
+        assert_eq!(
+            hub.rig_doctor_for("hero-v1").and_then(|a| a.detail),
+            fix_words
         );
     }
 
