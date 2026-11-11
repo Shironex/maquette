@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands, type RecipeBase, type RecipeDoc } from '../client';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
 import { timeline } from '@/state/recipe-timeline';
-import { windowsOf } from './recipe-seams';
+import { seamLines, seamsOf, windowsOf } from './recipe-seams';
 
 const JOINED = 'slash-into-block';
 
@@ -52,6 +52,23 @@ describe('seam windows in mock mode, as the core lays them', () => {
       ['hold-in', 21, 23],
       ['hold-out', 29, 30],
     ]);
+  });
+});
+
+describe('near seams and unmeasured motion in mock mode', () => {
+  it('lets two near joins each pop on their own', () => {
+    const doc = joined(2);
+    const third = { ...clip('Block', 12), blend: { frames: 2 } };
+    doc.recipe.joined = [...(doc.recipe.joined ?? []), third] as RecipeDoc['recipe']['joined'];
+    const joins = seamsOf(doc).filter(s => s.kind === 'join');
+    expect(joins).toHaveLength(2);
+    expect(joins.every(s => s.pops && s.measured)).toBe(true);
+  });
+
+  it('reads seams the bake could not measure as not measured', () => {
+    const seams = seamsOf(joined(2)).map(s => ({ ...s, measured: false, pops: false }));
+    const { pops } = seamLines({ seams } as unknown as Parameters<typeof seamLines>[0]);
+    expect(pops[0]).toMatchObject({ status: 'not-measured', value: 'not measured' });
   });
 });
 

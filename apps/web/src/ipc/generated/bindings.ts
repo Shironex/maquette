@@ -9620,6 +9620,11 @@ export type SeamCheck = {
 	 */
 	ease: number | null,
 	easeMost: number | null,
+	/**
+	 *  The bake reported the hips over the window; when not, nothing of
+	 *  it was measured and it never pops.
+	 */
+	measured?: boolean,
 };
 
 /**  What kind of seam. */

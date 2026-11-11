@@ -4,7 +4,8 @@
  * the timeline, with made up steps a review can show. A join pops while its
  * blend is shorter than 10 frames (the extra hip move is spread over the
  * window, so a wider blend fixes it), a hold seam passes. A two handed grip's
- * hands keep within 0.8 cm, and a mirror swaps every pair.
+ * hands keep within 0.8 cm, and a mirror swaps every pair. Each seam is held to
+ * the clips around it, never to a near seam, so two near joins each pop alone.
  */
 import type {
   RecipeBakeResult,
@@ -101,6 +102,7 @@ export function seamsOf(doc: RecipeDoc): SeamCheck[] {
       blendMost: join ? Math.floor(Math.min(kept(w.clip), kept(w.clip - 1)) / 2) : null,
       ease: edit ? ((w.kind === 'hold-in' ? edit.easeIn : edit.easeOut) ?? 0) : null,
       easeMost: edit?.frames ?? null,
+      measured: true,
     };
     return check;
   });
@@ -127,10 +129,25 @@ export function withGaps(doc: RecipeDoc, grips: RecipeGripResult[]): RecipeGripR
 export const mirrorOf = (doc: RecipeDoc): RecipeMirrorResult | null =>
   doc.recipe.mirror ? { pairs: 26, unpaired: [] } : null;
 
+/** A seam line when the bake reported no hips motion, as the core words it. */
+const notMeasured = (id: string, label: string, s: SeamCheck): RecipeReviewLine => ({
+  id,
+  label,
+  about: s.about,
+  value: 'not measured',
+  limit: `${SEAM_HIPS_CM} cm or ${SEAM_TURN_DEGREES} deg`,
+  measured: null,
+  max: null,
+  unit: null,
+  status: 'not-measured',
+  note: 'The bake reported no hips motion, so no seam was measured.',
+});
+
 function seamLine(id: string, label: string, seams: SeamCheck[], place: (s: SeamCheck) => string) {
   const sorted = [...seams].sort((a, b) => ratioOf(b) - ratioOf(a));
   const s = sorted[0];
   if (!s) return [];
+  if (s.measured === false) return [notMeasured(id, label, s)];
   const hips = hipsWorse(s);
   const more = sorted.length - 1;
   const popping = sorted.slice(1).filter(x => x.pops).length;
