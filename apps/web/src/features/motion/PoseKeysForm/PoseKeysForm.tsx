@@ -116,6 +116,17 @@ export default function PoseKeysForm({ id }: { id: string }) {
           <Button
             size="sm"
             variant="ghost"
+            icon="hand-pointing"
+            disabled={Boolean(f.gripBlocked)}
+            disabledReason={f.gripBlocked}
+            tooltip={`Saves the hands at frame ${f.frame} to the grip library`}
+            onClick={f.saveGrip}
+          >
+            Save a grip
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             icon="trash"
             disabled={!f.here}
             onClick={() => f.remove(true)}

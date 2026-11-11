@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { useGripSaveStore } from '@/state/use-grip-save-store';
 import { usePoseKeysStore } from '@/state/use-pose-keys-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clearMocks, openRecipe } from '@/test/open-recipe';
@@ -70,5 +71,30 @@ describe('the pose keys form', () => {
     expect(usePoseKeysStore.getState().turning).toBe(false);
     fireEvent.keyDown(window, { key: 'm' });
     expect(keyOn(0, 26)?.pose.chest).toBeDefined();
+  });
+});
+
+describe('save a grip from the pose keys', () => {
+  it('waits for a key on a hand or a finger', async () => {
+    await openRecipe(DEMO);
+    render(<PoseKeysForm id="l-1" />);
+    expect(screen.getByRole('button', { name: 'Save a grip' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+
+  it('opens the save a grip sheet on the hands at the playhead', async () => {
+    await openRecipe('scythe-charge-held');
+    act(() => usePoseKeysStore.getState().setFrame(30));
+    render(<PoseKeysForm id="l-1" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save a grip' }));
+    expect(useGripSaveStore.getState().sheet).toMatchObject({
+      project: 'frostveil',
+      recipe: 'scythe-charge-held',
+      layer: 'l-1',
+      frame: 30,
+    });
+    useGripSaveStore.setState(useGripSaveStore.getInitialState(), true);
   });
 });
