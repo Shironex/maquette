@@ -132,7 +132,7 @@ Which way is front is read from the model's shoulders (or hips), so a model that
 | **Grip hand gap**    | Both hands on one grip stay within 2 cm of how far apart they are at its first whole frame.                                               |
 | **Mirror**           | A mirrored recipe swaps every left and right bone; a side bone with no other side stays and warns.                                        |
 
-The lines come in this order: seam pop, joint limits, pin drift, hold seam, grips, grip hand gaps, reaches, foot slide, rig stretch and mirror. The seam lines show the worst seam and say how many more there are. Under the summary, **Worth a look** names what warns. A warn never stops an add. It tells you where to look.
+The lines come in this order: seam pop, joint limits, pin drift, hold seam, grips, grip hand gaps, reaches, foot slide, rig stretch and mirror. The seam lines show the worst seam and say how many more there are. Each seam is held to the clips around it, never to another seam nearby, so two pops close together both warn. A bake that reports no hips motion reads its seams as **not measured**, never as a pass. Under the summary, **Worth a look** names what warns. A warn never stops an add. It tells you where to look.
 
 ### Pose sheet
 
@@ -236,7 +236,7 @@ What an agent writes lands in the recipe file at once and bakes as it is. Until 
 - drafted changes carry a **drafted** tag, and a pose keys change says how many of its keys are drafted ("2 of 6 keys drafted")
 - drafted keys are blue on the lanes
 
-**Save** keeps them as yours and clears the marks, even with no edits of your own. The marks live beside the recipe in the project (`recipes/<id>.drafts.json`), never in the recipe file, so an export or a library save never carries them. Removing the recipe removes them too. `get_recipe` answers them to agents as `drafts`.
+**Save** keeps them as yours and clears the marks, even with no edits of your own. While a bake under review holds drafts you have not saved, its add bar says so. The marks live beside the recipe in the project (`recipes/<id>.drafts.json`), never in the recipe file, so an export or a library save never carries them. Removing the recipe removes them too. `get_recipe` answers them to agents as `drafts`.
 
 ## Rest pose
 
