@@ -42,10 +42,13 @@ pub struct AppState {
     /// person's. Kept here, per computer and off the synced workspace, like
     /// the paths themselves.
     pub agent_set_repos: BTreeMap<String, BTreeSet<String>>,
-    /// The projects whose site folders (models, posters, data file) an agent
-    /// set and no person has saved since, keyed like `agent_set_repos`.
-    /// Files from before this have none.
-    pub agent_set_folders: BTreeMap<String, BTreeSet<String>>,
+    /// The site repos whose folders (models, posters, data file) an agent set
+    /// and no person has saved since: each repo's real folder, the one Ship
+    /// writes into. Keyed by the repo, not a project, because the folders live
+    /// in the repo's `maquette.site.json`, which every project and workspace on
+    /// that repo reads. Files from before this have none, so folders an agent
+    /// wrote before then count as a person's.
+    pub agent_set_folders: BTreeSet<String>,
     /// The dev commands a person approved for an agent-set repo: the repo's
     /// folder, then each question's key (`site::preview::PreviewAsk::key`).
     pub preview_approvals: BTreeMap<String, BTreeSet<String>>,
@@ -80,7 +83,7 @@ impl Default for AppState {
             site_repos: BTreeMap::new(),
             machine_id: None,
             agent_set_repos: BTreeMap::new(),
-            agent_set_folders: BTreeMap::new(),
+            agent_set_folders: BTreeSet::new(),
             preview_approvals: BTreeMap::new(),
         }
     }
@@ -98,22 +101,46 @@ pub enum RepoSetBy {
 impl AppState {
     /// Records who set the repo of project `id` in the workspace `root_key`.
     pub fn mark_repo(&mut self, root_key: &str, id: &str, by: RepoSetBy) {
-        mark(&mut self.agent_set_repos, root_key, id, by);
+        match by {
+            RepoSetBy::Agent => {
+                self.agent_set_repos
+                    .entry(root_key.to_string())
+                    .or_default()
+                    .insert(id.to_string());
+            }
+            RepoSetBy::Person => {
+                if let Some(ids) = self.agent_set_repos.get_mut(root_key) {
+                    ids.remove(id);
+                    if ids.is_empty() {
+                        self.agent_set_repos.remove(root_key);
+                    }
+                }
+            }
+        }
     }
 
     /// True when an agent set the repo of project `id`.
     pub fn repo_set_by_agent(&self, root_key: &str, id: &str) -> bool {
-        marked(&self.agent_set_repos, root_key, id)
+        self.agent_set_repos
+            .get(root_key)
+            .is_some_and(|ids| ids.contains(id))
     }
 
-    /// Records who last set the site folders of project `id`.
-    pub fn mark_folders(&mut self, root_key: &str, id: &str, by: RepoSetBy) {
-        mark(&mut self.agent_set_folders, root_key, id, by);
+    /// Records who last set the site folders of the repo at `repo_key`.
+    pub fn mark_folders(&mut self, repo_key: &str, by: RepoSetBy) {
+        match by {
+            RepoSetBy::Agent => {
+                self.agent_set_folders.insert(repo_key.to_string());
+            }
+            RepoSetBy::Person => {
+                self.agent_set_folders.remove(repo_key);
+            }
+        }
     }
 
-    /// True when an agent set the site folders of project `id`.
-    pub fn folders_set_by_agent(&self, root_key: &str, id: &str) -> bool {
-        marked(&self.agent_set_folders, root_key, id)
+    /// True when an agent set the site folders of the repo at `repo_key`.
+    pub fn folders_set_by_agent(&self, repo_key: &str) -> bool {
+        self.agent_set_folders.contains(repo_key)
     }
 
     /// True when a person approved this very command in this very folder.
@@ -130,30 +157,6 @@ impl AppState {
             .or_default()
             .insert(key);
     }
-}
-
-/// Adds `id` under `root_key` for an agent, removes it for a person.
-fn mark(marks: &mut BTreeMap<String, BTreeSet<String>>, root_key: &str, id: &str, by: RepoSetBy) {
-    match by {
-        RepoSetBy::Agent => {
-            marks
-                .entry(root_key.to_string())
-                .or_default()
-                .insert(id.to_string());
-        }
-        RepoSetBy::Person => {
-            if let Some(ids) = marks.get_mut(root_key) {
-                ids.remove(id);
-                if ids.is_empty() {
-                    marks.remove(root_key);
-                }
-            }
-        }
-    }
-}
-
-fn marked(marks: &BTreeMap<String, BTreeSet<String>>, root_key: &str, id: &str) -> bool {
-    marks.get(root_key).is_some_and(|ids| ids.contains(id))
 }
 
 /// Never fails: a missing file gives the default, and an unreadable or
@@ -292,17 +295,13 @@ mod tests {
         let mut state = load(dir.path());
         assert!(state.repo_set_by_agent("/ws", "moon"), "the old marks load");
         assert!(state.agent_set_folders.is_empty());
-        state.mark_folders("/ws", "moon", RepoSetBy::Agent);
+        state.mark_folders("/code/site", RepoSetBy::Agent);
         save(dir.path(), &state).expect("save");
         let mut state = load(dir.path());
-        assert!(state.folders_set_by_agent("/ws", "moon"));
-        assert!(!state.folders_set_by_agent("/ws", "other"));
-        state.mark_folders("/ws", "moon", RepoSetBy::Person);
-        assert!(!state.folders_set_by_agent("/ws", "moon"));
-        assert!(
-            state.agent_set_folders.is_empty(),
-            "no empty workspace left"
-        );
+        assert!(state.folders_set_by_agent("/code/site"));
+        assert!(!state.folders_set_by_agent("/code/other"));
+        state.mark_folders("/code/site", RepoSetBy::Person);
+        assert!(!state.folders_set_by_agent("/code/site"));
         assert!(
             state.repo_set_by_agent("/ws", "moon"),
             "the repo mark stays"

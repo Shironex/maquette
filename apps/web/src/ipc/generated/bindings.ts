@@ -1303,11 +1303,14 @@ export type AppState = {
 	 */
 	agentSetRepos: { [key in string]: string[] },
 	/**
-	 *  The projects whose site folders (models, posters, data file) an agent
-	 *  set and no person has saved since, keyed like `agent_set_repos`.
-	 *  Files from before this have none.
+	 *  The site repos whose folders (models, posters, data file) an agent set
+	 *  and no person has saved since: each repo's real folder, the one Ship
+	 *  writes into. Keyed by the repo, not a project, because the folders live
+	 *  in the repo's `maquette.site.json`, which every project and workspace on
+	 *  that repo reads. Files from before this have none, so folders an agent
+	 *  wrote before then count as a person's.
 	 */
-	agentSetFolders: { [key in string]: string[] },
+	agentSetFolders: string[],
 	/**
 	 *  The dev commands a person approved for an agent-set repo: the repo's
 	 *  folder, then each question's key (`site::preview::PreviewAsk::key`).
