@@ -3,9 +3,11 @@
 //! elbow or knee (no flip), each pin's drift from its spot (1 cm), the
 //! planted feet's slide (1.5 cm over the base clip's own on this model),
 //! the rig's stretch (5 mm over the base clip's), with pose keys, each
-//! keyed turn against the humanoid joint limits, and per grip how many of
-//! its bones the model takes. A warn asks for a look; it never stops the
-//! bake being added.
+//! keyed turn against the humanoid joint limits, per grip how many of its
+//! bones the model takes and a two handed grip's hand gap (2 cm), where
+//! clips meet and where a hold eases in and out against the clips around
+//! (2 cm of hips, 25 degrees of any bone), and a mirror's unswapped bones.
+//! A warn asks for a look; it never stops the bake being added.
 
 use serde::{Deserialize, Serialize};
 
@@ -31,9 +33,11 @@ pub enum RecipeReviewStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeReviewLine {
-    /// `gap-l-1`, `flip-l-1`, `pin-l-1`, `joints`, `grip-l-1`, `feet` or `stretch`.
+    /// `seam`, `joints`, `pin-l-1`, `hold-seam`, `grip-l-1`, `grip-gap-l-1`,
+    /// `gap-l-1`, `flip-l-1`, `feet`, `stretch` or `mirror`.
     pub id: String,
-    /// "Hand gap", "Elbow", "Pin drift", "Joint limits", "Grip", "Foot slide", "Rig stretch".
+    /// "Seam pop", "Joint limits", "Pin drift", "Hold seam", "Grip", "Grip
+    /// hand gap", "Hand gap", "Elbow", "Foot slide", "Rig stretch", "Mirror".
     pub label: String,
     /// The bone and change it is about, for a reach.
     pub about: Option<String>,
@@ -56,6 +60,9 @@ pub struct RecipeBakeReview {
     pub lines: Vec<RecipeReviewLine>,
     /// How many lines warn.
     pub warns: u32,
+    /// What would answer the warnings, best first.
+    #[serde(default)]
+    pub fixes: Vec<super::fixes::RecipeReviewFix>,
 }
 
 fn round(value: f32) -> f32 {
@@ -233,16 +240,22 @@ fn joints_line(result: &RecipeBakeResult) -> Option<RecipeReviewLine> {
     })
 }
 
-/// The review of `result`: each reach's gap and joint, each pin's drift,
-/// the keyed poses against the joint limits, each grip's bones, then the
-/// feet and the rig.
+/// The review of `result`: the seams where clips meet, the keyed poses
+/// against the joint limits, each pin's drift, the holds' seams, each
+/// grip's bones and hand gap, each reach's gap and joint, then the feet,
+/// the rig and a mirror's swapped bones; and the fixes, best first.
 pub fn review_of(result: &RecipeBakeResult) -> RecipeBakeReview {
-    let mut lines = reach_lines(result);
-    lines.extend(super::pins::pin_lines(result));
+    let (pops, holds) = super::seams::seam_lines(result);
+    let mut lines = pops;
     lines.extend(joints_line(result));
+    lines.extend(super::pins::pin_lines(result));
+    lines.extend(holds);
     lines.extend(super::grips::grip_lines(result));
+    lines.extend(super::seams::gap_lines(result));
+    lines.extend(reach_lines(result));
     lines.push(feet_line(result));
     lines.push(stretch_line(result));
+    lines.extend(super::seams::mirror_line(result));
     let warns = lines
         .iter()
         .filter(|l| l.status == RecipeReviewStatus::Warn)
@@ -250,5 +263,6 @@ pub fn review_of(result: &RecipeBakeResult) -> RecipeBakeReview {
     RecipeBakeReview {
         warns: u32::try_from(warns).unwrap_or(u32::MAX),
         lines,
+        fixes: super::fixes::fixes_of(result),
     }
 }

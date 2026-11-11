@@ -81,6 +81,11 @@ pub struct Prepared {
     pub(crate) timeline: Option<Timeline>,
     /// The model's left and right bones a mirror swaps.
     pub(crate) mirror_pairs: Vec<[String; 2]>,
+    /// A mirrored recipe: how many pairs it swaps and the side bones left
+    /// unswapped, as the review reads it.
+    pub(crate) mirror: Option<super::seams::RecipeMirrorResult>,
+    /// Every body bone the model has, by VRM name, for the seam checks.
+    pub(crate) body: BTreeMap<String, String>,
     /// The pins on the bake's frames, solved last.
     pub(crate) pins: Vec<crate::recipes::pins::PinSpan>,
     /// Each grip on the bake's frames with its pose, by change id.
@@ -211,6 +216,11 @@ pub fn prepare(
     } else {
         Vec::new()
     };
+    let mirror = doc.recipe.mirror.then(|| super::seams::RecipeMirrorResult {
+        pairs: u32::try_from(mirror_pairs.len()).unwrap_or(u32::MAX),
+        unpaired: vrm::unpaired(&map, &model.joints),
+    });
+    let body = vrm::body_bones(&map, &model.joints);
     Ok(Prepared {
         asset: request.asset.clone(),
         follow: entry.follow,
@@ -219,6 +229,8 @@ pub fn prepare(
         joined,
         timeline,
         mirror_pairs,
+        mirror,
+        body,
         pins,
         grips,
         grip_results,
@@ -304,6 +316,9 @@ struct RecipeSpec<'a> {
     /// Each recipe clip's part, in order.
     parts: Vec<parts::PartSpec>,
     mirror_pairs: &'a [[String; 2]],
+    /// Every body bone, by VRM name: their turns and the hips' and hands'
+    /// places are reported each frame for the seam and grip checks.
+    body_bones: &'a BTreeMap<String, String>,
     /// The pins on the bake's frames, solved after everything else.
     pins: &'a [crate::recipes::pins::PinSpan],
     /// Each pose key change's keys with where they stand, by change id.
@@ -384,6 +399,7 @@ pub(crate) fn stage(root: &Path, prepared: &Prepared, work: &Path) -> CoreResult
                 timeline: prepared.timeline.as_ref(),
                 parts,
                 mirror_pairs: &prepared.mirror_pairs,
+                body_bones: &prepared.body,
                 pins: &prepared.pins,
                 pose_keys: keys::pose_specs(&prepared.doc.recipe),
                 grips: &prepared.grips,

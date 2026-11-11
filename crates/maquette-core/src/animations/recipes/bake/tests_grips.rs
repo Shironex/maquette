@@ -39,7 +39,7 @@ fn longsword() -> GripFile {
     }
 }
 
-fn grips() -> Vec<RecipeLayer> {
+pub(super) fn grips() -> Vec<RecipeLayer> {
     let from = |revision| GripFrom {
         entry: "longsword-two-hands".into(),
         uid: Some("0a1b2c3d4e5f6071".into()),

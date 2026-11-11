@@ -177,5 +177,9 @@ fn every_seam_of_a_recipe_is_judged() {
     assert_eq!(found.len(), 3, "{found:?}");
     assert!(found[0].pops, "the join pops at its jump");
     assert_eq!(found[0].frame, 35);
+    assert_eq!(found[0].about, "Slash into Thrust");
+    assert_eq!((found[0].blend, found[0].blend_most), (Some(8), Some(20)));
+    assert_eq!(found[1].about, "Thrust");
+    assert_eq!(found[1].ease, Some(0));
     assert!(!found[1].pops && !found[2].pops, "the steady hold does not");
 }

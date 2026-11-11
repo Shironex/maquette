@@ -19,7 +19,7 @@ recipe, and where the model, the report and the progress go:
                 "targets": {"lantern": {"slot": 0}, "spot": {"point": [0, 1.2, 0.4]},
                             "cup": {"prop": "in/props/cup.glb",
                                     "propMatrix": [16 numbers], "modelMatrix": [16 numbers]}},
-                "stretchFrames": 10},
+                "stretchFrames": 10, "bodyBones": {"hips": "hips", "spine": "spine", ...}},
      "out": "staged.glb", "report": "result.json", "progress": "progress.json"}
 
 A recipe on the rest pose has no base clip: "retarget" then lists no clips
@@ -70,7 +70,9 @@ foot's world position per frame (the base clip's and the recipe's), the
 rig's worst stretch past a healthy skin on a few frames (surface.py), and
 per reach the gap to its target at its end and the first frame its elbow or
 knee bends the other way than the clip has it, and per pin how far its hand
-or foot drifts from its spot while it holds whole.
+or foot drifts from its spot while it holds whole. "motion" carries where the
+hips and hands are each frame and how far each humanoid bone turns from the
+frame before, which Maquette judges for seam pops and a grip's hand gap.
 """
 
 import argparse
@@ -101,6 +103,9 @@ DEFAULT_AHEAD = Vector((0.0, -1.0, 0.0))
 # The height a model without a mesh is taken to have, metres.
 DEFAULT_HEIGHT = 1.7
 # A reach's end bone, with the upper and lower bones its IK solves.
+# The bones whose place is kept every frame: the hips for a seam pop, the
+# hands for a grip's hand gap.
+TRACKED = ("hips", "leftHand", "rightHand")
 LIMBS = {
     "leftHand": ("leftUpperArm", "leftLowerArm"),
     "rightHand": ("rightUpperArm", "rightLowerArm"),
@@ -495,6 +500,10 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
     base_feet = {side: [] for side in sides}
     feet = {side: [] for side in sides}
     stretch = {"mm": None, "frame": None, "base": None}
+    # Where the hips and hands are each frame, for the seam and grip checks,
+    # and every body bone's turns, by VRM name.
+    body = recipe.get("bodyBones") or {}
+    tracks = {vrm: [] for vrm in TRACKED}
     for i, t in enumerate(times):
         for pb in arm.pose.bones:
             pb.location = (0.0, 0.0, 0.0)
@@ -551,6 +560,10 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
             loc_samples[b.name].append(loc)
         for side, bone in sides.items():
             feet[side].append(rig.head(arm.pose.bones[bone]))
+        for vrm, points in tracks.items():
+            pb = arm.pose.bones.get(body.get(vrm, ""))
+            if pb is not None:
+                points.append(rig.head(pb))
         pins.measure(rig, i)
         for key, reach in reaches.items():
             s = reach.layer["settings"]
@@ -573,7 +586,12 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
     for reach in reaches.values():
         reach.remove()
     pins.remove()
+    motion = {
+        "tracks": {vrm: track_of(points) for vrm, points in tracks.items() if points},
+        "turns": turn_steps(body, rot_samples),
+    }
     return rig, height, {
+        "motion": motion,
         "rot": rot_samples,
         "loc": loc_samples,
         "times": times,
@@ -593,6 +611,22 @@ def solve(rt, scene, arm, objects, action, job, at, progress):
         ],
         "pins": pins.report(),
     }
+
+
+def turn_steps(body, rot_samples):
+    """How far each body bone turns under its parent from the frame before,
+    degrees per frame (0 on the first), by VRM name."""
+    out = {}
+    for vrm, name in body.items():
+        qs = rot_samples.get(name)
+        if not qs:
+            continue
+        steps = [0.0]
+        for a, b in zip(qs, qs[1:]):
+            dot = min(abs(a.dot(b)), 1.0)
+            steps.append(round(math.degrees(2.0 * math.acos(dot)), 2))
+        out[vrm] = steps
+    return out
 
 
 class Keys:
@@ -741,6 +775,7 @@ def main():
             "stretchNote": solved["stretchNote"],
             "reaches": solved["reaches"],
             "pins": solved["pins"],
+            "motion": solved["motion"],
             "travel": entry.get("travel", 0.0),
             "seconds": round(time.time() - started, 2),
         }

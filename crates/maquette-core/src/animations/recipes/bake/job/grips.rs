@@ -91,6 +91,8 @@ pub(crate) fn grip_bones(
             bones: count(turned),
             posed: count(turned - missing.len()),
             missing,
+            gap_cm: None,
+            gap_frame: None,
         });
     }
     (bones, results)

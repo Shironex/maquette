@@ -94,6 +94,17 @@ pub struct SeamCheck {
     pub turn_over_degrees: f32,
     /// Past either limit.
     pub pops: bool,
+    /// The clips that meet ("Slash into Thrust"), or the clip a hold sits
+    /// on, by name.
+    pub about: String,
+    /// A join: its blend window as the recipe has it, frames, and the most
+    /// it may take (half the shorter of the two clips, as trimmed).
+    pub blend: Option<u32>,
+    pub blend_most: Option<u32>,
+    /// A hold: the frames it eases in (hold in) or out (hold out) over,
+    /// and the most it may (its own frames).
+    pub ease: Option<u32>,
+    pub ease_most: Option<u32>,
 }
 
 impl SeamCheck {
@@ -255,6 +266,11 @@ pub fn judge(w: &SeamWindow, motion: &SeamMotion, frames: u32) -> SeamCheck {
         turn_around_degrees: round(turn_around),
         turn_over_degrees: round(turn_over),
         pops: false,
+        about: String::new(),
+        blend: None,
+        blend_most: None,
+        ease: None,
+        ease_most: None,
     };
     check.pops = check.hips_over_cm > SEAM_HIPS_CM || check.turn_over_degrees > SEAM_TURN_DEGREES;
     check.frame = if check.hips_worse() && hips > 0.0 {
@@ -265,11 +281,40 @@ pub fn judge(w: &SeamWindow, motion: &SeamMotion, frames: u32) -> SeamCheck {
     check
 }
 
+/// What `check` is about in `recipe`: the clips that meet, the hold's clip,
+/// and what a fix could change.
+fn described(recipe: &RecipeFile, mut check: SeamCheck) -> SeamCheck {
+    let name = |i: u32| recipe.clip(i).map_or_else(String::new, |c| c.name.clone());
+    if check.kind == SeamKind::Join {
+        check.about = format!("{} into {}", name(check.clip - 1), name(check.clip));
+        let clip = recipe.clip(check.clip);
+        check.blend = clip.map(|c| c.blend.as_ref().map_or(0, |b| b.frames));
+        check.blend_most = clip
+            .zip(recipe.clip(check.clip - 1))
+            .map(|(a, b)| a.kept().min(b.kept()) / 2);
+    } else {
+        check.about = name(check.clip);
+        let edit = recipe
+            .time
+            .iter()
+            .find(|e| e.kind != TimeKind::Retime && e.clip == check.clip && e.at == check.at);
+        check.ease = edit.map(|e| {
+            if check.kind == SeamKind::HoldIn {
+                e.ease_in.unwrap_or(0)
+            } else {
+                e.ease_out.unwrap_or(0)
+            }
+        });
+        check.ease_most = edit.and_then(|e| e.frames);
+    }
+    check
+}
+
 /// Every seam of `recipe` judged on `motion`, the timeline `t` it was
 /// baked on.
 pub fn checks(recipe: &RecipeFile, t: &Timeline, motion: &SeamMotion) -> Vec<SeamCheck> {
     windows(recipe, t)
         .iter()
-        .map(|w| judge(w, motion, t.frames))
+        .map(|w| described(recipe, judge(w, motion, t.frames)))
         .collect()
 }
