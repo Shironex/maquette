@@ -221,7 +221,7 @@ def cylinder(
     height,
     location=(0.0, 0.0, 0.0),
     material=None,
-    segments=48,
+    segments=64,
     top_radius=None,
     bevel=0.0,
     caps=True,
