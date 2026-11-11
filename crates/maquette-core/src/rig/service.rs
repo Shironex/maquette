@@ -370,6 +370,7 @@ impl RigDoctors {
         }
         case.state = RigState::Discarded;
         case.joint_move = None;
+        case.rigid = None;
         self.publish(&mut case)?;
         Ok(case)
     }
