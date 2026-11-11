@@ -1,38 +1,11 @@
-import { Icon, NumberField, SegmentedControl, Select, cn } from '@maquette/ui';
+import { NumberField, SegmentedControl, Select } from '@maquette/ui';
 import type { PinFlat } from '@/ipc/client';
+import { RecipeNote as Note } from '../RecipeNote';
 import { useRecipePinForm } from './RecipePinForm.hooks';
 
 const whole = (v: number) => String(Math.round(v));
 /** A field's words, as the inputs' own labels look. */
 const CAPTION = 'text-[12px] leading-4 font-medium text-fg-dim';
-
-/** A note box under the pin's settings. */
-function Note({
-  icon,
-  title,
-  detail,
-  warn,
-}: {
-  icon: 'check-circle' | 'warning' | 'info';
-  title: string;
-  detail: string;
-  warn?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-card border px-2.5 py-2',
-        warn ? 'border-amber/60 bg-amber/10' : 'border-line bg-panel'
-      )}
-    >
-      <p className="flex items-center gap-1.5 text-[12.5px] font-medium">
-        <Icon name={icon} size={14} className={warn ? 'text-amber' : 'text-fg-dim'} />
-        {title}
-      </p>
-      <p className="mt-0.5 text-meta text-fg-mute">{detail}</p>
-    </div>
-  );
-}
 
 /**
  * A pin's own settings, under its kind, weight and range: the hand or foot,
