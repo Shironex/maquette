@@ -26,6 +26,9 @@ use super::super::{McpTools, Out, ToolError, WAITING, respond, to_short_value, t
 use crate::commands::grip_library as commands;
 
 /// Where a person saves a grip an agent proposed.
+/// The code of a grip save refused while another grip from the same pose
+/// key change waits for a person.
+pub(super) const SAVE_WAITING: &str = "grip-save-waiting";
 const SAVE_IN_APP: &str = "The approval prompt in the Maquette app: Review opens the recipe in the Motion view with the save a grip sheet, where the person looks at the hand and saves. Also listed under Settings > Agents. No tool can approve.";
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -299,7 +302,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Propose saving the hand pose a recipe's pose key change holds at one frame as a grip in the grip library: a new grip (name), or the next revision of entry. Nothing is saved by this tool: it answers status waiting for approval with the approval id, the grip it read (hands, bones, pose) and what would change against the newest revision, in plain lines, and the person looks at the hand in the app's save a grip sheet and saves there. Only hand, finger and arm bones are taken, as their keys blend at that frame of the bake (the first key on a hand when frame is left out); hands keeps both, right or left. Keys that add to the clip are read as they are, and notes says a grip shows them from the rest pose. A save always adds a revision, never overwrites one. A pose that holds what the newest revision holds is refused. Asking twice for the same change returns the same approval. Poll get_grip or list_grips: once saved, the revision is there. No tool removes a library grip or a revision. Spends nothing."
+        description = "Propose saving the hand pose a recipe's pose key change holds at one frame as a grip in the grip library: a new grip (name), or the next revision of entry. Nothing is saved by this tool: it answers status waiting for approval with the approval id, the grip it read (hands, bones, pose) and what would change against the newest revision, in plain lines, and the person looks at the hand in the app's save a grip sheet and saves there. Only hand, finger and arm bones are taken, as their keys blend at that frame of the bake (the first key on a hand when frame is left out); hands keeps both, right or left. Keys that add to the clip are read as they are, and notes says a grip shows them from the rest pose. A save always adds a revision, never overwrites one. A pose that holds what the newest revision holds is refused. Asking twice for the same change returns the same approval; asking for another grip from that pose key change while one waits is refused (grip-save-waiting). Poll get_grip or list_grips: once saved, the revision is there. No tool removes a library grip or a revision. Spends nothing."
     )]
     async fn propose_grip_save(&self, Parameters(args): Parameters<ProposeGripSaveArgs>) -> Out {
         let found = self
@@ -335,7 +338,15 @@ impl McpTools {
                         plan.entry_name
                     )));
                 }
-                let approval = hub.request_grip_save(&plan, &keyed.source, &keyed.recipe_name);
+                let approval = hub
+                    .request_grip_save(&plan, &keyed.source, &keyed.recipe_name)
+                    .map_err(|waiting| ToolError {
+                        message: format!(
+                            "A grip save from the pose keys {} of {} waits for a person already ({waiting}) with another grip. Poll get_grip or list_grips until the person saves or closes it, then propose again.",
+                            keyed.source.layer, keyed.recipe_name
+                        ),
+                        code: SAVE_WAITING.into(),
+                    })?;
                 let target = match &plan.entry {
                     Some(id) => format!("r{} of the library grip {id}", plan.revision),
                     None => format!("a new library grip, {}", plan.entry_name),

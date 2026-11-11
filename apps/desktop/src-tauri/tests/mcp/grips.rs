@@ -152,6 +152,18 @@ async fn agents_propose_a_grip_lay_it_on_a_recipe_and_take_a_newer_revision() {
         approval.as_str(),
         "one approval per change"
     );
+    // Another grip from the same keys while one waits: refused, never the
+    // old card under the new plan.
+    let mut other = ask.clone();
+    other["name"] = json!("Longsword, low guard");
+    let body = refused(&client, "propose_grip_save", other).await;
+    assert_eq!(body["code"], "grip-save-waiting", "{body}");
+    assert!(
+        body["error"]
+            .as_str()
+            .is_some_and(|e| e.contains(&approval)),
+        "{body}"
+    );
     assert!(
         !grips::dir(&root).exists(),
         "a proposal writes nothing to the library"
