@@ -134,6 +134,26 @@ function layerProblem(
 }
 
 /**
+ * The core's refusal of a pin holding its bone with IK over shares another
+ * pin or a reach on that bone also holds, said on the later of the two.
+ */
+function ikOverlap(layer: RecipeLayer, before: readonly RecipeLayer[]): string | null {
+  const ik = (l: RecipeLayer) => l.kind === 'pin' || l.kind === 'reach';
+  if (!ik(layer)) return null;
+  const other = before.find(
+    b =>
+      ik(b) &&
+      (b.kind === 'pin' || layer.kind === 'pin') &&
+      b.bone === layer.bone &&
+      b.settings.start < layer.settings.end &&
+      layer.settings.start < b.settings.end
+  );
+  return other
+    ? `The ${other.kind} ${other.id} and the ${layer.kind} ${layer.id} both hold ${layer.bone} with IK over the same part of the recipe. Move one so they do not overlap, or take one out.`
+    : null;
+}
+
+/**
  * Everything the core would refuse in `draft`, said where it is. With
  * `animated`, the model a bake of it goes onto, a prop blank holding that
  * model is marked too: the bake refuses it, so Save and Apply wait as they
@@ -164,13 +184,14 @@ export function checkDraft(
     seen.add(blank.id);
   }
   const ids = new Set<string>();
-  for (const layer of draft.layers) {
+  draft.layers.forEach((layer, i) => {
     const problem = ids.has(layer.id)
       ? `Two changes have the id ${layer.id}.`
-      : layerProblem(layer, draft.blanks, draft.clips);
+      : (layerProblem(layer, draft.blanks, draft.clips) ??
+        ikOverlap(layer, draft.layers.slice(0, i)));
     if (problem) out.layers[layer.id] = problem;
     ids.add(layer.id);
-  }
+  });
   return out;
 }
 

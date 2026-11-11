@@ -86,3 +86,44 @@ describe('grip checks', () => {
     expect(problem(grip({ bone: 'chest' }))).toMatch(/moves leftHand, rightHand/);
   });
 });
+
+describe('IK overlap checks', () => {
+  const ik = (id: string, kind: 'pin' | 'reach', bone: string, start: number, end: number) => {
+    const base = newLayer('reach', [], [lantern]);
+    return {
+      ...base,
+      id,
+      kind,
+      bone,
+      settings: { ...base.settings, start, end, target: kind === 'reach' ? 'lantern' : null },
+    } as RecipeLayer;
+  };
+  const problems = (layers: RecipeLayer[]) => checkDraft({ layers, blanks: [lantern] }).layers;
+
+  it('refuses a pin holding a bone over shares another pin or a reach on it holds, as the core does', () => {
+    const found = problems([
+      ik('l-1', 'pin', 'leftFoot', 0.1, 0.5),
+      ik('l-2', 'pin', 'leftFoot', 0.4, 0.8),
+    ]);
+    expect(found['l-1']).toBeUndefined();
+    expect(found['l-2']).toBe(
+      'The pin l-1 and the pin l-2 both hold leftFoot with IK over the same part of the recipe. Move one so they do not overlap, or take one out.'
+    );
+    const reach = problems([
+      ik('l-1', 'reach', 'rightHand', 0.3, 0.6),
+      ik('l-2', 'pin', 'rightHand', 0.5, 0.9),
+    ]);
+    expect(reach['l-2']).toMatch(/^The reach l-1 and the pin l-2/);
+  });
+
+  it('lets IK changes apart in time, on two bones, or two reaches through', () => {
+    const found = problems([
+      ik('l-1', 'pin', 'leftFoot', 0.1, 0.4),
+      ik('l-2', 'pin', 'leftFoot', 0.4, 0.8),
+      ik('l-3', 'pin', 'rightFoot', 0.1, 0.8),
+      ik('l-4', 'reach', 'rightHand', 0.2, 0.6),
+      ik('l-5', 'reach', 'rightHand', 0.3, 0.7),
+    ]);
+    expect(found).toEqual({});
+  });
+});
