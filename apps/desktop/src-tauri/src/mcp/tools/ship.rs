@@ -60,14 +60,15 @@ pub struct SetShipArgs {
     pub assets: Vec<AssetShipEdit>,
     /// The site's models folder, relative to the site repo, for example
     /// "apps/landing/public/room/models". Written to the site's maquette.site.json.
-    /// Folders set here (models, posters or data) count as an agent's: run_pipeline then
-    /// waits for a person before every Ship until a person saves the folders in the Ship
-    /// view. Refused while the project has a run going.
+    /// Folders set here (models, posters or data) count as an agent's: every run an agent
+    /// starts into this repo, from any project, waits for a person before Ship until a person
+    /// saves the folders in the Ship view. Refused while the project has a run going.
     pub models: Option<String>,
     /// The site's posters folder, or null for none. Written with models.
     #[serde(default, deserialize_with = "explicit")]
     pub posters: Option<Option<String>>,
-    /// The file Ship writes the scene data to, or null for none. Written with models.
+    /// The file Ship writes the scene data to, or null for none. Written with models. A file
+    /// already in the site that is not its data file is refused: Ship would replace it.
     #[serde(default, deserialize_with = "explicit")]
     pub data: Option<Option<String>>,
 }
@@ -185,7 +186,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change how a website project ships, as the Ship view does: style (scene or models), textures (ktx2, webp or avif), quality (1 to 100), per asset choice (auto, never, always) and file name (without .glb, null for the default), the site repo (siteRepo, null clears it), and the site's folders (models, posters, data; written to the site's maquette.site.json, keeping its other keys). A repo or folders set here make every Ship wait for a person until a person sets them. Only the given fields change; everything is checked before anything is written. Spends nothing. Returns what get_ship_settings returns.",
+        description = "Change how a website project ships, as the Ship view does: style (scene or models), textures (ktx2, webp or avif), quality (1 to 100), per asset choice (auto, never, always) and file name (without .glb, null for the default), the site repo (siteRepo, null clears it), and the site's folders (models, posters, data; written to the site's maquette.site.json, keeping its other keys). A repo set here makes every run an agent starts in this project wait for a person before Ship, until a person picks another repo; folders set here make every run an agent starts into that repo, from any project, wait until a person saves the folders in the Ship view. A data file that is already in the site and is not its data file is refused. Only the given fields change; everything is checked before anything is written. Spends nothing. Returns what get_ship_settings returns.",
         annotations(idempotent_hint = true)
     )]
     async fn set_ship_settings(&self, Parameters(args): Parameters<SetShipArgs>) -> Out {
@@ -201,6 +202,9 @@ impl McpTools {
                 let save = args.save(&view, &manifest, repo.as_ref())?;
                 // Everything is checked against where it goes before anything moves.
                 commands::check_save(host.session(), host.runner(), &args.project, &save, at)?;
+                if let (Some(target), Some(at)) = (&save.target, at) {
+                    commands::refuse_foreign_data(Path::new(at), target)?;
+                }
                 if let Some(repo) = repo {
                     let moved = set_repo(
                         host.session(),

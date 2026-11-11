@@ -47,7 +47,10 @@ fn waits(session: &Session, id: &str, repo: Option<&Path>) -> Option<String> {
         ..RunAsk::default()
     };
     let tools = maquette_core::pipeline::tools::Toolbox::default();
-    let (setup, gate) = agent_run(session, &hub, id, ask, tools).expect("setup");
+    let (setup, gate) = agent_run(session, &hub, id, ask, tools, |setup, gate| {
+        Ok((setup, gate))
+    })
+    .expect("setup");
     let ship = setup.def.step("ship").expect("ship step");
     gate.map(|gate| {
         assert!(gate.applies(ship));
@@ -206,19 +209,50 @@ fn an_agents_folders_keep_asking_through_a_restore() {
     };
     let gone = remove(&session, &running, None, None, &id).expect("remove");
     restore(&session, &gone.removed.trash).expect("restore");
-    // The repo came back unconfirmed, so a person sets it again first.
+    // The repo came back unconfirmed: a person picks another folder, whose
+    // folders no agent set, then this one again, whose folders still ask.
     let other = dir.path().join("other");
     std::fs::create_dir_all(other.join(".git")).expect("other");
-    let repo = Some(other.display().to_string());
-    set_repo(
-        &session,
-        &runner,
-        &id,
-        "Moon Island".into(),
-        repo,
-        RepoSetBy::Person,
-    )
-    .expect("repo");
+    let pick = |repo: &Path| {
+        let repo = Some(repo.display().to_string());
+        let name = "Moon Island".to_string();
+        set_repo(&session, &runner, &id, name, repo, RepoSetBy::Person).expect("repo");
+    };
+    pick(&other);
+    assert_eq!(waits(&session, &id, None), None, "another repo's folders");
+    pick(&dir.path().join("site"));
     let why = waits(&session, &id, None).expect("the folders still ask");
     assert!(why.contains(FOLDERS), "{why}");
+}
+
+#[test]
+fn a_folder_save_waits_until_the_agents_run_is_queued() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let (_dir, session, id) = shipping(false, RepoSetBy::Person);
+    let hub = Arc::new(Hub::new(|| {}));
+    let tools = maquette_core::pipeline::tools::Toolbox::default();
+    let (saved, landed) = mpsc::channel();
+    std::thread::scope(|scope| {
+        agent_run(&session, &hub, &id, RunAsk::default(), tools, |_, gate| {
+            assert!(gate.is_none(), "a person's repo and folders, unasked");
+            let (session, id) = (&session, &id);
+            scope.spawn(move || {
+                save_folders(session, id, Some("public/late"), RepoSetBy::Agent);
+                saved.send(()).expect("send");
+            });
+            // The run is not queued yet: the save waits for it.
+            let early = landed.recv_timeout(Duration::from_millis(400));
+            assert!(
+                early.is_err(),
+                "a folder save landed before the run was queued"
+            );
+            Ok(())
+        })
+        .expect("run");
+        landed
+            .recv_timeout(Duration::from_secs(20))
+            .expect("the save lands once the run is queued");
+    });
+    assert!(waits(&session, &id, None).is_some(), "the next run asks");
 }

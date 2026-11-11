@@ -80,6 +80,42 @@ async fn each_folder_an_agent_sets_waits_for_a_person_with_the_rule_off() {
     }
 }
 
+/// An agent's project `decoy` on `site`, whose folders it then sets.
+async fn decoy_sets_folders(world: &World, site: &Path) {
+    let args = json!({ "name": "Decoy", "target": "website", "siteRepo": site });
+    call(&world.client, "create_project", args).await;
+    let args = json!({ "project": "decoy", "models": "public/evil" });
+    call(&world.client, "set_ship_settings", args).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn folders_an_agent_set_through_another_project_on_the_repo_wait() {
+    let world = rule_off().await;
+    let site = persons_repo(&world);
+    decoy_sets_folders(&world, &site).await;
+    let run = run(&world).await;
+    world
+        .denied(&run, &site, FOLDERS, "models in public/evil")
+        .await;
+    world.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_project_a_person_points_at_the_repo_later_waits_too() {
+    let world = rule_off().await;
+    let site = git_repo(world.dir.path(), "site");
+    decoy_sets_folders(&world, &site).await;
+    // Only now does a person point their own project at that repo.
+    let (root, config) = world.host.session.workspace().expect("ws");
+    let repo = Some(site.display().to_string());
+    project::update(&root, &config.layout, "web", "Web".into(), repo).expect("repo");
+    let run = run(&world).await;
+    world
+        .denied(&run, &site, FOLDERS, "models in public/evil")
+        .await;
+    world.close().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_folders_stay_put_while_a_run_waits() {
     let world = rule_off().await;
@@ -116,7 +152,7 @@ async fn a_project_an_agent_made_with_a_repo_waits_with_the_rule_off() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_game_whose_folder_an_agent_set_waits_with_the_rule_off() {
+async fn a_game_ship_after_set_game_settings_still_waits_with_the_rule_off() {
     let world = rule_off_with(|_| json!({ "name": "Web", "target": "game" })).await;
     let repo = git_repo(world.dir.path(), "game");
     let args = json!({ "project": "web", "repo": repo, "modelsDir": "assets/elsewhere" });
@@ -138,5 +174,31 @@ async fn a_game_whose_folder_an_agent_set_waits_with_the_rule_off() {
     assert!(world.hub.decide(&cards[0].id, false));
     world.finished(&run).await;
     assert!(!repo.join("shipped.log").exists(), "nothing was written");
+    world.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_agent_cannot_point_the_data_file_at_a_file_already_in_the_site() {
+    let world = rule_off().await;
+    let site = persons_repo(&world);
+    std::fs::write(site.join("package.json"), "{}\n").expect("site file");
+    let args = json!({ "project": "web", "data": "package.json" });
+    let refused = call_error(&world.client, "set_ship_settings", args).await;
+    assert!(refused.contains("not its data file"), "{refused}");
+    assert!(
+        !site.join("maquette.site.json").exists(),
+        "nothing was written"
+    );
+    let state = world.host.session.app_state();
+    assert!(state.agent_set_folders.is_empty(), "and no mark went down");
+
+    // The site's own data file, already there, can be named again.
+    std::fs::create_dir_all(site.join("src/scene")).expect("dir");
+    let own = json!({ "version": 1, "models": "public/models", "data": "src/scene/shipped.json" });
+    std::fs::write(site.join("maquette.site.json"), own.to_string()).expect("config");
+    std::fs::write(site.join("src/scene/shipped.json"), "{}\n").expect("data");
+    let args =
+        json!({ "project": "web", "models": "public/other", "data": "src/scene/shipped.json" });
+    call(&world.client, "set_ship_settings", args).await;
     world.close().await;
 }

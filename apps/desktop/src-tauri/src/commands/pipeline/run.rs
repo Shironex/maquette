@@ -122,31 +122,37 @@ pub(crate) fn setup(
     })
 }
 
-/// [`setup`] for a run an agent starts, with the gate it passes before Ship.
-/// A game's Ship always waits. A website's waits when an agent chose the
-/// repo it ships into (the run names one, or an agent set the project's and
-/// no person has set it since) or the site folders in it (an agent set them
-/// and no person has saved them since), whatever "Ask before shipping" says,
-/// and otherwise while that rule is on.
-pub(crate) fn agent_run(
+/// [`setup`] for a run an agent starts, with the gate it passes before Ship,
+/// handed to `submit`, which queues the run. A game's Ship always waits. A
+/// website's waits when an agent chose the repo it ships into (the run names
+/// one, or an agent set the project's and no person has set it since) or the
+/// site folders in it (an agent set that repo's folders, from any project, and
+/// no person has saved them since), whatever "Ask before shipping" says, and
+/// otherwise while that rule is on.
+///
+/// The repo turn is held from reading the repo and its marks until `submit`
+/// returns, so no repo or folder save lands between the gate's answer and the
+/// queued run, where the save's own during-run check would not see it.
+pub(crate) fn agent_run<R>(
     session: &Session,
     hub: &Arc<Hub>,
     project_id: &str,
     ask: RunAsk,
     tools: Toolbox,
-) -> CommandResult<(RunSetup, Option<Arc<dyn StepGate>>)> {
+    submit: impl FnOnce(RunSetup, Option<Arc<dyn StepGate>>) -> CommandResult<R>,
+) -> CommandResult<R> {
     let named_here = ask.repo.is_some();
-    // One turn for the repo `setup` reads and the marks read below: a save
-    // landing between the two would have the gate answer for another repo.
     let _turn = session.repo_turn();
     let setup = setup(session, project_id, ask, tools)?;
     let to = destination(&setup);
     if let Some(gate) = crate::commands::game::ship_gate(session, project_id, hub, to.clone()) {
-        return Ok((setup, Some(gate)));
+        return submit(setup, Some(gate));
     }
     let (root, config) = session.workspace()?;
     let by_agent = crate::commands::site::gate::repo_set_by_agent(session, &root, project_id);
-    let folders = crate::commands::site::gate::folders_set_by_agent(session, &root, project_id);
+    let folders = to.as_deref().is_some_and(|repo| {
+        crate::commands::site::gate::folders_set_by_agent(session, Path::new(repo))
+    });
     let reason = if named_here || by_agent {
         ShipReason::AgentRepo
     } else if folders {
@@ -154,12 +160,12 @@ pub(crate) fn agent_run(
     } else if config.agents.rules.ask_before_shipping {
         ShipReason::Agent
     } else {
-        return Ok((setup, None));
+        return submit(setup, None);
     };
     let gate = ShipGate {
         hub: Arc::clone(hub),
         reason,
         destination: to.map(site_destination),
     };
-    Ok((setup, Some(Arc::new(gate))))
+    submit(setup, Some(Arc::new(gate)))
 }

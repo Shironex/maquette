@@ -73,27 +73,26 @@ pub(crate) fn repo_set_by_agent(session: &Session, root: &Path, project: &str) -
         .repo_set_by_agent(&repos::root_key(root), project)
 }
 
-/// Records who set a project's site folders, on this computer.
-pub(crate) fn mark_folders(
-    session: &Session,
-    root: &Path,
-    project: &str,
-    by: RepoSetBy,
-) -> CommandResult<()> {
-    let key = repos::root_key(root);
-    if session.app_state().folders_set_by_agent(&key, project) == (by == RepoSetBy::Agent) {
+/// The key of the repo at `repo`'s folder marks: its real folder, the one
+/// Ship writes into, so a link or another project's path to it counts too.
+fn folders_key(repo: &Path) -> String {
+    maquette_core::fs::real_folder(repo).display().to_string()
+}
+
+/// Records who set the site folders of the repo at `repo`, on this computer.
+pub(crate) fn mark_folders(session: &Session, repo: &Path, by: RepoSetBy) -> CommandResult<()> {
+    let key = folders_key(repo);
+    if session.app_state().folders_set_by_agent(&key) == (by == RepoSetBy::Agent) {
         return Ok(());
     }
-    session.update_app_state(|state| state.mark_folders(&key, project, by))?;
+    session.update_app_state(|state| state.mark_folders(&key, by))?;
     Ok(())
 }
 
-/// True when an agent set `project`'s site folders and no person has saved
-/// them since.
-pub(crate) fn folders_set_by_agent(session: &Session, root: &Path, project: &str) -> bool {
-    session
-        .app_state()
-        .folders_set_by_agent(&repos::root_key(root), project)
+/// True when an agent set the site folders of the repo at `repo` and no
+/// person has saved them since, from whichever project.
+pub(crate) fn folders_set_by_agent(session: &Session, repo: &Path) -> bool {
+    session.app_state().folders_set_by_agent(&folders_key(repo))
 }
 
 /// True when `ask` needs a person's yes before it runs.

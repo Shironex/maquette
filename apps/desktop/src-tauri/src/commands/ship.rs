@@ -52,7 +52,10 @@ pub(crate) fn view(session: &Session, project_id: &str) -> CommandResult<ShipVie
     if let Some(repo) = &plan.target.repo {
         plan.target.repo = Some(session.display(Path::new(repo)));
     }
-    plan.target.set_by_agent = folders_set_by_agent(session, &root, project_id);
+    plan.target.set_by_agent = manifest
+        .site_repo
+        .as_deref()
+        .is_some_and(|repo| folders_set_by_agent(session, Path::new(repo)));
     Ok(ShipView {
         project: manifest.id.clone(),
         settings: ship::load_or_default(&dir),
@@ -96,8 +99,31 @@ pub(crate) fn check_save(
     Ok(())
 }
 
-/// Saves `change`. Folders `by` an agent carry its mark until a person saves
-/// them: a Ship into them waits for a person (`pipeline::agent_run`).
+/// Refuses an agent's data file that names a file already in the site other
+/// than the site's own data file: Ship replaces the data file whole, and the
+/// only file it is known to write there is that one. A person can still pick
+/// such a file in the Ship view.
+pub(crate) fn refuse_foreign_data(repo: &Path, target: &SiteTarget) -> CommandResult<()> {
+    let clean = |p: &str| p.trim().trim_matches('/').replace('\\', "/");
+    let Some(data) = target.data.as_deref().map(clean).filter(|d| !d.is_empty()) else {
+        return Ok(());
+    };
+    let current = site::load_config(repo).ok().and_then(|c| c.data);
+    if current.as_deref().map(clean).as_deref() == Some(data.as_str()) {
+        return Ok(());
+    }
+    if repo.join(&data).symlink_metadata().is_ok() {
+        return Err(invalid(&format!(
+            "{data} is already in the site and is not its data file, so Ship would replace it. \
+             Name a new file, or a person picks this one in the Ship view."
+        )));
+    }
+    Ok(())
+}
+
+/// Saves `change`. Folders `by` an agent mark their repo until a person saves
+/// them: an agent's run into that repo, from any project, waits for a person
+/// before Ship (`pipeline::agent_run`).
 pub(crate) fn save(
     session: &Session,
     runner: &PipelineRunner,
@@ -115,12 +141,14 @@ pub(crate) fn save(
     if let (Some(target), Some(repo)) = (&change.target, repo) {
         // An agent's mark goes down before its folders do, so a failure in
         // between asks; a person's comes off once theirs are written.
+        // The mark is the repo's: every project on it reads these folders.
         if by == RepoSetBy::Agent {
-            mark_folders(session, &root, project_id, by)?;
+            refuse_foreign_data(Path::new(repo), target)?;
+            mark_folders(session, Path::new(repo), by)?;
         }
         site::save_target(Path::new(repo), target)?;
         if by == RepoSetBy::Person {
-            mark_folders(session, &root, project_id, by)?;
+            mark_folders(session, Path::new(repo), by)?;
         }
     }
     ship::update(&dir, change.settings)?;

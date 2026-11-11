@@ -246,7 +246,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run. Ship asks whatever that setting says in a game project, in a run with repo, and while the project's site repo is one an agent set (create_project, set_ship_settings) that no person has set since, or its site folders are (set_ship_settings models, posters, data) until a person saves them. A project with no site repo builds, skips Ship without asking and answers done with shipped false and shipReason."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run. Ship asks whatever that setting says in a game project, in a run with repo, and while the project's site repo is one an agent set (create_project, set_ship_settings) that no person has set since, or an agent set the site folders of the repo it ships into (set_ship_settings models, posters, data, from any project on that repo) and no person has saved them since. A project with no site repo builds, skips Ship without asking and answers done with shipped false and shipReason."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
@@ -260,7 +260,7 @@ impl McpTools {
                     super::built::rebuild_stale(host, &args.project, &tools)?;
                 }
                 let for_run = args.repo.is_some();
-                let (setup, gate) = pipeline::agent_run(
+                let record = pipeline::agent_run(
                     host.session(),
                     &gate_hub,
                     &args.project,
@@ -271,18 +271,17 @@ impl McpTools {
                         repo: args.repo,
                     },
                     tools,
-                )?;
-                let repo_for_run = pipeline::destination(&setup).filter(|_| for_run);
-                host.runner()
-                    .submit_with(
-                        setup,
-                        RunOptions {
+                    |setup, gate| {
+                        let repo_for_run = pipeline::destination(&setup).filter(|_| for_run);
+                        let options = RunOptions {
                             gate,
                             repo_for_run,
                             ..RunOptions::default()
-                        },
-                    )
-                    .map_err(ToolError::from)
+                        };
+                        Ok(host.runner().submit_with(setup, options)?)
+                    },
+                )?;
+                Ok(record)
             })
             .await;
         let record = match started {
