@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use maquette_core::app_state::RepoSetBy;
+use maquette_core::fs::real_folder;
 use maquette_core::pipeline::{self, runner::PipelineRunner};
 use maquette_core::ship::{self, ShipSettings, ShipSettingsChange, SiteShipPlan, SizeReport};
 use maquette_core::site::{self, SiteTarget};
@@ -12,7 +13,6 @@ use maquette_core::{ProjectTarget, project};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::project::refuse_during_run;
 use super::site::gate::{folders_set_by_agent, mark_folders};
 use super::{CommandResult, invalid};
 use crate::session::Session;
@@ -65,8 +65,8 @@ pub(crate) fn view(session: &Session, project_id: &str) -> CommandResult<ShipVie
 }
 
 /// Checks a save against `repo`, writing nothing, so a save cannot stop
-/// half way and leave a file behind. The folders cannot change while a run
-/// is going: its Ship card names the ones it writes to.
+/// half way and leave a file behind. The folders cannot change while any
+/// run, of any project, ships into the same repo ([`refuse_while_shipping`]).
 pub(crate) fn check_save(
     session: &Session,
     runner: &PipelineRunner,
@@ -94,7 +94,25 @@ pub(crate) fn check_save(
             invalid("This project has no site repo yet. Pick one in Settings > Project.")
         })?;
         site::check_target(Path::new(repo), target)?;
-        refuse_during_run(runner, project_id, "the site's folders")?;
+        refuse_while_shipping(runner, Path::new(repo))?;
+    }
+    Ok(())
+}
+
+/// Refuses a folder change while a run going or queued, in any project,
+/// ships into the same real folder: Ship reads the folders from the site's
+/// `maquette.site.json` when it gets there, so a change would move a run a
+/// card already named, or one that never asks, somewhere else.
+fn refuse_while_shipping(runner: &PipelineRunner, repo: &Path) -> CommandResult<()> {
+    let real = real_folder(repo);
+    let busy = runner.any_run_with("siteRepo", |to| {
+        !to.is_empty() && real_folder(Path::new(to)) == real
+    });
+    if busy {
+        return Err(invalid(&format!(
+            "A run is going that ships into {}. Wait for it or cancel it, then change the site's folders.",
+            repo.display()
+        )));
     }
     Ok(())
 }

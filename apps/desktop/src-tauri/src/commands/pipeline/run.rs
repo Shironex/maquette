@@ -46,8 +46,9 @@ pub(crate) fn destination(setup: &RunSetup) -> Option<String> {
 }
 
 /// Where a website's Ship writes, for its card: the repo and the folders in
-/// it, as the site's `maquette.site.json` says now (the folders cannot
-/// change while the run goes). Only the repo when that file cannot be read.
+/// it, as the site's `maquette.site.json` says now. No project can change
+/// them while a run into that repo is queued or going (`commands::ship`).
+/// Only the repo when that file cannot be read.
 fn site_destination(repo: String) -> String {
     let Ok(site) = maquette_core::site::load_config(Path::new(&repo)) else {
         return repo;

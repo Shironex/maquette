@@ -62,7 +62,8 @@ pub struct SetShipArgs {
     /// "apps/landing/public/room/models". Written to the site's maquette.site.json.
     /// Folders set here (models, posters or data) count as an agent's: every run an agent
     /// starts into this repo, from any project, waits for a person before Ship until a person
-    /// saves the folders in the Ship view. Refused while the project has a run going.
+    /// saves the folders in the Ship view. Refused while a run of any project that ships
+    /// into this repo is queued or going.
     pub models: Option<String>,
     /// The site's posters folder, or null for none. Written with models.
     #[serde(default, deserialize_with = "explicit")]

@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use maquette_core::project;
+use maquette_core::{pipeline, project};
 use maquette_desktop_lib::mcp::hub::ApprovalKind;
 use serde_json::{Value, json};
 
@@ -200,5 +200,69 @@ async fn an_agent_cannot_point_the_data_file_at_a_file_already_in_the_site() {
     let args =
         json!({ "project": "web", "models": "public/other", "data": "src/scene/shipped.json" });
     call(&world.client, "set_ship_settings", args).await;
+    world.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn another_project_cannot_move_the_folders_under_a_waiting_card() {
+    let world = rule_off().await;
+    let site = persons_repo(&world);
+    let args = json!({ "project": "web", "models": "public/elsewhere" });
+    call(&world.client, "set_ship_settings", args).await;
+    let run = run(&world).await;
+    assert_eq!(run["status"], json!("waiting for approval"), "{run}");
+    let args = json!({ "name": "Decoy", "target": "website", "siteRepo": site });
+    call(&world.client, "create_project", args).await;
+    let args = json!({ "project": "decoy", "models": "public/evil" });
+    let refused = call_error(&world.client, "set_ship_settings", args).await;
+    assert!(
+        refused.contains("A run is going that ships into"),
+        "{refused}"
+    );
+    let written = std::fs::read_to_string(site.join("maquette.site.json")).expect("file");
+    assert!(!written.contains("public/evil"), "{written}");
+    world
+        .denied(&run, &site, FOLDERS, "models in public/elsewhere")
+        .await;
+    world.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg_attr(windows, ignore = "the fixture's slow step is an sh command")]
+async fn another_project_cannot_move_the_folders_under_a_run_with_no_card() {
+    let world = rule_off().await;
+    let site = persons_repo(&world);
+    // A slow step before Ship: the run is going, and Ship will not ask.
+    let (root, config) = world.host.session.workspace().expect("ws");
+    let web = project::dir(&root, &config.layout, "web").expect("dir");
+    let mut def = pipeline::load(&web).expect("load").expect("pipeline");
+    let mut slow = def.steps[0].clone();
+    slow.id = "slow".into();
+    slow.name = "Slow".into();
+    slow.script = Some("slow.sh".into());
+    slow.args = vec!["{script}".into()];
+    def.steps[0].depends_on = vec!["slow".into()];
+    def.steps.insert(0, slow);
+    pipeline::save(&web, &def).expect("save");
+    std::fs::write(web.join("slow.sh"), "/bin/sleep 30\n").expect("script");
+    let args = json!({ "project": "web", "waitSeconds": 0 });
+    let run = call(&world.client, "run_pipeline", args).await;
+    assert!(world.hub.approvals().is_empty(), "no card on this run");
+
+    let args = json!({ "name": "Decoy", "target": "website", "siteRepo": site });
+    call(&world.client, "create_project", args).await;
+    let args = json!({ "project": "decoy", "models": "public/evil" });
+    let refused = call_error(&world.client, "set_ship_settings", args).await;
+    assert!(
+        refused.contains("A run is going that ships into"),
+        "{refused}"
+    );
+    assert!(
+        !site.join("maquette.site.json").exists(),
+        "nothing was written"
+    );
+    let args = json!({ "project": "web", "runId": run["runId"] });
+    call(&world.client, "cancel_run", args).await;
+    world.finished(&run).await;
     world.close().await;
 }
