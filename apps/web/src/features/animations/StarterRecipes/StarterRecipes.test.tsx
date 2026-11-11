@@ -11,7 +11,7 @@ describe('the starter recipes', () => {
       <StarterRecipes starters={starterList([])} selected="starter:lean-in" onSelect={onSelect} />
     );
     const list = screen.getByRole('list', { name: 'Starter recipes' });
-    expect(within(list).getAllByRole('button')).toHaveLength(5);
+    expect(within(list).getAllByRole('button')).toHaveLength(9);
     const wave = within(list).getByRole('button', { name: 'Wave hello, starter' });
     expect(wave).toHaveTextContent('Rest pose · 2 changes');
     expect(wave).toHaveTextContent('Starter');
@@ -22,6 +22,9 @@ describe('the starter recipes', () => {
     expect(
       within(list).getByRole('button', { name: 'Reach for a prop, starter' })
     ).toHaveTextContent('Idle · 1 change · 1 blank');
+    expect(
+      within(list).getByRole('button', { name: 'Slash combo, left handed, starter' })
+    ).toHaveTextContent('Sword And Shield Slash + 2 clips · 2 changes · left handed');
     await userEvent.click(wave);
     expect(onSelect).toHaveBeenCalledWith('starter:wave-hello');
   });
