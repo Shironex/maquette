@@ -166,7 +166,7 @@ pub fn swaps(project_dir: &Path, manifest: &ProjectManifest, runs: &[RunRecord])
                 was.versions
                     .retain(|v| record.versions.contains(&v.version));
             }
-            Some(ShipSwap {
+            let mut swap = ShipSwap {
                 asset: asset.id.clone(),
                 name: asset.name.clone(),
                 script: source.script.clone(),
@@ -180,7 +180,18 @@ pub fn swaps(project_dir: &Path, manifest: &ProjectManifest, runs: &[RunRecord])
                 old_bytes: old.stats.as_ref().map(|s| s.bytes),
                 new_bytes: new.stats.as_ref().map(|s| s.bytes),
                 undone: false,
-            })
+            };
+            // Replaced again after an undo no Ship wrote: the site still has
+            // the built model that undo took off, so that is what leaves.
+            if let Some(undone) = built.undone.get(&asset.id)
+                && !shipped_since(runs, &undone.at)
+            {
+                swap.old_file.clone_from(&undone.shipped_as);
+                swap.old_version = undone.version;
+                swap.old_triangles = undone.triangles;
+                swap.old_bytes = undone.bytes;
+            }
+            Some(swap)
         })
         .collect();
     out.extend(swaps_back(&built, manifest, &ship, runs));
