@@ -382,6 +382,8 @@ pub fn undo(env: &ReplaceEnv<'_>, asset: &str) -> CoreResult<UndoDone> {
     }
     update(&project_dir, |file| {
         file.assets.remove(&id);
+        // With no Ship since the replace, an earlier undo's entry (the model
+        // the site has) stays as it is.
         if let Some(undone) = undone {
             file.undone.insert(id.clone(), undone);
         }

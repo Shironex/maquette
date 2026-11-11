@@ -86,3 +86,27 @@ fn an_undo_names_a_version_no_build_made() {
         plan.warnings
     );
 }
+
+#[test]
+fn a_second_replace_and_undo_keep_the_swap_back_of_the_first() {
+    let w = World::website();
+    let planner = w.scan("Spiral planner");
+    let desk = w.built("Planner built", "planner.py");
+    w.replace(&planner.id, &desk.id);
+    let mut shipped = shipped_after(1, StepState::Done);
+    shipped.finished_at_ms = Some(history::now_ms());
+    record(&w, &shipped);
+    let runs = [shipped];
+    undo(&w.env(), &planner.id).expect("undo");
+
+    // Replaced again, then undone again before any Ship: the site still has
+    // the built model from the first replace.
+    w.replace(&planner.id, &desk.id);
+    undo(&w.env(), &planner.id).expect("undo again");
+
+    let listed = swaps(&w.dir, &w.manifest(), &runs);
+    assert_eq!(listed.len(), 1, "{listed:?}");
+    assert!(listed[0].undone);
+    assert_eq!(listed[0].old_file.as_deref(), Some("spiral_planner_v2.glb"));
+    assert_eq!(listed[0].new_file.as_deref(), Some("spiral_planner_v1.glb"));
+}

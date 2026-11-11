@@ -106,9 +106,9 @@ fn write_settings(planned: &Planned, version: u32) -> CoreResult<()> {
                 planned.report.name
             )));
         }
+        // An earlier undo's entry stays: the swaps list hides it while the
+        // asset is replaced, and an undo before the next Ship needs it again.
         file.assets.insert(id.clone(), source);
-        // A replace again after an undo: that undo is no longer what ships.
-        file.undone.remove(id);
         Ok(())
     })?;
     set_prep(dir, id, Some(&planned.prep))?;
