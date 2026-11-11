@@ -18,7 +18,7 @@ use serde_json::{Value, json};
 use super::hints::{step, with_next};
 use super::plans::agent_name;
 use super::recipes::{change_view, recipe_view};
-use super::{McpTools, Out, ToolError, WAITING, respond, to_value, workspace};
+use super::{McpTools, Out, ToolError, WAITING, respond, to_short_value, to_value, workspace};
 use crate::commands::{recipe_library as commands, recipes};
 
 mod grips;
@@ -141,7 +141,16 @@ fn starter_view(starter: &RecipeStarter, full: bool) -> Value {
         "mixamo": starter.mixamo, "base": base,
         "changes": starter.layers.len(), "blanks": starter.blanks.len(),
     });
+    if !starter.joined.is_empty() {
+        out["joined"] = json!(starter.joined);
+    }
+    if starter.mirror {
+        out["mirror"] = json!(true);
+    }
     if full {
+        if !starter.time.is_empty() {
+            out["time"] = to_short_value(&starter.time);
+        }
         out["blanks"] = to_value(&starter.blanks);
         out["changes"] = json!(starter.layers.iter().map(change_view).collect::<Vec<_>>());
     }
@@ -170,7 +179,7 @@ fn used_view(used: &RecipeUsed) -> Value {
 #[tool_router(router = recipe_library_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the recipe library: recipes kept outside any project (library/recipes at the workspace root), each with its id, name, newest revision, every revision with where it came from (the project and recipe it was saved from, or the file it was imported from, and when), the newest revision's base clip, frames, Mixamo flag and change and blank counts, and its version. An entry that cannot be read lists with its problem. starters lists the starter recipes built into the app (starter true, id starter:...), read only: each names its base clip by name only (names, tried in order, and library: found or missing on this computer) or runs on the rest pose (rest), with what it does (about). Use one with use_recipe; a person copies one to the library. Listing writes nothing. Reads only.",
+        description = "List the recipe library: recipes kept outside any project (library/recipes at the workspace root), each with its id, name, newest revision, every revision with where it came from (the project and recipe it was saved from, or the file it was imported from, and when), the newest revision's base clip, frames, Mixamo flag and change and blank counts, and its version. An entry that cannot be read lists with its problem. starters lists the starter recipes built into the app (starter true, id starter:...), read only: each names its base clip by name only (names, tried in order, and library: found or missing on this computer) or runs on the rest pose (rest), with what it does (about); a combat starter also names the clips it joins (joined) and a left handed copy says mirror. Use one with use_recipe; a person copies one to the library. Listing writes nothing. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn list_library_recipes(&self) -> Out {

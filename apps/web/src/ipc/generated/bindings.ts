@@ -8173,6 +8173,15 @@ export type RecipeStarter_Deserialize = {
 	/**  How its base stands in the clip library: found, missing or rest. */
 	base: BaseMatch,
 	mixamo: boolean,
+	/**
+	 *  The clips joined after the base, each as it would take it from the
+	 *  clip library or its first name; empty on one clip.
+	 */
+	joined?: string[],
+	/**  Left and right swap across the whole recipe: a left handed copy. */
+	mirror?: boolean,
+	/**  Its holds and other time edits, as on the clips it would take. */
+	time?: TimeEdit_Deserialize[],
 };
 
 /**  A starter recipe as the app and agents read it. */
@@ -8196,6 +8205,15 @@ export type RecipeStarter_Serialize = {
 	/**  How its base stands in the clip library: found, missing or rest. */
 	base: BaseMatch,
 	mixamo: boolean,
+	/**
+	 *  The clips joined after the base, each as it would take it from the
+	 *  clip library or its first name; empty on one clip.
+	 */
+	joined?: string[],
+	/**  Left and right swap across the whole recipe: a left handed copy. */
+	mirror?: boolean,
+	/**  Its holds and other time edits, as on the clips it would take. */
+	time?: TimeEdit_Serialize[],
 };
 
 /**  A line in the list of a project's recipes. */
