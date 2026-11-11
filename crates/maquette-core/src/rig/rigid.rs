@@ -15,8 +15,8 @@ use super::defects::{self, count, num};
 use super::humanoid::{Render, arg, read_json, render};
 use super::run::Run;
 use super::{
-    RigCheck, RigDoctors, RigRecord, RigRoute, RigRun, RigSheet, RigStarter, RigState, RigStep,
-    steps, verdict,
+    JointMove, JointMoveState, RigCheck, RigDoctors, RigRecord, RigRoute, RigRun, RigSheet,
+    RigStarter, RigState, RigStep, steps, verdict,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::inbox::analyse::bare_joint_name;
@@ -91,6 +91,8 @@ pub(super) fn cannot_bind(case: &RigRecord, parts: &[u32], bone: &str) -> Option
         "A creature's rigid pieces already follow one bone each."
     } else if case.state != RigState::Fixed || case.draft.is_none() {
         "Run the fix first: the parts are bound on its draft."
+    } else if let Some(why) = case.joint_move.as_ref().and_then(joint_move_holds) {
+        why
     } else if case
         .rigid
         .as_ref()
@@ -112,6 +114,34 @@ pub(super) fn cannot_bind(case: &RigRecord, parts: &[u32], bone: &str) -> Option
     Some(why.to_string())
 }
 
+/// Why a joint move keeps a bind from starting: each makes its own draft
+/// from the fix's, so only one of them can be in the draft.
+fn joint_move_holds(change: &JointMove) -> Option<&'static str> {
+    match change.state {
+        JointMoveState::Asked => Some(
+            "Answer the joint move first: it and a bind each make a draft from the fix's, and only one can be used.",
+        ),
+        JointMoveState::Approved => {
+            Some("The joints of this draft were moved: a bind needs the fix's weights only draft.")
+        }
+        JointMoveState::Declined => None,
+    }
+}
+
+/// Why a bind keeps a joint move from being approved, or `None`: the move
+/// was made on the fix's draft, without the bound parts.
+pub(super) fn bind_holds(case: &RigRecord) -> Option<&'static str> {
+    match case.rigid.as_ref()?.state {
+        RigidState::Making | RigidState::Asked => Some(
+            "Answer the bind first: the joint move was made on the fix's draft, without the bound parts.",
+        ),
+        RigidState::Approved => Some(
+            "Undo the bound parts first: the joint move was made on the fix's draft, without them.",
+        ),
+        RigidState::Declined => None,
+    }
+}
+
 /// The body bone a bind uses when none is named: Spine2, else the first.
 pub fn default_bone(case: &RigRecord) -> Option<String> {
     case.body_bones
@@ -128,7 +158,8 @@ impl RigDoctors {
     /// # Errors
     ///
     /// Fails for an unknown case, one with no fixed draft, a part or bone
-    /// the model lacks, a bind already in the draft, and a run going.
+    /// the model lacks, a bind already in the draft, a joint move asked or
+    /// approved, and a run going.
     pub fn bind_rigid(
         &self,
         (root, config, tools): (&Path, &WorkspaceConfig, Toolbox),
@@ -136,41 +167,38 @@ impl RigDoctors {
         (parts, bone): (&[u32], Option<&str>),
         asked_by: RigStarter,
     ) -> CoreResult<RigRecord> {
-        let mut case = self.get(root, config, id)?;
-        let bone = match bone {
-            Some(name) => case
-                .body_bones
-                .iter()
-                .find(|b| *b == name || bare_joint_name(b) == name)
-                .cloned()
-                .unwrap_or_else(|| name.to_string()),
-            None => default_bone(&case).unwrap_or_default(),
-        };
         let mut parts = parts.to_vec();
         parts.sort_unstable();
         parts.dedup();
-        if let Some(why) = cannot_bind(&case, &parts, &bone) {
-            return refuse(&why);
-        }
-        if self.active().contains_key(id) {
-            return refuse("This rig doctor case is already running.");
-        }
-        case.rigid = Some(RigRigid {
-            parts,
-            bone,
-            state: RigidState::Making,
-            asked_by,
-            vertices: 0,
-            file: None,
-            earlier: case.draft.clone(),
-            sheet: None,
-            checks: Vec::new(),
-            row: None,
-            stretch_before: None,
-            stretch_after: None,
-        });
-        self.publish(&mut case)?;
-        self.run(root, config, tools, id, RigRun::Rigid)
+        self.run_with((root, config, tools), id, RigRun::Rigid, |case| {
+            let bone = match bone {
+                Some(name) => case
+                    .body_bones
+                    .iter()
+                    .find(|b| *b == name || bare_joint_name(b) == name)
+                    .cloned()
+                    .unwrap_or_else(|| name.to_string()),
+                None => default_bone(case).unwrap_or_default(),
+            };
+            if let Some(why) = cannot_bind(case, &parts, &bone) {
+                return refuse(&why);
+            }
+            case.rigid = Some(RigRigid {
+                parts,
+                bone,
+                state: RigidState::Making,
+                asked_by,
+                vertices: 0,
+                file: None,
+                earlier: case.draft.clone(),
+                sheet: None,
+                checks: Vec::new(),
+                row: None,
+                stretch_before: None,
+                stretch_after: None,
+            });
+            Ok(())
+        })
     }
 
     /// A person's answer to a bind: yes makes the bound file the draft, no

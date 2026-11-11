@@ -183,3 +183,64 @@ fn a_no_keeps_the_fix_and_a_failed_check_cannot_be_approved() {
     let yes = doctors().decide_rigid(root, &config, "winged-imp-v1", true);
     assert!(yes.is_err_and(|e| e.to_string().contains("did not hold")));
 }
+
+fn joint_move(state: JointMoveState) -> JointMove {
+    JointMove {
+        state,
+        limb: "left arm".to_string(),
+        off_cm: 4.0,
+        joints: 3,
+        breaks_clips: Vec::new(),
+        draft: "moved.glb".to_string(),
+        sheet: None,
+    }
+}
+
+#[test]
+fn a_joint_move_asked_or_approved_holds_the_bind_and_a_declined_one_does_not() {
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    fixed(root, |c| {
+        c.joint_move = Some(joint_move(JointMoveState::Asked))
+    });
+    assert!(bind(root, &[1], None).contains("Answer the joint move first"));
+    fixed(root, |c| {
+        c.joint_move = Some(joint_move(JointMoveState::Approved))
+    });
+    assert!(bind(root, &[1], None).contains("joints of this draft were moved"));
+    fixed(root, |c| {
+        c.joint_move = Some(joint_move(JointMoveState::Declined))
+    });
+    let config = WorkspaceConfig::default();
+    let case = doctors().get(root, &config, "winged-imp-v1").expect("case");
+    assert_eq!(rigid::cannot_bind(&case, &[1], "mixamorig:Spine2"), None);
+}
+
+#[test]
+fn a_bind_asked_or_in_the_draft_holds_the_joint_move_yes_but_not_its_no() {
+    let dir = tempfile::tempdir().expect("dir");
+    let (root, config) = (dir.path(), WorkspaceConfig::default());
+    let d = doctors();
+    for (state, words) in [
+        (RigidState::Asked, "Answer the bind first"),
+        (RigidState::Approved, "Undo the bound parts first"),
+    ] {
+        fixed(root, |c| {
+            c.joint_move = Some(joint_move(JointMoveState::Asked));
+            c.rigid = Some(RigRigid {
+                state,
+                ..asked(true)
+            });
+        });
+        let yes = d.decide_joints(root, &config, "winged-imp-v1", true);
+        assert!(
+            yes.is_err_and(|e| e.to_string().contains(words)),
+            "{state:?}"
+        );
+    }
+    let no = d
+        .decide_joints(root, &config, "winged-imp-v1", false)
+        .expect("no");
+    assert_eq!(no.draft.as_deref(), Some("draft.glb"));
+    assert_eq!(no.rigid.expect("bind").state, RigidState::Approved);
+}
