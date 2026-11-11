@@ -244,10 +244,17 @@ fn a_write_refuses_two_ik_changes_holding_one_bone_at_once() {
     let err = refused(vec![ranged("l-1", "rightHand", 0.5, 0.9), reach.clone()]);
     assert!(err.contains("the reach l-2"), "{err}");
 
+    // Touching at one share: both hold that frame, so it is refused too.
+    let err = refused(vec![
+        ranged("l-1", "leftFoot", 0.1, 0.4),
+        ranged("l-2", "leftFoot", 0.4, 0.8),
+    ]);
+    assert!(err.contains("both hold leftFoot"), "{err}");
+
     // Apart in time, on two bones, or two reaches as before: all fine.
     let apart = vec![
         ranged("l-1", "leftFoot", 0.1, 0.4),
-        ranged("l-2", "leftFoot", 0.4, 0.8),
+        ranged("l-2", "leftFoot", 0.45, 0.8),
         ranged("l-3", "rightFoot", 0.1, 0.8),
         RecipeLayer {
             id: "l-4".into(),

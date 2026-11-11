@@ -94,7 +94,8 @@ pub fn span_on(t: &Timeline, layer: &RecipeLayer) -> Option<PinSpan> {
 }
 
 /// Refuses a pin that holds its bone with IK over shares another pin or a
-/// reach on the same bone also holds: two IK targets on one bone at once
+/// reach on the same bone also holds, touching at one share counted (both
+/// hold that frame): two IK targets on one bone at once
 /// fight, and only the last would win. Checked on a write, so a file from
 /// before still opens.
 ///
@@ -118,7 +119,7 @@ pub fn check_ik_overlap(recipe: &RecipeFile) -> crate::error::CoreResult<()> {
         for b in &ik[i + 1..] {
             let pinned = a.kind == LayerKind::Pin || b.kind == LayerKind::Pin;
             let (sa, sb) = (&a.settings, &b.settings);
-            if pinned && a.bone == b.bone && sa.start < sb.end && sb.start < sa.end {
+            if pinned && a.bone == b.bone && sa.start <= sb.end && sb.start <= sa.end {
                 return super::check::invalid(format!(
                     "The {} {} and the {} {} both hold {} with IK over the same part of the recipe. Move one so they do not overlap, or take one out.",
                     word(a),
