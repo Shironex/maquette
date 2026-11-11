@@ -1483,18 +1483,20 @@ Opens the rig doctor's case of a rigged model and reads the file at once, with n
 
 `writes files`
 
-Starts a case's step in headless Blender on a copy and answers at once; follow it with `get_rig_doctor`. It takes minutes and spends no credits. `pose-test` renders the sheets and names the defects, `fix` changes joints and weights only and verifies that, and `round-2` is one last try. A third round is refused. The draft waits for a person in the app, on an approval card: no tool adds it or approves a joint move.
+Starts a case's step in headless Blender on a copy and answers at once; follow it with `get_rig_doctor`. It takes minutes and spends no credits. `pose-test` renders the sheets and names the defects, `fix` changes joints and weights only and verifies that, and `round-2` is one last try. A third round is refused. `rigid` binds parts (numbers from the case's `parts`: what the arm bones hold away from the arms, such as wings or a cape) rigidly to `bone` (from `bodyBones`, `Spine2` by default) on a copy of a humanoid's fixed draft, measured against it. The draft waits for a person in the app, on an approval card: no tool adds it, approves a joint move or uses a bind.
 
-| Argument | Type   | Required | What                             |
-| -------- | ------ | -------- | -------------------------------- |
-| `id`     | string | yes      | The case id.                     |
-| `step`   | string | yes      | `pose-test`, `fix` or `round-2`. |
+| Argument | Type     | Required | What                                                          |
+| -------- | -------- | -------- | ------------------------------------------------------------- |
+| `id`     | string   | yes      | The case id.                                                  |
+| `step`   | string   | yes      | `pose-test`, `fix`, `round-2` or `rigid`.                     |
+| `parts`  | number[] | no       | For `rigid`: the parts to bind.                               |
+| `bone`   | string   | no       | For `rigid`: the body bone they follow, `Spine2` if left out. |
 
 ### get_rig_doctor
 
 `read only`
 
-A case's state, model, refusals, defects by place, creature chains, before and after sheets with each pose's stretch and seam gap in mm, fix steps, checks, the joint move if one is asked with the clips it would break, progress, log and why it stopped. Look at the sheet files: the numbers say where to look.
+A case's state, model, refusals, defects by place, creature chains, before and after sheets with each pose's stretch and seam gap in mm, fix steps, checks, the joint move if one is asked with the clips it would break, the parts a rigid bind can take with the body bones and the bind with its stretch before and after, progress, log and why it stopped. Look at the sheet files: the numbers say where to look.
 
 | Argument | Type   | Required | What         |
 | -------- | ------ | -------- | ------------ |

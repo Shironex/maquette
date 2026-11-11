@@ -57,7 +57,11 @@ Once a creature is fixed, **Walk clip proof** makes a short walk from its chains
 
 A chain that sits off its mesh gets its weights mirrored from the other side. Moving its joints changes the rest pose, so it is never the default: an approval card asks, and names the clips the move would break.
 
-## One continuous mesh
+## Rigid parts
+
+Wings, a cape or a braid that an auto rig weighted to the arm bones swing with the arms, and a reweight can make them stretch more, not less. After the fix, a humanoid lists them under **Parts on the arm bones**: each connected patch of surface that an arm chain holds away from the arm, with its side, its size and the bones holding it. They are read from the model's own weights during the pose test, so they work on a single continuous mesh, where picking an island would not.
+
+Tick the parts, pick the bone they follow (**Spine2** by default, or another body bone), and click **Bind rigidly**. The bind runs on a copy of the draft: the parts get that one bone, blended into the few rings of surface around them so nothing tears where they meet the rest, and then the poses are tested again. Only weights change. The card shows the pose the draft stretched most in, its worst stretch before and after, and every row the bind moved. **Use bound parts** makes it the draft; **Keep the fix's weights** leaves the draft as it was. Once used, **Undo the bind** puts the fix's draft back. A check that did not hold keeps **Use bound parts** off.
 
 When one island holds nearly the whole model, the per island fix would tear sleeves and legs, so it does not run. On a humanoid, a narrow reweight moves only the arm and hand weight far from the arms, and the doctor says so. There is no second round.
 
@@ -72,4 +76,4 @@ On a creature with one continuous shell, its islands are only UV islands, so the
 
 ## Agents
 
-`start_rig_doctor`, `run_rig_doctor`, `get_rig_doctor` and `list_rig_doctors` can start and read the doctor. They cannot approve anything: when an agent's fix is ready, an approval card opens the sheets for you, and you add it in the app. The doctor never starts a Tripo or Meshy send.
+`start_rig_doctor`, `run_rig_doctor`, `get_rig_doctor` and `list_rig_doctors` can start and read the doctor. Step `rigid` asks for a bind of the listed parts to a body bone; the card waits for you like any other draft. They cannot approve anything: when an agent's fix is ready, an approval card opens the sheets for you, and you add it in the app. The doctor never starts a Tripo or Meshy send.
