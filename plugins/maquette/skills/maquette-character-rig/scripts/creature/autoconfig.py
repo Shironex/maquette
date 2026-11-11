@@ -145,9 +145,11 @@ def feet_forward():
     return run
 
 
-# The facing: from the feet when they point somewhere (an upright head points up, so it says nothing), else from
-# where the head sits past the body, as on a beast. Blender's -Y is glTF's +Z: the labels below are glTF axes.
-flat = feet_forward()
+# The facing: on two legs from the feet when they point somewhere (an upright head points up, so it says nothing),
+# else from where the head sits past the body, as on a beast. Only on two legs: a tail dragging on the ground can
+# read as a leg, and on four legs its flat run backwards would outweigh the feet. Blender's -Y is glTF's +Z: the
+# labels below are glTF axes.
+flat = feet_forward() if upright else Vector()
 if flat.length < 0.02 * SIZE:
     flat = TAIL[head[-1]] - body_at; flat.z = 0
 if flat.length < 1e-4: flat = Vector((0, -1, 0))
