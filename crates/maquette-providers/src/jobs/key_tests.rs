@@ -112,16 +112,15 @@ fn a_file_saved_by_hand_is_one_sends_or_nobodys() {
         key(owner_of("lamp-1-b.glb", landed.iter())),
         Some(("bay", "lamp-1"))
     );
-    // Only finished ones are left, in two projects: nobody's.
+    // Only finished ones are left: nobody's, also when one job alone has
+    // the id (another project's send of it may be gone with its project).
     let over = [
         job("moon", "lamp-1", JobState::Accepted),
         job("bay", "lamp-1", JobState::Cancelled),
     ];
     assert_eq!(key(owner_of("lamp-1.glb", over.iter())), None);
-    assert_eq!(
-        key(owner_of("lamp-1.glb", over[..1].iter())),
-        Some(("moon", "lamp-1"))
-    );
+    assert_eq!(key(owner_of("lamp-1.glb", over[..1].iter())), None);
+    assert_eq!(key(owner_of("lamp-1.glb", over[1..].iter())), None);
     assert_eq!(key(owner_of("crate-1.glb", two.iter())), None);
 }
 

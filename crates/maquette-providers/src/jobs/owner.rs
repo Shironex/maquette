@@ -77,7 +77,11 @@ pub(super) fn saved_owner<'a>(
 /// The job the inbox file `item` belongs to: the one that saved it
 /// ([`saved_owner`]), else by its name: the export name a By hand send was
 /// handed out with, else the longest job id the name starts with (how a
-/// model saved into the inbox by hand under its send's id reads).
+/// model saved into the inbox by hand under its send's id reads). A bare id
+/// only reaches a send still waiting for its model or one whose model is in
+/// the inbox: a job that is over may share the id with a send of another
+/// project, one that is gone (removed with its project, say), and a link
+/// would hand that model, its accept and its redo to the wrong asset.
 pub(super) fn owner_of<'a>(
     item: &str,
     jobs: impl Iterator<Item = &'a ProviderJob>,
@@ -94,7 +98,12 @@ pub(super) fn owner_of<'a>(
     if !expecting.is_empty() {
         return only(&expecting);
     }
-    let id = match_job(&file_stem(item), jobs.iter().map(|job| job.id.as_str()))?;
-    let named: Vec<&'a ProviderJob> = jobs.iter().copied().filter(|job| job.id == id).collect();
+    let open: Vec<&'a ProviderJob> = jobs
+        .iter()
+        .copied()
+        .filter(|job| matches!(job.state, JobState::Waiting | JobState::Inbox))
+        .collect();
+    let id = match_job(&file_stem(item), open.iter().map(|job| job.id.as_str()))?;
+    let named: Vec<&'a ProviderJob> = open.iter().copied().filter(|job| job.id == id).collect();
     only(&named)
 }
