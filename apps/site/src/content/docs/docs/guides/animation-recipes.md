@@ -48,7 +48,7 @@ A recipe can play more than its one base clip. Its clip strip lists the clips in
 - **Freeze.** Stops on a frame and adds frames. **Hold over** keeps a pose across a range with the length unchanged. Both can breathe, so a long hold is not dead still.
 - **Mirror.** Swaps left and right for the whole recipe, so a right handed slash becomes a left handed one.
 
-The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. A recipe with grips opens read only and cannot bake yet. If any clip is Mixamo's, the bake counts as Mixamo's.
+The preview and the bake play the same frames: trims, retimes and holds on each clip's own frames, then the clips joined across their windows, then mirror, and the changes laid over that. A change's start and end are read on the clips' own frames laid end to end, so it stays on the motion it was placed on: joining, moving or taking out a clip moves each change with its clip. A clip a change sits on cannot be taken out, and a clip cannot move away from the clip a change runs across from. If any clip is Mixamo's, the bake counts as Mixamo's.
 
 ## Pose keys
 
@@ -92,6 +92,22 @@ A **pin** keeps a hand or a foot in one place across part of the recipe, so a fo
 - **On the lanes.** Pins have a Pin lane of their own, with overlapping pins stacked on rows. Their settings say whether the leg or arm can stay on the spot as the hips move.
 
 Pins are solved last, after every other change, base edit and join: roughly in the preview and exactly in the bake. The review adds a **Pin drift** line per pin: how far the hand or foot leaves its spot while the pin holds whole, against 1 cm, and how far it would have moved without it.
+
+## Grips
+
+A **grip** is a hand pose kept in the workspace's grip library, so a hand holds a sword, a staff or a shield strap the same way in every recipe. A grip turns only hand, finger and arm bones, and stands on the recipe's frames rather than a clip's.
+
+- **Add a grip.** Pick **Grip** under the changes, then a grip in the picker. Filter by weapon, read the schematic hands, set **Hands** (both, right or left), what it **Holds** (a blank, or nothing), the frames and **Eases in**, then **Add grip to recipe**.
+- **Its own copy.** The recipe keeps its own copy of the pose and a link back to the grip and revision, so an exported recipe still holds it.
+- **Update to rN.** When the library has a newer revision, the grip form offers it. Updating takes the new pose; where the grip sits, its eases and its weight stay. Keeping the old one is fine. A grip removed from the library reads as gone, and the recipe keeps its copy.
+- **On the lanes.** Grips have a Grip lane named after the grip.
+- **Fingers.** A rig without finger bones gets the hand and forearm only, and the review says so.
+
+### Save a grip
+
+**Save a grip** under a pose keys change saves the hands as they stand at the playhead. It needs a key on a hand or finger bone. The sheet draws the pose, and you pick a name, a weapon, which hand holds, the bones to keep, and **A new grip** or **New revision of** one in the library. It lists what changes against the newest revision, and the file it writes. A save always adds a revision; it never overwrites one. If the grip changed since the sheet planned, nothing is written and it plans again for you to look.
+
+The Animations view lists the grips under **Show > Grips**, with their revisions and where each was saved from. Remove rN and Remove grip ask first.
 
 ## Rough preview and exact bake
 
@@ -207,12 +223,14 @@ Agents use the [recipe tools](/docs/agents/mcp-tools/) and the `maquette-animati
 3. `bake_recipe` answers at once. `get_recipe_bake` is polled for the state and the review numbers.
 4. `add_recipe_bake` asks you to add the bake as a version.
 5. `propose_recipe_save` asks you to save the recipe to the library.
+6. `list_grips` and `get_grip` read the grip library, `apply_grip` lays a grip on a recipe, and `propose_grip_save` asks you to save a grip from a recipe's pose keys.
 
 What waits for a person:
 
 - adding a bake as a version: you review it in the Motion view and add it there
 - saving to the library, which includes copying a starter there (an agent uses it in a project, then proposes the save)
 - removing library recipes or revisions
+- saving a grip to the grip library, and removing grips or their revisions
 - the app's Import to library, and exporting outside `exports/recipes`
 
 Next: [Motion](/docs/views/motion/), [Animations library](/docs/views/animations/), [MCP tools](/docs/agents/mcp-tools/).
