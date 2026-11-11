@@ -287,10 +287,15 @@ describe('the mock grip library', () => {
           bones: 33,
           posed: 33,
           missing: [],
+          // Both hands hold the staff, so the bake measures their gap.
+          gapCm: 0.8,
+          gapFrame: Math.ceil(0.1 * frames),
         },
       ]);
       const line = done.review?.lines.find(l => l.id === 'grip-l-2');
       expect(line).toMatchObject({ label: 'Grip', value: '33 of 33 bones', status: 'pass' });
+      const gap = done.review?.lines.find(l => l.id === 'grip-gap-l-2');
+      expect(gap).toMatchObject({ label: 'Grip hand gap', value: '0.8 cm', status: 'pass' });
     } finally {
       vi.useRealTimers();
     }

@@ -26,6 +26,8 @@ import { currentAsks } from './recipe-bake-asks';
 import { gripLines, gripResultsOf } from './recipe-grips';
 import { pinLines, pinResultsOf } from './recipe-pins';
 import { jointLines, jointsOf } from './recipe-key-review';
+import { fixesOf, sheetOf } from './recipe-review-extras';
+import { gapLines, mirrorLines, mirrorOf, seamLines, seamsOf, withGaps } from './recipe-seams';
 
 interface BakeContext {
   /** The recipe as `recipe_get` reads it; fails for one that is gone. */
@@ -54,7 +56,15 @@ const round = (n: number) => Math.round(n * 10) / 10;
 
 /** The review the core works out of a result (see bake/review.rs). */
 export function reviewOf(result: RecipeBakeResult): RecipeBakeReview {
-  const lines: RecipeReviewLine[] = [];
+  const { pops, holds } = seamLines(result);
+  const lines: RecipeReviewLine[] = [
+    ...pops,
+    ...jointLines(result),
+    ...pinLines(result),
+    ...holds,
+    ...gripLines(result),
+    ...gapLines(result),
+  ];
   for (const r of result.reaches) {
     const foot = r.bone.endsWith('Foot');
     const about = `${r.bone} (${r.layer})`;
@@ -90,7 +100,6 @@ export function reviewOf(result: RecipeBakeResult): RecipeBakeReview {
           : `The ${joint.toLowerCase()} bends the other way than the clip has it from there.`,
     });
   }
-  lines.push(...pinLines(result), ...jointLines(result), ...gripLines(result));
   const slideMax = round((result.baseSlideCm ?? 0) + 1.5);
   lines.push({
     id: 'feet',
@@ -127,7 +136,8 @@ export function reviewOf(result: RecipeBakeResult): RecipeBakeReview {
           ? "The base clip's stretch was not measured, so nothing to hold it to."
           : `The base clip stretches ${result.baseStretchMm.toFixed(1)} mm; up to 5 mm more passes.`,
   });
-  return { lines, warns: lines.filter(l => l.status === 'warn').length };
+  lines.push(...mirrorLines(result));
+  return { lines, warns: lines.filter(l => l.status === 'warn').length, fixes: fixesOf(result) };
 }
 
 /** Frames the fake bake steps through, and milliseconds per step. */
@@ -166,6 +176,8 @@ function resultOf(
   standIn: string | null
 ): RecipeBakeResult {
   const reaches = doc.recipe.layers.filter(l => l.kind === 'reach');
+  const joints = jointsOf(doc);
+  const seams = seamsOf(doc);
   return {
     recipe: doc.id,
     recipeName: doc.recipe.name,
@@ -203,8 +215,11 @@ function resultOf(
       flipFrame: null,
     })),
     pins: pinResultsOf(doc),
-    joints: jointsOf(doc),
-    grips: gripResultsOf(doc),
+    joints,
+    grips: withGaps(doc, gripResultsOf(doc)),
+    seams,
+    mirror: mirrorOf(doc),
+    sheet: sheetOf(doc, seams, joints),
     blenderSeconds: 2.1,
     seconds: 2.6,
     warnings: doc.base.warning ? [doc.base.warning] : [],
