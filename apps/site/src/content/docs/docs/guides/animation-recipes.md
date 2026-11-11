@@ -89,6 +89,7 @@ A **pin** keeps a hand or a foot in one place across part of the recipe, so a fo
 
 - **Keep flat.** A pinned foot keeps toe and heel flat by default. **Heel** keeps only which way the foot points, so the toe can roll. **Off** lets the foot turn as the clip has it. A hand keeps the turn it had.
 - **Eases.** A pin eases in and out over 3 frames unless you set other numbers. 0 holds at once.
+- **One at a time.** Two pins, or a pin and a reach, on the same hand or foot cannot overlap: saving refuses it and names the two.
 - **On the lanes.** Pins have a Pin lane of their own, with overlapping pins stacked on rows. Their settings say whether the leg or arm can stay on the spot as the hips move.
 
 Pins are solved last, after every other change, base edit and join: roughly in the preview and exactly in the bake. The review adds a **Pin drift** line per pin: how far the hand or foot leaves its spot while the pin holds whole, against 1 cm, and how far it would have moved without it.

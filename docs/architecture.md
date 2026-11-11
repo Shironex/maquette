@@ -677,7 +677,9 @@ carries the spans, and `recipe_pins.py` holds each with an IK constraint to an e
 chained to the upper limb, and a copy rotation for the turn, then measures how far the bone drifts
 from the spot over the frames it holds whole and how far it would move without the pin. The review
 reads that as a Pin drift line per pin (`pin-<layer>`, 1 cm). The web app's step for step copy is
-`state/recipe-pins.ts`, held to `recipes/fixtures/pins.json`.
+`state/recipe-pins.ts`, held to `recipes/fixtures/pins.json`. A write refuses a pin that overlaps
+another pin or a reach on the same bone (`pins::check_ik_overlap`, and `state/recipe-check.ts` in
+the editor); a file from before still opens.
 
 Seams are judged on the baked frames. `recipes/seams.rs` lays each join's blend window and each
 freeze or hold over's ease in and out on the timeline, and `bake/seams.rs` measures, per seam, how
