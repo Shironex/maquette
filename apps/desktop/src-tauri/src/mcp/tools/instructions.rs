@@ -31,7 +31,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 WAITS FOR A PERSON (in the Maquette app; poll, never start the work again)
 - Spending: send_to_3d, send_batch_to_3d, redo_inbox_model, redo_inbox_models and split_with_provider on Tripo or Meshy (follow get_provider_job).
 - Paid images: a round an agent asks for on openai-images (follow get_concepts).
-- Shipping: run_pipeline at its Ship step while Ask before shipping is on, and always in a game project (follow get_run). buildOnly stops before Ship.
+- Shipping: run_pipeline at Ship while Ask before shipping is on; always in a game, with repo, or into a site repo an agent set (follow get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview on a repo an agent set, first and when its path or command changes (follow get_page_preview).
 - Avatars: new weights, rest pose and spring chains (follow get_avatar). Rig doctor: a joint move, adding its draft as a version.
 - Recipes: add_recipe_bake, propose_recipe_save (follow get_recipe_bake, get_recipe).

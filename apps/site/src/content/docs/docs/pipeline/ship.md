@@ -66,4 +66,6 @@ One row per model: the source file's bytes and triangles against what ships. The
 
 :::caution[Ask before shipping]
 With Ask before shipping on (the default), a run an agent starts over MCP stops before Ship and the app shows Approve or Deny. Until you answer, `run_pipeline` and `get_run` report `waiting for approval`.
+
+With it off, an agent's run ships into the site repo you set without asking. It still stops before Ship when an agent chose the repo: a run that names its own `repo`, and a project whose site repo an agent set with `create_project` or `set_ship_settings`. Saving the same repo again keeps the question. To make the repo yours, pick another folder in Settings > Project, then this one again.
 :::

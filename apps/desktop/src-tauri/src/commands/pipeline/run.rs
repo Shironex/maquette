@@ -1,15 +1,19 @@
-//! What a run is asked to do, and the setup the runner gets for it.
+//! What a run is asked to do, the setup the runner gets for it, and the gate
+//! a run an agent starts passes before Ship.
 
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use maquette_core::fs::real_folder;
 use maquette_core::materials;
-use maquette_core::pipeline::runner::RunSetup;
+use maquette_core::pipeline::runner::{RunSetup, StepGate};
 use maquette_core::pipeline::tools::Toolbox;
 
 use super::{context, defaults};
 use crate::commands::CommandResult;
+use crate::mcp::gate::{ShipGate, ShipReason};
+use crate::mcp::hub::Hub;
 use crate::session::Session;
 
 /// What a run is asked to do besides its steps.
@@ -100,4 +104,42 @@ pub(crate) fn setup(
         quality: ship.quality,
         build_only,
     })
+}
+
+/// [`setup`] for a run an agent starts, with the gate it passes before Ship.
+/// A game's Ship always waits. A website's waits when an agent chose the
+/// repo it ships into (the run names one, or an agent set the project's and
+/// no person has set it since), whatever "Ask before shipping" says, and
+/// otherwise while that rule is on.
+pub(crate) fn agent_run(
+    session: &Session,
+    hub: &Arc<Hub>,
+    project_id: &str,
+    ask: RunAsk,
+    tools: Toolbox,
+) -> CommandResult<(RunSetup, Option<Arc<dyn StepGate>>)> {
+    let named_here = ask.repo.is_some();
+    // One turn for the repo `setup` reads and the mark read below: a save
+    // landing between the two would have the gate answer for another repo.
+    let _turn = session.repo_turn();
+    let setup = setup(session, project_id, ask, tools)?;
+    let to = destination(&setup);
+    if let Some(gate) = crate::commands::game::ship_gate(session, project_id, hub, to.clone()) {
+        return Ok((setup, Some(gate)));
+    }
+    let (root, config) = session.workspace()?;
+    let by_agent = crate::commands::site::gate::repo_set_by_agent(session, &root, project_id);
+    let reason = if named_here || by_agent {
+        ShipReason::AgentRepo
+    } else if config.agents.rules.ask_before_shipping {
+        ShipReason::Agent
+    } else {
+        return Ok((setup, None));
+    };
+    let gate = ShipGate {
+        hub: Arc::clone(hub),
+        reason,
+        destination: to,
+    };
+    Ok((setup, Some(Arc::new(gate))))
 }

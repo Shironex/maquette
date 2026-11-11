@@ -380,3 +380,5 @@ fn a_run_ships_into_a_repo_given_for_it_alone() {
         "the project's own repo, none here"
     );
 }
+
+mod agent_run;

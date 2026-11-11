@@ -252,7 +252,7 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
             if ask_before_shipping {
                 "Approve Ship for runs an agent starts (Ask before shipping is on), and always in a game"
             } else {
-                "Approve Ship in a game project (Ask before shipping is off for websites)"
+                "Approve Ship in a game project, in a run with repo and into a site repo an agent set (Ask before shipping is off for other website runs)"
             },
             "The approval prompt in the Maquette app",
         ),
