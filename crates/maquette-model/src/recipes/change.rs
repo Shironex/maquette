@@ -165,13 +165,13 @@ pub fn update(
 }
 
 /// A person's save of the recipe `id`: [`update`], with the draft marks
-/// cleared under the same write lock, before the recipe is written, so no
-/// agent write lands between the two and a mark that cannot be cleared
-/// leaves the recipe as it was.
+/// cleared under the same write lock once the recipe is written, so no
+/// agent write lands between the two and a save that fails keeps them.
+/// Marks that cannot be cleared are only logged: the save has landed.
 ///
 /// # Errors
 ///
-/// As [`update`], and when the marks cannot be cleared.
+/// As [`update`].
 pub fn save(
     project_dir: &Path,
     manifest: &ProjectManifest,
@@ -224,6 +224,7 @@ fn changed(
     }
     let mut next = normalized(&next);
     validate(&next)?;
+    super::pins::check_ik_overlap(&next)?;
     check_clear(&next, &change.clear)?;
     if sent_blanks {
         check_props(&next, manifest)?;
@@ -235,15 +236,35 @@ fn changed(
             }
         }
     }
-    if by_person {
-        super::drafts::clear_held(project_dir, id)?;
-    }
     let version = if next == current {
         current_version
     } else {
         next.edited = now_rfc3339();
-        write_recipe(&file, &next)?;
+        write(&file, &next)?;
         version(project_dir, id)?
     };
+    // A person's save clears the marks once it has landed, still under the
+    // lock, so a save that fails keeps them. Marks are only a hint: one
+    // that cannot be cleared never turns the landed save into a failure.
+    if by_person && let Err(err) = super::drafts::clear_held(project_dir, id) {
+        tracing::warn!("recipe draft marks for {id} stayed after a save: {err}");
+    }
     Ok(settled(next, version, manifest))
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Fails this thread's next recipe write, for tests of a failed save.
+    pub(super) static FAIL_NEXT_WRITE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn write(file: &Path, recipe: &RecipeFile) -> CoreResult<()> {
+    #[cfg(test)]
+    if FAIL_NEXT_WRITE.with(|f| f.replace(false)) {
+        return Err(CoreError::io(
+            file,
+            std::io::Error::other("a test failed this write"),
+        ));
+    }
+    write_recipe(file, recipe)
 }

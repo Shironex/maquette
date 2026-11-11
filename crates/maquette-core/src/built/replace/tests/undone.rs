@@ -110,3 +110,31 @@ fn a_second_replace_and_undo_keep_the_swap_back_of_the_first() {
     assert_eq!(listed[0].old_file.as_deref(), Some("spiral_planner_v2.glb"));
     assert_eq!(listed[0].new_file.as_deref(), Some("spiral_planner_v1.glb"));
 }
+
+#[test]
+fn a_replace_again_after_an_unshipped_undo_names_the_built_model_the_site_holds() {
+    let w = World::website();
+    let planner = w.scan("Spiral planner");
+    let desk = w.built("Planner built", "planner.py");
+    w.replace(&planner.id, &desk.id);
+    let mut shipped = shipped_after(1, StepState::Done);
+    shipped.finished_at_ms = Some(history::now_ms());
+    record(&w, &shipped);
+    let runs = [shipped];
+    undo(&w.env(), &planner.id).expect("undo");
+
+    // Replaced again before any Ship: the site holds v2, the first built
+    // model, never the scan the undo put back.
+    w.replace(&planner.id, &desk.id);
+    let listed = swaps(&w.dir, &w.manifest(), &runs);
+    assert_eq!(listed.len(), 1, "{listed:?}");
+    let swap = &listed[0];
+    assert!(!swap.undone);
+    assert_eq!(swap.old_file.as_deref(), Some("spiral_planner_v2.glb"));
+    assert_eq!(swap.old_version, 2);
+    assert_eq!(swap.old_triangles, Some(36));
+    // The undo freed the number, so the new built model is v2 again, and
+    // the next Ship writes it over the file of the first.
+    assert_eq!(swap.new_version, 2, "{swap:?}");
+    assert_eq!(swap.new_file.as_deref(), Some("spiral_planner_v2.glb"));
+}

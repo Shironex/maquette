@@ -58,10 +58,16 @@ describe('seam windows in mock mode, as the core lays them', () => {
 describe('near seams and unmeasured motion in mock mode', () => {
   it('lets two near joins each pop on their own', () => {
     const doc = joined(2);
-    const third = { ...clip('Block', 12), blend: { frames: 2 } };
-    doc.recipe.joined = [...(doc.recipe.joined ?? []), third] as RecipeDoc['recipe']['joined'];
+    doc.recipe.joined = [
+      { ...clip('Thrust', 6), blend: { frames: 2 } },
+      { ...clip('Block', 12), blend: { frames: 2 } },
+    ] as RecipeDoc['recipe']['joined'];
     const joins = seamsOf(doc).filter(s => s.kind === 'join');
     expect(joins).toHaveLength(2);
+    // Each sits in the other's six frames around: held to the near seam's
+    // jump, neither would pop.
+    expect(joins[1]!.first - joins[0]!.last).toBeLessThanOrEqual(6);
+    expect(joins.map(s => s.hipsAroundCm)).toEqual([1.2, 1.2]);
     expect(joins.every(s => s.pops && s.measured)).toBe(true);
   });
 
@@ -69,6 +75,24 @@ describe('near seams and unmeasured motion in mock mode', () => {
     const seams = seamsOf(joined(2)).map(s => ({ ...s, measured: false, pops: false }));
     const { pops } = seamLines({ seams } as unknown as Parameters<typeof seamLines>[0]);
     expect(pops[0]).toMatchObject({ status: 'not-measured', value: 'not measured' });
+  });
+
+  it('never reads pass while one of the seams was not measured, but a pop still warns', () => {
+    const [seam] = seamsOf(joined(20));
+    const passing = { ...seam!, pops: false, hipsOverCm: 0.5 };
+    const unmeasured = { ...seam!, measured: false, pops: false, hipsOverCm: 0 };
+    const lines = (seams: unknown[]) =>
+      seamLines({ seams } as unknown as Parameters<typeof seamLines>[0]).pops;
+    expect(lines([passing])[0]).toMatchObject({ status: 'pass' });
+    expect(lines([passing, unmeasured])[0]).toMatchObject({
+      status: 'not-measured',
+      note: expect.stringMatching(/^1 of 2 seams were not measured/),
+    });
+    const popping = { ...seam!, pops: true, hipsOverCm: 5 };
+    expect(lines([unmeasured, popping])[0]).toMatchObject({
+      status: 'warn',
+      note: expect.stringMatching(/ 1 not measured\.$/),
+    });
   });
 });
 

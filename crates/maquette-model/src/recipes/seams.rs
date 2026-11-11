@@ -105,8 +105,9 @@ pub struct SeamCheck {
     /// and the most it may (its own frames).
     pub ease: Option<u32>,
     pub ease_most: Option<u32>,
-    /// The bake reported the hips over the window; when not, nothing of
-    /// it was measured and it never pops.
+    /// The bake reported the hips over the window and there are steps
+    /// around it, outside every seam, to hold it to; when not, nothing of it
+    /// was measured and it never pops.
     #[serde(default = "measured_by_default")]
     pub measured: bool,
 }
@@ -252,7 +253,8 @@ pub fn judge(w: &SeamWindow, motion: &SeamMotion, frames: u32) -> SeamCheck {
 }
 
 /// Judges window `w`, one of the seams `all`, on `motion`. Motion with no
-/// hips up to the window's end is not measured and never pops.
+/// hips up to the window's end, or a window with no step around it outside
+/// the seams (nothing to hold it to), is not measured and never pops.
 pub fn judge_among(
     w: &SeamWindow,
     all: &[SeamWindow],
@@ -299,7 +301,7 @@ pub fn judge_among(
         blend_most: None,
         ease: None,
         ease_most: None,
-        measured: motion.hips.len() > w.last as usize,
+        measured: motion.hips.len() > w.last as usize && around(w, all, frames).next().is_some(),
     };
     check.pops = check.measured
         && (check.hips_over_cm > SEAM_HIPS_CM || check.turn_over_degrees > SEAM_TURN_DEGREES);

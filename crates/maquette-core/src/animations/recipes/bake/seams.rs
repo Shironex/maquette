@@ -173,37 +173,63 @@ fn step_words(seam: &SeamCheck) -> String {
     }
 }
 
+/// The line of a seam nothing measured: no hips motion over it, or no
+/// steps around it to hold it to. `left` of the `all` seams were not.
+fn not_measured(
+    id: &str,
+    label: &str,
+    seam: &SeamCheck,
+    left: usize,
+    all: usize,
+) -> RecipeReviewLine {
+    RecipeReviewLine {
+        id: id.to_string(),
+        label: label.to_string(),
+        about: Some(seam.about.clone()),
+        value: "not measured".to_string(),
+        limit: format!("{SEAM_HIPS_CM:.0} cm or {SEAM_TURN_DEGREES:.0} deg"),
+        measured: None,
+        max: None,
+        unit: None,
+        status: RecipeReviewStatus::NotMeasured,
+        note: Some(if left == all {
+            "The bake reported no hips motion there, or no frames around to hold it to, so no seam was measured.".to_string()
+        } else {
+            format!(
+                "{left} of {all} seams were not measured (no hips motion there, or no frames around to hold them to); the rest stay within the limit."
+            )
+        }),
+    }
+}
+
+/// The line for `seams`, worst first: the worst measured seam when it pops,
+/// else not measured while any seam was not, else the worst one's pass.
 fn seam_line(
     id: &str,
     label: &str,
     seams: &[&SeamCheck],
     place: impl Fn(&SeamCheck) -> String,
 ) -> Option<RecipeReviewLine> {
-    let seam = seams.first()?;
-    if !seam.measured {
-        return Some(RecipeReviewLine {
-            id: id.to_string(),
-            label: label.to_string(),
-            about: Some(seam.about.clone()),
-            value: "not measured".to_string(),
-            limit: format!("{SEAM_HIPS_CM:.0} cm or {SEAM_TURN_DEGREES:.0} deg"),
-            measured: None,
-            max: None,
-            unit: None,
-            status: RecipeReviewStatus::NotMeasured,
-            note: Some("The bake reported no hips motion, so no seam was measured.".to_string()),
-        });
-    }
+    let first = seams.first()?;
+    let judged: Vec<&SeamCheck> = seams.iter().copied().filter(|s| s.measured).collect();
+    let left = seams.len() - judged.len();
+    let Some(seam) = judged.first().copied().filter(|s| s.pops || left == 0) else {
+        let seam = seams.iter().copied().find(|s| !s.measured).unwrap_or(first);
+        return Some(not_measured(id, label, seam, left, seams.len()));
+    };
     let (value, limit, number, max, unit) = measured(seam);
-    let more = seams.len() - 1;
-    let others = if more == 0 {
+    let more = judged.len() - 1;
+    let mut others = if more == 0 {
         String::new()
     } else {
-        match seams.iter().skip(1).filter(|s| s.pops).count() {
+        match judged.iter().skip(1).filter(|s| s.pops).count() {
             0 => format!(" {more} more, none past the limit."),
             popping => format!(" {more} more, {popping} of them past the limit."),
         }
     };
+    if left > 0 {
+        others.push_str(&format!(" {left} not measured."));
+    }
     Some(RecipeReviewLine {
         id: id.to_string(),
         label: label.to_string(),

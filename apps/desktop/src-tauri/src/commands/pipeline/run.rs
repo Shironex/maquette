@@ -10,7 +10,7 @@ use maquette_core::materials;
 use maquette_core::pipeline::runner::{RunSetup, StepGate};
 use maquette_core::pipeline::tools::Toolbox;
 
-use super::{context, defaults};
+use super::{Context, context, defaults};
 use crate::commands::CommandResult;
 use crate::mcp::gate::{ShipGate, ShipReason};
 use crate::mcp::hub::Hub;
@@ -68,13 +68,29 @@ pub(crate) fn setup(
     ask: RunAsk,
     tools: Toolbox,
 ) -> CommandResult<RunSetup> {
+    setup_in(
+        session,
+        context(session, project_id)?,
+        project_id,
+        ask,
+        tools,
+    )
+}
+
+/// [`setup`] on the workspace `ctx` was read from.
+fn setup_in(
+    session: &Session,
+    ctx: Context,
+    project_id: &str,
+    ask: RunAsk,
+    tools: Toolbox,
+) -> CommandResult<RunSetup> {
     let RunAsk {
         from,
         force,
         build_only,
         repo,
     } = ask;
-    let ctx = context(session, project_id)?;
     let repo = match repo {
         Some(path) => Some(
             crate::commands::project::checked_repo(session, &path)?
@@ -144,12 +160,16 @@ pub(crate) fn agent_run<R>(
 ) -> CommandResult<R> {
     let named_here = ask.repo.is_some();
     let _turn = session.repo_turn();
-    let setup = setup(session, project_id, ask, tools)?;
+    // The workspace is read once: a switch during the call cannot have the
+    // marks looked up in another workspace than the run was set up in.
+    let ctx = context(session, project_id)?;
+    let root = ctx.root.clone();
+    let ask_before_shipping = ctx.config.agents.rules.ask_before_shipping;
+    let setup = setup_in(session, ctx, project_id, ask, tools)?;
     let to = destination(&setup);
     if let Some(gate) = crate::commands::game::ship_gate(session, project_id, hub, to.clone()) {
         return submit(setup, Some(gate));
     }
-    let (root, config) = session.workspace()?;
     let by_agent = crate::commands::site::gate::repo_set_by_agent(session, &root, project_id);
     let folders = to.as_deref().is_some_and(|repo| {
         crate::commands::site::gate::folders_set_by_agent(session, Path::new(repo))
@@ -158,7 +178,7 @@ pub(crate) fn agent_run<R>(
         ShipReason::AgentRepo
     } else if folders {
         ShipReason::AgentFolders
-    } else if config.agents.rules.ask_before_shipping {
+    } else if ask_before_shipping {
         ShipReason::Agent
     } else {
         return submit(setup, None);

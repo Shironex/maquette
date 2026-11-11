@@ -43,6 +43,9 @@ struct Shared {
     pending: Mutex<HashMap<PathBuf, Pending>>,
     /// Why the last run for a folder failed, with its key, until asked.
     failed: Mutex<HashMap<PathBuf, (String, String)>>,
+    /// The key of the last run for a folder that was stopped, until asked:
+    /// a set left there from before is not this one's answer.
+    stopped: Mutex<HashMap<PathBuf, String>>,
 }
 
 impl Shared {
@@ -52,6 +55,10 @@ impl Shared {
 
     fn failed(&self) -> MutexGuard<'_, HashMap<PathBuf, (String, String)>> {
         self.failed.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn stopped(&self) -> MutexGuard<'_, HashMap<PathBuf, String>> {
+        self.stopped.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -93,6 +100,7 @@ impl RunSink for Sink {
             return;
         };
         let trouble = if cancelled {
+            self.0.stopped().insert(request.dir.clone(), key.clone());
             None
         } else if run.state == RunState::Done {
             spec::land(&request, &key).err().map(|e| e.to_string())
@@ -299,6 +307,7 @@ impl Views {
             ));
         }
         stage(request)?;
+        self.shared.stopped().remove(&request.dir);
         pending.insert(
             request.dir.clone(),
             Pending {
@@ -346,6 +355,9 @@ impl Views {
             return Ok(Some(set));
         }
         self.take_failure(&request.dir, &key)?;
+        if self.shared.stopped().remove(&request.dir).as_deref() == Some(key.as_str()) {
+            return Ok(None);
+        }
         match stored(&request.dir) {
             Some(_) => Err(CoreError::Invalid(format!(
                 "{OTHER_SET} Ask again to render this one."

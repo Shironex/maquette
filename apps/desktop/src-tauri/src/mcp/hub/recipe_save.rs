@@ -53,6 +53,27 @@ pub struct GripSaveAsk {
     pub file: String,
 }
 
+/// Whether two grip save asks ask for the same grip: the same recipe, pose
+/// keys, frame, target entry, name, weapon, hands and bones. The library's
+/// newest revision, the revision it would be and its file are left out:
+/// they move when the library does while the ask waits, and the ask stays
+/// the same.
+fn same_ask(a: &RecipeSaveAsk, b: &RecipeSaveAsk) -> bool {
+    let grip = |ask: &RecipeSaveAsk| {
+        ask.grip.as_ref().map(|g| {
+            (
+                g.layer.clone(),
+                g.frame,
+                g.name.clone(),
+                g.weapon.clone(),
+                g.hands,
+                g.bones.clone(),
+            )
+        })
+    };
+    a.recipe == b.recipe && a.entry == b.entry && grip(a) == grip(b)
+}
+
 impl Hub {
     /// Records that saving a recipe to the library waits for a person. One
     /// per recipe: asking again returns the same id.
@@ -101,18 +122,44 @@ impl Hub {
     }
 
     /// Records that saving a grip to the library waits for a person. One
-    /// per pose key change of a recipe: asking again returns the same id.
+    /// per pose key change of a recipe: asking again for the same grip
+    /// ([`same_ask`]) returns the same id, and asking for another grip while one waits is
+    /// refused with the waiting id (`Err`), so the card never shows another
+    /// grip than the agent was answered with.
     pub fn request_grip_save(
         &self,
         plan: &GripSavePlan,
         source: &GripSource,
         recipe_name: &str,
-    ) -> String {
-        if let Some(found) = self.grip_save_for(&source.project, &source.recipe, &source.layer) {
-            return found.id;
-        }
+    ) -> Result<String, String> {
         let grip = &plan.grip;
-        self.push(|id| Approval {
+        let ask = RecipeSaveAsk {
+            recipe: source.recipe.clone(),
+            entry: plan.entry.clone(),
+            revision: plan.revision,
+            grip: Some(GripSaveAsk {
+                layer: source.layer.clone(),
+                frame: source.frame,
+                name: grip.name.clone(),
+                weapon: grip.weapon.clone(),
+                hands: grip.hands,
+                bones: grip.pose.keys().cloned().collect(),
+                latest: plan.latest,
+                file: plan.file.clone(),
+            }),
+        };
+        if let Some(found) = self.grip_save_for(&source.project, &source.recipe, &source.layer) {
+            return if found
+                .recipe_save
+                .as_ref()
+                .is_some_and(|was| same_ask(was, &ask))
+            {
+                Ok(found.id)
+            } else {
+                Err(found.id)
+            };
+        }
+        Ok(self.push(|id| Approval {
             id,
             kind: ApprovalKind::GripSave,
             project: source.project.clone(),
@@ -136,22 +183,8 @@ impl Hub {
             version: None,
             sheets: None,
             preview: None,
-            recipe_save: Some(RecipeSaveAsk {
-                recipe: source.recipe.clone(),
-                entry: plan.entry.clone(),
-                revision: plan.revision,
-                grip: Some(GripSaveAsk {
-                    layer: source.layer.clone(),
-                    frame: source.frame,
-                    name: grip.name.clone(),
-                    weapon: grip.weapon.clone(),
-                    hands: grip.hands,
-                    bones: grip.pose.keys().cloned().collect(),
-                    latest: plan.latest,
-                    file: plan.file.clone(),
-                }),
-            }),
-        })
+            recipe_save: Some(ask),
+        }))
     }
 
     /// The approval a grip save from the pose key change `layer` of
@@ -338,13 +371,33 @@ mod tests {
     fn a_proposed_grip_save_raises_one_approval_per_pose_key_change_until_the_person_saves() {
         let hub = Hub::new(|| {});
         let plan = grip_plan(Some("scythe-staff-grip"));
-        let first = hub.request_grip_save(&plan, &source("l-2"), "Scythe charge, held");
+        let first = hub
+            .request_grip_save(&plan, &source("l-2"), "Scythe charge, held")
+            .expect("first");
+        assert_eq!(
+            hub.request_grip_save(&plan, &source("l-2"), "Scythe charge, held"),
+            Ok(first.clone()),
+            "the same grip again: the same approval"
+        );
         assert_eq!(
             hub.request_grip_save(&grip_plan(None), &source("l-2"), "Scythe charge, held"),
-            first,
-            "one per pose key change"
+            Err(first.clone()),
+            "another grip while one waits: refused with the waiting id"
         );
-        let second = hub.request_grip_save(&grip_plan(None), &source("l-5"), "Scythe charge, held");
+        // The library moved on while it waits (a newer revision, so another
+        // number and file): the same ask still gets the same approval.
+        let mut moved = grip_plan(Some("scythe-staff-grip"));
+        moved.latest = Some(3);
+        moved.revision = 4;
+        moved.file = "library/grips/scythe-staff-grip/r4.grip.json".into();
+        assert_eq!(
+            hub.request_grip_save(&moved, &source("l-2"), "Scythe charge, held"),
+            Ok(first.clone()),
+            "the library moving is not another grip"
+        );
+        let second = hub
+            .request_grip_save(&grip_plan(None), &source("l-5"), "Scythe charge, held")
+            .expect("second");
         let waiting = hub.approvals();
         assert_eq!(waiting.len(), 2);
         assert_eq!(waiting[0].kind, ApprovalKind::GripSave);

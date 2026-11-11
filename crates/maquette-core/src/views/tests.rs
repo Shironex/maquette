@@ -385,3 +385,61 @@ fn a_set_that_is_there_answers_without_blender_until_something_changes() {
         "unavailable"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn a_stopped_render_reads_as_stopped_even_with_an_older_set_in_the_folder() {
+    use crate::pipeline::tools::ResolvedTool;
+    use crate::toolchain::{HostOs, ToolId};
+
+    let dir = tempfile::tempdir().expect("dir");
+    let asked = request(dir.path(), &[("v3", 3)]);
+    // An older set of other cameras stays in the folder.
+    fs::create_dir_all(&asked.dir).expect("out");
+    let old = ViewSet {
+        version: RECORD_VERSION,
+        key: "an-older-set".into(),
+        dir: asked.dir.display().to_string(),
+        size: SIZE,
+        models: Vec::new(),
+        sheet: asked.dir.join(SHEET_FILE).display().to_string(),
+        light: PageLight {
+            sun: 3.0,
+            fill: 0.18,
+            tone: "aces-filmic".into(),
+            exposure: 1.15,
+        },
+        seconds: 1.0,
+        rendered_at: "2026-11-10T21:00:00.000Z".into(),
+    };
+    crate::json::write_json(&asked.dir.join(RECORD_FILE), &old).expect("record");
+    // A Blender stand in that never finishes on its own.
+    let program = dir.path().join("blender");
+    fs::write(&program, "#!/bin/sh\nsleep 30\n").expect("script");
+    let mut perms = fs::metadata(&program).expect("meta").permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
+    fs::set_permissions(&program, perms).expect("chmod");
+    let mut tools = Toolbox {
+        path_env: std::ffi::OsString::from("/bin:/usr/bin"),
+        os: Some(HostOs::current()),
+        ..Toolbox::default()
+    };
+    tools.tools.insert(
+        ToolId::Blender,
+        ResolvedTool {
+            program,
+            prefix: Vec::new(),
+            version: "5.2.2".into(),
+        },
+    );
+    let views = Views::default();
+    assert_eq!(
+        views.request(&asked, &tools).expect("asked"),
+        Asked::Rendering
+    );
+    assert!(views.cancel(&asked.dir));
+    views.wait();
+    assert_eq!(views.outcome(&asked).expect("stopped"), None);
+    // Asked once; after that the older set answers as before.
+    assert!(views.outcome(&asked).is_err());
+}

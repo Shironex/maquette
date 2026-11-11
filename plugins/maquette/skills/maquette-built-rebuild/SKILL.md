@@ -70,7 +70,7 @@ The person names it ("the desk lamp"). `list_assets` `{ project }` finds its id.
    script and use `rebuild_built_asset` (step 6).
 6. Round 0: `render_views` `{ project, asset }` on the old model, with its own fix-ups and real
    size applied. Its `sheet` (refs first, then the views) and its close ups are what the rebuild
-   must beat; its `top` view is the facing reference for step 5. Write down what is wrong with it.
+   must beat; its `top` view is the facing reference for step 5.3. Write down what is wrong with it.
 
 ## 2. Rules for the script
 

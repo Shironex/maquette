@@ -18,11 +18,25 @@ export function keyTurn([x, y, z]: Turn): THREE.Quaternion {
   return new THREE.Quaternion().setFromEuler(new THREE.Euler(r(x), r(y), r(z), 'XYZ'));
 }
 
-/** A quaternion in the model's own axes as a key's turn, degrees. */
-export function turnOfQuaternion(q: THREE.Quaternion): Turn {
+/** `a` wrapped to -180 to 180 degrees. */
+const wrapped = (a: number) => a - 360 * Math.round(a / 360);
+
+/**
+ * A quaternion in the model's own axes as a key's turn, degrees. Every turn
+ * has two such triples (x, y, z and x + 180, 180 - y, z + 180); with `near`,
+ * the one closer to it, so a drag past 90 degrees of Y keeps the fields
+ * moving on instead of flipping X and Z by 180.
+ */
+export function turnOfQuaternion(q: THREE.Quaternion, near?: Turn): Turn {
   const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
-  const d = (v: number) => Math.round(THREE.MathUtils.radToDeg(v) * 10) / 10 + 0;
-  return [d(e.x), d(e.y), d(e.z)];
+  const deg = THREE.MathUtils.radToDeg;
+  const a: Turn = [deg(e.x), deg(e.y), deg(e.z)];
+  const b: Turn = [wrapped(a[0] + 180), wrapped(180 - a[1]), wrapped(a[2] + 180)];
+  const off = (t: Turn) =>
+    near ? t.reduce((sum, v, i) => sum + wrapped(v - near[i]!) ** 2, 0) : 0;
+  const d = (v: number) => Math.round(v * 10) / 10 + 0;
+  const best = near && off(b) < off(a) ? b : a;
+  return [d(best[0]), d(best[1]), d(best[2])];
 }
 
 const rotationOf = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());

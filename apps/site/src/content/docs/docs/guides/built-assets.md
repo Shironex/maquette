@@ -14,7 +14,7 @@ Use one for a prop that should be clean up close: a book, a mug, a lamp, a lapto
 **Built asset** in the Board's Add menu (or `add_built_asset` over MCP) takes the script, the helper files it imports or reads, a name, a kind and, optionally, a root object.
 
 - The script and its helpers are copied flat into the project's `built/` folder. From then on they are the project's: edit them there.
-- A helper several assets share is kept once. A different file under a name that is already there is refused unless you choose Replace.
+- A helper several assets share is kept once. A different file under a name that is already there is refused unless you choose Replace, which keeps the file it writes over as `<name>.bak` beside it.
 - The asset lands at Blender on the Board and builds at once, headless. Blender's window never opens.
 
 ## What the script does

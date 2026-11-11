@@ -89,6 +89,7 @@ A **pin** keeps a hand or a foot in one place across part of the recipe, so a fo
 
 - **Keep flat.** A pinned foot keeps toe and heel flat by default. **Heel** keeps only which way the foot points, so the toe can roll. **Off** lets the foot turn as the clip has it. A hand keeps the turn it had.
 - **Eases.** A pin eases in and out over 3 frames unless you set other numbers. 0 holds at once.
+- **One at a time.** Two pins, or a pin and a reach, on the same hand or foot cannot overlap: saving refuses it and names the two.
 - **On the lanes.** Pins have a Pin lane of their own, with overlapping pins stacked on rows. Their settings say whether the leg or arm can stay on the spot as the hips move.
 
 Pins are solved last, after every other change, base edit and join: roughly in the preview and exactly in the bake. The review adds a **Pin drift** line per pin: how far the hand or foot leaves its spot while the pin holds whole, against 1 cm, and how far it would have moved without it.
@@ -132,7 +133,7 @@ Which way is front is read from the model's shoulders (or hips), so a model that
 | **Grip hand gap**    | Both hands on one grip stay within 2 cm of how far apart they are at its first whole frame.                                               |
 | **Mirror**           | A mirrored recipe swaps every left and right bone; a side bone with no other side stays and warns.                                        |
 
-The lines come in this order: seam pop, joint limits, pin drift, hold seam, grips, grip hand gaps, reaches, foot slide, rig stretch and mirror. The seam lines show the worst seam and say how many more there are. Each seam is held to the clips around it, never to another seam nearby, so two pops close together both warn. A bake that reports no hips motion reads its seams as **not measured**, never as a pass. Under the summary, **Worth a look** names what warns. A warn never stops an add. It tells you where to look.
+The lines come in this order: seam pop, joint limits, pin drift, hold seam, grips, grip hand gaps, reaches, foot slide, rig stretch and mirror. The seam lines show the worst seam and say how many more there are. Each seam is held to the clips around it, never to another seam nearby, so two pops close together both warn. A seam the bake could not measure (no hips motion over it, or nothing around it but other seams) reads as **not measured**, and a seam line never reads as a pass while one of its seams was not measured. Under the summary, **Worth a look** names what warns. A warn never stops an add. It tells you where to look.
 
 ### Pose sheet
 

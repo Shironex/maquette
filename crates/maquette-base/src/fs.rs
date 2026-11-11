@@ -125,6 +125,22 @@ pub fn real_folder(path: &Path) -> PathBuf {
     }
 }
 
+/// Where a copy of `path` is kept before it is written over:
+/// `tools/bake_light.py.bak`, or `.bak2`, `.bak3` when that is taken.
+pub fn backup_path(path: &Path) -> PathBuf {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    (1u32..)
+        .map(|n| {
+            let suffix = if n == 1 { String::new() } else { n.to_string() };
+            path.with_file_name(format!("{name}.bak{suffix}"))
+        })
+        .find(|p| !p.exists())
+        .unwrap_or_else(|| path.with_file_name(format!("{name}.bak")))
+}
+
 /// True for a path written on any computer as absolute: `/Users/me`,
 /// `\\server\share` or `C:\Users\me`. A path from macOS is not absolute to
 /// Windows' own check, so this looks at the text.
