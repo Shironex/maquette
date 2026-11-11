@@ -106,8 +106,18 @@ pub fn prepared(
     asset: &str,
     file: &Path,
 ) -> (Option<Bounds>, PrepFrame) {
+    prepared_with(project_dir, previews, prep.models.get(asset), file)
+}
+
+/// [`prepared`] for a preparation in hand, so a model can be measured the
+/// way the layout would under an entry that is not saved yet.
+pub(crate) fn prepared_with(
+    project_dir: &Path,
+    previews: Option<&Path>,
+    entry: Option<&prepare::ModelPrep>,
+    file: &Path,
+) -> (Option<Bounds>, PrepFrame) {
     let source = crate::inbox::analyse::bounds(file);
-    let entry = prep.models.get(asset);
     let fixed = match (entry, previews) {
         (Some(entry), Some(root)) if !entry.fixups.is_empty() => {
             let script = preview::script_for(Some(project_dir));

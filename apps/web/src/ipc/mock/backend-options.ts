@@ -117,7 +117,10 @@ export interface BackendOptions {
   inbox?: string | null;
   /** `named` or `unmatched`: a download for the Downloads watcher. */
   arrival?: string | null;
-  /** `demo`: two built assets on Frostveil, one current and one stale. */
+  /**
+   * `demo`: two built assets on Frostveil, one current and one stale. `swap` adds a third that
+   * can take Crystal lantern's place, and `swapped` opens with that done.
+   */
   built?: string | null;
   /** `demo`, `rest`, `over` or `still`: models that move (see create-motion-handlers.ts). */
   motion?: string | null;

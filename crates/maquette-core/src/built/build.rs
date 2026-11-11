@@ -289,6 +289,9 @@ impl Builder {
             warnings,
         };
         save_last(&project_dir, &asset.id, &record)?;
+        if let Some(made) = &made {
+            note_built(&project_dir, &asset.id, made.version)?;
+        }
         Ok(BuildOutcome {
             result: if made.is_some() {
                 BuildResult::Built
@@ -331,6 +334,18 @@ fn save_last(project_dir: &Path, id: &str, record: &BuildRecord) -> CoreResult<(
     update(project_dir, |file| {
         if let Some(source) = file.assets.get_mut(id) {
             source.last = Some(record.clone());
+        }
+        Ok(())
+    })
+}
+
+/// Notes a version a build made on the replace record, when the asset took
+/// another model's place, so its undo knows the version came from the script.
+fn note_built(project_dir: &Path, id: &str, version: u32) -> CoreResult<()> {
+    update(project_dir, |file| {
+        let replaced = file.assets.get_mut(id).and_then(|s| s.replaced.as_mut());
+        if let Some(record) = replaced.filter(|r| !r.built.contains(&version)) {
+            record.built.push(version);
         }
         Ok(())
     })

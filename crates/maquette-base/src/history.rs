@@ -95,6 +95,10 @@ pub struct RunRecord {
     /// step: no repo to ship to.
     #[serde(default)]
     pub not_shipped: Option<String>,
+    /// The repo Ship wrote into for this run only, in place of the
+    /// project's own (an agent's worktree, say).
+    #[serde(default)]
+    pub repo_for_run: Option<String>,
 }
 
 impl RunRecord {
@@ -267,6 +271,7 @@ mod tests {
             steps: Vec::new(),
             message: None,
             not_shipped: None,
+            repo_for_run: None,
         }
     }
 
@@ -292,6 +297,17 @@ mod tests {
             message: None,
             progress: None,
         }
+    }
+
+    #[test]
+    fn a_record_from_before_runs_kept_their_repo_reads_as_the_projects_own() {
+        let text = r#"{"id":"moon-run-3","number":3,"project":"moon","from":null,"force":false,
+            "state":"done","queuedAtMs":1.0,"startedAtMs":2.0,"finishedAtMs":3.0,"steps":[],
+            "message":null}"#;
+        let record: RunRecord = serde_json::from_str(text).expect("older record");
+        assert_eq!(record.repo_for_run, None);
+        assert_eq!(record.not_shipped, None);
+        assert!(!record.build_only);
     }
 
     #[test]

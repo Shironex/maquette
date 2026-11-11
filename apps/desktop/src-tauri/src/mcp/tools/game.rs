@@ -323,7 +323,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo, empty for a repo an agent named or set, where git is not run. Files of assets moved to another folder (set_game_settings assetFolders) show as removed. repo plans a game against another git repo or worktree for this look only. Reads only; Ship runs from run_pipeline (which takes the same repo for one run) and waits for a person in the app.",
+        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo, empty for a repo an agent named or set, where git is not run. Files of assets moved to another folder (set_game_settings assetFolders) show as removed. Both list swaps: assets a built model replaced since the last Ship, with the old and new file, triangles and bytes. repo plans a game against another git repo or worktree for this look only. Reads only; Ship runs from run_pipeline (which takes the same repo for one run) and waits for a person in the app.",
         annotations(read_only_hint = true)
     )]
     async fn get_ship_plan(&self, Parameters(args): Parameters<ShipPlanArgs>) -> Out {
@@ -331,13 +331,18 @@ impl McpTools {
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
                 let manifest = project::load(&root, &config.layout, &args.project)?;
-                if game::settings_of(&manifest).is_err() {
-                    let view = crate::commands::ship::view(host.session(), &args.project)?;
-                    return Ok(to_value(&view.plan));
-                }
-                let plan =
-                    commands::ship_plan(host.session(), &args.project, args.repo.as_deref())?;
-                Ok(to_value(&plan))
+                let swaps = crate::commands::built::replace::swaps(host.session(), &args.project)?;
+                let mut plan = if game::settings_of(&manifest).is_err() {
+                    to_value(&crate::commands::ship::view(host.session(), &args.project)?.plan)
+                } else {
+                    to_value(&commands::ship_plan(
+                        host.session(),
+                        &args.project,
+                        args.repo.as_deref(),
+                    )?)
+                };
+                plan["swaps"] = to_value(&swaps);
+                Ok(plan)
             })
             .await;
         respond(found)

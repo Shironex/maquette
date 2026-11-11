@@ -88,10 +88,59 @@ function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
 }
 
 /**
+ * A built asset in the place of another model: a built card offers to take
+ * one (or, once it has, to bring the old model back), and a card with a
+ * model of its own offers to be replaced while the project has built assets.
+ */
+function useReplaceItems({ asset, built }: CardMenuProps): MenuItem[] {
+  const setReplacing = useBuiltStore(s => s.setReplacing);
+  const anyBuilt = useBuiltStore(s => s.items.length > 0);
+  const section = 'make';
+  const was = built?.source.replaced;
+  if (built && was) {
+    return [
+      {
+        id: 'replace-undo',
+        label: 'Bring back the old model...',
+        icon: 'arrow-u-up-left',
+        section,
+        hint: `Its model took the place of v${was.versions.at(-1) ?? 1} with ${was.by.name}; this undoes that`,
+        onSelect: () => setReplacing({ mode: 'undo', asset: asset.id }),
+      },
+    ];
+  }
+  if (built) {
+    return [
+      {
+        id: 'replace',
+        label: 'Use in place of a model...',
+        icon: 'arrows-left-right',
+        section,
+        hint: 'Its script and newest model take the place of another asset, which keeps its id, placement and name',
+        onSelect: () => setReplacing({ mode: 'replace', asset: null, built: asset.id }),
+      },
+    ];
+  }
+  if (!anyBuilt || asset.versions.length === 0) return [];
+  return [
+    {
+      id: 'replace-with',
+      label: 'Replace with a built asset...',
+      icon: 'arrows-left-right',
+      section,
+      hint: 'A built asset takes this model’s place; the card keeps its id, placement and name',
+      onSelect: () => setReplacing({ mode: 'replace', asset: asset.id, built: null }),
+    },
+  ];
+}
+
+/**
  * Making the model: Send to 3D (or Rebuild for a built asset), its refs, a
  * model file someone fixed, and the rig doctor unless the model has no joints.
  */
-function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuItem[] {
+function useMakeItems(props: CardMenuProps): MenuItem[] {
+  const { asset, refPicture, built, board } = props;
+  const replace = useReplaceItems(props);
   const openPanel = useProvidersStore(s => s.openPanel);
   const rebuild = useBuiltStore(s => s.rebuild);
   const openObjects = useLabStore(s => s.openObjects);
@@ -169,6 +218,7 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
           },
         ]
       : []),
+    ...replace,
     ...(rigged
       ? [
           {

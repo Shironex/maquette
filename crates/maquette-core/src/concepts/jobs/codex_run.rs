@@ -73,6 +73,7 @@ impl CodexRun {
                 stdin: Some(self.prompt.clone()),
                 timeout: Some(Duration::from_millis(self.timeout_ms)),
                 gate: None,
+                repo_for_run: None,
             },
         }
     }

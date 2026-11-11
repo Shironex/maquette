@@ -32,6 +32,12 @@
 //! and content), the root and the runner script; the same key as the last
 //! good build is up to date, and a build whose GLB matches the newest
 //! version byte for byte adds no version.
+//!
+//! A built asset that took the place of another model (a generated scan,
+//! say) also carries `replaced`: what that asset was before, so the replace
+//! can be undone (see [`ReplacedModel`]). An undo after a Ship wrote the
+//! built model is kept under `undone` until the next Ship (see
+//! [`UndoneReplace`]).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -48,8 +54,10 @@ use crate::json::write_json;
 use crate::project::ProjectManifest;
 
 mod add;
+mod replaced;
 
 pub use add::{NewBuilt, add};
+pub use replaced::{ReplacedBy, ReplacedModel, UndoneReplace};
 
 pub const BUILT_FILE: &str = "built.json";
 pub const BUILT_VERSION: u32 = 1;
@@ -96,6 +104,10 @@ pub struct BuiltSource {
     /// `build()` returns, else the whole scene.
     pub root: Option<String>,
     pub last: Option<BuildRecord>,
+    /// What the asset was before this script's model took its place, when
+    /// it did. Left out for an asset that was added as built.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaced: Option<ReplacedModel>,
 }
 
 /// `built.json`.
@@ -104,6 +116,9 @@ pub struct BuiltSource {
 pub struct BuiltFile {
     pub version: u32,
     pub assets: BTreeMap<String, BuiltSource>,
+    /// Replaces undone after a Ship wrote the built model, by asset id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub undone: BTreeMap<String, UndoneReplace>,
 }
 
 impl Default for BuiltFile {
@@ -111,6 +126,7 @@ impl Default for BuiltFile {
         Self {
             version: BUILT_VERSION,
             assets: BTreeMap::new(),
+            undone: BTreeMap::new(),
         }
     }
 }
@@ -329,4 +345,6 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<BuiltState>()
         .register::<BuiltAsset>()
         .register::<NewBuilt>()
+        .register::<ReplacedModel>()
+        .register::<ReplacedBy>()
 }

@@ -18,6 +18,8 @@ use crate::mcp::host::{Host, HostNotify};
 use super::materials::find_asset;
 use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
+mod replace;
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AddBuiltArgs {
@@ -103,6 +105,12 @@ fn listed(item: &BuiltAsset) -> Value {
         "root": item.source.root,
         "missing": item.missing,
         "last": item.source.last.as_ref().map(to_value),
+        // Set when its model took the place of another: undo with replace_with_built_asset.
+        "replaced": item.source.replaced.as_ref().map(|r| json!({
+            "at": r.at,
+            "by": r.by.name,
+            "version": r.version(),
+        })),
     })
 }
 
@@ -225,7 +233,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "List a project's built assets: each one's script and helpers in built/, its root option, its state (new, current, stale when a file changed since the last build, failed, missing when a file is gone, building) and its last build (version, exported object and material names, triangles, warnings from the Inbox checks, error).",
+        description = "List a project's built assets: each one's script and helpers in built/, its root option, its state (new, current, stale when a file changed since the last build, failed, missing when a file is gone, building) and its last build (version, exported object and material names, triangles, warnings from the Inbox checks, error), and replaced when its model took the place of another asset's (when, by which built asset, the version before).",
         annotations(read_only_hint = true)
     )]
     async fn list_built_assets(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
@@ -240,5 +248,18 @@ impl McpTools {
             })
             .await;
         respond(found)
+    }
+
+    #[tool(
+        description = "Put a built asset in the place of another model, or undo that. The asset keeps its id, so its layout placement, camera stops, path ends, object states, ship file name and game file stay; it gains the built asset's script and its newest model as its next version, and the built asset's own card goes to the asset trash. The real size carries over (a measure, so nothing is scaled twice); the old model's fix-ups, skip bake, pad edges and material tweaks are reset to the built asset's own, and compression presets stay with their model file. Nothing is aligned: build it facing as the old one stood, around the same origin, and compare old and new min and max in the answer. The answer gives both files with triangles and bytes, every setting as kept, carried, reset or brought, what no longer resolves (parts and clips the new model lacks stay in the layout) and warnings. dryRun changes nothing; undo brings the old model back as it was (not while notBuilt lists one). The next run bakes and ships it like any built piece; the Ship plan and any approval show it, and an undone one. Refused while a run is going, for a built asset that is not current and for an asset that is already built. Spends nothing and needs no approval."
+    )]
+    async fn replace_with_built_asset(
+        &self,
+        Parameters(args): Parameters<replace::ReplaceArgs>,
+    ) -> Out {
+        respond(
+            self.blocking(move |host, _| replace::run(host, &args))
+                .await,
+        )
     }
 }

@@ -36,6 +36,7 @@ fn record(name: &str) -> RunRecord {
         }],
         message: None,
         not_shipped: None,
+        repo_for_run: None,
     }
 }
 

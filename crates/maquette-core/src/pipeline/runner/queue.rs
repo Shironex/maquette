@@ -210,6 +210,7 @@ impl PipelineRunner {
             steps: initial_steps(&setup.def, &plan, setup.build_only),
             message: None,
             not_shipped: None,
+            repo_for_run: options.repo_for_run.clone(),
         };
         let project = setup.project.clone();
         lane.queue.push_back((record.clone(), setup, options));

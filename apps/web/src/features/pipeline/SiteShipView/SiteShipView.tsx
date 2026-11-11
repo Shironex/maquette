@@ -1,4 +1,5 @@
 import { Button, EmptyState, Loader } from '@maquette/ui';
+import { SwapNotes } from '@/features/common/SwapNotes';
 import { ShipSettingsPanel } from './ShipSettingsPanel';
 import { SitePlanTable } from './SitePlanTable';
 import { SizeReportTable } from './SizeReportTable';
@@ -66,6 +67,7 @@ export default function SiteShipView({ project, focus = null, onClose }: SiteShi
           </div>
           {back}
         </div>
+        <SwapNotes project={project} refresh={ship.runKey} />
         {plan.exported ? (
           <SitePlanTable
             files={plan.files}

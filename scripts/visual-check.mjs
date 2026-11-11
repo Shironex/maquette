@@ -32,7 +32,8 @@
  * a close name waiting for a look next to its ref, the asset chooser and
  * its search, the watch in Settings and the Credits sheet's subscription
  * sends. The built set covers built assets on the Board (a stale and a
- * current card, a rebuild, the card menu) and Add built asset. The motion
+ * current card, a rebuild, the card menu), Add built asset and a built asset
+ * in the place of another model (scripts/visual-check/built-replace.mjs). The motion
  * set (scripts/visual-check/motion.mjs) covers the Motion view, the timeline
  * set (scripts/visual-check/timeline.mjs) the Timeline view, the plan set
  * (scripts/visual-check/plan.mjs) the Plan view's canvases, the paths set
@@ -88,6 +89,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { aboutShots } from './visual-check/about.mjs';
 import { boardShots } from './visual-check/board.mjs';
+import { builtReplaceShots } from './visual-check/built-replace.mjs';
 import { codexShots } from './visual-check/codex.mjs';
 import { imagesShots } from './visual-check/images.mjs';
 import { firstRunShots } from './visual-check/first-run.mjs';
@@ -1100,7 +1102,10 @@ try {
     await prepShots();
   }
   await settle();
-  if (!only || only === 'built') await builtShots();
+  if (!only || only === 'built') {
+    await builtShots();
+    await builtReplaceShots({ open, shot });
+  }
   await settle();
   if (!only || only === 'board') await boardShots({ open, shot });
   await settle();

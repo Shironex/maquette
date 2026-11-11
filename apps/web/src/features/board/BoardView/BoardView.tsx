@@ -10,6 +10,7 @@ import { NextStepStrip } from '../NextStepStrip';
 import { PrepDialog } from '../PrepDialog';
 import { RemoveAssetsDialog } from '../RemoveAssetsDialog';
 import { RenameAssetDialog } from '../RenameAssetDialog';
+import { ReplaceBuiltSheet, useReplaceTarget } from '../ReplaceBuiltSheet';
 import { useRenderStore } from '@/state/use-render-store';
 import { useBoardPrimary } from '../useBoardPrimary';
 import { SelectionBar } from '../SelectionBar';
@@ -26,6 +27,7 @@ export default function BoardView() {
   const { present } = selection;
   const { renaming, sizing, removing } = actions;
   const builtDialog = useBuiltDialog();
+  const replacing = useReplaceTarget();
   const primary = useBoardPrimary();
   const stageColumns = STAGES.map(stage => (
     <BoardColumn
@@ -85,6 +87,14 @@ export default function BoardView() {
 
           {builtDialog.open && project ? (
             <AddBuiltDialog project={project.id} onClose={builtDialog.close} />
+          ) : null}
+
+          {replacing.target && project ? (
+            <ReplaceBuiltSheet
+              key={JSON.stringify(replacing.target)}
+              project={project.id}
+              target={replacing.target}
+            />
           ) : null}
 
           {present.length > 0 ? (

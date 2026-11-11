@@ -256,7 +256,7 @@ export function createBackend({
     avatars,
     rig: { state: rig, pace, emit: payload => emit?.({ name: 'rig', payload }) },
   });
-  const built = createBuiltHandlers({
+  const built = createBuiltHandlers(prepare, layout, {
     project,
     saveProject,
     emit: (id, manifest) => emit?.({ name: 'built', project: id, manifest }),

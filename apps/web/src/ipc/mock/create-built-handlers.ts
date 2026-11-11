@@ -3,6 +3,8 @@
  * `?built=demo` puts two on Frostveil at Blender, a laptop that is current
  * and a Newton's cradle whose script changed since its last build. Rebuild
  * takes a moment, then makes the next version, as the app does headless.
+ * `?built=swap` and `?built=swapped` add a built asset that takes another
+ * model's place (see `create-built-replace.ts`).
  */
 import type {
   Asset,
@@ -16,6 +18,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { HOME } from './mock-paths';
 import { fail, slugify, type Args } from './backend-options';
+import { createBuiltReplace, type PlacementStore, type PrepStore } from './create-built-replace';
 
 interface BuiltContext {
   project: (id: string) => ProjectManifest;
@@ -57,6 +60,14 @@ const SEED: readonly { id: string; name: string; script: string; objects: string
   },
 ];
 
+/** The built asset `?built=swap` adds: ready to take Crystal lantern's place. */
+const SWAP = {
+  id: 'lantern-rebuilt',
+  name: 'Lantern rebuilt',
+  script: 'crystal_lantern.py',
+  objects: ['lantern', 'cage', 'crystal'],
+};
+
 function seedAsset(id: string, name: string): Asset {
   const at = new Date(clock.nowMs() - 3_600_000).toISOString();
   return {
@@ -87,7 +98,16 @@ function seedAsset(id: string, name: string): Asset {
 }
 
 /** The built commands, and the two file pickers the Add built asset dialog uses. */
-export function createBuiltHandlers({ project, saveProject, emit, seed, buildMs }: BuiltContext) {
+/**
+ * The built commands, and the two file pickers the Add built asset dialog
+ * uses. `prepare` and `layout` are the stores a replace reads the asset's
+ * settings and placement from.
+ */
+export function createBuiltHandlers(
+  prepare: PrepStore,
+  layout: PlacementStore,
+  { project, saveProject, emit, seed, buildMs }: BuiltContext
+) {
   const sources = new Map<string, Map<string, BuiltSource>>();
   /** `project/asset` of the builds running now. */
   const building = new Set<string>();
@@ -99,11 +119,13 @@ export function createBuiltHandlers({ project, saveProject, emit, seed, buildMs 
     return sources.get(id)!;
   };
 
-  if (seed === 'demo') {
+  const swapping = seed === 'swap' || seed === 'swapped';
+  if (seed === 'demo' || swapping) {
+    const seeds = swapping ? [...SEED, SWAP] : SEED;
     const moon = project('frostveil');
-    const assets = SEED.map(s => seedAsset(s.id, s.name));
+    const assets = seeds.map(s => seedAsset(s.id, s.name));
     saveProject({ ...moon, assets: [...(moon.assets ?? []), ...assets] });
-    for (const s of SEED) {
+    for (const s of seeds) {
       of('frostveil').set(s.id, {
         script: `built/${s.script}`,
         helpers: ['built/common.py'],
@@ -112,6 +134,14 @@ export function createBuiltHandlers({ project, saveProject, emit, seed, buildMs 
       });
     }
     stale.add('frostveil/newtons-cradle');
+    // The scan the swap replaces carries what an Inbox accept leaves on one.
+    if (swapping)
+      prepare.saveEntry('frostveil', 'crystal-lantern', {
+        size: { axis: 'height', value: 1.8, unit: 'm' },
+        fixups: [{ op: 'decimate', triangles: 8_000 }],
+        skipBake: true,
+        padEdges: true,
+      });
   }
 
   function list(id: string): BuiltAsset[] {
@@ -248,5 +278,17 @@ export function createBuiltHandlers({ project, saveProject, emit, seed, buildMs 
     built_rebuild: ({ project: id, asset, force }) =>
       rebuild(String(id), String(asset), Boolean(force)),
   };
-  return { handlers };
+  const replace = createBuiltReplace({
+    project,
+    saveProject,
+    emit,
+    sources: of,
+    stateOf: (id, asset) => list(id).find(b => b.asset === asset)?.state ?? null,
+    prep: (id, asset) => prepare.entries(id).models[asset] ?? null,
+    savePrep: prepare.saveEntry,
+    placement: (id, asset) => layout.view(id).layout.models[asset] ?? null,
+    bounds: prepare.bounds,
+  });
+  if (seed === 'swapped') replace.run('frostveil', 'crystal-lantern', SWAP.id, false);
+  return { handlers: { ...handlers, ...replace.handlers } };
 }

@@ -201,6 +201,58 @@ pub(super) fn move_to_trash(
     })
 }
 
+/// The note beside files set aside by [`set_aside`].
+const ASIDE_FILE: &str = "set-aside.json";
+
+/// Sets files of a project aside without removing an asset: each of
+/// `paths` (relative to the project folder) that is there moves into a new
+/// trash folder named after `asset`, at the same path under `files/`, with
+/// `note` beside them. Returns the folder relative to the workspace, or
+/// `None` when none of the paths was there. Nothing lists the folder: it is
+/// where files go so that no undo ever deletes one.
+///
+/// # Errors
+///
+/// Fails, moving nothing, when a path leaves the project or a file cannot
+/// be moved.
+pub fn set_aside(
+    place: &Place<'_>,
+    asset: &str,
+    paths: &[String],
+    note: &serde_json::Value,
+) -> CoreResult<Option<String>> {
+    if let Some(bad) = paths.iter().find(|p| !files::is_plain(p)) {
+        return Err(CoreError::Invalid(format!(
+            "{bad} is not a path inside the project, so nothing was moved."
+        )));
+    }
+    let present: Vec<String> = paths
+        .iter()
+        .filter(|p| place.dir.join(p).exists())
+        .cloned()
+        .collect();
+    if present.is_empty() {
+        return Ok(None);
+    }
+    let trash = project_trash(place.root, place.layout, place.project)?;
+    let id = free_id(&trash, asset);
+    let dir = trash.join(&id);
+    fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
+    let files_dir = dir.join(FILES_DIR);
+    let moved = files::move_all(&place.dir, &files_dir, &present)
+        .and_then(|()| write_json(&dir.join(ASIDE_FILE), note));
+    if let Err(err) = moved {
+        if let Err(undo) = files::move_all(&files_dir, &place.dir, &present) {
+            tracing::warn!(error = %undo, "could not move the files back from the trash");
+        }
+        if let Err(gone) = fs::remove_dir_all(&dir) {
+            tracing::warn!(error = %gone, "could not remove an unused trash folder");
+        }
+        return Err(err);
+    }
+    Ok(Some(format!("{TRASH_DIR}/{}/{id}", place.project)))
+}
+
 /// The assets removed from `project`, newest first. A folder without a
 /// readable record is left out.
 ///
