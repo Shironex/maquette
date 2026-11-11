@@ -309,7 +309,12 @@ impl McpTools {
     #[tool(
         description = "Import a .recipe.json into a project as a new recipe. Agents never import into the recipe library: import into a project, then propose_recipe_save, and the person saves it. path is relative to the workspace root or absolute inside it; files outside the workspace are refused (the person imports those from the app's file picker). The file is checked whole before anything is written: at most 256 KB (checked before it is read), version 1, at most 32 changes and 16 blanks, and every change and blank check. A taken id gets a fresh one; nothing in the file becomes a path. The base clip is matched by name and frame count; another hash warns, a missing one is noted. Prop blanks whose asset the project lacks open. Answers with notes. Spends nothing."
     )]
-    async fn import_recipe(&self, Parameters(args): Parameters<ImportRecipeArgs>) -> Out {
+    async fn import_recipe(
+        &self,
+        peer: Peer<RoleServer>,
+        Parameters(args): Parameters<ImportRecipeArgs>,
+    ) -> Out {
+        let by = agent_name(None, &peer);
         let found = self
             .blocking(move |host, _| {
                 let Some(project) = args.project else {
@@ -320,7 +325,8 @@ impl McpTools {
                 };
                 let (root, _) = workspace(host)?;
                 let file = library::agent_import_path(&root, &args.path)?;
-                let used = commands::import_to_project(host.session(), &project, &file)?;
+                let mut used = commands::import_to_project(host.session(), &project, &file)?;
+                crate::commands::recipes::drafted(host.session(), &project, None, &mut used.doc, &by);
                 host.recipe_changed(&project);
                 Ok(used_view(&used))
             })
