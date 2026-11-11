@@ -17,8 +17,9 @@ use super::{McpTools, Out, respond, to_value};
 pub struct UpdateStartersArgs {
     /// The project id.
     pub project: String,
-    /// The scripts to update, as `tools/bake_light.py`. Left out: every
-    /// outdated or missing one (edited ones only with `replace`).
+    /// The scripts to update, as `tools/bake_light.py` or
+    /// `built/maquette_helpers.py`. Left out: every outdated or missing one
+    /// (edited ones only with `replace`).
     #[serde(default)]
     pub scripts: Option<Vec<String>>,
     /// Also replace scripts edited by hand; each old file is kept as
@@ -53,7 +54,7 @@ fn offered(starters: &[StarterStatus], replace: bool) -> Vec<String> {
 #[tool_router(router = starters_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get how a project's starter scripts (tools/build_scene.py, bake_light.py, export_web.py, fixups.py, render_stops.py, ship.mjs) compare with the ones this Maquette ships: current, outdated (an untouched older copy, safe to update), edited (changed by hand) or missing.",
+        description = "Get how a project's starter scripts (tools/build_scene.py, bake_light.py, export_web.py, fixups.py, render_stops.py, ship.mjs) compare with the ones this Maquette ships: current, outdated (an untouched older copy, safe to update), edited (changed by hand) or missing. It also lists built/maquette_helpers.py, the helpers a built asset's script imports once the asset lists that file among its helpers, and built/maquette_example.py, a script that uses each helper once.",
         annotations(read_only_hint = true)
     )]
     async fn get_starters(&self, Parameters(args): Parameters<super::ProjectArgs>) -> Out {
@@ -67,7 +68,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Update a project's starter scripts, as the Update button on the Pipeline view's starter banner does, for the project given here whatever project the app has open. Without scripts it updates every outdated or missing one; an edited script is only replaced with replace true, keeping the old file as <name>.bak. Refused while the project's pipeline runs. The next run uses the new scripts. Returns each starter's state after the update; a script asked for that is still not current is reported as an error.",
+        description = "Update a project's starter scripts, as the Update button on the Pipeline view's starter banner does, for the project given here whatever project the app has open. Without scripts it updates every outdated or missing one; an edited script is only replaced with replace true, keeping the old file as <name>.bak. Refused while the project's pipeline runs. The next run uses the new scripts, and updating built/maquette_helpers.py shows every built asset that lists it as stale, so it builds again. Returns each starter's state after the update; a script asked for that is still not current is reported as an error.",
         annotations(idempotent_hint = true)
     )]
     async fn update_starters(&self, Parameters(args): Parameters<UpdateStartersArgs>) -> Out {

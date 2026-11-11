@@ -980,6 +980,37 @@ Inbox checks for warnings and keeps the last build on the record. The desktop si
 thumbnail, the window events (`BuiltChanged`, `ProjectChanged`) and the pre run rebuild; the web
 side is `state/use-built-store.ts`, the Board card and `features/board/AddBuiltDialog`.
 
+### Helpers for built scripts
+
+The helpers a built script imports ship as two starters that land in `built/`, where those scripts
+live: `maquette_helpers.py` (shapes, crisp shading, flat materials, join and finish) and
+`maquette_example.py`, a script that uses every helper once. Their text is in
+`crates/maquette-core/starter/`, `pipeline/starter/built.rs` names them and `starter.rs` adds them
+after every template's own scripts (an imported folder has only these two), and the model crate
+holds their paths (`built::HELPERS_FILE`, `built::EXAMPLE_FILE`). So the starter compare and update
+flow covers them like any other starter, and existing projects get them from the Update banner or
+`update_starters`.
+
+Nothing about a build changed for them. A script imports the module because its asset lists
+`built/maquette_helpers.py` among its helpers: the file is staged with the script and hashed into
+the build key, like a project's own helper file. That is also how a starter update reaches an
+asset: the update rewrites the file, the key of every asset that lists it changes, and those assets
+show as stale and build again before the next full run. An asset that does not list the file never
+sees it, and a project's own helper files are never written.
+
+Two things follow from the files being the project's and not an asset's. Removing an asset leaves
+both in place (`assets/remove/files.rs`), since a starter would come back with the next update and
+a restore refuses a file that is in the project again. And a helper only grows: an update must not
+change what a script that already uses it builds, except to fix a fault.
+
+The tests next to `built.rs` hold this together. `built/tests.rs` checks that every public helper
+has a docstring and that the example calls it, that every kind of project lists both files, and
+that a starter update marks exactly the assets that list the helpers as stale.
+`built/blender_tests.rs` runs a real headless Blender: the example builds through `build_asset.py`
+with the report, the triangle count and each joined piece's materials as expected, and
+`pipeline/fixtures/join_slots.py` is the case `join()` and `finish()` must keep (pieces whose
+material slots come in different orders, one with no material and one mirrored).
+
 ## Preview light, standard views and model facts
 
 What an agent needs to judge a model against its ref and to replace one model with another,

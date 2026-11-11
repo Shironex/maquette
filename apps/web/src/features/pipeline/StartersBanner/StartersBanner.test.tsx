@@ -38,15 +38,23 @@ describe('the starter scripts banner', () => {
         /build_scene\.py, bake_light\.py and render_stops\.py in Frostveil's tools folder are untouched copies/
       )
     ).toBeInTheDocument();
+    // Frostveil was also made before the helper file for built scripts: it is new, not old.
+    expect(
+      screen.getByText(
+        /built\/maquette_helpers\.py and built\/maquette_example\.py are new: this project does not have them yet\./
+      )
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Update' }));
     await waitFor(() => expect(screen.queryByText('New starter scripts for Frostveil')).toBeNull());
     expect(useAppStore.getState().notice).toMatchObject({
       status: 'done',
-      title: '3 starter scripts updated in Frostveil',
-      detail: 'Now current: build_scene.py, bake_light.py and render_stops.py.',
+      title: '5 starter scripts updated in Frostveil',
+      detail:
+        'Now current: build_scene.py, bake_light.py, render_stops.py, maquette_helpers.py and maquette_example.py.',
     });
     const starters = usePipelineStore.getState().view!.starters;
     expect(starters.find(s => s.path === 'tools/bake_light.py')?.state).toBe('current');
+    expect(starters.find(s => s.path === 'built/maquette_helpers.py')?.state).toBe('current');
     expect(starters.find(s => s.path === 'tools/export_web.py')?.state).toBe('edited');
     expect(screen.getByText('export_web.py in Frostveil was edited')).toBeInTheDocument();
   });

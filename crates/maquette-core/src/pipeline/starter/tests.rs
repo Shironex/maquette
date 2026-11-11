@@ -141,10 +141,11 @@ fn the_fixup_script_applies_the_kinds_in_their_order() {
 fn write_skips_files_that_exist() {
     let dir = tempfile::tempdir().expect("tempdir");
     let first = write(dir.path(), ProjectTemplate::FloatingDiorama).expect("write");
-    assert_eq!(first.len(), 6);
+    // Its template's scripts and the two for built assets.
+    assert_eq!(first.len(), 6 + 2);
     let character = tempfile::tempdir().expect("tempdir");
     let written = write(character.path(), ProjectTemplate::CharacterShowcase).expect("write");
-    assert_eq!(written.len(), 4);
+    assert_eq!(written.len(), 4 + 2);
     assert!(written.contains(&"tools/build_character.py".to_string()));
     let edited = dir.path().join("tools/build_scene.py");
     fs::write(&edited, "print('mine')\n").expect("edit");
@@ -174,7 +175,10 @@ fn fresh_starters_are_recorded_and_current() {
             .iter()
             .all(|s| s.state == StarterState::Current)
     );
-    assert!(status(dir.path(), ProjectTemplate::Imported).is_empty());
+    // An imported folder brings its own step scripts: only the two for built assets are its starters.
+    let imported = status(dir.path(), ProjectTemplate::Imported);
+    assert_eq!(imported.len(), 2);
+    assert!(imported.iter().all(|s| s.path.starts_with("built/")));
 }
 
 #[test]

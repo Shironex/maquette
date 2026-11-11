@@ -63,6 +63,11 @@ pub const BUILT_FILE: &str = "built.json";
 pub const BUILT_VERSION: u32 = 1;
 /// The project folder that holds every built asset's script and helpers.
 pub const BUILT_DIR: &str = "built";
+/// The helper module Maquette ships for built scripts and the example that
+/// uses each helper. Both are starters (core's `pipeline::starter` writes
+/// and updates them), so they belong to the project and not to one asset.
+pub const HELPERS_FILE: &str = "built/maquette_helpers.py";
+pub const EXAMPLE_FILE: &str = "built/maquette_example.py";
 /// The script Maquette runs Blender with: it imports the asset's script,
 /// calls its `build()` and exports the result.
 pub const BUILD_SCRIPT: &str = include_str!("built/build_asset.py");

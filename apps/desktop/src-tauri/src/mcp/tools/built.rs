@@ -29,7 +29,9 @@ pub struct AddBuiltArgs {
     /// project folder. It is copied into the project's built/ folder.
     pub script: String,
     /// Files the script imports or reads (shared helpers such as common.py, textures), the
-    /// same way. A file already in built/ with the same content is shared.
+    /// same way. A file already in built/ with the same content is shared. List
+    /// built/maquette_helpers.py to import the helpers Maquette ships (shapes, lathes, page
+    /// lines, crisp edges, brass, glazed ceramic); built/maquette_example.py uses each once.
     #[serde(default)]
     pub helpers: Vec<String>,
     /// The asset name. Defaults to the script's file name ("newtons_cradle.py" is
