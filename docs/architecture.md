@@ -699,7 +699,7 @@ recipe file, gathered over writes and pruned of what is gone. The MCP writes (`c
 `update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`, `import_recipe`) land in the file
 at once and bake as they are, then mark the diff under the client's name. Marking and clearing run
 under the recipes' write lock; a person's Save (`recipes::save`) clears the marks in the same lock,
-before the recipe is written, and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
+once the recipe is written (a save that fails keeps them), and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
 banner, a drafted tag on each change and blue keys (`state/recipe-drafts.ts`).
 
 The built in starters live in `animations::recipes::library::starters`: five plain ones and four

@@ -111,7 +111,7 @@ fn marks_live_beside_the_recipe_and_clear_on_a_save_or_a_remove() {
 }
 
 #[test]
-fn a_persons_save_clears_the_marks_and_one_that_cannot_writes_nothing() {
+fn a_persons_save_clears_the_marks_only_once_it_has_landed() {
     let dir = tempfile::tempdir().expect("temp");
     let (id, made) = create(dir.path(), "Swing", clip("Slash", 40)).expect("create");
     let after = with_keys(vec![key(12, 20.0)]);
@@ -130,10 +130,19 @@ fn a_persons_save_clears_the_marks_and_one_that_cannot_writes_nothing() {
     save(dir.path(), &project(), &id, named("Saved")).expect("save");
     assert!(!marks.exists());
 
-    // Marks that cannot be cleared refuse the save before the recipe is
-    // written, so the editor's "not saved" is true.
-    std::fs::create_dir_all(marks.join("stuck")).expect("stuck");
+    // A save that fails to write keeps the marks: they clear only once the
+    // recipe has landed.
+    drafts::mark(dir.path(), &id, Some(&made), &after, "Agent", "now").expect("mark");
+    crate::recipes::change::FAIL_NEXT_WRITE.with(|f| f.set(true));
     assert!(save(dir.path(), &project(), &id, named("Lost")).is_err());
+    assert!(marks.is_file(), "a failed save keeps the marks");
     let read = get(dir.path(), &project(), &id).expect("get");
     assert_eq!(read.recipe.name, "Saved");
+
+    // Marks that cannot be cleared never fail a save that landed.
+    std::fs::remove_file(&marks).expect("unmark");
+    std::fs::create_dir_all(marks.join("stuck")).expect("stuck");
+    save(dir.path(), &project(), &id, named("Landed")).expect("save");
+    let read = get(dir.path(), &project(), &id).expect("get");
+    assert_eq!(read.recipe.name, "Landed");
 }
