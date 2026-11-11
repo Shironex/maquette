@@ -619,6 +619,7 @@ never holds keys, frames, a mesh, a skeleton or a render, so it can be shared. R
 it (trimmed text, each change keeping only the settings its kind reads) and checks it whole; a file
 over 256 KB is refused unread, like a canvas over its cap, and a write that would make one is
 refused (`recipe-too-big`).
+
 `animations::recipes` (library layer) makes a recipe from a clip and matches a recipe's base
 against the library by name and frame count: `found`, `hash-differs` (a warning, not a refusal)
 or `missing`. A bake counts as Mixamo's when the recipe says so or its matched clip came from a
@@ -682,25 +683,28 @@ Seams are judged on the baked frames. `recipes/seams.rs` lays each join's blend 
 freeze or hold over's ease in and out on the timeline, and `bake/seams.rs` measures, per seam, how
 far the hips move and the most any bone turns in one frame against the clips around it: past 2 cm
 of hips or 25 deg of turn it pops (warn only). The clips around a seam leave out every other
-seam's window, so near seams never raise each other's bar, and a bake with no hips track reads its
-seams as not measured (`SeamCheck::measured`). The review gives a Seam pop and a Hold seam line,
-each for its worst seam, a Grip hand gap line per two handed grip (how far the hands drift from
-where they sit at its first whole frame, 2 cm) and a Mirror line naming side bones with no other
-side. `bake/sheet.rs` picks the frames worth a look (seams, keys, holds) for the pose sheet, which
-the web app draws from the baked clip in `features/viewer/pose-snapshots.ts`, and `bake/fixes.rs`
-orders fixes best first (a wider blend, a longer ease, a smaller key turn), each a recipe edit the review's Try
-it lays on the editor's draft unsaved (`state/apply-fix.ts`). The mock's copy is
-`ipc/mock/recipe-seams.ts`.
+seam's window, so near seams never raise each other's bar, and a seam with no hips track over it, or
+no step around it outside the seams, reads as not measured (`SeamCheck::measured`); a line reads not
+measured while any of its seams was not, unless its worst measured seam pops. The review gives a
+Seam pop and a Hold seam line, each for its worst seam, a Grip hand gap line per two handed grip
+(how far the hands drift from where they sit at its first whole frame, 2 cm) and a Mirror line
+naming side bones with no other side. `bake/sheet.rs` picks the frames worth a look (seams, keys,
+holds) for the pose sheet, which the web app draws from the baked clip in
+`features/viewer/pose-snapshots.ts`, and `bake/fixes.rs` orders fixes best first (a wider blend, a
+longer ease, a smaller key turn), each a recipe edit the review's Try it lays on the editor's draft
+unsaved (`state/apply-fix.ts`). The mock's copy is `ipc/mock/recipe-seams.ts`.
 
-Draft marks (`recipes/drafts.rs`) record what agents changed since a person last saved: the
-changes and keys they added or changed, and whether they made the recipe or touched its clips, time
-edits, blanks or mirror. They live beside the recipe at `recipes/<id>.drafts.json`, never in the
-recipe file, gathered over writes and pruned of what is gone. The MCP writes (`create_recipe`,
-`update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`, `import_recipe`) land in the file
-at once and bake as they are, then mark the diff under the client's name (only while the file is still at the version they wrote, so a save in between is never drafted again). Marking and clearing run
+Draft marks (`recipes/drafts.rs`) record what agents changed since a person last saved: the changes
+and keys they added or changed, and whether they made the recipe or touched its clips, time edits,
+blanks or mirror. They live beside the recipe at `recipes/<id>.drafts.json`, never in the recipe
+file, gathered over writes and pruned of what is gone. The MCP writes (`create_recipe`,
+`update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`, `import_recipe`) land in the file at
+once and bake as they are, then mark the diff under the client's name (only while the file is still
+at the version they wrote, so a save in between is never drafted again). Marking and clearing run
 under the recipes' write lock; a person's Save (`recipes::save`) clears the marks in the same lock,
-once the recipe is written (a save that fails keeps them), and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
-banner, a drafted tag on each change and blue keys (`state/recipe-drafts.ts`).
+once the recipe is written (a save that fails keeps them), and removing the recipe takes them.
+`RecipeDoc::drafts` carries them, and the editor shows a banner, a drafted tag on each change and
+blue keys (`state/recipe-drafts.ts`).
 
 The built in starters live in `animations::recipes::library::starters`: five plain ones and four
 combat ones (`starters/combat.rs`: a slash combo and a scythe charge, each with a left handed copy
