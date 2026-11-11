@@ -163,11 +163,44 @@ fn pictures_are_named_after_their_view_and_side_by_side_after_their_model() {
     assert_eq!(file_name(1, "v3", "three-quarter"), "three-quarter.png");
     assert_eq!(file_name(2, "v3", "close-up-1"), "v3_close-up-1.png");
     let project = Path::new("/ws/projects/frostveil");
-    let dir = set_dir(project, "book-stack", 3, None, false);
+    let standard = standard_set(None, &[]).expect("set");
+    let dir = set_dir(project, "book-stack", 3, None, false, &standard);
     assert_eq!(dir, project.join("exports/renders/book-stack/views/v3"));
-    assert!(set_dir(project, "book-stack", 3, Some(2), false).ends_with("views/v3-vs-v2"));
-    assert!(set_dir(project, "book-stack", 3, Some(2), true).ends_with("views/v3-vs-v2-as-is"));
-    assert!(set_dir(project, "book-stack", 1, None, true).ends_with("views/v1-as-is"));
+    let side = |as_is| set_dir(project, "book-stack", 3, Some(2), as_is, &standard);
+    assert!(side(false).ends_with("views/v3-vs-v2"));
+    assert!(side(true).ends_with("views/v3-vs-v2-as-is"));
+    assert!(set_dir(project, "book-stack", 1, None, true, &standard).ends_with("views/v1-as-is"));
+}
+
+#[test]
+fn a_set_with_other_cameras_keeps_a_folder_of_its_own() {
+    let project = Path::new("/ws/projects/frostveil");
+    let folder = |views: &[StandardView]| {
+        let dir = set_dir(project, "book-stack", 3, None, false, views);
+        dir.file_name()
+            .expect("name")
+            .to_string_lossy()
+            .into_owned()
+    };
+    let standard = folder(&standard_set(None, &[]).expect("set"));
+    let turned = ViewAngle {
+        azimuth: -60.0,
+        elevation: 22.0,
+    };
+    let other = folder(&standard_set(Some(turned), &[]).expect("turned"));
+    let part = [ViewTarget::Node("mug".to_string())];
+    let closer = folder(&standard_set(None, &part).expect("close ups"));
+    assert_eq!(standard, "v3");
+    for name in [&other, &closer] {
+        assert_eq!(name.len(), "v3-".len() + 8, "{name}");
+        assert!(name.starts_with("v3-"), "{name}");
+    }
+    assert_ne!(other, closer);
+    // The same cameras always land in the same folder.
+    assert_eq!(
+        other,
+        folder(&standard_set(Some(turned), &[]).expect("again"))
+    );
 }
 
 fn request(dir: &Path, models: &[(&str, u32)]) -> ViewsRequest {

@@ -1121,7 +1121,7 @@ Renders one asset version from a fixed set of views in headless Blender, in [the
 | `close-up-1`    | From the three quarter side: the first half of the model along its longest side                     |
 | `close-up-2`    | The other half                                                                                      |
 
-They land in the project's `exports/renders/<asset>/views/v<n>/`, with `sheet.png` (every picture on one PNG, the asset's refs first) and `views.json`. The answer gives each picture's path, the camera that took it in words and numbers, what it frames, and the paths of the asset's refs with their views. The asset's fix-ups and real size are applied first, as Build scene places the model, so the pictures are in metres.
+They land in the project's `exports/renders/<asset>/views/v<n>/` (a set with another `angle` or other `closeUps` gets a folder of its own, `v<n>-<8 hex>/`, so it never overwrites the standard set), with `sheet.png` (every picture on one PNG, the asset's refs first) and `views.json`. The answer gives each picture's path, the camera that took it in words and numbers, what it frames, and the paths of the asset's refs with their views. The asset's fix-ups and real size are applied first, as Build scene places the model, so the pictures are in metres.
 
 `compare` renders a second version with the very same cameras, fitted to both models together, into `v<n>-vs-v<m>/` as `v3_front.png` and `v2_front.png`: a rebuild beside the model it replaces.
 

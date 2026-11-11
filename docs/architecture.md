@@ -997,11 +997,13 @@ without a script of its own.
   object or a box in shares of the bounds), `spec.rs` the JSON `views/render_views.py` is told and
   the key of a set, `job.rs` the `Views` service on the `views` runner lane. A set lands in
   `<project>/exports/renders/<asset>/views/v<n>/` (`v<n>-vs-v<m>/` side by side, where both models
-  share cameras fitted to their joint bounds) with `sheet.png` and `views.json`; the pictures are
-  rendered in a scratch folder under the workspace cache and copied over together. `views.json`
-  keeps the key (scripts, size, views, the models' and refs' content), so the same request answers
-  from the folder, one for a set on its way joins it, a failed run says why once and `cancel` stops
-  one.
+  share cameras fitted to their joint bounds; `-<8 hex>` of the cameras when they are not the
+  standard set, so another angle never shares a folder or a run with it) with `sheet.png` and
+  `views.json`; the pictures are rendered in a scratch folder under the workspace cache and copied
+  over together, the old `views.json` removed first. `views.json` keeps the key (scripts, size,
+  views, the models' and refs' content), so the same request answers from the folder, one for the
+  same set on its way joins it, one for another key in that folder is refused until it lands, a
+  failed run says why once and `cancel` stops one.
 - **Facts.** `maquette_core::facts` (pipeline layer) measures nothing anew: counts and the file's
   box from the Inbox analysis, the real size and the box at real size from `layout::prepared` (the
   Layout editor's own), the entry and the box in the scene from `layout.json`, and the facing from

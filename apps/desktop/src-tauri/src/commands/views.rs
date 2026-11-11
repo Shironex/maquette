@@ -137,6 +137,7 @@ pub(crate) fn folders(
         version,
         compare,
         ask.as_is,
+        &ask.views,
     );
     let name = dir.file_name().map(PathBuf::from).unwrap_or_default();
     let work = found

@@ -6,6 +6,7 @@
 //! <project>/exports/renders/<asset>/views/v3/three-quarter.png, front.png,
 //!     top.png, close-up-1.png, close-up-2.png, sheet.png, views.json
 //! <project>/exports/renders/<asset>/views/v3-vs-v2/v3_front.png, v2_front.png, ...
+//! <project>/exports/renders/<asset>/views/v3-1a2b3c4d/...   (another angle or close ups)
 //! ```
 //!
 //! [`cameras`] holds the set, [`render_views.py`] makes the pictures with
@@ -151,13 +152,16 @@ pub enum Asked {
 
 /// The folder of a set under the project: `exports/renders/<asset>/views/`
 /// then `v3`, or `v3-vs-v2` side by side, with `-as-is` when the models are
-/// rendered as their files are.
+/// rendered as their files are, and `-<8 hex>` when its cameras are not the
+/// standard set (another angle or other close ups): each set of cameras
+/// keeps its own pictures and its own render.
 pub fn set_dir(
     project_dir: &Path,
     asset: &str,
     version: u32,
     compare: Option<u32>,
     as_is: bool,
+    views: &[StandardView],
 ) -> PathBuf {
     let mut name = match compare {
         Some(other) => format!("v{version}-vs-v{other}"),
@@ -166,12 +170,26 @@ pub fn set_dir(
     if as_is {
         name.push_str("-as-is");
     }
+    if let Some(tag) = cameras_tag(views) {
+        name.push('-');
+        name.push_str(&tag);
+    }
     project_dir
         .join(crate::packs::EXPORTS_DIR)
         .join("renders")
         .join(asset)
         .join(VIEWS_DIR)
         .join(name)
+}
+
+/// Eight hex digits of the cameras, or `None` for the standard set.
+fn cameras_tag(views: &[StandardView]) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    if standard_set(None, &[]).is_ok_and(|standard| standard == views) {
+        return None;
+    }
+    let json = serde_json::to_string(views).unwrap_or_default();
+    Some(hex::encode(Sha256::digest(json.as_bytes()))[..8].to_string())
 }
 
 /// The set a folder holds, when one finished there.
