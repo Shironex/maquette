@@ -1,8 +1,8 @@
 //! The inbox is one folder for the whole workspace, and two projects may
 //! each have a job `<asset>-1`: a model there links to the job of its own
 //! project, through accept and discard, also when the inbox gives a name
-//! out a second time, and a model saved by hand links only when one send
-//! can be meant.
+//! out a second time, a model saved by hand links only when one send can
+//! be meant, and a removed project's model links to no other project's job.
 
 use super::*;
 
@@ -184,5 +184,50 @@ fn a_model_saved_into_the_inbox_by_hand_links_only_when_one_send_can_be_meant() 
         job(&jobs, &theirs).inbox_file.as_deref(),
         Some(named.as_str()),
         "the other project's model stays its own"
+    );
+}
+
+#[test]
+fn a_removed_projects_inbox_model_never_links_to_another_projects_send_of_its_id() {
+    let world = World::new();
+    let other = second_project(&world);
+    let (server, _) = meshy_server(false);
+    let jobs = world.jobs(&server);
+    let send = |project: &str| {
+        let sent = jobs
+            .send(&request_in(&world, project, Provider::Meshy), false, false)
+            .expect("send");
+        finished(&jobs, &sent)
+    };
+
+    // The first project's model waits in the inbox; the second project's
+    // send of the same id was accepted.
+    let mine = send(&world.project);
+    let name = mine.inbox_file.clone().expect("file");
+    let theirs = send(&other);
+    assert_eq!(mine.id, theirs.id);
+    let their_file = theirs.inbox_file.clone().expect("file");
+    accept_in(&world, &jobs, &other, &their_file);
+    assert_eq!(job(&jobs, &theirs).state, JobState::Accepted);
+
+    // The first project is removed with its model still in the inbox (a
+    // model in the Inbox does not hold a removal back), and the app starts
+    // again, so only the second project's jobs load.
+    project::trash::remove_project(&world.root, &world.config.layout, &world.project)
+        .expect("remove");
+    jobs.close();
+    let again = world.jobs(&server);
+    assert!(again.get(&world.project, &mine.id).is_none());
+    assert_eq!(
+        again.get(&other, &theirs.id).expect("job").state,
+        JobState::Accepted
+    );
+
+    // The file reads as the shared id, but the only job with it is done:
+    // no link, so its accept and redo never reach the second project's asset.
+    assert_eq!(links(&world, &again), [(name, None)]);
+    assert_eq!(
+        again.get(&other, &theirs.id).expect("job").state,
+        JobState::Accepted
     );
 }
