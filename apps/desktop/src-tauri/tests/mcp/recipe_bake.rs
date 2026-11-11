@@ -230,3 +230,57 @@ async fn adding_a_bake_refuses_one_out_of_date_and_otherwise_waits_for_a_person(
     client.cancel().await.expect("close");
     server.stop();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_bake_that_pops_where_clips_meet_reads_with_its_seam_line_sheet_and_fix() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (client, server, _host) = serve(fixture(dir.path())).await;
+    let made = call(
+        &client,
+        "create_recipe",
+        json!({ "project": PROJECT, "clip": "standing-dodge-left" }),
+    )
+    .await;
+    let id = made["id"].as_str().expect("id").to_string();
+    let mut record = done_record(&id);
+    record["result"]["recipeVersion"] = made["version"].clone();
+    record["result"]["seams"] = json!([{
+        "kind": "join", "clip": 1, "at": null, "freeze": false, "first": 20, "last": 20,
+        "frame": 20, "hipsCm": 5.1, "hipsAroundCm": 2.0, "hipsOverCm": 3.1, "bone": "chest",
+        "turnDegrees": 6.0, "turnAroundDegrees": 4.0, "turnOverDegrees": 2.0, "pops": true,
+        "about": "Dodge into Dodge", "blend": 0, "blendMost": 10, "ease": null, "easeMost": null,
+    }]);
+    record["result"]["sheet"] = json!([{
+        "frame": 20, "kind": "seam", "label": "seam 1", "detail": "hips jump 5.1 cm", "warn": true,
+    }]);
+    save_bake(dir.path(), &id, &record);
+    let read = call(
+        &client,
+        "get_recipe_bake",
+        json!({ "project": PROJECT, "recipe": id }),
+    )
+    .await;
+    let review = &read["bake"]["review"];
+    assert_eq!(review["warns"], 1, "{read}");
+    let seam = &review["lines"][0];
+    assert_eq!(seam["id"], "seam", "{review}");
+    assert_eq!(seam["label"], "Seam pop");
+    assert_eq!(seam["value"], "3.1 cm");
+    assert_eq!(seam["status"], "warn");
+    let fix = &review["fixes"][0];
+    assert_eq!(fix["line"], "seam", "{review}");
+    assert_eq!(fix["edit"]["kind"], "blend");
+    assert_eq!(fix["edit"]["clip"], 1);
+    assert!(
+        fix["title"]
+            .as_str()
+            .is_some_and(|t| t.starts_with("Widen the blend to"))
+    );
+    assert_eq!(
+        read["bake"]["result"]["sheet"][0]["label"], "seam 1",
+        "{read}"
+    );
+
+    client.cancel().await.expect("close");
+    server.stop();
+}

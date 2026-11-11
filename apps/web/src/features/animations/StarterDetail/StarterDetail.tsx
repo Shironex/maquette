@@ -2,7 +2,13 @@ import { Button } from '@maquette/ui';
 import { MixamoBadge } from '@/features/common/MixamoBadge';
 import type { RecipeStarter } from '@/ipc/client';
 import { BLANK_WORDS } from '@/state/recipe-draft';
-import { starterBase, starterChangeLine, starterLine } from '@/state/recipe-starters';
+import {
+  starterBase,
+  starterChangeLine,
+  starterClips,
+  starterLine,
+  starterTimeLines,
+} from '@/state/recipe-starters';
 import { useStarterDetail } from './StarterDetail.hooks';
 
 export interface StarterDetailProps {
@@ -23,6 +29,18 @@ export default function StarterDetail({ starter }: StarterDetailProps) {
   const changes = starter.layers.map(l => (
     <li key={l.id} className="truncate" title={starterChangeLine(l)}>
       {starterChangeLine(l)}
+    </li>
+  ));
+  const clips = starter.joined?.length
+    ? starterClips(starter).map((c, i) => (
+        <li key={`${i}-${c}`} className="truncate">
+          {i + 1}. {c}
+        </li>
+      ))
+    : null;
+  const time = starterTimeLines(starter).map(line => (
+    <li key={line} className="truncate">
+      {line}
     </li>
   ));
   const blanks = starter.blanks.map(b => (
@@ -48,6 +66,27 @@ export default function StarterDetail({ starter }: StarterDetailProps) {
         {base.text}
       </p>
       <section aria-label="What it holds" className="flex flex-col gap-1.5">
+        {clips ? (
+          <>
+            <p className={CAPTION}>Clips, joined in order</p>
+            <ul aria-label="Clips" className={LIST}>
+              {clips}
+            </ul>
+          </>
+        ) : null}
+        {time.length ? (
+          <>
+            <p className={CAPTION}>Time edits</p>
+            <ul aria-label="Time edits" className={LIST}>
+              {time}
+            </ul>
+          </>
+        ) : null}
+        {starter.mirror ? (
+          <p className="text-meta text-fg-dim">
+            Left handed: left and right swap across the whole recipe.
+          </p>
+        ) : null}
         <p className={CAPTION}>Changes</p>
         <ul aria-label="Changes" className={LIST}>
           {changes}

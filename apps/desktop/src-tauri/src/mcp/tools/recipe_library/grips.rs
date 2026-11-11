@@ -13,12 +13,14 @@ use maquette_core::animations::grips::{
 };
 use maquette_core::recipes::LayerMode;
 use maquette_core::recipes::grips::{GripHands, GripSide, WEAPONS};
+use rmcp::RoleServer;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router};
+use rmcp::{Peer, schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::hints::{step, with_next};
+use super::super::plans::agent_name;
 use super::super::recipes::change_view;
 use super::super::{McpTools, Out, ToolError, WAITING, respond, to_short_value, to_value};
 use crate::commands::grip_library as commands;
@@ -230,7 +232,12 @@ impl McpTools {
     #[tool(
         description = "Lay a library grip on an animation recipe, as the Motion view's Add a grip does: a grip change that holds its own copy of the revision's pose (the newest unless revision is given) and a link back (from: the grip's id, uid and revision), so the recipe stays whole when exported and get_recipe says when the library has a newer revision. hands takes both, right or left: a grip that poses both hands gives either alone, one that poses one hand gives the other as its mirror, or both. layer names a grip change that is there to take the grip into, which is how a newer revision is taken: its place, eases, weight and target stay. Left out, a change is added at the end. It is laid in place of the clip's turns on its bones (mode add lays it on top), across the whole recipe unless start and end say, easing in and out over 4 frames unless told. Needs expected, the version get_recipe answered with; a recipe changed since is refused (moved). Checked like update_recipe (32 changes, 64 bones a grip, 1024 bone turns a recipe). The link and its revision do not make a bake out of date; the pose does. Grips bake. Nothing is baked or spent."
     )]
-    async fn apply_grip(&self, Parameters(args): Parameters<ApplyGripArgs>) -> Out {
+    async fn apply_grip(
+        &self,
+        peer: Peer<RoleServer>,
+        Parameters(args): Parameters<ApplyGripArgs>,
+    ) -> Out {
+        let by = agent_name(None, &peer);
         let found = self
             .blocking(move |host, _| {
                 let request = ApplyGrip {
@@ -249,7 +256,17 @@ impl McpTools {
                     mode: args.mode.as_deref().map(mode_of).transpose()?,
                     target: args.target,
                 };
-                let applied = commands::apply(host.session(), &request)?;
+                let before =
+                    crate::commands::recipes::get(host.session(), &args.project, &request.recipe)?
+                        .recipe;
+                let mut applied = commands::apply(host.session(), &request)?;
+                crate::commands::recipes::drafted(
+                    host.session(),
+                    &args.project,
+                    Some(&before),
+                    &mut applied.doc,
+                    &by,
+                );
                 host.recipe_changed(&args.project);
                 let doc = &applied.doc;
                 let layer = doc
@@ -258,7 +275,7 @@ impl McpTools {
                     .iter()
                     .find(|l| l.id == applied.layer)
                     .ok_or_else(|| ToolError::from("The grip was written but not read back."))?;
-                let out = json!({
+                let mut out = json!({
                     "recipe": doc.id, "version": doc.version, "motionVersion": doc.motion_version,
                     "layer": change_view(layer), "updated": applied.updated,
                     "grip": applied.entry, "name": applied.name,
@@ -266,6 +283,9 @@ impl McpTools {
                     "newer": applied.latest > applied.revision,
                     "bones": layer.pose.as_ref().map_or(0, BTreeMap::len),
                 });
+                if let Some(drafts) = &doc.drafts {
+                    out["drafts"] = super::super::recipes::drafts_view(drafts);
+                }
                 Ok(with_next(
                     out,
                     vec![step(

@@ -319,7 +319,7 @@ fn a_pin_pose_keys_and_a_grip_bake_in_one_recipe_each_doing_its_own() {
     }
     let review = review_of(&result);
     let ids: Vec<&str> = review.lines.iter().map(|l| l.id.as_str()).collect();
-    assert_eq!(ids, ["pin-l-2", "joints", "grip-l-4", "feet", "stretch"]);
+    assert_eq!(ids, ["joints", "pin-l-2", "grip-l-4", "feet", "stretch"]);
     for line in &review.lines[..3] {
         assert_eq!(line.status, RecipeReviewStatus::Pass, "{line:?}");
     }

@@ -2,7 +2,8 @@
  * The starter recipes in mock mode, as the core builds them in: clip names
  * only (or the rest pose), never a hash or keys. A starter takes the first
  * library clip with one of its names, whatever its frames, else keeps the
- * first name and reads as missing its base.
+ * first name and reads as missing its base. The combat starters, joined
+ * clips with pose keys and a grip, are in recipe-combat-starters.ts.
  */
 import type { AnimationClip, RecipeBlank, RecipeFile, RecipeStarter } from '../client';
 import {
@@ -14,6 +15,7 @@ import {
   newRecipe,
   restBase,
 } from './recipe-files';
+import { COMBOS, comboFile } from './recipe-combat-starters';
 
 const IDLE = ['Idle', 'Breathing Idle', 'Standing Idle', 'Happy Idle'];
 const WALK = ['Walking', 'Walk'];
@@ -99,6 +101,8 @@ const specOf = (id: string) => SPECS.find(s => `${STARTER_PREFIX}${s.key}` === i
 
 /** `id`'s recipe file on what `clips` holds, made now; none for an unknown starter. */
 export function starterFile(id: string, clips: readonly AnimationClip[]): RecipeFile | null {
+  const combo = COMBOS.find(c => `${STARTER_PREFIX}${c.key}` === id);
+  if (combo) return comboFile(combo, clips);
   const spec = specOf(id);
   if (!spec) return null;
   const clip = spec.clips.map(n => clipNamed(clips, n)).find(Boolean);
@@ -110,23 +114,34 @@ export function starterFile(id: string, clips: readonly AnimationClip[]): Recipe
   return { ...newRecipe(spec.name, base), blanks: spec.blanks, layers: spec.layers };
 }
 
-/** Every starter as `recipe_starter_list` answers it. */
+/** Every starter as `recipe_starter_list` answers it, the plain ones first. */
 export function starterList(clips: readonly AnimationClip[]): RecipeStarter[] {
-  return SPECS.map(spec => {
+  const all = [
+    ...SPECS.map(s => ({ ...s, names: s.clips })),
+    ...COMBOS.map(c => ({ ...c, names: c.clips[0]?.names ?? [] })),
+  ];
+  return all.map(spec => {
     const id = `${STARTER_PREFIX}${spec.key}`;
     const file = starterFile(id, clips) as RecipeFile;
     const [base, clip] = matchBase(clips, file.base);
+    const missing = (file.joined ?? [])
+      .filter(c => matchBase(clips, c)[0].status === 'missing')
+      .map(c => c.name);
     return {
       id,
       name: spec.name,
       about: spec.about,
-      clips: spec.clips,
-      rest: spec.clips.length === 0,
+      clips: spec.names,
+      rest: spec.names.length === 0,
       blanks: file.blanks,
       layers: file.layers,
       baseName: clip?.name ?? file.base.name,
       base,
       mixamo: file.base.mixamo,
+      ...(file.joined?.length ? { joined: file.joined.map(c => c.name) } : {}),
+      ...(missing.length ? { missing } : {}),
+      mirror: Boolean(file.mirror),
+      ...(file.time?.length ? { time: file.time } : {}),
     };
   });
 }

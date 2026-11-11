@@ -14,7 +14,7 @@ use crate::recipes::{BlendWindow, RecipeChange, TimeEdit, TimeKind};
 
 /// The reaching recipe with a second library clip joined after its trimmed
 /// base, a freeze on it and mirror on.
-fn joined() -> Project {
+pub(super) fn joined() -> Project {
     let mut p = reaching();
     store(
         p.root(),

@@ -60,6 +60,7 @@ mod check;
 mod check_edits;
 mod clip_moves;
 mod copies;
+pub mod drafts;
 mod edits;
 mod files;
 pub mod grips;
@@ -69,9 +70,10 @@ mod keys;
 mod normal;
 pub mod pins;
 pub mod pose_keys;
+pub mod seams;
 pub mod timeline;
 
-pub use change::{RecipeChange, update};
+pub use change::{RecipeChange, save, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use clip_moves::CLIP_IN_USE;
 pub use copies::{create_whole, link};
@@ -604,7 +606,8 @@ pub fn register(types: specta::Types) -> specta::Types {
             .register::<RecipeChange>()
             .register::<RecipeFrom>()
             .register::<TimeEdit>()
-            .register::<PoseKey>(),
+            .register::<PoseKey>()
+            .register::<seams::SeamCheck>(),
     )
 }
 
@@ -649,3 +652,6 @@ mod tests_grips_apply;
 
 #[cfg(test)]
 mod tests_grips_file;
+
+#[cfg(test)]
+mod tests_seams;

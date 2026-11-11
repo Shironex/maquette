@@ -23,6 +23,7 @@ import type {
   RecipeBlank,
   RecipeChange,
   RecipeDoc,
+  RecipeDrafts,
   RecipeFile,
   RecipeSummary,
 } from '../client';
@@ -46,6 +47,8 @@ import { checkSize, followClips, v2Problem, withVersion } from './recipe-v2';
 import { slugOf } from './plan-store';
 import { REACH_UID } from './recipe-library-fixtures';
 import { POSE_KEYS_DEMO, poseKeysRecipe } from './demo-pose-keys';
+import { JOINED_DEMO, joinedRecipe } from './demo-joined';
+import { demoDrafts, prunedDrafts } from './recipe-drafts';
 import { GRIP_DEMO, gripRecipe } from './grip-library-fixtures';
 
 interface RecipeContext {
@@ -55,6 +58,8 @@ interface RecipeContext {
   alias: (path: string, from: string) => void;
   root: () => string;
   state: string | null;
+  /** `?agents=drafts`: an agent keyed the pose keys demo since it was saved. */
+  drafted?: boolean;
 }
 
 /** The bundled clay figure's own clips; a mock bake onto it plays its wave. */
@@ -102,7 +107,7 @@ function demoRecipes(
     out.set('look-around', look);
   }
   const joined = joinedRecipe(clips);
-  if (joined) out.set('slash-into-block', joined);
+  if (joined) out.set(JOINED_DEMO, joined);
   const keyed = poseKeysRecipe(clips);
   if (keyed) out.set(POSE_KEYS_DEMO, keyed);
   const held = gripRecipe(clips);
@@ -110,42 +115,10 @@ function demoRecipes(
   return out;
 }
 
-/**
- * Frostveil's demo of joined clips: a slash trimmed and sped up in the
- * middle, blended into a block that freezes on its guard (the library has
- * the block with other keys), then an idle, with a nudge laid over.
- */
-function joinedRecipe(clips: readonly AnimationClip[]): RecipeFile | null {
-  const named = (name: string) => clips.find(c => c.name === name);
-  const [slash, block, idle] = [
-    named('Sword And Shield Slash'),
-    named('Sword And Shield Block'),
-    named('Sword And Shield Idle'),
-  ];
-  if (!slash || !block || !idle) return null;
-  const recipe = newRecipe('Slash into block', { ...baseOf(slash), trim: [4, 44] });
-  recipe.version = 2;
-  recipe.joined = [
-    {
-      ...baseOf(block),
-      hash: 'old',
-      trim: [2, 28],
-      blend: { frames: 6, curve: 'smooth', lineUp: 'hips-and-facing' },
-    },
-    { ...baseOf(idle), trim: [0, 40], blend: { frames: 8, curve: 'smooth', lineUp: 'hips' } },
-  ];
-  recipe.time = [
-    { kind: 'retime', clip: 0, from: 14, to: 26, speed: 1.6, ease: 2 },
-    { kind: 'freeze', clip: 1, at: 20, frames: 12, breathe: 0.4, easeIn: 3, easeOut: 3 },
-  ];
-  recipe.layers = [
-    layer('l-1', 'nudge', 'spine', { start: 0.3, end: 0.7, rotation: [8, 0, 0], weight: 0.8 }),
-  ];
-  return recipe;
-}
-
 export function createRecipeHandlers(ctx: RecipeContext) {
   const byProject = new Map<string, Map<string, RecipeFile>>();
+  /** Draft marks by `project/id`, as the core keeps them beside each recipe. */
+  const marks = new Map<string, RecipeDrafts>();
   let seeded = ctx.state !== 'demo';
 
   const recipes = (project: unknown) => {
@@ -154,6 +127,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       const prop =
         (ctx.project('frostveil').assets ?? []).find(a => a.kind !== 'character')?.id ?? null;
       byProject.set('frostveil', demoRecipes(ctx.clips(), prop));
+      if (ctx.drafted) marks.set(`frostveil/${POSE_KEYS_DEMO}`, demoDrafts(clock.now()));
     }
     const id = String(project);
     let found = byProject.get(id);
@@ -203,6 +177,7 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       gone,
       version: versionOf(stored),
       motionVersion: motionVersionOf(stored),
+      drafts: prunedDrafts(marks.get(`${project}/${id}`), recipe),
     };
   };
   const summary = (project: string, id: string, stored: RecipeFile): RecipeSummary => {
@@ -384,11 +359,13 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       const recipe = { ...next, edited: clock.now().toISOString() };
       checkSize(recipe);
       recipes(project).set(String(id), recipe);
+      marks.delete(`${String(project)}/${String(id)}`); // a person's save makes them theirs
       return doc(String(project), String(id), recipe);
     },
     recipe_remove: ({ project, id }: Args) => {
       existing(project, id);
       recipes(project).delete(String(id));
+      marks.delete(`${String(project)}/${String(id)}`);
       return `/trash/${String(project)}/recipes/${String(id)}.recipe.json`;
     },
   } as Record<string, (args: Args) => unknown>;

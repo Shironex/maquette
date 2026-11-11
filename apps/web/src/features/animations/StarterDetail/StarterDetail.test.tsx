@@ -34,6 +34,21 @@ describe('a starter on show', () => {
     );
   });
 
+  it('shows a combat starter clips, hold, mirror, pose keys and grip', () => {
+    render(<StarterDetail starter={starter('starter:scythe-charge-left')} />);
+    const panel = screen.getByRole('complementary', { name: 'Selected starter' });
+    expect(within(panel).getByRole('list', { name: 'Clips' })).toHaveTextContent(
+      '1. Great Sword Slash2. Great Sword Idle'
+    );
+    expect(within(panel).getByRole('list', { name: 'Time edits' })).toHaveTextContent(
+      'Hold over on clip 1, frame 15 for 12 f'
+    );
+    expect(panel).toHaveTextContent('Left handed: left and right swap across the whole recipe.');
+    const changes = within(panel).getByRole('list', { name: 'Changes' });
+    expect(changes).toHaveTextContent('Pose keys · 4 keys');
+    expect(changes).toHaveTextContent('Grip · both hands');
+  });
+
   it('opens Use in project on the starter, and saves an editable copy to the library', async () => {
     await openMockLibrary();
     render(<StarterDetail starter={starter('starter:lean-in')} />);

@@ -9,7 +9,7 @@ use super::RecipeBakeResult;
 use super::review::{RecipeReviewLine, RecipeReviewStatus};
 
 /// One grip as the bake laid it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeGripResult {
     /// The change's id.
@@ -27,6 +27,15 @@ pub struct RecipeGripResult {
     pub posed: u32,
     /// The bones of its pose the model lacks, by VRM name.
     pub missing: Vec<String>,
+    /// A grip on both hands: how far the hands move closer or further apart
+    /// than at its first whole frame, cm, and the frame of the most. None
+    /// for one hand (and in a record from before).
+    #[serde(default)]
+    #[specta(optional)]
+    pub gap_cm: Option<f32>,
+    #[serde(default)]
+    #[specta(optional)]
+    pub gap_frame: Option<u32>,
 }
 
 /// Whether `bone` is a finger bone, by its VRM name.

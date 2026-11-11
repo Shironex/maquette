@@ -121,14 +121,32 @@ Which way is front is read from the model's shoulders (or hips), so a model that
 
 **Review** on a finished bake plays the baked clip next to the base clip, with one play button for both. Each number is held against a limit and marked as pass, worth a look (warn) or not measured.
 
-| Number               | Limit                                                          |
-| -------------------- | -------------------------------------------------------------- |
-| **Hand or foot gap** | Each reach ends within 2 cm of its target.                     |
-| **Elbow or knee**    | It does not bend the other way than the clip has it (no flip). |
-| **Foot slide**       | Planted feet slide up to 1.5 cm more than the base clip's own. |
-| **Rig stretch**      | The rig stretches up to 5 mm more than the base clip's own.    |
+| Number               | Limit                                                                                                                                     |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Hand or foot gap** | Each reach ends within 2 cm of its target.                                                                                                |
+| **Elbow or knee**    | It does not bend the other way than the clip has it (no flip).                                                                            |
+| **Foot slide**       | Planted feet slide up to 1.5 cm more than the base clip's own.                                                                            |
+| **Rig stretch**      | The rig stretches up to 5 mm more than the base clip's own.                                                                               |
+| **Seam pop**         | Where clips meet, the hips move at most 2 cm, and any bone turns at most 25 degrees, more in one frame than in the clips around the seam. |
+| **Hold seam**        | The same limits where a freeze or hold over eases in and out.                                                                             |
+| **Grip hand gap**    | Both hands on one grip stay within 2 cm of how far apart they are at its first whole frame.                                               |
+| **Mirror**           | A mirrored recipe swaps every left and right bone; a side bone with no other side stays and warns.                                        |
 
-A warn never stops an add. It tells you where to look.
+The lines come in this order: seam pop, joint limits, pin drift, hold seam, grips, grip hand gaps, reaches, foot slide, rig stretch and mirror. The seam lines show the worst seam and say how many more there are. Each seam is held to the clips around it, never to another seam nearby, so two pops close together both warn. A bake that reports no hips motion reads its seams as **not measured**, never as a pass. Under the summary, **Worth a look** names what warns. A warn never stops an add. It tells you where to look.
+
+### Pose sheet
+
+Under the two pictures, the **pose sheet** shows the bake at the frames the recipe says are worth a look, not every tenth: each seam, each pose key and where each hold eases in and out, with the warned frames first, up to 8. Each tile is a still of the staged model with what is there ("seam 1", "chest key", "hold starts") and what a check saw ("hips jump 5.3 cm"). Picking a tile stops both pictures on that frame. A recipe with none of those shows where each change starts and ends.
+
+### Fixes, best first
+
+For each warning it can answer, the review offers a fix, the ones that should pass first:
+
+- **Widen the blend to N f** for a seam pop where clips meet
+- **Ease the freeze (or hold) in or out over N f** for a hold seam
+- **Hold the bone key to its limit** for a keyed turn past its joint limit
+
+Each says what the number should come to after the next bake. **Try it** opens the recipe in the editor with the fix made, unsaved: look at it, save and bake again. A fix whose clip, hold or key is gone since lays nothing and says so.
 
 What the numbers cannot tell you:
 
@@ -189,21 +207,36 @@ Agents import into a project only, from files inside the workspace named `*.reci
 
 ## Starters
 
-Five recipes are built into the app. They are read only and never written to the library unless you copy one.
+Nine recipes are built into the app. They are read only and never written to the library unless you copy one.
 
-| Starter                 | What it does                                                         | Base      |
-| ----------------------- | -------------------------------------------------------------------- | --------- |
-| **Wave hello**          | Raises the right upper arm and waves the right lower arm. 90 frames. | Rest pose |
-| **Look at a point**     | The head looks at a point blank.                                     | An idle   |
-| **Reach for a prop**    | The right hand reaches an open prop blank.                           | An idle   |
-| **Lean in**             | Nudges the spine and head.                                           | An idle   |
-| **Point while walking** | The right hand reaches a point blank.                                | A walk    |
+| Starter                                                         | What it does                                                                                                                     | Base                                           |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Wave hello**                                                  | Raises the right upper arm and waves the right lower arm. 60 frames.                                                             | Rest pose                                      |
+| **Look at a point**                                             | The head looks at a point blank.                                                                                                 | An idle                                        |
+| **Reach for a prop**                                            | The right hand reaches an open prop blank.                                                                                       | An idle                                        |
+| **Lean in**                                                     | Nudges the spine and head.                                                                                                       | An idle                                        |
+| **Point while walking**                                         | The right hand reaches a point blank.                                                                                            | A walk                                         |
+| **Slash combo**                                                 | Two sword cuts blended into a guard: pose keys lean the chest into each cut, and a grip holds the sword in the right hand.       | A slash, a second cut and a sword idle, joined |
+| **Scythe charge**                                               | A two handed swing that winds back, holds the charge (a hold over) and lets go into an idle, both hands on the scythe in a grip. | A heavy swing and an idle, joined              |
+| **Slash combo, left handed** and **Scythe charge, left handed** | The same recipes mirrored.                                                                                                       | As above                                       |
 
 A starter names its base clip by name only, never by hash, keys or frames. The names are tried in order: for an idle, Idle, Breathing Idle, Standing Idle, Happy Idle. For a walk, Walking, Walk. Used in a project (or copied to the library), a starter takes the first clip of the clip library with one of those names, whatever its frame count, and stores that clip's base.
+
+The combat starters join clips found the same way, each by its own names (for the first cut, Sword And Shield Slash, Sword Slash, Slash). Their pose keys, hold and blends are laid as shares of the clips they find, so they fit a clip of any length; a clip none of whose names is in the library is taken to be a typical length until one is imported. The library says **Needs clip** when any of their clips is missing.
 
 With none of those clips in the library, the recipe keeps the first name only and reads as missing its base, like any recipe whose clip is not in the library. Once a clip of that name is imported, it matches by name alone.
 
 In the app, **Show > Recipes** in the Animations view has a **Starters** group with **Use in project** and **Save to library**. Save to library makes an editable copy: a new library recipe at r1, its revision noted as imported from "Starter: name".
+
+## Agent drafts
+
+What an agent writes lands in the recipe file at once and bakes as it is. Until you save the recipe in the editor, the editor shows what agents changed since your last save as **drafted**:
+
+- a banner names the agent and when ("Motion agent changed this recipe 4 min ago") and lists what it drafted
+- drafted changes carry a **drafted** tag, and a pose keys change says how many of its keys are drafted ("2 of 6 keys drafted")
+- drafted keys are blue on the lanes
+
+**Save** keeps them as yours and clears the marks, even with no edits of your own. While a bake under review holds drafts you have not saved, its add bar says so. The marks live beside the recipe in the project (`recipes/<id>.drafts.json`), never in the recipe file, so an export or a library save never carries them. Removing the recipe removes them too. `get_recipe` answers them to agents as `drafts`.
 
 ## Rest pose
 
@@ -220,10 +253,12 @@ Agents use the [recipe tools](/docs/agents/mcp-tools/) and the `maquette-animati
 
 1. `list_library_recipes` shows the starters (ids start with `starter:`) and the library recipes. `use_recipe` copies one into a project. Or `create_recipe` makes one on a clip, or on the rest pose.
 2. `get_recipe` reads the recipe and its `version`. `update_recipe` sends the changes and blanks with that version as `expected`. The lists replace the whole list, so send every entry you keep. Fill the blanks.
-3. `bake_recipe` answers at once. `get_recipe_bake` is polled for the state and the review numbers.
+3. `bake_recipe` answers at once. `get_recipe_bake` is polled for the state, the review numbers, the seams, the pose sheet frames and the fixes. An agent applies a fix itself with `update_recipe` or `set_recipe_keys`.
 4. `add_recipe_bake` asks you to add the bake as a version.
 5. `propose_recipe_save` asks you to save the recipe to the library.
 6. `list_grips` and `get_grip` read the grip library, `apply_grip` lays a grip on a recipe, and `propose_grip_save` asks you to save a grip from a recipe's pose keys.
+
+What an agent writes to a recipe lands at once and bakes; it shows as drafted in the editor until you save (see [Agent drafts](#agent-drafts)).
 
 What waits for a person:
 

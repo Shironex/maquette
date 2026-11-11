@@ -9,14 +9,16 @@ use maquette_core::animations::recipes::library::starters::{RecipeStarter, start
 use maquette_core::animations::recipes::library::{
     self, AGENT_EXPORTS, ExportSource, LibraryRecipeDoc, RecipeUsed, UseRecipe,
 };
+use rmcp::RoleServer;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router};
+use rmcp::{Peer, schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::hints::{step, with_next};
+use super::plans::agent_name;
 use super::recipes::{change_view, recipe_view};
-use super::{McpTools, Out, ToolError, WAITING, respond, to_value, workspace};
+use super::{McpTools, Out, ToolError, WAITING, respond, to_short_value, to_value, workspace};
 use crate::commands::{recipe_library as commands, recipes};
 
 mod grips;
@@ -139,7 +141,16 @@ fn starter_view(starter: &RecipeStarter, full: bool) -> Value {
         "mixamo": starter.mixamo, "base": base,
         "changes": starter.layers.len(), "blanks": starter.blanks.len(),
     });
+    if !starter.joined.is_empty() {
+        out["joined"] = json!(starter.joined);
+    }
+    if starter.mirror {
+        out["mirror"] = json!(true);
+    }
     if full {
+        if !starter.time.is_empty() {
+            out["time"] = to_short_value(&starter.time);
+        }
         out["blanks"] = to_value(&starter.blanks);
         out["changes"] = json!(starter.layers.iter().map(change_view).collect::<Vec<_>>());
     }
@@ -168,7 +179,7 @@ fn used_view(used: &RecipeUsed) -> Value {
 #[tool_router(router = recipe_library_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the recipe library: recipes kept outside any project (library/recipes at the workspace root), each with its id, name, newest revision, every revision with where it came from (the project and recipe it was saved from, or the file it was imported from, and when), the newest revision's base clip, frames, Mixamo flag and change and blank counts, and its version. An entry that cannot be read lists with its problem. starters lists the starter recipes built into the app (starter true, id starter:...), read only: each names its base clip by name only (names, tried in order, and library: found or missing on this computer) or runs on the rest pose (rest), with what it does (about). Use one with use_recipe; a person copies one to the library. Listing writes nothing. Reads only.",
+        description = "List the recipe library: recipes kept outside any project (library/recipes at the workspace root), each with its id, name, newest revision, every revision with where it came from (the project and recipe it was saved from, or the file it was imported from, and when), the newest revision's base clip, frames, Mixamo flag and change and blank counts, and its version. An entry that cannot be read lists with its problem. starters lists the starter recipes built into the app (starter true, id starter:...), read only: each names its base clip by name only (names, tried in order, and library: found or missing on this computer) or runs on the rest pose (rest), with what it does (about); a combat starter also names the clips it joins (joined) and a left handed copy says mirror. Use one with use_recipe; a person copies one to the library. Listing writes nothing. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn list_library_recipes(&self) -> Out {
@@ -223,7 +234,12 @@ impl McpTools {
     #[tool(
         description = "Copy a library recipe's revision (the newest by default) into a project as a new recipe, as the Animations library's Use in project does. It remembers the library recipe and revision, so get_recipe can say when the library has a newer one. A starter id (starter:...) copies that starter instead, with no library link: its base is the first clip of the clip library with one of its names (whatever its frames), else the first name, reading as missing; a rest pose starter needs no clip. Point blanks keep their points; a prop blank whose asset the project does not have opens, and notes says which. The base clip is matched in the clip library by name and frame count: missing, the recipe is still made and says so; another hash warns. Writes one file, spends nothing. Website and game projects both take recipes."
     )]
-    async fn use_recipe(&self, Parameters(args): Parameters<UseRecipeArgs>) -> Out {
+    async fn use_recipe(
+        &self,
+        peer: Peer<RoleServer>,
+        Parameters(args): Parameters<UseRecipeArgs>,
+    ) -> Out {
+        let by = agent_name(None, &peer);
         let found = self
             .blocking(move |host, _| {
                 let request = UseRecipe {
@@ -232,7 +248,14 @@ impl McpTools {
                     revision: args.revision,
                     name: args.name,
                 };
-                let used = commands::use_in(host.session(), &request)?;
+                let mut used = commands::use_in(host.session(), &request)?;
+                crate::commands::recipes::drafted(
+                    host.session(),
+                    &request.project,
+                    None,
+                    &mut used.doc,
+                    &by,
+                );
                 host.recipe_changed(&request.project);
                 Ok(used_view(&used))
             })
@@ -286,7 +309,12 @@ impl McpTools {
     #[tool(
         description = "Import a .recipe.json into a project as a new recipe. Agents never import into the recipe library: import into a project, then propose_recipe_save, and the person saves it. path is relative to the workspace root or absolute inside it; files outside the workspace are refused (the person imports those from the app's file picker). The file is checked whole before anything is written: at most 256 KB (checked before it is read), version 1, at most 32 changes and 16 blanks, and every change and blank check. A taken id gets a fresh one; nothing in the file becomes a path. The base clip is matched by name and frame count; another hash warns, a missing one is noted. Prop blanks whose asset the project lacks open. Answers with notes. Spends nothing."
     )]
-    async fn import_recipe(&self, Parameters(args): Parameters<ImportRecipeArgs>) -> Out {
+    async fn import_recipe(
+        &self,
+        peer: Peer<RoleServer>,
+        Parameters(args): Parameters<ImportRecipeArgs>,
+    ) -> Out {
+        let by = agent_name(None, &peer);
         let found = self
             .blocking(move |host, _| {
                 let Some(project) = args.project else {
@@ -297,7 +325,8 @@ impl McpTools {
                 };
                 let (root, _) = workspace(host)?;
                 let file = library::agent_import_path(&root, &args.path)?;
-                let used = commands::import_to_project(host.session(), &project, &file)?;
+                let mut used = commands::import_to_project(host.session(), &project, &file)?;
+                crate::commands::recipes::drafted(host.session(), &project, None, &mut used.doc, &by);
                 host.recipe_changed(&project);
                 Ok(used_view(&used))
             })

@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import type { LayerKind } from '@/ipc/client';
 import { LIMITS, checkDraft } from '@/state/recipe-check';
 import { ADD_KINDS, KIND_ABOUT, KIND_WORDS, newLayer } from '@/state/recipe-draft';
+import { draftedLayer, keysDrafted } from '@/state/recipe-drafts';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 
 /** The open recipe's changes in order, the one whose settings show, and adding one. */
 export function useRecipeChanges() {
   const draft = useRecipeEditorStore(s => s.editing?.draft ?? null);
+  const drafts = useRecipeEditorStore(s => s.editing?.doc.drafts ?? null);
   const dt = useRecipeTimeline();
   const picked = useRecipeEditorStore(s => (s.picked?.what === 'layer' ? s.picked.id : null));
   const { edit, pick } = useRecipeEditorStore.getState();
@@ -20,6 +22,9 @@ export function useRecipeChanges() {
     /** A change's place on the bake's frames, through the base edits. */
     toFrame: dt?.toFrame ?? (() => 0),
     problems,
+    /** What an agent drafted of the change `id`: "2 of 6 keys drafted", "drafted", or null. */
+    drafted: (layer: (typeof layers)[number]) =>
+      keysDrafted(drafts, layer) ?? (draftedLayer(drafts, layer.id) ? 'drafted' : null),
     picked,
     toggle: (id: string) => pick(picked === id ? null : { what: 'layer', id }),
     // Short labels, as the change form's kind picker has them, so the closed

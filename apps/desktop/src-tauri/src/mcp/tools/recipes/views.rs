@@ -3,6 +3,7 @@
 
 use maquette_core::animations::grips::GripLink;
 use maquette_core::animations::recipes::{BaseMatch, BaseStatus, RecipeDoc};
+use maquette_core::recipes::drafts::RecipeDrafts;
 use maquette_core::recipes::timeline::timeline;
 use maquette_core::recipes::{LayerKind, RecipeBase, RecipeLayer};
 use serde_json::{Map, Value, json};
@@ -101,7 +102,23 @@ pub(in crate::mcp::tools) fn recipe_view(doc: &RecipeDoc) -> Value {
     if !doc.warnings.is_empty() {
         out["warnings"] = json!(doc.warnings);
     }
+    if let Some(drafts) = &doc.drafts {
+        out["drafts"] = drafts_view(drafts);
+    }
     out
+}
+
+/// What lands at once and what waits, for an agent reading its drafts.
+pub(in crate::mcp::tools) const DRAFTS_NOTE: &str = "Agent writes are in the recipe file at once and bake as they are. The Motion view shows them as drafted until a person saves the recipe there, which clears these marks.";
+
+/// The draft marks of a recipe: what agents changed since a person saved.
+pub(in crate::mcp::tools) fn drafts_view(d: &RecipeDrafts) -> Value {
+    json!({
+        "by": d.by, "at": d.at, "writes": d.writes, "made": d.made,
+        "changes": d.layers, "keys": d.keys.len(),
+        "clips": d.clips, "time": d.time, "blanks": d.blanks, "mirror": d.mirror,
+        "note": DRAFTS_NOTE,
+    })
 }
 
 /// Adds to each grip change of a recipe view how its library grip stands:

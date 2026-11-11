@@ -406,7 +406,7 @@ export const commands = {
 	recipeRename: (project: string, id: string, name: string) => __TAURI_INVOKE<RecipeSummary>("recipe_rename", { project, id, name }),
 	/**
 	 *  Replaces a recipe's name, changes, blanks or any of them in one write,
-	 *  checked whole first.
+	 *  checked whole first. A person saves here ([`save`]).
 	 */
 	recipeUpdate: (project: string, id: string, change: RecipeChange_Deserialize) => __TAURI_INVOKE<RecipeDoc_Serialize>("recipe_update", { project, id, change }),
 	/**  Moves the recipe file into the workspace trash; returns where it went. */
@@ -3381,6 +3381,14 @@ export type DownloadsWatch = {
 	enabled: boolean,
 	/**  `None`: the system's Downloads folder. */
 	folder: string | null,
+};
+
+/**  A pose key an agent added or changed. */
+export type DraftKey = {
+	/**  The change it sits on. */
+	layer: string,
+	clip: number,
+	frame: number,
 };
 
 export type Easing = "linear" | 
@@ -7336,6 +7344,15 @@ export type RecipeBakeResult = {
 	 *  recipe with no pose keys (and in a record from before).
 	 */
 	joints?: KeyedLimits | null,
+	/**
+	 *  Each seam where clips meet or a hold eases in and out, judged for a
+	 *  pop. Empty for a recipe with none (and in a record from before).
+	 */
+	seams?: SeamCheck[],
+	/**  A mirrored recipe's swapped bones; none when it is not mirrored. */
+	mirror?: RecipeMirrorResult | null,
+	/**  The frames worth a look on the review's pose sheet. */
+	sheet?: RecipeSheetFrame[],
 	/**  How long Blender took, and the whole bake, seconds. */
 	blenderSeconds: number | null,
 	seconds: number | null,
@@ -7348,6 +7365,8 @@ export type RecipeBakeReview = {
 	lines: RecipeReviewLine[],
 	/**  How many lines warn. */
 	warns: number,
+	/**  What would answer the warnings, best first. */
+	fixes?: RecipeReviewFix[],
 };
 
 export type RecipeBakeStarter = "person" | "agent";
@@ -7647,6 +7666,11 @@ export type RecipeDoc_Deserialize = {
 	 *  bookkeeping; a bake is out of date when this changes, not `version`.
 	 */
 	motionVersion: string,
+	/**
+	 *  What agents changed since a person last saved it, which the editor
+	 *  shows as drafted; none when a person has saved since.
+	 */
+	drafts?: RecipeDrafts | null,
 };
 
 /**  One recipe as the view and agents get it. */
@@ -7680,6 +7704,35 @@ export type RecipeDoc_Serialize = {
 	 *  bookkeeping; a bake is out of date when this changes, not `version`.
 	 */
 	motionVersion: string,
+	/**
+	 *  What agents changed since a person last saved it, which the editor
+	 *  shows as drafted; none when a person has saved since.
+	 */
+	drafts?: RecipeDrafts | null,
+};
+
+/**  What agents changed in a recipe since a person saved it. */
+export type RecipeDrafts = {
+	/**  The agent of the newest write, as people see its name. */
+	by?: string,
+	/**  When it wrote, RFC 3339. */
+	at?: string,
+	/**  How many agent writes the marks gather. */
+	writes?: number,
+	/**  An agent made the recipe. */
+	made?: boolean,
+	/**  Changes an agent added or changed, by id. */
+	layers?: string[],
+	/**  Pose keys an agent added or changed. */
+	keys?: DraftKey[],
+	/**  An agent changed the clips (which, their trims or blends). */
+	clips?: boolean,
+	/**  An agent changed the time edits. */
+	time?: boolean,
+	/**  An agent changed the blanks. */
+	blanks?: boolean,
+	/**  An agent turned the mirror on or off. */
+	mirror?: boolean,
 };
 
 /**  Where an export went. */
@@ -7765,6 +7818,21 @@ export type RecipeFile_Serialize = {
 	from: RecipeFrom | null,
 };
 
+/**  What a fix changes in the recipe. */
+export type RecipeFixEdit = 
+/**  Clip `clip`'s blend window from the clip before, frames. */
+{ kind: "blend"; clip: number; frames: number } | 
+/**
+ *  The freeze or hold over on frame `at` of clip `clip`: how many frames
+ *  it eases in or out over (the side the fix is about).
+ */
+{ kind: "hold-ease"; clip: number; at: number; easeIn: number | null; easeOut: number | null } | 
+/**
+ *  The turn on `axis` (`x`, `y` or `z`) of `bone` in the key on frame
+ *  `frame` of clip `clip` of change `layer`, degrees.
+ */
+{ kind: "key-turn"; layer: string; clip: number; frame: number; bone: string; axis: string; degrees: number | null };
+
 /**  The library recipe and revision a project's recipe came from. */
 export type RecipeFrom = {
 	/**  The library recipe's id. */
@@ -7798,6 +7866,13 @@ export type RecipeGripResult = {
 	posed: number,
 	/**  The bones of its pose the model lacks, by VRM name. */
 	missing: string[],
+	/**
+	 *  A grip on both hands: how far the hands move closer or further apart
+	 *  than at its first whole frame, cm, and the frame of the most. None
+	 *  for one hand (and in a record from before).
+	 */
+	gapCm?: number | null,
+	gapFrame?: number | null,
 };
 
 /**  A grip change of a recipe and the library grip it was copied from. */
@@ -7891,6 +7966,17 @@ export type RecipeLayer_Serialize = {
  */
 export type RecipeLibraryChanged = null;
 
+/**  A mirrored recipe as the bake swapped it. */
+export type RecipeMirrorResult = {
+	/**  How many left and right bones it swapped, in pairs. */
+	pairs: number,
+	/**
+	 *  The side bones the model has without their other side, by VRM name,
+	 *  which stay where they are.
+	 */
+	unpaired: string[],
+};
+
 /**  One pin as the bake measured it. */
 export type RecipePinResult = {
 	/**  The change's id. */
@@ -7935,11 +8021,33 @@ export type RecipeReachResult = {
 	flipFrame: number | null,
 };
 
+/**  One fix of the review. */
+export type RecipeReviewFix = {
+	id: string,
+	/**  The review line it answers. */
+	line: string,
+	/**  "Widen the blend to 12 f". */
+	title: string,
+	/**  "Spreads the hip move over more frames." */
+	detail: string,
+	/**  What it should come to, in words: "1.4 cm". */
+	after: string,
+	/**  Whether that is within the limit. */
+	passes: boolean,
+	edit: RecipeFixEdit,
+};
+
 /**  One number of the review. */
 export type RecipeReviewLine = {
-	/**  `gap-l-1`, `flip-l-1`, `pin-l-1`, `joints`, `grip-l-1`, `feet` or `stretch`. */
+	/**
+	 *  `seam`, `joints`, `pin-l-1`, `hold-seam`, `grip-l-1`, `grip-gap-l-1`,
+	 *  `gap-l-1`, `flip-l-1`, `feet`, `stretch` or `mirror`.
+	 */
 	id: string,
-	/**  "Hand gap", "Elbow", "Pin drift", "Joint limits", "Grip", "Foot slide", "Rig stretch". */
+	/**
+	 *  "Seam pop", "Joint limits", "Pin drift", "Hold seam", "Grip", "Grip
+	 *  hand gap", "Hand gap", "Elbow", "Foot slide", "Rig stretch", "Mirror".
+	 */
 	label: string,
 	/**  The bone and change it is about, for a reach. */
 	about: string | null,
@@ -8028,6 +8136,19 @@ export type RecipeSaved = {
 	linked: boolean,
 };
 
+/**  One frame of the sheet. */
+export type RecipeSheetFrame = {
+	/**  The bake frame, from 0. */
+	frame: number,
+	kind: SheetKind,
+	/**  What is there: "seam 1", "chest key", "hold ends". */
+	label: string,
+	/**  What a check saw there: "hips jump 3.1 cm", "eases out, 9 deg". */
+	detail: string | null,
+	/**  A check warns on it. */
+	warn: boolean,
+};
+
 /**  A starter recipe as the app and agents read it. */
 export type RecipeStarter = RecipeStarter_Serialize | RecipeStarter_Deserialize;
 
@@ -8052,6 +8173,20 @@ export type RecipeStarter_Deserialize = {
 	/**  How its base stands in the clip library: found, missing or rest. */
 	base: BaseMatch,
 	mixamo: boolean,
+	/**
+	 *  The clips joined after the base, each as it would take it from the
+	 *  clip library or its first name; empty on one clip.
+	 */
+	joined?: string[],
+	/**  Left and right swap across the whole recipe: a left handed copy. */
+	mirror?: boolean,
+	/**
+	 *  The joined clips no clip of the clip library stands for yet, by the
+	 *  first name each tries.
+	 */
+	missing?: string[],
+	/**  Its holds and other time edits, as on the clips it would take. */
+	time?: TimeEdit_Deserialize[],
 };
 
 /**  A starter recipe as the app and agents read it. */
@@ -8075,6 +8210,20 @@ export type RecipeStarter_Serialize = {
 	/**  How its base stands in the clip library: found, missing or rest. */
 	base: BaseMatch,
 	mixamo: boolean,
+	/**
+	 *  The clips joined after the base, each as it would take it from the
+	 *  clip library or its first name; empty on one clip.
+	 */
+	joined?: string[],
+	/**  Left and right swap across the whole recipe: a left handed copy. */
+	mirror?: boolean,
+	/**
+	 *  The joined clips no clip of the clip library stands for yet, by the
+	 *  first name each tries.
+	 */
+	missing?: string[],
+	/**  Its holds and other time edits, as on the clips it would take. */
+	time?: TimeEdit_Serialize[],
 };
 
 /**  A line in the list of a project's recipes. */
@@ -9424,6 +9573,69 @@ export type SceneTotal = {
 	models: number,
 };
 
+/**  One seam judged. */
+export type SeamCheck = {
+	kind: SeamKind,
+	clip: number,
+	at: number | null,
+	freeze: boolean,
+	first: number,
+	last: number,
+	/**
+	 *  The frame of the worst step: the bigger of the two overs, against
+	 *  its limit.
+	 */
+	frame: number,
+	/**
+	 *  The hips' biggest step in the window and around it, cm, and how far
+	 *  the first goes past the second (0 when it does not).
+	 */
+	hipsCm: number | null,
+	hipsAroundCm: number | null,
+	hipsOverCm: number | null,
+	/**
+	 *  The bone whose step goes furthest past its own around it, its step
+	 *  in the window and around, degrees, and how far past.
+	 */
+	bone: string | null,
+	turnDegrees: number | null,
+	turnAroundDegrees: number | null,
+	turnOverDegrees: number | null,
+	/**  Past either limit. */
+	pops: boolean,
+	/**
+	 *  The clips that meet ("Slash into Thrust"), or the clip a hold sits
+	 *  on, by name.
+	 */
+	about: string,
+	/**
+	 *  A join: its blend window as the recipe has it, frames, and the most
+	 *  it may take (half the shorter of the two clips, as trimmed).
+	 */
+	blend: number | null,
+	blendMost: number | null,
+	/**
+	 *  A hold: the frames it eases in (hold in) or out (hold out) over,
+	 *  and the most it may (its own frames).
+	 */
+	ease: number | null,
+	easeMost: number | null,
+	/**
+	 *  The bake reported the hips over the window; when not, nothing of
+	 *  it was measured and it never pops.
+	 */
+	measured?: boolean,
+};
+
+/**  What kind of seam. */
+export type SeamKind = 
+/**  Two clips meet across a blend window or a cut. */
+"join" | 
+/**  A freeze or hold over eases into its held pose. */
+"hold-in" | 
+/**  A freeze or hold over eases out of its held pose. */
+"hold-out";
+
 /**  Which Tripo segmentation model cuts it. */
 export type SegmentModel = 
 /**  Cuts where the shape changes. */
@@ -9572,6 +9784,9 @@ export type SettingChange = {
 	what: string,
 	why: string,
 };
+
+/**  Why a frame is on the sheet. */
+export type SheetKind = "seam" | "key" | "hold" | "change";
 
 /**  How one file in the model folder changes. */
 export type ShipChange = "new" | 

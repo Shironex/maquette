@@ -50,7 +50,7 @@ export function useRecipeEditor() {
       ? 'Choose Keep mine or Use theirs first'
       : toFix
         ? `Fix ${toFix === 1 ? 'the marked entry' : `the ${toFix} marked entries`} first`
-        : !dirty
+        : !dirty && !editing?.doc.drafts
           ? 'Nothing to save'
           : undefined,
     save: () => void store.save(),

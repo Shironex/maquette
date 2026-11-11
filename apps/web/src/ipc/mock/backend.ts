@@ -281,6 +281,7 @@ export function createBackend({
     savePrep: (id, asset, entry) => prepare.handlers.prepare_save?.({ project: id, asset, entry }),
     alias: (path, from) => files?.alias(path, from),
     state: configured ? libraryState : null,
+    drafted: agentsState === 'drafts',
     pack: { pace, emit: payload => emit?.({ name: 'pack', payload }) },
     render: { state: renderState, emit: payload => emit?.({ name: 'render', payload }) },
   });
@@ -387,9 +388,8 @@ export function createBackend({
   if (configured && stress) wrapStress(handlers);
 
   // The `running` scenario starts run 25 as soon as the app opens.
-  if (scenario === 'running') {
+  if (scenario === 'running')
     setTimeout(() => runner.submit('frostveil', view('frostveil').def, null, false), 50);
-  }
 
   holdFor(handlers, promptMs);
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {

@@ -168,3 +168,57 @@ pub(crate) fn mirror_pairs(map: &[BonePair], joints: &[String]) -> Vec<[String; 
     }
     out
 }
+
+/// Every body bone (no fingers) the model has, by VRM name, whose turns the
+/// seam checks read.
+pub(crate) fn body_bones(map: &[BonePair], joints: &[String]) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for (pattern, _) in BODY {
+        let names: Vec<String> = if pattern.contains("{side}") {
+            ["left", "right"]
+                .iter()
+                .map(|side| pattern.replace("{side}", side))
+                .collect()
+        } else {
+            vec![pattern.to_string()]
+        };
+        for vrm in names {
+            if let Some(bone) = model_bone(&vrm, map, joints) {
+                out.insert(vrm, bone);
+            }
+        }
+    }
+    out
+}
+
+/// The VRM bones on one side the model has with no bone for the other
+/// side, which a mirror leaves where they are.
+pub(crate) fn unpaired(map: &[BonePair], joints: &[String]) -> Vec<String> {
+    let mut pairs: Vec<(String, String)> = BODY
+        .iter()
+        .filter(|(pattern, _)| pattern.contains("{side}"))
+        .map(|(pattern, _)| {
+            (
+                pattern.replace("{side}", "left"),
+                pattern.replace("{side}", "right"),
+            )
+        })
+        .collect();
+    for (finger, segments, _) in FINGERS {
+        for segment in segments {
+            pairs.push((
+                format!("left{finger}{segment}"),
+                format!("right{finger}{segment}"),
+            ));
+        }
+    }
+    let has = |vrm: &str| model_bone(vrm, map, joints).is_some();
+    pairs
+        .into_iter()
+        .filter_map(|(left, right)| match (has(&left), has(&right)) {
+            (true, false) => Some(left),
+            (false, true) => Some(right),
+            _ => None,
+        })
+        .collect()
+}

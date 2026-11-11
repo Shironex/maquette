@@ -22,21 +22,20 @@ use serde::{Deserialize, Serialize};
 use super::use_in::{RecipeUsed, UseRecipe, landed, open_missing_props};
 use super::{RecipeImported, transfer::add_entry};
 use crate::animations::AnimationClip;
-use crate::animations::recipes::{BaseMatch, base_of, clip_named, match_base};
+use crate::animations::recipes::{BaseMatch, BaseStatus, base_of, clip_named, match_base};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, now_rfc3339};
-use crate::recipes::{
-    BlankKind, LayerKind, LayerSettings, RecipeBase, RecipeBlank, RecipeFile, RecipeLayer,
-};
+use crate::recipes::{RecipeBase, RecipeBlank, RecipeFile, RecipeLayer};
 use crate::workspace::FolderLayout;
+
+mod combat;
+mod specs;
+
+use combat::{COMBOS, Combo};
+use specs::{SPECS, Spec};
 
 /// What every starter id starts with.
 pub const STARTER_PREFIX: &str = "starter:";
-
-/// The clip names an idle goes by, tried in order.
-const IDLE: &[&str] = &["Idle", "Breathing Idle", "Standing Idle", "Happy Idle"];
-/// The clip names a walk goes by, tried in order.
-const WALK: &[&str] = &["Walking", "Walk"];
 
 /// A starter recipe as the app and agents read it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -59,178 +58,87 @@ pub struct RecipeStarter {
     /// How its base stands in the clip library: found, missing or rest.
     pub base: BaseMatch,
     pub mixamo: bool,
+    /// The clips joined after the base, each as it would take it from the
+    /// clip library or its first name; empty on one clip.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub joined: Vec<String>,
+    /// Left and right swap across the whole recipe: a left handed copy.
+    #[serde(default)]
+    #[specta(optional)]
+    pub mirror: bool,
+    /// The joined clips no clip of the clip library stands for yet, by the
+    /// first name each tries.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub missing: Vec<String>,
+    /// Its holds and other time edits, as on the clips it would take.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub time: Vec<crate::recipes::TimeEdit>,
 }
 
-/// One starter as it is built in.
-struct Spec {
-    key: &'static str,
-    name: &'static str,
-    about: &'static str,
-    /// Empty for the rest pose.
-    clips: &'static [&'static str],
-    /// How long a rest pose starter runs, frames.
-    frames: u32,
-    blanks: fn() -> Vec<RecipeBlank>,
-    layers: fn() -> Vec<RecipeLayer>,
+/// A built in starter: a plain one, or a combat combo of joined clips.
+#[derive(Clone, Copy)]
+enum Starter {
+    Plain(&'static Spec),
+    Combo(&'static Combo),
 }
 
-fn blank(id: &str, label: &str, point: Option<[f32; 3]>) -> RecipeBlank {
-    RecipeBlank {
-        id: id.into(),
-        label: label.into(),
-        kind: if point.is_some() {
-            BlankKind::Point
-        } else {
-            BlankKind::Prop
-        },
-        prop: None,
-        point,
+impl Starter {
+    fn key(self) -> &'static str {
+        match self {
+            Self::Plain(s) => s.key,
+            Self::Combo(c) => c.key,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Plain(s) => s.name,
+            Self::Combo(c) => c.name,
+        }
+    }
+
+    fn about(self) -> &'static str {
+        match self {
+            Self::Plain(s) => s.about,
+            Self::Combo(c) => c.about,
+        }
+    }
+
+    /// The names its base goes by, tried in order; empty on the rest pose.
+    fn clips(self) -> &'static [&'static str] {
+        match self {
+            Self::Plain(s) => s.clips,
+            Self::Combo(c) => c.clips[0].names,
+        }
+    }
+
+    fn recipe(self, clips: &[AnimationClip]) -> RecipeFile {
+        match self {
+            Self::Plain(s) => recipe_of(s, clips),
+            Self::Combo(c) => combat::recipe_of(c, clips),
+        }
     }
 }
 
-fn layer(id: &str, kind: LayerKind, bone: &str, settings: LayerSettings) -> RecipeLayer {
-    RecipeLayer::new(id, kind, bone, settings)
+/// Every starter, the plain ones first.
+fn all() -> impl Iterator<Item = Starter> {
+    SPECS
+        .iter()
+        .map(Starter::Plain)
+        .chain(COMBOS.iter().map(Starter::Combo))
 }
-
-fn span(start: f32, end: f32) -> LayerSettings {
-    LayerSettings {
-        start,
-        end,
-        ..LayerSettings::default()
-    }
-}
-
-fn aimed(start: f32, end: f32, target: &str) -> LayerSettings {
-    LayerSettings {
-        target: Some(target.into()),
-        ..span(start, end)
-    }
-}
-
-fn turned(start: f32, end: f32, rotation: [f32; 3]) -> LayerSettings {
-    LayerSettings {
-        rotation: Some(rotation),
-        ..span(start, end)
-    }
-}
-
-const SPECS: [Spec; 5] = [
-    Spec {
-        key: "wave-hello",
-        name: "Wave hello",
-        about: "Raises the right arm and waves the forearm, on the rest pose.",
-        clips: &[],
-        frames: 60,
-        blanks: Vec::new,
-        layers: || {
-            vec![
-                layer(
-                    "l-1",
-                    LayerKind::Nudge,
-                    "rightUpperArm",
-                    turned(0.0, 1.0, [0.0, 0.0, -60.0]),
-                ),
-                layer(
-                    "l-2",
-                    LayerKind::Wave,
-                    "rightLowerArm",
-                    LayerSettings {
-                        cycles: Some(3.0),
-                        amount: Some(30.0),
-                        ..span(0.15, 0.95)
-                    },
-                ),
-            ]
-        },
-    },
-    Spec {
-        key: "look-at-point",
-        name: "Look at a point",
-        about: "Turns the head toward a point while the idle plays.",
-        clips: IDLE,
-        frames: 0,
-        blanks: || vec![blank("spot", "Where the head looks", Some([0.6, 1.6, 1.2]))],
-        layers: || {
-            vec![layer(
-                "l-1",
-                LayerKind::LookAt,
-                "head",
-                aimed(0.1, 0.9, "spot"),
-            )]
-        },
-    },
-    Spec {
-        key: "reach-for-prop",
-        name: "Reach for a prop",
-        about: "The right hand reaches a prop of the project while the idle plays.",
-        clips: IDLE,
-        frames: 0,
-        blanks: || vec![blank("prop", "The prop the hand reaches", None)],
-        layers: || {
-            vec![layer(
-                "l-1",
-                LayerKind::Reach,
-                "rightHand",
-                aimed(0.2, 0.8, "prop"),
-            )]
-        },
-    },
-    Spec {
-        key: "lean-in",
-        name: "Lean in",
-        about: "Leans the upper body forward over the idle, as if listening.",
-        clips: IDLE,
-        frames: 0,
-        blanks: Vec::new,
-        layers: || {
-            vec![
-                layer(
-                    "l-1",
-                    LayerKind::Nudge,
-                    "spine",
-                    turned(0.1, 0.9, [12.0, 0.0, 0.0]),
-                ),
-                layer(
-                    "l-2",
-                    LayerKind::Nudge,
-                    "head",
-                    turned(0.1, 0.9, [-6.0, 0.0, 0.0]),
-                ),
-            ]
-        },
-    },
-    Spec {
-        key: "point-while-walking",
-        name: "Point while walking",
-        about: "The right hand points ahead and to the right during a walk.",
-        clips: WALK,
-        frames: 0,
-        blanks: || {
-            vec![blank(
-                "spot",
-                "Where the hand points",
-                Some([-0.4, 1.4, 0.8]),
-            )]
-        },
-        layers: || {
-            vec![layer(
-                "l-1",
-                LayerKind::Reach,
-                "rightHand",
-                aimed(0.25, 0.75, "spot"),
-            )]
-        },
-    },
-];
 
 /// The starter key in `id`, when it is a starter id.
 pub fn starter_key(id: &str) -> Option<&str> {
     id.strip_prefix(STARTER_PREFIX)
 }
 
-fn spec(id: &str) -> CoreResult<&'static Spec> {
+fn spec(id: &str) -> CoreResult<Starter> {
     starter_key(id)
-        .and_then(|key| SPECS.iter().find(|s| s.key == key))
+        .and_then(|key| all().find(|s| s.key() == key))
         .ok_or_else(|| CoreError::NotFound(format!("the starter recipe {id}")))
 }
 
@@ -254,17 +162,26 @@ fn recipe_of(spec: &Spec, clips: &[AnimationClip]) -> RecipeFile {
     recipe
 }
 
-fn view(spec: &Spec, clips: &[AnimationClip]) -> RecipeStarter {
-    let recipe = recipe_of(spec, clips);
+fn view(starter: Starter, clips: &[AnimationClip]) -> RecipeStarter {
+    let recipe = starter.recipe(clips);
     let (base, clip) = match_base(clips, &recipe.base);
     RecipeStarter {
-        id: format!("{STARTER_PREFIX}{}", spec.key),
-        name: spec.name.into(),
-        about: spec.about.into(),
-        clips: spec.clips.iter().map(|c| (*c).to_string()).collect(),
-        rest: spec.clips.is_empty(),
+        id: format!("{STARTER_PREFIX}{}", starter.key()),
+        name: starter.name().into(),
+        about: starter.about().into(),
+        clips: starter.clips().iter().map(|c| (*c).to_string()).collect(),
+        rest: starter.clips().is_empty(),
         mixamo: recipe.base.mixamo,
         base_name: clip.map_or(recipe.base.name.clone(), |c| c.name.clone()),
+        joined: recipe.joined.iter().map(|c| c.name.clone()).collect(),
+        missing: recipe
+            .joined
+            .iter()
+            .filter(|c| match_base(clips, c).0.status == BaseStatus::Missing)
+            .map(|c| c.name.clone())
+            .collect(),
+        mirror: recipe.mirror,
+        time: recipe.time,
         blanks: recipe.blanks,
         layers: recipe.layers,
         base,
@@ -279,7 +196,7 @@ fn view(spec: &Spec, clips: &[AnimationClip]) -> RecipeStarter {
 /// Fails only when the clip library cannot be read.
 pub fn list(root: &Path) -> CoreResult<Vec<RecipeStarter>> {
     let clips = crate::animations::list(root)?;
-    Ok(SPECS.iter().map(|s| view(s, &clips)).collect())
+    Ok(all().map(|s| view(s, &clips)).collect())
 }
 
 /// The starter `id`, matched against the clip library.
@@ -298,8 +215,7 @@ pub fn get(root: &Path, id: &str) -> CoreResult<RecipeStarter> {
 ///
 /// As [`get`].
 pub fn recipe(root: &Path, id: &str) -> CoreResult<RecipeFile> {
-    let spec = spec(id)?;
-    Ok(recipe_of(spec, &crate::animations::list(root)?))
+    Ok(spec(id)?.recipe(&crate::animations::list(root)?))
 }
 
 /// Copies starter `request.entry` into a project as a new recipe, as
@@ -343,15 +259,13 @@ pub fn use_starter(
 ///
 /// Fails for an unknown starter or when the library cannot be written.
 pub fn copy_to_library(root: &Path, id: &str) -> CoreResult<RecipeImported> {
-    let spec = spec(id)?;
+    let name = spec(id)?.name();
     let recipe = recipe(root, id)?;
-    add_entry(
-        root,
-        spec.name,
-        recipe,
-        Some(format!("Starter: {}", spec.name)),
-    )
+    add_entry(root, name, recipe, Some(format!("Starter: {name}")))
 }
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_combat;

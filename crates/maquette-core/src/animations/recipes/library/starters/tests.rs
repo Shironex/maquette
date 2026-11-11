@@ -75,7 +75,7 @@ fn listing_starters_writes_nothing_and_their_ids_are_never_library_ids() {
     let tmp = tempfile::tempdir().expect("temp");
     let root = tmp.path();
     let listed = list(root).expect("list");
-    assert_eq!(listed.len(), SPECS.len());
+    assert_eq!(listed.len(), SPECS.len() + COMBOS.len());
     assert!(!library::dir(root).exists(), "the library stays empty");
     assert!(library::list(root).expect("library").is_empty());
     for starter in &listed {

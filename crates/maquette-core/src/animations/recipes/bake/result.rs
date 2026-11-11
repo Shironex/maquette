@@ -48,6 +48,7 @@ pub(crate) struct BakeRun {
     pub stretch_note: Option<String>,
     pub reaches: Vec<ReachRun>,
     pub pins: Vec<super::pins::PinRun>,
+    pub motion: super::seams::MotionRun,
     pub seconds: f32,
 }
 
@@ -93,6 +94,14 @@ pub(crate) fn result_of(
     let planted = slide.cm > crate::animations::retarget::review::PLANTED_CM;
     let stretch = run.stretch.clone().unwrap_or_default();
     let doc = &prepared.doc;
+    let t = super::seams::baked_timeline(prepared);
+    let seams = super::seams::seam_checks(prepared, &t, &run.motion);
+    let joints = doc
+        .recipe
+        .layers
+        .iter()
+        .any(|l| l.kind == crate::recipes::LayerKind::Pose)
+        .then(|| crate::recipes::joint_limits::keyed_limits(&doc.recipe));
     // A bake on the rest pose has no base clip: it names none.
     let (base_clip, base_hash) = prepared
         .clip
@@ -145,13 +154,11 @@ pub(crate) fn result_of(
         stretch_note: run.stretch_note.clone(),
         reaches: run.reaches.iter().map(reach).collect(),
         pins: run.pins.iter().map(super::pins::pin_result).collect(),
-        grips: prepared.grip_results.clone(),
-        joints: doc
-            .recipe
-            .layers
-            .iter()
-            .any(|l| l.kind == crate::recipes::LayerKind::Pose)
-            .then(|| crate::recipes::joint_limits::keyed_limits(&doc.recipe)),
+        grips: super::seams::with_gaps(&doc.recipe, &t, &prepared.grip_results, &run.motion),
+        sheet: super::sheet::sheet_of(&doc.recipe, &t, &seams, joints.as_ref()),
+        joints,
+        seams,
+        mirror: prepared.mirror.clone(),
         blender_seconds: round(run.seconds, 2),
         seconds: round(seconds, 2),
         warnings: prepared.warnings.clone(),

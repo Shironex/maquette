@@ -44,7 +44,8 @@ export type Args = Record<string, unknown>;
  * ship, a batch, a round and a preview at once; `?agents=recipe` (with
  * `?library=demo`) has an agent ask to add the lantern recipe's bake,
  * `?agents=recipe-save` to save that recipe to the recipe library and
- * `?agents=grip-save` to save a hand pose to the grip library.
+ * `?agents=grip-save` to save a hand pose to the grip library;
+ * `?agents=drafts` has an agent's keys on the pose keys demo, unsaved.
  * `?handoff=batch` adds the veil gate props concept, six object refs made
  * from it and a By hand batch of them in mixed states.
  * `?style=board` gives Frostveil a style board (see `style-board.ts`).

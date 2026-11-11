@@ -41,6 +41,9 @@ in the app: agents may propose a tour, never apply one.
 - Send `expected` (the `version` from `get_recipe`) with every `update_recipe` that sends changes,
   blanks or clear. The lists replace the whole list: send every entry you keep.
 - A `warn` in the review never blocks an add, but tell the person what warned.
+- Your recipe writes land in the file at once and bake as they are, but the Motion view shows them
+  as drafts (`drafts` in `get_recipe`) until a person saves the recipe there. Tell the person what
+  you changed so they can look before they save.
 - Do not poll in a tight loop: wait `pollEverySeconds` when a tool gives it.
 
 ## 1. Pick a start
@@ -48,8 +51,11 @@ in the app: agents may propose a tour, never apply one.
 1. `list_library_recipes` `{}`: `starters` (read only, ids `starter:...`) and the library's recipes.
    Each starter has `about` and a `base` with `names` (the clip names it tries) or `rest`, and
    `library`: `found`, `missing` or `rest` on this computer. `get_library_recipe` `{ entry }` reads one in full; a starter id reads that
-   starter. The five starters: `starter:wave-hello` (on the rest pose), `starter:look-at-point`,
-   `starter:reach-for-prop`, `starter:lean-in` (on an idle) and `starter:point-while-walking`.
+   starter. The nine starters: `starter:wave-hello` (on the rest pose), `starter:look-at-point`,
+   `starter:reach-for-prop`, `starter:lean-in` (on an idle), `starter:point-while-walking`, and the
+   combat ones `starter:slash-combo`, `starter:scythe-charge` and their `-left` copies (mirrored).
+   A combat starter has `joined` clips after its base, a grip, and `missing` naming clips the
+   library lacks.
 2. A starter or library recipe fits: `use_recipe` `{ project, entry, revision? }`. It copies it
    into the project as a new recipe. A starter id has no library link and `revision` must be left
    out. A prop blank whose asset the project lacks opens, and `notes` says so. A base clip that is
@@ -110,11 +116,14 @@ in the app: agents may propose a tour, never apply one.
 2. `get_recipe_bake` `{ project, recipe }`: poll `state` (`running`, `done`, `failed`,
    `cancelled`) and `progress`. When done, read `review`: hand or foot gap (2 cm), elbow or knee
    flip, pin drift (1 cm, per pin), foot slide (1.5 cm over the base clip's own), rig stretch
-   (5 mm over the base clip's own), each `pass`, `warn` or `not-measured`, and how many warn.
+   (5 mm over the base clip's own), seam pop and hold seam (hips 2 cm or any bone 25 deg past the
+   clips around in one frame), grip hand gap (2 cm, two handed grips) and mirror, each `pass`,
+   `warn` or `not-measured`, and how many warn. `fixes` lists recipe edits best first (a wider
+   blend, a longer ease, a smaller key turn): make one with `update_recipe` and bake again.
    Also read `clipNote`: whether the clip replaced this recipe's older ones or took a `_2` name.
 3. `stale` on a finished bake means the recipe or the model changed since: call `bake_recipe`
    again. A failed bake says why in `error`; fix that, then bake again.
-4. The numbers measure only the four things above, at the reach ends and sampled frames. They do not
+4. The numbers measure only the things above, at the reach ends and sampled frames. They do not
    say whether the motion looks right. Report them as they are and never call a warn a pass.
 
 ## 4. Ask the person to add it

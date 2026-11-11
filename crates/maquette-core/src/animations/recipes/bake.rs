@@ -20,18 +20,22 @@
 use serde::{Deserialize, Serialize};
 
 mod add;
+mod fixes;
 mod grips;
 mod job;
 mod pins;
 mod result;
 mod review;
+mod seams;
 mod service;
+mod sheet;
 mod stale;
 
 pub use crate::recipes::baked::{
     MARK_KEY, RecipeBakeMark, RecipeBakeUse, mark_of, marked_mixamo, took_mixamo, write_mark,
 };
 pub use add::{AddClaim, BAKE_CHANGED, OUT_OF_DATE, ready_to_add};
+pub use fixes::{RecipeFixEdit, RecipeReviewFix};
 pub use grips::RecipeGripResult;
 pub use job::{Prepared, open_blanks, prepare};
 pub use pins::{PIN_DRIFT_LIMIT_CM, RecipePinResult};
@@ -41,7 +45,9 @@ pub use review::{
     RecipeBakeReview, RecipeReviewLine, RecipeReviewStatus, SLIDE_OVER_BASE_CM,
     STRETCH_OVER_BASE_MM, review_of,
 };
+pub use seams::{GRIP_GAP_LIMIT_CM, RecipeMirrorResult};
 pub use service::{RecipeBakes, record_of};
+pub use sheet::{RecipeSheetFrame, SHEET_FRAMES, SheetKind};
 pub use stale::{RECIPE_CHANGED, stale_of};
 
 /// The bake script.
@@ -204,6 +210,17 @@ pub struct RecipeBakeResult {
     #[serde(default)]
     #[specta(optional)]
     pub joints: Option<crate::recipes::joint_limits::KeyedLimits>,
+    /// Each seam where clips meet or a hold eases in and out, judged for a
+    /// pop. Empty for a recipe with none (and in a record from before).
+    #[serde(default)]
+    pub seams: Vec<crate::recipes::seams::SeamCheck>,
+    /// A mirrored recipe's swapped bones; none when it is not mirrored.
+    #[serde(default)]
+    #[specta(optional)]
+    pub mirror: Option<RecipeMirrorResult>,
+    /// The frames worth a look on the review's pose sheet.
+    #[serde(default)]
+    pub sheet: Vec<RecipeSheetFrame>,
     /// How long Blender took, and the whole bake, seconds.
     pub blender_seconds: f32,
     pub seconds: f32,
@@ -263,6 +280,8 @@ mod tests_blender_keys;
 #[cfg(test)]
 mod tests_blender_pins;
 #[cfg(test)]
+mod tests_blender_seams;
+#[cfg(test)]
 mod tests_grips;
 #[cfg(test)]
 mod tests_joined;
@@ -272,3 +291,5 @@ mod tests_mark;
 mod tests_pins;
 #[cfg(test)]
 mod tests_rest;
+#[cfg(test)]
+mod tests_seams;

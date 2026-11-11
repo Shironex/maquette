@@ -40,7 +40,8 @@ The tab has:
 - **New recipe**, with a clip picker that also offers **Rest pose**, and **Import** in the header. Each row shows a **Mixamo** badge, open blanks and a warning when its base clip is not in the library.
 - **Edit**: changes and blanks on a timeline range, with checks next to the fields and unsaved edits kept until you decide.
 - A rough preview of the changes over the base clip on the selected model.
-- **Apply** (or **Save and apply**): the exact bake in headless Blender, with progress and **Cancel**. When it is done, **Review** plays it next to the base clip with each number against its limit, and **Add as vN** adds it as the model's next version.
+- **Apply** (or **Save and apply**): the exact bake in headless Blender, with progress and **Cancel**. When it is done, **Review** plays it next to the base clip with each number against its limit (seam pops and hold seams included), a pose sheet of the frames worth a look and fixes, best first, that **Try it** lays on the recipe unsaved; **Add as vN** adds it as the model's next version.
+- What an agent wrote shows as drafted (a banner, a tag on its changes, blue keys) until you save the recipe.
 - A row menu with **Save to library** and **Export**, and **Library has rN** on a recipe whose library recipe has a newer revision.
 
 How each part works, what the numbers mean and how agents use recipes is in the guide: [Animation recipes](/docs/guides/animation-recipes/). Agents work with recipes over MCP, with [`update_recipe`](/docs/agents/mcp-tools/#update_recipe), [`bake_recipe`](/docs/agents/mcp-tools/#bake_recipe), [`get_recipe_bake`](/docs/agents/mcp-tools/#get_recipe_bake) and [`add_recipe_bake`](/docs/agents/mcp-tools/#add_recipe_bake).

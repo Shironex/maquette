@@ -167,6 +167,10 @@ async fn agents_propose_a_save_use_export_and_import_library_recipes() {
     )
     .await;
     assert_eq!(into_project["id"], "reach-out-3", "{into_project}");
+    assert_eq!(
+        into_project["drafts"]["made"], true,
+        "an agent's import shows as drafted, as use_recipe does: {into_project}"
+    );
 
     let outside = tempfile::tempdir().expect("outside");
     let elsewhere = outside.path().join("x.recipe.json");

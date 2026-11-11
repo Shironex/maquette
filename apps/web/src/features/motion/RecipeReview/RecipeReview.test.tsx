@@ -6,13 +6,18 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import RecipeReview from './RecipeReview';
 
 vi.mock('@react-three/fiber', () => import('@/test/fake-fiber'));
+vi.mock('@/features/viewer/pose-snapshots', () => ({
+  poseStills: () => Promise.reject(new Error('no WebGL in jsdom')),
+}));
 
 const LANTERN = 'reach-for-the-lantern';
+const JOINED = 'slash-into-block';
 
 afterEach(() => {
   clearMocks();
@@ -20,11 +25,12 @@ afterEach(() => {
   useRecipesStore.setState(useRecipesStore.getInitialState(), true);
   useRecipeBakesStore.setState(useRecipeBakesStore.getInitialState(), true);
   useMotionStore.setState(useMotionStore.getInitialState(), true);
+  useRecipeEditorStore.setState(useRecipeEditorStore.getInitialState(), true);
   useAgentsStore.setState({ status: null });
 });
 
 /** The demo lantern recipe's finished bake on the clay figure, open in the review. */
-async function openReview() {
+async function openReview(recipe = LANTERN) {
   const args = Array<string | undefined>(12).fill(undefined);
   args[0] = 'configured';
   args[6] = 'demo';
@@ -32,9 +38,22 @@ async function openReview() {
   await openMockWorkspace(...(args as Parameters<typeof openMockWorkspace>));
   await useMotionStore.getState().load('frostveil');
   await useRecipesStore.getState().load('frostveil');
-  useRecipeBakesStore.getState().openReview('frostveil', LANTERN);
+  if (recipe !== LANTERN) {
+    // Only the lantern has a finished bake in the demo: bake this one first.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const doc = await commands.recipeGet('frostveil', recipe);
+    await commands.recipeBakeStart({
+      project: 'frostveil',
+      recipe,
+      asset: 'clay-figure',
+      expected: doc.version,
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+  }
+  useRecipeBakesStore.getState().openReview('frostveil', recipe);
   await waitFor(() =>
-    expect(useRecipeBakesStore.getState().bakes[`frostveil/${LANTERN}`]?.state).toBe('done')
+    expect(useRecipeBakesStore.getState().bakes[`frostveil/${recipe}`]?.state).toBe('done')
   );
   return render(<RecipeReview />);
 }
@@ -92,6 +111,28 @@ describe('the recipe review', () => {
     expect(useRecipeBakesStore.getState().bakes[`frostveil/${LANTERN}`]?.state).toBe('running');
   });
 
+  it('says on the add card when the bake holds agent drafts nobody saved', async () => {
+    await openReview();
+    expect(screen.queryByText(/agent drafts you have not saved/)).toBeNull();
+    await useRecipeEditorStore.getState().open('frostveil', LANTERN);
+    const editing = useRecipeEditorStore.getState().editing;
+    if (!editing) throw new Error('not open');
+    const drafts = {
+      by: 'Motion agent',
+      at: '',
+      writes: 1,
+      made: false,
+      layers: ['l-1'],
+      keys: [],
+      clips: false,
+      time: false,
+      blanks: false,
+      mirror: false,
+    };
+    useRecipeEditorStore.setState({ editing: { ...editing, doc: { ...editing.doc, drafts } } });
+    expect(await screen.findByText(/agent drafts you have not saved/)).toBeTruthy();
+  });
+
   it('says when an agent asked to add the bake', async () => {
     await openReview();
     useAgentsStore.setState({
@@ -116,5 +157,30 @@ describe('the recipe review', () => {
       },
     });
     expect(await screen.findByText(/An agent asked to add this bake/)).toBeVisible();
+  });
+
+  it('shows a seam pop with its pose sheet and lays the best fix on the recipe', async () => {
+    await openReview(JOINED);
+    const numbers = screen.getByRole('list', { name: 'Review numbers' });
+    const seam = within(numbers).getByText('Seam pop').closest('li')!;
+    expect(within(seam).getByRole('img', { name: 'Worth a look' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Worth a look: Seam pop (Sword And Shield Slash into Sword And Shield Block), Foot slide. It can still be added.'
+      )
+    ).toBeVisible();
+    const sheet = screen.getByRole('region', { name: 'Pose sheet' });
+    const tile = within(sheet).getByRole('button', { name: /seam 1/ });
+    await userEvent.click(tile);
+    expect(tile).toHaveAttribute('aria-pressed', 'true');
+
+    const fixes = within(screen.getByRole('region', { name: 'Fixes' })).getAllByRole('listitem');
+    expect(fixes[0]).toHaveTextContent(/Widen the blend to (\d+) f/);
+    const frames = Number(/Widen the blend to (\d+) f/.exec(fixes[0]!.textContent ?? '')?.[1]);
+    await userEvent.click(within(fixes[0]!).getByRole('button', { name: 'Try it' }));
+    await waitFor(() => expect(useRecipeBakesStore.getState().reviewing).toBeNull());
+    const editing = useRecipeEditorStore.getState().editing;
+    expect(editing?.id).toBe(JOINED);
+    expect(editing?.draft.clips[1]?.blend?.frames).toBe(frames);
   });
 });
