@@ -2,7 +2,7 @@
 //! each have a job `<asset>-1`: a model there links to the job of its own
 //! project, through accept and discard, also when the inbox gives a name
 //! out a second time, a model saved by hand links only when one send can
-//! be meant, and a removed project's model links to no other project's job.
+//! be meant, and a removed project's model links to no other project's accepted send of its id.
 
 use super::*;
 
@@ -188,7 +188,7 @@ fn a_model_saved_into_the_inbox_by_hand_links_only_when_one_send_can_be_meant() 
 }
 
 #[test]
-fn a_removed_projects_inbox_model_never_links_to_another_projects_send_of_its_id() {
+fn a_removed_projects_inbox_model_never_links_to_another_projects_accepted_send_of_its_id() {
     let world = World::new();
     let other = second_project(&world);
     let (server, _) = meshy_server(false);
