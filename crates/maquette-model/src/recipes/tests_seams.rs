@@ -208,3 +208,17 @@ fn a_bake_with_no_hips_track_is_not_measured() {
     assert!(!found.is_empty());
     assert!(found.iter().all(|c| !c.measured && !c.pops), "{found:?}");
 }
+
+#[test]
+fn a_seam_with_every_step_around_it_inside_other_seams_is_not_measured() {
+    // A cut at 40 whose six steps either side all sit in two wide seams:
+    // nothing is left to hold it to, so it cannot pass against zero.
+    let motion = steady(80, 1.0, 1.0);
+    let all = [window(30, 39), window(40, 40), window(41, 50)];
+    let check = judge_among(&all[1], &all, &motion, 80);
+    assert!(!check.measured && !check.pops, "{check:?}");
+    // With one free step around it, it is judged as before.
+    let all = [window(30, 38), window(40, 40), window(41, 50)];
+    let check = judge_among(&all[1], &all, &motion, 80);
+    assert!(check.measured && !check.pops, "{check:?}");
+}
