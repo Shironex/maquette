@@ -224,6 +224,7 @@ fn changed(
     }
     let mut next = normalized(&next);
     validate(&next)?;
+    super::pins::check_ik_overlap(&next)?;
     check_clear(&next, &change.clear)?;
     if sent_blanks {
         check_props(&next, manifest)?;

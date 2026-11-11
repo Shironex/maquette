@@ -209,3 +209,54 @@ fn a_pin_needs_version_2() {
     let recipe = normalized(&recipe);
     assert_eq!(recipe.version, RECIPE_VERSION, "a pin needs version 2");
 }
+
+#[test]
+fn a_write_refuses_two_ik_changes_holding_one_bone_at_once() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, _) = create(dir.path(), "Pinned", clip("Standing Idle", 60)).expect("create");
+    let layers = |layers: Vec<RecipeLayer>| RecipeChange {
+        layers: Some(layers),
+        blanks: Some(vec![RecipeBlank {
+            id: "shaft".into(),
+            label: "The shaft".into(),
+            kind: BlankKind::Point,
+            prop: None,
+            point: Some([0.2, 1.1, 0.3]),
+        }]),
+        ..RecipeChange::default()
+    };
+    let refused = |l: Vec<RecipeLayer>| {
+        update(dir.path(), &tests_v2::project(), &id, layers(l))
+            .expect_err("overlap")
+            .to_string()
+    };
+    let err = refused(vec![
+        ranged("l-1", "leftFoot", 0.1, 0.5),
+        ranged("l-2", "leftFoot", 0.4, 0.8),
+    ]);
+    assert!(
+        err.contains("pin l-1 and the pin l-2 both hold leftFoot"),
+        "{err}"
+    );
+    let mut reach = ranged("l-2", "rightHand", 0.3, 0.6);
+    reach.kind = LayerKind::Reach;
+    reach.settings.target = Some("shaft".into());
+    let err = refused(vec![ranged("l-1", "rightHand", 0.5, 0.9), reach.clone()]);
+    assert!(err.contains("the reach l-2"), "{err}");
+
+    // Apart in time, on two bones, or two reaches as before: all fine.
+    let apart = vec![
+        ranged("l-1", "leftFoot", 0.1, 0.4),
+        ranged("l-2", "leftFoot", 0.4, 0.8),
+        ranged("l-3", "rightFoot", 0.1, 0.8),
+        RecipeLayer {
+            id: "l-4".into(),
+            ..reach.clone()
+        },
+        RecipeLayer {
+            id: "l-5".into(),
+            ..reach
+        },
+    ];
+    update(dir.path(), &tests_v2::project(), &id, layers(apart)).expect("apart");
+}
