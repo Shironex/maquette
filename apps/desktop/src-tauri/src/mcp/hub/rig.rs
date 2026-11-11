@@ -4,14 +4,20 @@
 use maquette_core::avatar::normalize::NormalizeSheets;
 use maquette_core::pipeline::history::now_ms;
 use maquette_core::providers::ledger::{DecidedBy, Decision, DecisionSource};
-use maquette_core::rig::{RigRecord, RigStarter, RigState};
+use maquette_core::rig::{RigRecord, RigStarter, RigState, RigidState};
 
 use super::{Approval, ApprovalKind, Hub};
 
 impl Hub {
-    /// A case changed: a draft an agent's run left asks a person, once.
+    /// A case changed: a draft an agent's run left asks a person, once, and
+    /// so does a rigid bind an agent asked for.
     pub fn ask_about_rig_draft(&self, case: &RigRecord) {
-        let agent = case.started_by == RigStarter::Agent || case.agent_opened;
+        let agent = case.started_by == RigStarter::Agent
+            || case.agent_opened
+            || case
+                .rigid
+                .as_ref()
+                .is_some_and(|r| r.asked_by == RigStarter::Agent && r.state == RigidState::Asked);
         if agent && case.state == RigState::Fixed {
             self.request_rig_doctor(case);
         }
@@ -38,10 +44,20 @@ impl Hub {
             job: Some(case.id.clone()),
             asset_name: Some(format!("{} v{next}", case.name)),
             service: None,
-            detail: Some(format!(
-                "The rig doctor fixed {fixed} defect{}. Only joints and weights changed.",
-                if fixed == 1 { "" } else { "s" }
-            )),
+            detail: Some(
+                match case.rigid.as_ref().filter(|r| r.state == RigidState::Asked) {
+                    Some(r) => format!(
+                        "An agent asks to bind {} part{} rigidly to {}. Only weights change.",
+                        r.parts.len(),
+                        if r.parts.len() == 1 { "" } else { "s" },
+                        maquette_core::inbox::analyse::bare_joint_name(&r.bone)
+                    ),
+                    None => format!(
+                        "The rig doctor fixed {fixed} defect{}. Only joints and weights changed.",
+                        if fixed == 1 { "" } else { "s" }
+                    ),
+                },
+            ),
             items: Vec::new(),
             requested_at_ms: now_ms(),
             estimate: None,
@@ -127,6 +143,39 @@ mod tests {
         assert_eq!(waiting[0].asset_name.as_deref(), Some("Hero v2"));
         hub.close_rig_doctor("hero-v1", Decision::Denied);
         assert!(hub.rig_doctor_for("hero-v1").is_none());
+    }
+
+    #[test]
+    fn an_agents_rigid_bind_on_a_persons_draft_asks_a_person() {
+        use maquette_core::rig::RigRigid;
+        let hub = Hub::new(|| {});
+        let mut fixed = case(RigStarter::Person, RigState::Fixed);
+        let mut bind = RigRigid {
+            parts: vec![1, 2],
+            bone: "mixamorig:Spine2".to_string(),
+            state: RigidState::Making,
+            asked_by: RigStarter::Agent,
+            vertices: 0,
+            file: None,
+            earlier: None,
+            sheet: None,
+            checks: Vec::new(),
+            row: None,
+            stretch_before: None,
+            stretch_after: None,
+        };
+        fixed.rigid = Some(bind.clone());
+        hub.ask_about_rig_draft(&fixed);
+        assert!(hub.approvals().is_empty(), "nothing measured yet");
+        bind.state = RigidState::Asked;
+        fixed.rigid = Some(bind);
+        hub.ask_about_rig_draft(&fixed);
+        let waiting = hub.approvals();
+        assert_eq!(waiting.len(), 1);
+        assert_eq!(
+            waiting[0].detail.as_deref(),
+            Some("An agent asks to bind 2 parts rigidly to Spine2. Only weights change.")
+        );
     }
 
     #[test]

@@ -1,7 +1,8 @@
 //! The rig doctor for agents: start_rig_doctor reads a model, run_rig_doctor
-//! starts its pose test or fix, get_rig_doctor and list_rig_doctors read how
-//! cases stand. No tool approves a joint move or adds a draft as a version:
-//! a person does that in the app. Nothing here spends credits.
+//! starts its pose test, fix or a rigid bind, get_rig_doctor and
+//! list_rig_doctors read how cases stand. No tool approves a joint move or a
+//! rigid bind or adds a draft as a version: a person does that in the app.
+//! Nothing here spends credits.
 
 use maquette_core::rig::{RigDoctors, RigRecord, RigRun, RigStarter, recent};
 use rmcp::handler::server::wrapper::Parameters;
@@ -35,6 +36,8 @@ pub enum RigStep {
     Fix,
     /// A second, last fix with a wider seam. A third is refused.
     Round2,
+    /// Bind parts rigidly to a body bone on a copy of the draft, and test it.
+    Rigid,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -42,8 +45,12 @@ pub enum RigStep {
 pub struct RunRigArgs {
     /// The case id, as start_rig_doctor returns it.
     pub id: String,
-    /// pose-test, fix or round-2.
+    /// pose-test, fix, round-2 or rigid.
     pub step: RigStep,
+    /// For rigid: the part numbers from the case's parts.
+    pub parts: Option<Vec<u32>>,
+    /// For rigid: the body bone they follow, from bodyBones. Defaults to Spine2.
+    pub bone: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -94,7 +101,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Start a rig doctor case's pose test, fix or second round in headless Blender, on a copy: minutes, and it answers at once; follow it with get_rig_doctor. step pose-test renders the sheets and names the defects; fix changes joints and weights only, verifies that and tests again into a draft; round-2 is one last try with a wider seam. The draft never replaces the model: when it is ready a person gets an approval card in the app, looks at the sheets and adds it as the next version. A joint move is offered only there, naming the clips it would break. No tool approves either. Spends no credits."
+        description = "Start a rig doctor case's pose test, fix or second round in headless Blender, on a copy: minutes, and it answers at once; follow it with get_rig_doctor. step pose-test renders the sheets and names the defects; fix changes joints and weights only, verifies that and tests again into a draft; round-2 is one last try with a wider seam. The draft never replaces the model: when it is ready a person gets an approval card in the app, looks at the sheets and adds it as the next version. A joint move is offered only there, naming the clips it would break. step rigid binds parts (numbers from the case's parts: what the arm bones hold away from the arms, such as wings or a cape) rigidly to bone (from bodyBones, Spine2 by default) on a copy of a humanoid's fixed draft, measured against it; a person uses it or not. No tool approves any of these. Spends no credits."
     )]
     async fn run_rig_doctor(&self, Parameters(args): Parameters<RunRigArgs>) -> Out {
         let found = self
@@ -104,6 +111,16 @@ impl McpTools {
                     RigStep::PoseTest => RigRun::PoseTest,
                     RigStep::Fix => RigRun::Fix,
                     RigStep::Round2 => RigRun::Round2,
+                    RigStep::Rigid => {
+                        let parts = args.parts.unwrap_or_default();
+                        let case = doctors(host)?.bind_rigid(
+                            (&root, &config, host.toolbox()),
+                            &args.id,
+                            (&parts, args.bone.as_deref()),
+                            RigStarter::Agent,
+                        )?;
+                        return Ok(line(&case));
+                    }
                 };
                 let case = doctors(host)?.run(&root, &config, host.toolbox(), &args.id, what)?;
                 Ok(line(&case))
@@ -113,7 +130,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a rig doctor case: its state (refused, ready, testing, tested, fixing, fixed, stopped, landed, discarded, cancelled or failed), the model, what it refuses, defects by place, the chains of a creature, the before and after sheets with each pose's stretch and seam gap in mm, the fix steps, the verify checks, the joint move if one is asked (with the clips it would break), progress, the log and why it stopped. Look at the sheet files: the numbers say where to look."
+        description = "Read a rig doctor case: its state (refused, ready, testing, tested, fixing, fixed, stopped, landed, discarded, cancelled or failed), the model, what it refuses, defects by place, the chains of a creature, the before and after sheets with each pose's stretch and seam gap in mm, the fix steps, the verify checks, the joint move if one is asked (with the clips it would break), a humanoid's parts and bodyBones and its rigid bind (state, its sheet, stretchBefore and stretchAfter), progress, the log and why it stopped. Look at the sheet files: the numbers say where to look."
     )]
     async fn get_rig_doctor(&self, Parameters(args): Parameters<RigIdArgs>) -> Out {
         let found = self

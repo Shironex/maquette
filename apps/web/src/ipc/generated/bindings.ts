@@ -235,6 +235,16 @@ export const commands = {
 	/**  A person's answer to the joint move. */
 	rigDecideJoints: (id: string, approve: boolean) => __TAURI_INVOKE<RigRecord>("rig_decide_joints", { id, approve }),
 	/**
+	 *  A person binds parts rigidly to a body bone (Spine2 without one) on a
+	 *  copy of the draft; answers at once. The result waits for their answer.
+	 */
+	rigBindRigid: (id: string, parts: number[], bone: string | null) => __TAURI_INVOKE<RigRecord>("rig_bind_rigid", { id, parts, bone }),
+	/**
+	 *  A person's answer to a rigid bind: yes uses it as the draft, no keeps
+	 *  the fix's draft, and no after a yes puts the fix's draft back.
+	 */
+	rigDecideRigid: (id: string, approve: boolean) => __TAURI_INVOKE<RigRecord>("rig_decide_rigid", { id, approve }),
+	/**
 	 *  Sends the draft through the Inbox as the next version. It stops when a
 	 *  check got worse; the version it came from stays either way.
 	 */
@@ -9151,6 +9161,19 @@ export type RigModel = {
 	finding: string | null,
 };
 
+/**  A patch of surface an arm chain holds away from the arm. */
+export type RigPart = {
+	/**  Its number, largest first from 1. */
+	part: number,
+	vertices: number,
+	/**  left, right or both. */
+	side: string,
+	/**  The bones holding most of it, without the rig's prefix. */
+	bones: string[],
+	/**  Its longest side, cm at a one metre tall model. */
+	acrossCm: number | null,
+};
+
 export type RigProbe = {
 	/**  Mesh primitives with skin weights. */
 	skinnedPrimitives: number,
@@ -9217,10 +9240,48 @@ export type RigRecord = {
 	chainEdits?: RigChainEdit[],
 	/**  The strip of a creature's walk clip proof. */
 	walkProof?: string | null,
+	/**
+	 *  What the arm chains hold away from the arms, read on a humanoid's
+	 *  pose test: the parts a bind can take.
+	 */
+	parts?: RigPart[],
+	/**  The body bones a part can follow, whole names. */
+	bodyBones?: string[],
+	/**  Parts bound rigidly to one bone, asked or used. */
+	rigid?: RigRigid | null,
 	/**  The version the draft became. */
 	landed: number | null,
 	error: string | null,
 	updatedMs: number | null,
+};
+
+/**  A bind of parts to one bone, and what it did to the poses. */
+export type RigRigid = {
+	parts: number[],
+	/**  The body bone they follow, its whole name. */
+	bone: string,
+	state: RigidState,
+	/**  Who asked for it. */
+	askedBy: RigStarter,
+	/**  The vertices that follow the bone alone. */
+	vertices: number,
+	/**  The draft with the parts bound. */
+	file: string | null,
+	/**  The fix's draft it was made from, which an undo puts back. */
+	earlier: string | null,
+	/**
+	 *  The bound draft against the version, each row's change against the
+	 *  fix's draft.
+	 */
+	sheet: RigSheet | null,
+	checks: RigCheck[],
+	/**
+	 *  The pose the fix's draft stretches most in, and its worst stretch
+	 *  there before and after the bind, mm at a one metre tall model.
+	 */
+	row: string | null,
+	stretchBefore: number | null,
+	stretchAfter: number | null,
 };
 
 export type RigRoute = 
@@ -9296,7 +9357,12 @@ export type RigRun =
  *  A creature's draft walking on a copy, to see the rig move. The clip
  *  never goes into the draft.
  */
-"walk-proof";
+"walk-proof" | 
+/**
+ *  Parts bound rigidly to a body bone on a copy of the draft, and its
+ *  pose test. Started by [`RigDoctors::bind_rigid`], which names them.
+ */
+"rigid";
 
 /**  A pose sheet: one PNG of everything, and its rows. */
 export type RigSheet = {
@@ -9381,6 +9447,16 @@ export type RigTarget = {
 
 /**  Which way a number went after the fix. */
 export type RigTrend = "better" | "worse" | "same";
+
+export type RigidState = 
+/**  The bind and its pose test run. */
+"making" | 
+/**  Measured; waits for a person. No agent can answer it. */
+"asked" | 
+/**  The draft is the bound one. */
+"approved" | 
+/**  Turned down, or undone: the draft is the fix's. */
+"declined";
 
 export type RootInspection = {
 	/**  Expanded absolute path. */
