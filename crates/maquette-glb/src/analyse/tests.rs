@@ -148,3 +148,22 @@ fn base64_and_percent_decoding() {
     assert!(base64_decode("T!==").is_none());
     assert_eq!(percent_decode("my%20model.bin"), "my model.bin");
 }
+
+#[test]
+fn a_walk_reads_its_travel_in_world_axes_and_an_idle_none() {
+    use crate::fixture::{HumanoidSpec, humanoid};
+    // Turned to face +X, walking 0.8 along its own front: +X in the world.
+    let r = report(&humanoid(&HumanoidSpec {
+        yaw: 90.0,
+        walk: Some(0.8),
+        ..HumanoidSpec::default()
+    }));
+    assert_eq!(r.clip_travel.len(), 1, "{:?}", r.clip_travel);
+    let walk = &r.clip_travel[0];
+    assert_eq!(walk.clip, "Walk");
+    assert!((walk.along[0] - 0.8).abs() < 1e-4, "{walk:?}");
+    assert!(walk.along[1].abs() < 1e-4, "{walk:?}");
+    // The idle only sways: it does not travel.
+    let r = report(&humanoid(&HumanoidSpec::default()));
+    assert!(r.clip_travel.is_empty(), "{:?}", r.clip_travel);
+}

@@ -2,6 +2,7 @@ import { Button, Icon, SegmentedControl, cn, type SegmentedOption } from '@maque
 import type { RigRecord, RigRow } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import {
+  bindHoldsJointMove,
   cellAspect,
   changeLines,
   changedRows,
@@ -13,6 +14,7 @@ import {
 import { Enlarges } from './RigEnlarge';
 import { useChoice, useRigActions } from './RigDoctor.hooks';
 import { WalkProof } from './RigCreature';
+import { RigRigid } from './RigRigid';
 import { RunProgress, Stats, Tile } from './parts';
 
 type Mode = 'side' | 'changed' | 'slider';
@@ -233,6 +235,7 @@ export function JointMoveCard({ record }: { record: RigRecord }) {
   if (!move || move.state !== 'asked') return null;
   const clips = move.breaksClips;
   const off = Math.round(move.offCm ?? 0);
+  const held = bindHoldsJointMove(record);
   return (
     <section
       role="alertdialog"
@@ -258,6 +261,7 @@ export function JointMoveCard({ record }: { record: RigRecord }) {
           ? `This would break ${clips.join(' and ')}: ${clips.length === 1 ? 'that clip has' : 'those clips have'} translation tracks on the ${move.limb} and would pull it back.`
           : `No clip of this model has translation tracks on the ${move.limb}, so none would break.`}
       </p>
+      {held ? <p className="m-0 ml-[42px] text-meta text-fg-mute">{held}</p> : null}
       <div className="flex justify-end gap-2">
         <Button
           size="sm"
@@ -272,8 +276,8 @@ export function JointMoveCard({ record }: { record: RigRecord }) {
           size="sm"
           variant="primary"
           icon="check"
-          disabled={busy}
-          disabledReason={WAIT_FOR_ANSWER}
+          disabled={busy || Boolean(held)}
+          disabledReason={held ?? WAIT_FOR_ANSWER}
           onClick={() => void decide(true)}
         >
           Approve and move
@@ -335,6 +339,7 @@ export function FixAside({ record }: { record: RigRecord }) {
         {checks}
       </ul>
       <JointMoveCard record={record} />
+      <RigRigid record={record} />
       <WalkProof record={record} />
     </aside>
   );

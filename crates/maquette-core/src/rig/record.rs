@@ -115,6 +115,9 @@ pub(super) fn blank(
         chains_confirmed: false,
         chain_edits: Vec::new(),
         walk_proof: None,
+        parts: Vec::new(),
+        body_bones: Vec::new(),
+        rigid: None,
         landed: None,
         error: None,
         updated_ms: now_ms(),
@@ -149,5 +152,8 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<super::RigProgress>()
         .register::<super::RigStopKind>()
         .register::<super::RigStop>()
+        .register::<super::RigPart>()
+        .register::<super::RigidState>()
+        .register::<super::RigRigid>()
         .register::<super::RigRecord>()
 }

@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 use super::service::Inner;
 use super::{
     DefectKind, MAX_ROUNDS, RigLogLine, RigProgress, RigRecord, RigRoute, RigRun, RigStage,
-    RigState, RigStep, RigStop, RigStopKind, creature, humanoid, record, scripts,
+    RigState, RigStep, RigStop, RigStopKind, RigidState, creature, humanoid, record, rigid,
+    scripts,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
@@ -58,6 +59,7 @@ impl Run {
         let creature = case.route == Some(RigRoute::Creature);
         match (what, creature) {
             (RigRun::WalkProof, _) => creature::walk_proof(self),
+            (RigRun::Rigid, _) => rigid::bind(self),
             (RigRun::PoseTest, false) => humanoid::test(self),
             (RigRun::PoseTest, true) => creature::test(self),
             (_, false) => humanoid::fix(self),
@@ -155,6 +157,11 @@ impl Run {
                 }
             }
         });
+    }
+
+    /// The case as it stood before this run.
+    pub(super) fn earlier(&self) -> &RigRecord {
+        &self.earlier
     }
 
     pub(super) fn snapshot(&self) -> RigRecord {
@@ -326,5 +333,16 @@ pub(super) fn check_can_run(case: &RigRecord, what: RigRun) -> CoreResult<()> {
         }
         RigRun::WalkProof if case.state == RigState::Fixed && case.draft.is_some() => Ok(()),
         RigRun::WalkProof => refuse("Run the fix first: the proof walks the draft."),
+        RigRun::Rigid
+            if case.route == Some(RigRoute::Humanoid)
+                && case.state == RigState::Fixed
+                && case
+                    .rigid
+                    .as_ref()
+                    .is_some_and(|r| r.state == RigidState::Making) =>
+        {
+            Ok(())
+        }
+        RigRun::Rigid => refuse("Name the parts and the bone to bind them to first."),
     }
 }

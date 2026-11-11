@@ -20,6 +20,7 @@ import {
 } from './rig-cases';
 import { registerMockFile } from '../files';
 import { figure, fixedCase, readCase, testedCase } from './rig-fixtures';
+import { bindRigid, decideRigid, refuseHeldJointMove, rigidSeeds } from './rig-rigid';
 
 interface RigContext {
   state: string | null;
@@ -41,6 +42,7 @@ const SEEDS: Record<string, () => RigRecord> = {
   'round2-no-change': secondRoundNoChangeCase,
   'one-island': oneIslandCase,
   running: runningCase,
+  ...rigidSeeds,
 };
 
 /** The table a first pose test reads on the creature route. */
@@ -58,6 +60,9 @@ const startOver = (c: RigRecord): RigRecord => ({
   fixSteps: [],
   checks: [],
   jointMove: null,
+  parts: [],
+  bodyBones: [],
+  rigid: null,
   round: 0,
   draft: null,
   progress: null,
@@ -227,12 +232,17 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
         const c = get(args.id as string);
         const move = c.jointMove;
         if (!move) fail('invalid', 'No joint move waits for an answer.');
+        refuseHeldJointMove(c, Boolean(args.approve));
         return put({
           ...c,
           jointMove: { ...move, state: args.approve ? 'approved' : 'declined' },
           draft: args.approve ? move.draft : c.draft,
         });
       },
+      rig_bind_rigid: (args: Args) =>
+        put(bindRigid(get(args.id as string), args.parts as number[], args.bone as string | null)),
+      rig_decide_rigid: (args: Args) =>
+        put(decideRigid(get(args.id as string), Boolean(args.approve))),
       rig_set_route: (args: Args) => {
         const c = get(args.id as string);
         const route = args.route as RigRoute;
@@ -281,7 +291,13 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
         return put({ ...c, state: 'landed', landed: (c.source.version ?? 1) + 1 });
       },
       rig_discard: (args: Args) =>
-        put({ ...get(args.id as string), state: 'discarded', draft: null, jointMove: null }),
+        put({
+          ...get(args.id as string),
+          state: 'discarded',
+          draft: null,
+          jointMove: null,
+          rigid: null,
+        }),
       rig_save_sheet: (args: Args) => `~/Maquette/exports/rig/${args.id as string}_sheet.png`,
       rig_open_blender: () => null,
     },

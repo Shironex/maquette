@@ -23,6 +23,7 @@ mod humanoid;
 mod land;
 mod read;
 mod record;
+mod rigid;
 mod run;
 pub mod scripts;
 mod service;
@@ -34,6 +35,7 @@ pub use clips::clips_on_joints;
 pub use land::got_worse;
 pub use read::{read_model, route_of};
 pub use record::{load, recent, register, save, work_dir};
+pub use rigid::{RIGID_BONE, RigPart, RigRigid, RigidState, default_bone};
 pub use service::RigDoctors;
 pub use verdict::{SEAM_MM, TEAR_MM};
 
@@ -111,6 +113,9 @@ pub enum RigRun {
     /// A creature's draft walking on a copy, to see the rig move. The clip
     /// never goes into the draft.
     WalkProof,
+    /// Parts bound rigidly to a body bone on a copy of the draft, and its
+    /// pose test. Started by [`RigDoctors::bind_rigid`], which names them.
+    Rigid,
 }
 
 /// Where the model comes from: an Inbox file until it is accepted.
@@ -443,6 +448,16 @@ pub struct RigRecord {
     /// The strip of a creature's walk clip proof.
     #[serde(default)]
     pub walk_proof: Option<String>,
+    /// What the arm chains hold away from the arms, read on a humanoid's
+    /// pose test: the parts a bind can take.
+    #[serde(default)]
+    pub parts: Vec<RigPart>,
+    /// The body bones a part can follow, whole names.
+    #[serde(default)]
+    pub body_bones: Vec<String>,
+    /// Parts bound rigidly to one bone, asked or used.
+    #[serde(default)]
+    pub rigid: Option<RigRigid>,
     /// The version the draft became.
     pub landed: Option<u32>,
     pub error: Option<String>,
@@ -454,8 +469,14 @@ mod tests;
 #[cfg(test)]
 mod tests_blender;
 #[cfg(test)]
+mod tests_blender_facing;
+#[cfg(test)]
 mod tests_blender_person;
 #[cfg(test)]
 mod tests_blender_readings;
+#[cfg(test)]
+mod tests_blender_rigid;
+#[cfg(test)]
+mod tests_rigid;
 #[cfg(test)]
 mod tests_rounds;

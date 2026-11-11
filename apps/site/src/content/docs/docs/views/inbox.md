@@ -13,6 +13,10 @@ The checks compare that with your budgets: triangles, texture size, a Mixamo rig
 
 A check that a fix-up answers offers it as a button: Decimate to 60k, Shrink textures to 2048 px, Remove loose parts, Split into parts, Origin to bottom centre or Merge objects.
 
+### A walk against the face
+
+A rigged character with a walk or run clip (by its name: walk, run, jog or sprint) gets a walk row when its facing can be read from the rig, from the same left and right bones as the VRM row. The clip's travel is read from its keys without Blender: from the first key to the last, the node nearest the scene root that moves over the ground (a root bone that walks, else the hips), in the file's world axes. Under 5% of the model's height it plays in place and gets no row. When it travels more than 120 degrees away from the face, the row warns: the model walks backwards, as a moonwalk in a scene that carries it forward. Otherwise it passes. It never fails a model.
+
 ### VRM readiness
 
 A rigged character also gets a VRM row: how far it is from a VRM 1.0 avatar, read without Blender. It never fails a model, since VRM is an export a character may never need: it passes when a VRM file could be written from the model as it is, and warns otherwise, naming every finding with the blockers first.

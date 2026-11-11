@@ -11,7 +11,7 @@ use std::thread;
 use super::run::{Run, check_can_run};
 use super::{
     JointMoveState, RigRecord, RigRun, RigSource, RigStarter, RigState, RigStep, RigStop,
-    RigStopKind, read, record,
+    RigStopKind, RigidState, read, record, rigid,
 };
 use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
@@ -172,6 +172,14 @@ impl RigDoctors {
             };
             found.progress = None;
             found.error = Some("The app closed during this run. Run it again.".to_string());
+            // A bind the app closed on made nothing.
+            if found
+                .rigid
+                .as_ref()
+                .is_some_and(|r| r.state == RigidState::Making)
+            {
+                found.rigid = None;
+            }
         }
         Ok(found)
     }
@@ -190,9 +198,19 @@ impl RigDoctors {
         id: &str,
         what: RigRun,
     ) -> CoreResult<RigRecord> {
-        let mut case = self.get(root, config, id)?;
-        check_can_run(&case, what)?;
-        let earlier = case.clone();
+        self.run_with((root, config, tools), id, what, |_| Ok(()))
+    }
+
+    /// [`Self::run`], with `prepare` changing the case once the run holds it,
+    /// so nothing else can change the case between its read and the start.
+    pub(super) fn run_with(
+        &self,
+        (root, config, tools): (&Path, &WorkspaceConfig, Toolbox),
+        id: &str,
+        what: RigRun,
+        prepare: impl FnOnce(&mut RigRecord) -> CoreResult<()>,
+    ) -> CoreResult<RigRecord> {
+        let first = self.get(root, config, id)?;
         let cancel = Arc::new(AtomicBool::new(false));
         {
             let mut active = self.active();
@@ -203,6 +221,22 @@ impl RigDoctors {
             }
             active.insert(id.to_string(), Arc::clone(&cancel));
         }
+        // Read again under the run: an answer may have landed since. A case
+        // still marked running is one the app closed on, which `get` mended.
+        let started = record::load(root, config, id).and_then(|fresh| {
+            let mut case = fresh.filter(|c| !c.state.running()).unwrap_or(first);
+            prepare(&mut case)?;
+            check_can_run(&case, what)?;
+            Ok(case)
+        });
+        let mut case = match started {
+            Ok(case) => case,
+            Err(error) => {
+                self.active().remove(id);
+                return Err(error);
+            }
+        };
+        let earlier = case.clone();
         case.state = if what == RigRun::PoseTest {
             RigState::Testing
         } else {
@@ -211,7 +245,11 @@ impl RigDoctors {
         match what {
             RigRun::PoseTest => case.step = RigStep::Before,
             RigRun::Fix | RigRun::Round2 => case.step = RigStep::Fix,
-            RigRun::WalkProof => {}
+            RigRun::WalkProof | RigRun::Rigid => {}
+        }
+        // A new sheet or draft leaves any bind behind: it was measured on the old one.
+        if matches!(what, RigRun::PoseTest | RigRun::Fix | RigRun::Round2) {
+            case.rigid = None;
         }
         case.error = None;
         case.stop = None;
@@ -251,7 +289,8 @@ impl RigDoctors {
     ///
     /// # Errors
     ///
-    /// Fails for an unknown case or one with no joint move asked.
+    /// Fails for an unknown case, one with no joint move asked, and a yes
+    /// while a bind is asked or in the draft.
     pub fn decide_joints(
         &self,
         root: &Path,
@@ -260,6 +299,9 @@ impl RigDoctors {
         approve: bool,
     ) -> CoreResult<RigRecord> {
         let mut case = self.get(root, config, id)?;
+        if let Some(why) = rigid::bind_holds(&case).filter(|_| approve) {
+            return Err(CoreError::Invalid(why.to_string()));
+        }
         let draft = case.draft.clone();
         let change = case
             .joint_move
@@ -358,6 +400,7 @@ impl RigDoctors {
         }
         case.state = RigState::Discarded;
         case.joint_move = None;
+        case.rigid = None;
         self.publish(&mut case)?;
         Ok(case)
     }

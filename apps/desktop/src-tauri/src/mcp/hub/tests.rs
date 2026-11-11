@@ -477,6 +477,8 @@ fn no_mcp_tool_can_answer_an_approval() {
         "decide_springs",
         "decide_joints",
         "rig_decide_joints",
+        "decide_rigid",
+        "rig_decide_rigid",
         "rig_land",
         "rig_discard",
         "rig_confirm_chains",

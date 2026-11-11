@@ -1,7 +1,8 @@
 //! The rig doctor: the shell side of `maquette_core::rig`. A person opens a
 //! case from the Inbox check or an asset's menu; each change reaches the web
 //! view as a `RigChanged` event. Only these commands approve a joint move or
-//! land a draft: the MCP tools can start and read the doctor, not approve it.
+//! a rigid bind, or land a draft: the MCP tools can start and read the
+//! doctor, and ask for a bind, not approve it.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -237,6 +238,41 @@ pub fn rig_decide_joints(
 ) -> CommandResult<RigRecord> {
     let (root, config) = session.workspace()?;
     Ok(rig.0.decide_joints(&root, &config, &id, approve)?)
+}
+
+/// A person binds parts rigidly to a body bone (Spine2 without one) on a
+/// copy of the draft; answers at once. The result waits for their answer.
+#[tauri::command]
+#[specta::specta]
+pub async fn rig_bind_rigid(
+    session: State<'_, Session>,
+    rig: State<'_, RigJobs>,
+    id: String,
+    parts: Vec<u32>,
+    bone: Option<String>,
+) -> CommandResult<RigRecord> {
+    let (root, config) = session.workspace()?;
+    let tools = toolchain::toolbox(&session).await?;
+    Ok(rig.0.bind_rigid(
+        (&root, &config, tools),
+        &id,
+        (&parts, bone.as_deref()),
+        RigStarter::Person,
+    )?)
+}
+
+/// A person's answer to a rigid bind: yes uses it as the draft, no keeps
+/// the fix's draft, and no after a yes puts the fix's draft back.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn rig_decide_rigid(
+    session: State<'_, Session>,
+    rig: State<'_, RigJobs>,
+    id: String,
+    approve: bool,
+) -> CommandResult<RigRecord> {
+    let (root, config) = session.workspace()?;
+    Ok(rig.0.decide_rigid(&root, &config, &id, approve)?)
 }
 
 /// Sends the draft through the Inbox as the next version. It stops when a

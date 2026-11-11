@@ -122,6 +122,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             rig::rig_run,
             rig::rig_cancel,
             rig::rig_decide_joints,
+            rig::rig_bind_rigid,
+            rig::rig_decide_rigid,
             rig::rig_land,
             rig::rig_discard,
             rig::rig_set_route,

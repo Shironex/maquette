@@ -14,12 +14,14 @@ use crate::prepare::Fixup;
 
 mod shape;
 mod vrm;
+mod walk;
 // What a send asked for is shared with the provider sends, so it lives in
 // the base crate; this keeps the old path.
 use crate::workspace::{TextureSize, WorkspaceConfig};
 pub use maquette_base::send_notes::{RetextureSource, SendNotes, SentMaps, SentTo};
 use shape::{merged_check, retexture_check, shape_checks};
 use vrm::vrm_check;
+use walk::walk_check;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, specta::Type,
@@ -399,6 +401,7 @@ pub fn run(
             report.animations.join(", "),
         ));
     }
+    out.extend(walk_check(report));
     out
 }
 
@@ -413,3 +416,5 @@ pub fn worst(checks: &[Check]) -> CheckStatus {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod walk_tests;

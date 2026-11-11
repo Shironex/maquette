@@ -9,6 +9,9 @@ Usage: blender -b --factory-startup -P rig_models.py -- <which> out.glb
   misplaced   the same, with the left arm chain 10 cm inside the body and arm translation keys
   one-island  the same body remeshed into one continuous shell
   facing-x    humanoid turned to face +X in the file
+  winged      one continuous shell with a wing off each shoulder blade weighted to that arm, as an auto rig
+              leaves wings: the narrow reweight splits them between arm and trunk
+  biped-x     the same with its own bone names, so it takes the creature route: an upright creature facing +X
   long-robe   a clean rig under a floor length robe whose weights blend from the hips to the legs, and a wide walk
   robe-torn   the same robe with rows of it on the hips and on the thigh in turn: a real tear in the walk
   robe-arm    the same robe with its hem blended smoothly onto the far arm bone: a real stretch in raise
@@ -84,7 +87,7 @@ def finish(bm, arm, weigh, name="Body"):
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
-    if which in ("one-island", "hound-shell"):
+    if which in ("one-island", "hound-shell", "winged"):
         ob0 = bpy.data.objects.new("tmp", me)
         bpy.context.scene.collection.objects.link(ob0)
         m = ob0.modifiers.new("r", "REMESH")
@@ -173,7 +176,13 @@ def humanoid(shift_left_arm=0.0):
     robe = which in ("long-robe", "robe-torn", "robe-arm", "robe-patch")
     if robe:
         tube(bm, (0, 0, 0.56), (0, 0, 0.08), 0.17, 0.24, 28, 24)
-    if which != "webbed" and not robe:
+    wings = which == "winged"
+    if wings:
+        for k in (1, -1):   # ribs from the shoulder blade out behind the arm, fused into one wide flat wing
+            for i in range(7):
+                z = 0.60 + 0.05 * i
+                tube(bm, (k * 0.06, 0.08, 0.70 + 0.015 * (i - 3)), (k * 0.42, 0.16, z), 0.028, 0.02, 8, 12)
+    if which != "webbed" and not robe and not wings:
         panel(bm, ((-0.12, 0.095, 0.80), (0.12, 0.095, 0.80), (0.18, 0.13, 0.15), (-0.18, 0.13, 0.15)))   # the cape
         for x in (-0.03, 0.03):
             tube(bm, (x, 0.07, 0.97), (x * 1.5, 0.10, 0.74), 0.012, 0.006, 6, 14)                         # hair strands
@@ -199,6 +208,10 @@ def humanoid(shift_left_arm=0.0):
             return {P + "Spine2": 1.0}
         if which == "webbed":
             return out_
+        on_wing = abs(co.y - (0.08 + (abs(co.x) - 0.06) * 0.222)) < 0.045
+        if wings:   # the wing follows the arm; there is no cape or hair
+            on_arm = on_wing and abs(co.x) > 0.10 and 0.55 < co.z < 0.95
+            return {P + kx + "Arm": 0.5, P + kx + "ForeArm": 0.3, P + "Spine2": 0.2} if on_arm else out_
         if robe:
             r = (co.x ** 2 + co.y ** 2) ** 0.5
             if r < 0.16 or co.z > 0.565 or co.z < 0.075:   # the body under it
@@ -381,7 +394,10 @@ if which == "no-skin":
     for g in list(bpy.data.objects["Body"].vertex_groups):
         bpy.data.objects["Body"].vertex_groups.remove(g)
     bpy.data.objects["Body"].modifiers.clear()
-if which == "facing-x":
+if which == "biped-x":   # names that are not Mixamo's: the creature route reads it from the bones
+    for b in arm.data.bones:
+        b.name = "J_" + b.name[len(P):]
+if which in ("facing-x", "biped-x"):
     bpy.context.view_layer.objects.active = arm
     arm.rotation_euler = (0, 0, math.radians(90))     # the face (-Y) turns to +X
     bpy.context.view_layer.update()

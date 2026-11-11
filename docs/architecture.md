@@ -314,7 +314,7 @@ aims the model there again; `inbox::place` fills each model's `nextVersion` and 
 emit `libraryChanged` and the project events. `list_library` pages (a `limit` and an entry id `cursor`) and answers compact entries unless `full`. The send tools' `modelWarning` comes from the core `HasModel` send warning (`refs/checks.rs`), which the Send to 3D and batch panels show as a note beside the ref warnings. `tools/animations.rs` holds `list_animations`,
 `import_animations` and `save_model_clips`; import paths must resolve inside the workspace.
 
-`tools/rig.rs` holds `start_rig_doctor`, `run_rig_doctor`, `get_rig_doctor` and `list_rig_doctors`. They go through `maquette_core::rig`, which bundles the `maquette-character-rig` skill's scripts with `include_str!`, so there is one copy of them, and runs them headless on a copy in `cache/rig/<case>/`. The arrival read is `maquette_glb::analyse::rig_probe`, in Rust. No tool approves a joint move or lands a draft: `commands/rig.rs` does, and `mcp/hub/rig.rs` raises the approval card for a fix an agent started.
+`tools/rig.rs` holds `start_rig_doctor`, `run_rig_doctor`, `get_rig_doctor` and `list_rig_doctors`. They go through `maquette_core::rig`, which bundles the `maquette-character-rig` skill's scripts with `include_str!`, so there is one copy of them, and runs them headless on a copy in `cache/rig/<case>/`. The arrival read is `maquette_glb::analyse::rig_probe`, in Rust. No tool approves a joint move or lands a draft: `commands/rig.rs` does, and `mcp/hub/rig.rs` raises the approval card for a fix an agent started. `run_rig_doctor` step `rigid` asks `RigDoctors::bind_rigid` (`rig/rigid.rs`): the pose test reads the parts with `rigid.py --parts`, and the bind runs on a copy of the draft with its own verify and pose test. Only `rig_decide_rigid` uses or undoes it, and the hub raises a card for an agent's bind on a person's draft.
 `tools/renders.rs` holds `render_styles`, `get_render`, `list_renders` and `decide_render`. They go
 through the same `maquette_core::renders::Renders` service as the Inspector's Render tab and the batch
 sheet: `renders/render_styles.py` runs headless through `PipelineRunner` on a lane of its own, `encode.rs`
@@ -785,6 +785,9 @@ uses.
   by level and never dropped. `VrmReadiness` carries the bone list, the pose and the findings; it
   rides on `GlbReport::vrm` (the inbox caches it under a report version) and `Rig::vrm` (Motion's
   rig check). Core's `inbox::checks::vrm` makes the one Inbox row from it, a pass or a warning.
+  `inbox::checks::walk` holds the same facing against `GlbReport::clip_travel`
+  (`analyse/travel.rs`: per clip, the shallowest node whose keys carry it over the ground, in world
+  X and Z) and warns when a walk or run clip travels against the face.
 - **Fixture.** `fixture::humanoid(&HumanoidSpec)` builds a box humanoid on the 65 joint skeleton
   under any of the five namings (the fifth descriptive), optionally in an A-pose, turned, lifted,
   scaled, or with float noise in its armature's scale; its skin in float, 8 or 16 bit weights,

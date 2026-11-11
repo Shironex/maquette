@@ -40,7 +40,9 @@ needed) `round-2` on a copy, each answering at once; follow with `get_rig_doctor
 at its sheets. Its numbers: stretch past the body (a row is flagged from about 80 mm) and seam gap
 (from 5 mm), in mm. An inbox model must be accepted first (step 2). The result lands only when the
 person adds it as the next version on the approval card in the app: no tool does that or approves
-a joint move. Come back to the manual steps below when the doctor refuses a model or stops.
+a joint move. When wings or a cape on the arm bones still stretch after the fix, `run_rig_doctor`
+`{ id, step: "rigid", parts, bone? }` binds the case's `parts` to a body bone (Spine2 by default) on
+a copy of the draft; the person uses it or not. Come back to the manual steps below when the doctor refuses a model or stops.
 
 ## Hard rules
 
@@ -102,7 +104,7 @@ vertices 25 cm out are the hand itself. The pose sheet decides, not the count.
 Creature: copy `scripts/creature/rigconfig.py` to your scratch folder and set
 `RIG_CONFIG_DIR`. The renders need real bone names in `CHAINS`: run `autoconfig.py in.glb <scratch>`
 for a first pass, or fill them from `probe.py`'s bone heads and parents and set `FRONT` from where
-the head is (a Tripo quadruped can face -X). Then run `weightmap.py` (rig map renders: every bone group in its own colour from five
+the feet point on two legs, or from where the head is on four legs or none (a Tripo quadruped can face -X). Then run `weightmap.py` (rig map renders: every bone group in its own colour from five
 views), `probe.py` (bones, weights, islands), `pieces.py` and `piecemap.py` (rigid pieces and
 their weight mix). READ the renders and fill the `rigconfig.py` tables: what the groups really
 are, which chains are junk, which pieces are rigid. If `pieces.py` reports `WELDED_PIECES 1`, the model

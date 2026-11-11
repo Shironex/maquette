@@ -62,6 +62,9 @@ fn start_over(case: &mut RigRecord) {
     case.log.clear();
     case.stop = None;
     case.walk_proof = None;
+    case.parts.clear();
+    case.body_bones.clear();
+    case.rigid = None;
     case.error = None;
 }
 

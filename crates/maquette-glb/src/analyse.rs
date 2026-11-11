@@ -35,6 +35,7 @@ mod islands;
 mod rig;
 mod rig_probe;
 mod source;
+mod travel;
 
 pub use geometry::bounds;
 pub use geometry::world_matrices;
@@ -47,6 +48,7 @@ use rig::rig_kind;
 pub use rig_probe::RigProbe;
 pub use source::load_uri;
 use source::textures;
+pub use travel::{ClipTravel, TRAVEL_SHARE};
 
 /// Islands closer than this share of the primitive's diagonal are grouped.
 pub const GROUP_GAP: f32 = 0.1;
@@ -161,6 +163,9 @@ pub struct GlbReport {
     /// How far a rigged model is from a VRM 1.0 file; `None` without a skin.
     #[serde(default)]
     pub vrm: Option<VrmReadiness>,
+    /// The clips that carry the model over the ground, and how far.
+    #[serde(default)]
+    pub clip_travel: Vec<ClipTravel>,
 }
 
 /// Analyses the model at `path`.
@@ -316,6 +321,7 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
         finger_weights,
         rig_probe: rig_probe::probe(doc, &buffers, &worlds, compressed),
         vrm,
+        clip_travel: travel::clip_travel(doc, &buffers, &worlds, (bounds.size()[1], compressed)),
     })
 }
 

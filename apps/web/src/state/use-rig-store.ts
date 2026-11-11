@@ -47,6 +47,10 @@ interface RigStore {
   run: (what: RigRun) => Promise<void>;
   cancel: () => Promise<void>;
   decideJoints: (approve: boolean) => Promise<void>;
+  /** Binds parts rigidly to a body bone on a copy of the draft; null bone is Spine2. */
+  bindRigid: (parts: number[], bone: string | null) => Promise<void>;
+  /** A person's answer to a bind; no after a yes is the undo. */
+  decideRigid: (approve: boolean) => Promise<void>;
   /** A person picks the other route; the case starts over. */
   setRoute: (route: RigRoute) => Promise<void>;
   /** A person's word on a creature's chains; a correction starts the case over. */
@@ -188,6 +192,10 @@ export const useRigStore = create<RigStore>((set, get) => {
     },
     decideJoints: approve =>
       act('Could not answer the joint move', id => commands.rigDecideJoints(id, approve)),
+    bindRigid: (parts, bone) =>
+      act('Could not bind the parts', id => commands.rigBindRigid(id, parts, bone)),
+    decideRigid: approve =>
+      act('Could not answer the bind', id => commands.rigDecideRigid(id, approve)),
     setRoute: route => act('Could not change the route', id => commands.rigSetRoute(id, route)),
     confirmChains: edits =>
       act('Could not save the chains', id => commands.rigConfirmChains(id, edits)),
