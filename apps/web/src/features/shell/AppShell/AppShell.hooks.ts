@@ -27,6 +27,7 @@ import { usePlanRecentStore } from '@/state/use-plan-recent-store';
 import { usePlansStore } from '@/state/use-plans-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useGripLibraryStore } from '@/state/use-grip-library-store';
 import { useRecipeLibraryStore } from '@/state/use-recipe-library-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
@@ -304,6 +305,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
         void useRecipeEditorStore.getState().onChanged(e.payload.project);
       }),
       events.recipeLibraryChanged.listen(() => useRecipeLibraryStore.getState().onChanged()),
+      events.gripLibraryChanged.listen(() => useGripLibraryStore.getState().onChanged()),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
