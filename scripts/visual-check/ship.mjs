@@ -4,7 +4,8 @@
  * project has it (scene style, KTX2), a hand made site file held back,
  * the hand-built site setup (models style, WebP, a model set to never,
  * a smaller site file kept), the presets panel with the codec greyed out
- * for WebP, and the disabled reasons.
+ * for WebP, the disabled reasons, and site folders an agent set, which
+ * Save folders takes as they are.
  */
 
 export async function shipShots({ open, shot, hoverTip }) {
@@ -65,4 +66,20 @@ export async function shipShots({ open, shot, hoverTip }) {
   await built.getByRole('heading', { name: /Size report/ }).scrollIntoViewIfNeeded();
   await shot(built, 'ship-size-report');
   await built.context().close();
+
+  const agent = await open('&scenario=idle&ship=agent-folders', '#/pipeline');
+  await agent.getByRole('button', { name: 'Ship settings' }).click();
+  await agent.getByText(/An agent set these folders/).waitFor();
+  await agent.mouse.move(0, 0);
+  await shot(agent, 'ship-settings-agent-folders');
+  await hoverTip(
+    agent,
+    agent.getByRole('button', { name: 'Save folders' }),
+    'ship-folders-agent-tip'
+  );
+  await agent.getByRole('button', { name: 'Save folders' }).click();
+  await agent.getByText(/An agent set these folders/).waitFor({ state: 'detached' });
+  await agent.mouse.move(0, 0);
+  await shot(agent, 'ship-settings-agent-folders-saved');
+  await agent.context().close();
 }

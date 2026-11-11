@@ -148,8 +148,16 @@ describe('an approval card', () => {
     render(<ApprovalCard approval={approval('approval-1')} />);
     const card = screen.getByRole('alertdialog');
     expect(card).toHaveTextContent('Everything before Ship is done');
-    expect(card).toHaveTextContent('Writes to /Users/you/code/frostveil-site');
-    expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
+    expect(card).toHaveTextContent(
+      'Writes to /Users/you/code/frostveil-site: models in public/models'
+    );
+    const approve = within(card).getByRole('button', { name: 'Approve and ship' });
+    expect(approve).toBeEnabled();
+    // A website's Ship writes to the site repo, not a game repo.
+    await userEvent.hover(approve);
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Writes the files to the site repo'
+    );
   });
 
   it('shows the model a built asset replaced since the last Ship', async () => {

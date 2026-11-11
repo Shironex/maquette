@@ -12,6 +12,7 @@ export const RULES = [
   {
     key: 'askBeforeShipping',
     title: 'Ask before shipping',
-    detail: 'Ship waits for you to confirm before it writes to the site repo',
+    detail:
+      'Ship waits for you to confirm before it writes to the site repo. With this off, it still waits when an agent chose the repo or its folders',
   },
 ] as const;

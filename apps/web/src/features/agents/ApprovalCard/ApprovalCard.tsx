@@ -193,7 +193,7 @@ export default function ApprovalCard({
       {collapsed ? null : (
         <>
           {shipTo ? (
-            <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 font-mono text-meta break-all text-fg-dim">
+            <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 font-mono text-meta wrap-anywhere text-fg-dim">
               {shipTo}
             </p>
           ) : null}
@@ -349,7 +349,11 @@ export default function ApprovalCard({
                       ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
                       : send
                         ? 'Sends it to the provider, which spends credits'
-                        : 'Writes the files to the game repo'
+                        : site?.target === 'game'
+                          ? 'Writes the files to the game repo'
+                          : site?.siteRepo
+                            ? 'Writes the files to the site repo'
+                            : "Copies the files to the project's shipped folder"
                 }
                 onClick={event => void decide(approval.id, true, decidedBy(source, event))}
               >

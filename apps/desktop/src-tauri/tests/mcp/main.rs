@@ -36,6 +36,7 @@ mod renders;
 mod rig;
 mod sends_projects;
 mod ship;
+mod ship_folders;
 mod ship_gate;
 mod start;
 mod trash;

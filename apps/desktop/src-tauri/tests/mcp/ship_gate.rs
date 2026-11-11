@@ -35,16 +35,16 @@ impl RunSink for HubSink {
     }
 }
 
-struct World {
-    dir: tempfile::TempDir,
+pub(super) struct World {
+    pub(super) dir: tempfile::TempDir,
     /// What a person answers through, as the app's card does.
-    hub: Arc<Hub>,
-    host: Arc<TestHost>,
+    pub(super) hub: Arc<Hub>,
+    pub(super) host: Arc<TestHost>,
     server: Running,
-    client: Client,
+    pub(super) client: Client,
 }
 
-fn git_repo(dir: &Path, name: &str) -> PathBuf {
+pub(super) fn git_repo(dir: &Path, name: &str) -> PathBuf {
     let repo = dir.join(name);
     std::fs::create_dir_all(repo.join(".git")).expect("repo");
     repo
@@ -52,7 +52,13 @@ fn git_repo(dir: &Path, name: &str) -> PathBuf {
 
 /// The tools over a new workspace with "Ask before shipping" off, and a
 /// website project `web` whose pipeline is the one Ship step.
-async fn rule_off() -> World {
+pub(super) async fn rule_off() -> World {
+    rule_off_with(|_| json!({ "name": "Web", "target": "website" })).await
+}
+
+/// [`rule_off`] with `web` made by `create_project` with the arguments
+/// `args` gives for the world's temp folder (its name must be Web).
+pub(super) async fn rule_off_with(args: impl FnOnce(&Path) -> Value) -> World {
     maquette_core::providers::http::ensure_crypto();
     let dir = tempfile::tempdir().expect("temp");
     let session = session_in(dir.path(), true, |config| {
@@ -87,17 +93,25 @@ async fn rule_off() -> World {
         .serve(transport)
         .await
         .expect("initialize");
-    call(
-        &client,
-        "create_project",
-        json!({ "name": "Web", "target": "website" }),
-    )
-    .await;
+    call(&client, "create_project", args(dir.path())).await;
 
+    one_ship_step(&host, "web");
+    World {
+        dir,
+        hub,
+        host,
+        server,
+        client,
+    }
+}
+
+/// Makes project `id`'s pipeline one Ship step that notes the run in the
+/// repo it ships into.
+pub(super) fn one_ship_step(host: &TestHost, id: &str) {
     let (root, config) = host.session.workspace().expect("ws");
-    let web = project::dir(&root, &config.layout, "web").expect("dir");
-    let manifest = project::load(&root, &config.layout, "web").expect("load");
-    let mut def = pipeline::ensure(&web, &manifest).expect("pipeline");
+    let dir = project::dir(&root, &config.layout, id).expect("dir");
+    let manifest = project::load(&root, &config.layout, id).expect("load");
+    let mut def = pipeline::ensure(&dir, &manifest).expect("pipeline");
     def.steps = vec![StepDef {
         id: "ship".into(),
         name: "Ship".into(),
@@ -110,24 +124,17 @@ async fn rule_off() -> World {
         depends_on: Vec::new(),
         compress: None,
     }];
-    pipeline::save(&web, &def).expect("save");
-    std::fs::write(web.join("ship.sh"), "echo shipped >> \"$1/shipped.log\"\n").expect("script");
-    World {
-        dir,
-        hub,
-        host,
-        server,
-        client,
-    }
+    pipeline::save(&dir, &def).expect("save");
+    std::fs::write(dir.join("ship.sh"), "echo shipped >> \"$1/shipped.log\"\n").expect("script");
 }
 
 impl World {
-    async fn read(&self, run: &Value) -> Value {
+    pub(super) async fn read(&self, run: &Value) -> Value {
         let args = json!({ "project": "web", "runId": run["runId"] });
         call(&self.client, "get_run", args).await
     }
 
-    async fn finished(&self, run: &Value) -> Value {
+    pub(super) async fn finished(&self, run: &Value) -> Value {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
             let read = self.read(run).await;
@@ -150,7 +157,10 @@ impl World {
         let real = maquette_core::fs::real_folder(repo);
         assert_eq!(
             cards[0].detail,
-            Some(format!("Writes to {}", real.display())),
+            Some(format!(
+                "Writes to {}: models in public/models, posters in public/posters, no data file",
+                real.display()
+            )),
             "the card says where Ship writes"
         );
         let waiting = self.read(run).await;
@@ -164,7 +174,7 @@ impl World {
         assert!(!repo.join("shipped.log").exists(), "nothing was written");
     }
 
-    async fn close(self) {
+    pub(super) async fn close(self) {
         self.client.cancel().await.expect("close");
         self.server.stop();
     }

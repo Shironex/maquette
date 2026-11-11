@@ -42,6 +42,13 @@ pub struct AppState {
     /// person's. Kept here, per computer and off the synced workspace, like
     /// the paths themselves.
     pub agent_set_repos: BTreeMap<String, BTreeSet<String>>,
+    /// The site repos whose folders (models, posters, data file) an agent set
+    /// and no person has saved since: each repo's real folder, the one Ship
+    /// writes into. Keyed by the repo, not a project, because the folders live
+    /// in the repo's `maquette.site.json`, which every project and workspace on
+    /// that repo reads. Files from before this have none, so folders an agent
+    /// wrote before then count as a person's.
+    pub agent_set_folders: BTreeSet<String>,
     /// The dev commands a person approved for an agent-set repo: the repo's
     /// folder, then each question's key (`site::preview::PreviewAsk::key`).
     pub preview_approvals: BTreeMap<String, BTreeSet<String>>,
@@ -76,13 +83,15 @@ impl Default for AppState {
             site_repos: BTreeMap::new(),
             machine_id: None,
             agent_set_repos: BTreeMap::new(),
+            agent_set_folders: BTreeSet::new(),
             preview_approvals: BTreeMap::new(),
         }
     }
 }
 
-/// Who set a project's repo. An agent's repo asks a person before its dev
-/// command first runs; a person's never asks.
+/// Who set a project's repo, or its site folders. An agent's repo asks a
+/// person before its dev command first runs; a person's never asks. A Ship
+/// into a repo or folders an agent set waits for a person.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RepoSetBy {
     Person,
@@ -115,6 +124,23 @@ impl AppState {
         self.agent_set_repos
             .get(root_key)
             .is_some_and(|ids| ids.contains(id))
+    }
+
+    /// Records who last set the site folders of the repo at `repo_key`.
+    pub fn mark_folders(&mut self, repo_key: &str, by: RepoSetBy) {
+        match by {
+            RepoSetBy::Agent => {
+                self.agent_set_folders.insert(repo_key.to_string());
+            }
+            RepoSetBy::Person => {
+                self.agent_set_folders.remove(repo_key);
+            }
+        }
+    }
+
+    /// True when an agent set the site folders of the repo at `repo_key`.
+    pub fn folders_set_by_agent(&self, repo_key: &str) -> bool {
+        self.agent_set_folders.contains(repo_key)
     }
 
     /// True when a person approved this very command in this very folder.
@@ -256,6 +282,30 @@ mod tests {
         state.machine_id = Some("abc".into());
         save(dir.path(), &state).expect("save");
         assert_eq!(load(dir.path()), state);
+    }
+
+    #[test]
+    fn an_older_file_loads_with_no_folder_marks_and_a_person_clears_one() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join(APP_STATE_FILE),
+            r#"{"version": 1, "agentSetRepos": {"/ws": ["moon"]}}"#,
+        )
+        .expect("old file");
+        let mut state = load(dir.path());
+        assert!(state.repo_set_by_agent("/ws", "moon"), "the old marks load");
+        assert!(state.agent_set_folders.is_empty());
+        state.mark_folders("/code/site", RepoSetBy::Agent);
+        save(dir.path(), &state).expect("save");
+        let mut state = load(dir.path());
+        assert!(state.folders_set_by_agent("/code/site"));
+        assert!(!state.folders_set_by_agent("/code/other"));
+        state.mark_folders("/code/site", RepoSetBy::Person);
+        assert!(!state.folders_set_by_agent("/code/site"));
+        assert!(
+            state.repo_set_by_agent("/ws", "moon"),
+            "the repo mark stays"
+        );
     }
 
     #[test]
