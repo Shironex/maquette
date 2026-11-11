@@ -51,7 +51,9 @@ impl Axis {
         }
     }
 
-    fn nearest(yaw: f32) -> Axis {
+    /// The axis nearest a turn of `yaw` degrees from +Z about Y, towards
+    /// +X positive.
+    pub fn nearest(yaw: f32) -> Axis {
         match yaw {
             y if y.abs() <= 45.0 => Axis::PlusZ,
             y if y.abs() >= 135.0 => Axis::MinusZ,

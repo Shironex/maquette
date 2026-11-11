@@ -10,6 +10,10 @@
 //! read exists, or a render fails, the item is marked
 //! [`ThumbState::Fallback`] and the web view stores a snapshot from its own
 //! model preview instead.
+//!
+//! A built asset's thumbnail is lit by the page light instead of the studio
+//! ([`look`]), under a cache name of its own, so the studio renders of every
+//! other model stay as they are.
 
 use std::collections::HashMap;
 use std::fs;
@@ -18,14 +22,18 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 
+mod look;
 pub mod missing;
 mod picture;
 pub mod source;
 
+pub use look::{
+    RIG_FILE, RIG_SCRIPT, SWATCH_FILE, SWATCH_SCRIPT, ThumbLook, look_of, png_for_look, png_name,
+    rig_key,
+};
 pub use picture::PictureRenderer;
 
 use crate::error::{CoreError, CoreResult};
-use crate::pipeline::cache::FileHasher;
 use crate::pipeline::history::RunState;
 use crate::pipeline::runner::{JobRunner, PipelineEvent, PipelineRunner, RunSetup, RunSink};
 use crate::pipeline::tools::Toolbox;
@@ -142,13 +150,10 @@ pub fn is_renderable(path: &Path) -> bool {
     })
 }
 
-/// `<dir>/<hash>.png` for the content of `file`. Hashes are memoised by
-/// size and modified time in `<dir>/hashes.json`.
+/// `<dir>/<hash>.png` for the content of `file`, its studio render. Hashes
+/// are memoised by size and modified time in `<dir>/hashes.json`.
 pub fn png_for(dir: &Path, file: &Path) -> CoreResult<PathBuf> {
-    let mut hasher = FileHasher::with_memo(dir);
-    let hash = hasher.hash(file).map_err(|e| CoreError::io(file, e))?;
-    hasher.flush();
-    Ok(dir.join(format!("{}.png", &hash[..32])))
+    png_for_look(dir, file, ThumbLook::Studio)
 }
 
 /// Saves a PNG someone else made (the web view's preview snapshot) as the
@@ -308,15 +313,28 @@ impl Thumbnails {
         Self { shared, runner }
     }
 
-    /// The thumbnail of `file`: the cached PNG, or a render queued (joined
-    /// when one for the same content is already on its way). `target`, when
-    /// given, comes back in [`Finished`] so the caller can update the asset.
+    /// The studio thumbnail of `file` (see [`Self::request_look`]).
     pub fn request(
         &self,
         dir: &Path,
         file: &Path,
         target: Option<ThumbTarget>,
         tools: &Toolbox,
+    ) -> CoreResult<Requested> {
+        self.request_look(dir, file, target, tools, ThumbLook::Studio)
+    }
+
+    /// The thumbnail of `file` in `look`: the cached PNG, or a render queued
+    /// (joined when one for the same content and look is already on its
+    /// way). `target`, when given, comes back in [`Finished`] so the caller
+    /// can update the asset.
+    pub fn request_look(
+        &self,
+        dir: &Path,
+        file: &Path,
+        target: Option<ThumbTarget>,
+        tools: &Toolbox,
+        look: ThumbLook,
     ) -> CoreResult<Requested> {
         if !is_renderable(file) {
             return Ok(Requested::Fallback(format!(
@@ -325,7 +343,7 @@ impl Thumbnails {
             )));
         }
         fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
-        let png = png_for(dir, file)?;
+        let png = png_for_look(dir, file, look)?;
         if png.is_file() {
             return Ok(Requested::Ready(png));
         }
@@ -344,10 +362,14 @@ impl Thumbnails {
             source::Source::Uncompressed(raw) => raw,
             source::Source::Snapshot(reason) => return Ok(Requested::Fallback(reason)),
         };
-        let script = dir.join(SCRIPT_FILE);
-        if fs::read_to_string(&script).ok().as_deref() != Some(SCRIPT) {
-            crate::fs::write_atomic(&script, SCRIPT.as_bytes())
-                .map_err(|e| CoreError::io(&script, e))?;
+        // The page light sits beside the script that imports it.
+        let rig = (look == ThumbLook::Page).then_some((RIG_FILE, RIG_SCRIPT));
+        for (name, text) in [(SCRIPT_FILE, SCRIPT)].into_iter().chain(rig) {
+            let script = dir.join(name);
+            if fs::read_to_string(&script).ok().as_deref() != Some(text) {
+                crate::fs::write_atomic(&script, text.as_bytes())
+                    .map_err(|e| CoreError::io(&script, e))?;
+            }
         }
         let out = png
             .file_name()
@@ -357,7 +379,7 @@ impl Thumbnails {
             project: LANE.to_string(),
             project_dir: dir.to_path_buf(),
             cache_dir: dir.join("runs"),
-            def: render_def(&render_from, &out),
+            def: render_def_with(&render_from, &out, look.args()),
             tools: tools.clone(),
             defaults: CompressDefaults {
                 texture_size: 2048,
@@ -440,6 +462,8 @@ pub fn apply(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_blender;
 
 /// Registers this module's IPC types (the thumbnail state) with the shell's TypeScript export;
 /// `maquette_core::types` folds every module's in.

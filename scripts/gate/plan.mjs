@@ -51,6 +51,8 @@ const WHOLE_GATE = [
   'apps/web/src/ipc/generated/bindings.ts',
   // Vitest (state/about.test.ts) reads this form, which otherwise counts as docs.
   '.github/ISSUE_TEMPLATE/bug_report.yml',
+  // The Rust tests (thumbs) hold the preview rig's tone mapping and exposure to the site scene's.
+  'apps/site/src/scene/Workbench.tsx',
 ];
 /**
  * Folders of the same kind: maquette-glb's tests read the mock models, and the

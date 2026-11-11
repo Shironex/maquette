@@ -99,7 +99,7 @@ pub(super) fn file_bytes(path: &Path) -> Option<f64> {
 /// A model's bounds once prepared, and the frame that gets them there.
 /// The fix-ups' own bounds come from a preview that ran (`previews`), else
 /// the model file's.
-fn prepared(
+pub fn prepared(
     project_dir: &Path,
     previews: Option<&Path>,
     prep: &ScenePrep,

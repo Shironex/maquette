@@ -35,3 +35,4 @@ mod ship;
 mod ship_gate;
 mod start;
 mod trash;
+mod views;

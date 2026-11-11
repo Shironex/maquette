@@ -4,7 +4,7 @@ Maquette runs this headless, always with -b:
 
     blender -b --factory-startup --python-exit-code 1 [model.blend] \
         --python render_thumb.py -- --model <file> --out <png> [--size 256] \
-        [--view front] [--plain]
+        [--view front] [--plain] [--look page]
 
 A .glb, .gltf or .obj is imported into an empty scene. A .blend is opened by
 Blender itself (it comes before --python) and its own lights, cameras and
@@ -19,6 +19,13 @@ CPU with a few samples and the denoiser, so it runs the same everywhere.
 ref is drawn. --plain renders the model alone on a transparent ground, no
 floor, so its outline is exact: the Downloads matching compares that with
 the refs.
+
+--look page keeps the backdrop, the floor and the camera and swaps the light
+and the tone curve for the page light of preview_rig.py, which must sit
+beside this script: the sun and the even fill the Bake light step bakes in,
+shown through the page's tone mapping. A built asset's thumbnail uses it, so
+its flat palette colours read as they will on the page; the studio light
+above clips every pale colour to white.
 """
 
 import argparse
@@ -51,7 +58,11 @@ def args():
     parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--view", choices=("three-quarter", "front"), default="three-quarter")
     parser.add_argument("--plain", action="store_true")
-    return parser.parse_args(argv)
+    parser.add_argument("--look", choices=("studio", "page"), default="studio")
+    found = parser.parse_args(argv)
+    if found.plain and found.look == "page":
+        parser.error("--plain belongs to the studio look")
+    return found
 
 
 def linear(hex_color):
@@ -115,7 +126,11 @@ def bounds(objects):
     return lo, hi
 
 
-def floor(scene, lo, hi, size):
+def floor(scene, lo, hi, size, glow=None, backdrop=None, lift=None):
+    """The floor under the model. `glow` and `backdrop` are its lit colour
+    and the colour it fades into, as linear scene values; the studio's own
+    without them. `lift` is the light the floor gives off by itself, half of
+    what shows, so a hard shadow reads as a hint and not as a hole."""
     # Wide enough that the top of the frame still lands on it: no horizon.
     radius = size * 60
     bpy.ops.mesh.primitive_circle_add(
@@ -129,9 +144,9 @@ def floor(scene, lo, hi, size):
     nodes.clear()
     out = nodes.new("ShaderNodeOutputMaterial")
     diffuse = nodes.new("ShaderNodeBsdfDiffuse")
-    diffuse.inputs["Color"].default_value = linear(FLOOR_GLOW)
-    backdrop = nodes.new("ShaderNodeEmission")
-    backdrop.inputs["Color"].default_value = linear(BACKDROP)
+    diffuse.inputs["Color"].default_value = glow or linear(FLOOR_GLOW)
+    edge = nodes.new("ShaderNodeEmission")
+    edge.inputs["Color"].default_value = backdrop or linear(BACKDROP)
     mix = nodes.new("ShaderNodeMixShader")
     # A radial falloff from the model outwards: lit floor near the model,
     # the plain backdrop at the edge, so there is no horizon line.
@@ -151,12 +166,22 @@ def floor(scene, lo, hi, size):
     links.new(mapping.outputs["Vector"], gradient.inputs["Vector"])
     links.new(gradient.outputs["Fac"], ramp.inputs["Fac"])
     links.new(ramp.outputs["Color"], mix.inputs["Fac"])
-    links.new(backdrop.outputs["Emission"], mix.inputs[1])
-    links.new(diffuse.outputs["BSDF"], mix.inputs[2])
+    links.new(edge.outputs["Emission"], mix.inputs[1])
+    if lift is None:
+        links.new(diffuse.outputs["BSDF"], mix.inputs[2])
+    else:
+        own = nodes.new("ShaderNodeEmission")
+        own.inputs["Color"].default_value = lift
+        half = nodes.new("ShaderNodeMixShader")
+        half.inputs["Fac"].default_value = 0.5
+        links.new(diffuse.outputs["BSDF"], half.inputs[1])
+        links.new(own.outputs["Emission"], half.inputs[2])
+        links.new(half.outputs["Shader"], mix.inputs[2])
     links.new(mix.outputs["Shader"], out.inputs["Surface"])
     plane.data.materials.append(mat)
     # The floor catches shadows but never reflects light back onto the model.
     plane.visible_glossy = False
+    return plane
 
 
 def world(scene):
@@ -274,6 +299,35 @@ def render(scene, out, size, samples, plain=False):
     os.replace(tmp, out)
 
 
+# The floor under a model in the page light: a touch lighter than the
+# backdrop where the sun lands, so the model's shadow reads on it.
+PAGE_FLOOR = "#3d3b36"
+
+
+def page_rig():
+    """preview_rig.py, from beside this script."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import preview_rig
+
+    return preview_rig
+
+
+def page_stage(scene, rig, lo, hi, extent):
+    """The backdrop, the floor and the page light around a model."""
+    rig.world(scene, BACKDROP)
+    plane = floor(
+        scene,
+        lo,
+        hi,
+        extent,
+        glow=(*rig.lit_color(PAGE_FLOOR), 1.0),
+        backdrop=(*rig.scene_color(BACKDROP), 1.0),
+        lift=(*rig.scene_color(PAGE_FLOOR), 1.0),
+    )
+    rig.ground(plane)
+    rig.sun(scene)
+
+
 def main():
     a = args()
     scene = load(a.model)
@@ -282,6 +336,13 @@ def main():
     extent = max((hi - lo).length, 1e-3)
     if a.view == "front":
         VIEW.update(azimuth=0.0, elevation=FRONT_ELEVATION)
+    if a.look == "page":
+        rig = page_rig()
+        page_stage(scene, rig, lo, hi, extent)
+        camera(scene, lo, hi)
+        rig.render(scene, a.out, a.size, a.samples)
+        print(f"thumbnail {a.out} ({a.size} px, page light)")
+        return
     world(scene)
     if not a.plain:
         floor(scene, lo, hi, extent)

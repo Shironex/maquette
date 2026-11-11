@@ -51,6 +51,7 @@ pub mod timeline;
 pub mod toolchain;
 pub mod trash;
 pub mod updater;
+pub mod views;
 pub mod workspace;
 
 use maquette_core::{CoreError, ErrorPayload};

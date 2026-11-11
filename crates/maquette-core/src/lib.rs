@@ -8,6 +8,7 @@ pub mod avatar;
 pub mod base;
 pub mod built;
 pub mod concepts;
+pub mod facts;
 pub mod game;
 pub mod inbox;
 pub mod inspect;
@@ -30,6 +31,7 @@ pub mod site;
 #[cfg(test)]
 mod test_blender;
 pub mod thumbs;
+pub mod views;
 
 // The model layer lives in its own crate; these keep the old paths. The
 // model modules whose higher layer work stays here (`avatar`, `built`,

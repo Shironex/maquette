@@ -5,12 +5,16 @@
 
 mod builder;
 mod humanoid;
+mod signpost;
 mod skeleton;
 
 use serde_json::{Value, json};
 
 use builder::{Builder, Mesh};
 pub use humanoid::{HumanoidSpec, Naming, SHOULDER_TAIL_ROWS, SkinFlaw, WeightFormat, humanoid};
+pub use signpost::{
+    PALE_COLOURS, SIGNPOST_FRONT, SIGNPOST_RIGHT, SIGNPOST_TOP, pale_prop, ref_card, signpost,
+};
 use skeleton::{skeleton, world_positions};
 
 /// A full PBR material set (base colour, metal/rough, normal) at `size`.

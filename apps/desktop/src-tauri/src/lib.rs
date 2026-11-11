@@ -65,6 +65,7 @@ pub fn run() {
                 Arc::clone(&hub),
             ));
             app.manage(commands::renders::RenderJobs::new(app.handle().clone()));
+            app.manage(commands::views::ViewJobs::default());
             app.manage(commands::plan_watch::PlanWatch::default());
             let studio = commands::providers::Studio::new(app.handle().clone());
             commands::image_api::connect(&app.state::<commands::lab::Lab>().0, studio.0.secrets());

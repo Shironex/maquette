@@ -31,6 +31,8 @@ Baked light sets the lightmap size, samples and denoiser, as [Bake light](/docs/
 
 A new project gets small, commented scripts in `tools/`, so it runs end to end on day one. They are the project's to edit, and Maquette never writes over a file that exists on its own. When newer starters ship, the view says "New starter scripts available" and Update brings the untouched ones up to date. An edited script is never overwritten silently: choose Replace with the new starter (your file is kept as `<name>.py.bak`) or Keep mine.
 
+The light Build scene sets up and Bake light bakes in is also the light a built asset is previewed in. [The page light](/docs/pipeline/page-light/) has its numbers and a swatch sheet rendered with it.
+
 ## Game projects
 
 A [game project](/docs/start/game-projects/) runs Build models, Bake light (off by default), Export, Game export and Ship. The Game export panel takes the place of the compression presets, and when Ship waits the view opens the Ship diff with Approve and ship and Deny.
