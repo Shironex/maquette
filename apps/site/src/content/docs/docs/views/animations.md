@@ -61,7 +61,7 @@ The side panel lists **Where it is used**: each model that baked the clip, with 
 
 Picking **Recipes** under **Show** in the top bar switches the view to the recipe library: recipes kept outside any project, saved from the [Motion view's Recipes tab](/docs/guides/animation-recipes/#save-back) or imported from a `.recipe.json`. Each line shows the recipe's name, its base clip and frame count, its changes and blanks, its newest revision and **Mixamo** when its base clip is a Mixamo clip. A recipe that cannot be read lists with its problem, so it can be removed.
 
-A **Starters** group above them lists five recipes built into the app. They are read only: **Use in project** copies one into a project, and **Save to library** makes an editable copy at r1.
+A **Starters** group above them lists nine recipes built into the app, among them a slash combo and a scythe charge with left handed copies. They are read only: **Use in project** copies one into a project, and **Save to library** makes an editable copy at r1.
 
 The side panel lists every revision, newest first, with where it came from and when. Pick one to see its changes and blanks. **Use in project** copies it into a project you choose, **Export** saves it as a `.recipe.json`, and **Import recipe** adds a file as a new library recipe at r1. **Remove rN** and **Remove recipe** ask first.
 
