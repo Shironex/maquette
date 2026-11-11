@@ -1193,7 +1193,12 @@ its gate from `commands/pipeline/run.rs::agent_run`, which `run_pipeline` calls.
 whatever that rule says, when an agent chose the repo the run ships into (`ShipReason::AgentRepo`):
 the run's own `repo`, or a project in `AppState.agent_set_repos`, the mark the Page view's Ask
 first keeps. `agent_run` reads the repo and its mark in one `Session::repo_turn`, so no save lands
-between the two.
+between the two. The site folders an agent set wait the same way (`ShipReason::AgentFolders`):
+`commands/ship.rs::save` takes who saves, puts `AppState.agent_set_folders` down before an agent's
+folders are written and takes it off once a person's are (the Ship view's Save folders, which a
+person may press on the agent's folders unchanged, `ShipTarget.setByAgent`). A folder change is
+refused while the project has a run going, and the card names the repo with the folders in it
+from `maquette.site.json` (`run.rs::site_destination`).
 
 ## Baked light
 

@@ -68,4 +68,6 @@ One row per model: the source file's bytes and triangles against what ships. The
 With Ask before shipping on (the default), a run an agent starts over MCP stops before Ship and the app shows Approve or Deny. Until you answer, `run_pipeline` and `get_run` report `waiting for approval`.
 
 With it off, an agent's run ships into the site repo you set without asking. It still stops before Ship when an agent chose the repo: a run that names its own `repo`, and a project whose site repo an agent set with `create_project` or `set_ship_settings`. Saving the same repo again keeps the question. To make the repo yours, pick another folder in Settings > Project, then this one again.
+
+The site folders wait the same way. When an agent set the models folder, posters folder or data file with `set_ship_settings`, every agent's run stops before Ship until you save the folders yourself. The Ship view says so under the folders, and Save folders works on them as they are. The approval card names the repo and the folders Ship writes into. The folders cannot change while a run is going.
 :::
