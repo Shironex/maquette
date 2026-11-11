@@ -81,6 +81,8 @@ describe('grip checks', () => {
     expect(problem(grip({ pose: { rightHand: [0, 200, 0] } }))).toMatch(/more than 180 degrees/);
     expect(problem(grip({ pose: { rightTail: [0, 0, 0] } }))).toMatch(/not a humanoid bone/);
     expect(problem(grip({}, { easeIn: 2.5 }))).toMatch(/whole frames/);
+    expect(problem(grip({}, { easeOut: 100_001 }))).toMatch(/0 to 100000/);
+    expect(problem(grip({}, { easeOut: 100_000 }))).toBeNull();
     expect(problem(grip({ bone: 'chest' }))).toMatch(/moves leftHand, rightHand/);
   });
 });
