@@ -982,8 +982,9 @@ without a script of its own.
   must show as its hex, and `ground` makes a floor that only catches a shadow. A test in
   `thumbs/tests.rs` holds the numbers to `starter/build_scene.py` and to the site scene's
   `Workbench.tsx` (listed in `scripts/gate/plan.mjs`, so a change there runs the whole gate).
-- **Thumbnails.** `thumbs/look.rs` picks the look: `ThumbLook::Page` for an asset `built.json`
-  lists, the studio for every other model. `render_thumb.py --look page` keeps the backdrop, the
+- **Thumbnails.** `thumbs/look.rs` picks the look per asset: `ThumbLook::Page` for every version
+  of an asset `built.json` lists (a provider version made before it was built too), the studio for
+  every other asset. `render_thumb.py --look page` keeps the backdrop, the
   floor and the camera and takes the light and the tone curve from the rig. A page render is cached
   as `<hash>-page-<rig key>.png`, the studio's as `<hash>.png` as before, so a changed rig renders
   the built assets' pictures again and nothing else. `commands/thumbs.rs::ask_version` asks for the

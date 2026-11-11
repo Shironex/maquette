@@ -9,7 +9,7 @@ A model built by a script is judged by eye: its flat palette colours either read
 
 ## Where it is used
 
-- The Board thumbnail of a [built asset](/docs/views/board/). Every other model keeps the studio thumbnail, and its cached pictures stay as they are.
+- The Board thumbnail of a [built asset](/docs/views/board/). The look is chosen per asset, not per version: once an asset is built, every version of it gets the page light, also one a provider made before. Every other asset keeps the studio thumbnail, and its cached pictures stay as they are.
 - [`render_views`](/docs/agents/mcp-tools/#render_views), the standard views an agent compares with a ref.
 
 ## The numbers
