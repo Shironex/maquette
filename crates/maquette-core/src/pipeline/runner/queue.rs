@@ -1,7 +1,7 @@
 //! Scheduling: one lane per project with its queue and the runs going
 //! now, and the worker threads that take runs off it.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
@@ -19,6 +19,8 @@ pub(super) type ChildSlot = Arc<Mutex<Option<Box<dyn ChildWrapper>>>>;
 
 struct Active {
     run_id: String,
+    /// The run's vars, so a run already going can be found by them.
+    vars: BTreeMap<String, String>,
     cancel: Arc<AtomicBool>,
     child: ChildSlot,
 }
@@ -52,7 +54,7 @@ impl Lane {
             let Some(job) = self.queue.pop_front() else {
                 break;
             };
-            let active = Active::new(&job.0.id);
+            let active = Active::new(&job.0.id, &job.1.vars);
             let handles = active.handles();
             self.active.push(active);
             out.push((job, handles));
@@ -124,6 +126,17 @@ impl PipelineRunner {
             .lanes()
             .values()
             .any(|lane| !lane.active.is_empty() || !lane.queue.is_empty())
+    }
+
+    /// Whether a run going or queued in any lane has the var `name` with a
+    /// value `matches` takes: the desktop finds every run that ships into one
+    /// repo this way, whichever project it belongs to.
+    pub fn any_run_with(&self, name: &str, matches: impl Fn(&str) -> bool) -> bool {
+        let hit = |vars: &BTreeMap<String, String>| vars.get(name).is_some_and(|v| matches(v));
+        self.inner.lanes().values().any(|lane| {
+            lane.active.iter().any(|a| hit(&a.vars))
+                || lane.queue.iter().any(|(_, s, _)| hit(&s.vars))
+        })
     }
 
     /// Every run going now on `project`'s lane.
@@ -349,9 +362,10 @@ impl JobRunner for PipelineRunner {
 type Handles = (Arc<AtomicBool>, ChildSlot);
 
 impl Active {
-    fn new(run_id: &str) -> Self {
+    fn new(run_id: &str, vars: &BTreeMap<String, String>) -> Self {
         Self {
             run_id: run_id.to_string(),
+            vars: vars.clone(),
             cancel: Arc::new(AtomicBool::new(false)),
             child: Arc::new(Mutex::new(None)),
         }

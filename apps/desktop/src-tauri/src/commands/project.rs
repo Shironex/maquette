@@ -219,17 +219,13 @@ fn repo_refusal(
     }
 }
 
-/// A repo or folder change while a run is going would ship somewhere other
-/// than the plan a person approves. `what` names it: "the repo".
-pub(crate) fn refuse_during_run(
-    runner: &PipelineRunner,
-    id: &str,
-    what: &str,
-) -> CommandResult<()> {
+/// A repo change while a run is going would ship somewhere other than the
+/// plan a person approves.
+fn refuse_during_run(runner: &PipelineRunner, id: &str) -> CommandResult<()> {
     let (active, queued) = runner.active(id);
     if active.is_some() || !queued.is_empty() {
         return Err(invalid(&format!(
-            "A run is going in {id}. Wait for it or cancel it, then change {what}."
+            "A run is going in {id}. Wait for it or cancel it, then change the repo."
         )));
     }
     Ok(())
@@ -252,7 +248,7 @@ pub(crate) fn set_repo(
     let before = project::load(&root, &config.layout, id)?;
     let moved = before.site_repo != site_repo;
     if moved {
-        refuse_during_run(runner, id, "the repo")?;
+        refuse_during_run(runner, id)?;
     }
     // Before the repo, so a failure in between asks; the turn rules out a
     // person's clear landing on an agent's repo. An agent
