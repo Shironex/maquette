@@ -60,6 +60,7 @@ mod check;
 mod check_edits;
 mod clip_moves;
 mod copies;
+pub mod drafts;
 mod edits;
 mod files;
 pub mod grips;

@@ -420,5 +420,6 @@ pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<Stri
     let stamp: String = now_rfc3339().chars().filter(char::is_ascii_digit).collect();
     let to = to_dir.join(format!("{id}-{stamp}{RECIPE_SUFFIX}"));
     crate::plans::move_file(&file, &to)?;
+    super::drafts::clear(project_dir, id)?;
     Ok(to.display().to_string())
 }

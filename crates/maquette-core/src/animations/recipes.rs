@@ -14,6 +14,7 @@ use super::{AnimationClip, SourceRig, list, load};
 use crate::error::CoreError;
 use crate::error::CoreResult;
 use crate::project::ProjectManifest;
+use crate::recipes::drafts::{self, RecipeDrafts};
 use crate::recipes::{
     self, BlendWindow, GoneProp, RecipeBase, RecipeChange, RecipeFile, RecipeRead,
 };
@@ -73,6 +74,11 @@ pub struct RecipeDoc {
     /// A hash of what the recipe does, without its library link and other
     /// bookkeeping; a bake is out of date when this changes, not `version`.
     pub motion_version: String,
+    /// What agents changed since a person last saved it, which the editor
+    /// shows as drafted; none when a person has saved since.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub drafts: Option<RecipeDrafts>,
 }
 
 /// The base a recipe on `clip` stores: its name, frame count, length and
@@ -322,6 +328,7 @@ pub fn doc_of(id: &str, read: RecipeRead, clips: &[AnimationClip]) -> RecipeDoc 
         gone,
         version,
         motion_version,
+        drafts: None,
     }
 }
 
@@ -339,7 +346,13 @@ pub fn get(
     id: &str,
 ) -> CoreResult<RecipeDoc> {
     let read = recipes::get(project_dir, manifest, id)?;
-    Ok(doc_of(id, read, &list(root)?))
+    Ok(with_drafts(project_dir, doc_of(id, read, &list(root)?)))
+}
+
+/// `doc` with the draft marks the project keeps on it.
+fn with_drafts(project_dir: &Path, mut doc: RecipeDoc) -> RecipeDoc {
+    doc.drafts = drafts::read(project_dir, &doc.id, &doc.recipe);
+    doc
 }
 
 /// Changes the recipe `id` as [`recipes::update`] does and answers with it
@@ -357,7 +370,7 @@ pub fn update(
     change: RecipeChange,
 ) -> CoreResult<RecipeDoc> {
     let read = recipes::update(project_dir, manifest, id, change)?;
-    Ok(doc_of(id, read, &list(root)?))
+    Ok(with_drafts(project_dir, doc_of(id, read, &list(root)?)))
 }
 
 /// Makes a recipe in the project at `project_dir` on the library clip
