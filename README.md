@@ -75,7 +75,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
   </tr>
 </table>
 
-**An inbox that checks every model.** Triangles and texture sizes against the budgets, a Mixamo rig for characters, PBR maps, an origin away from the bottom centre, separate objects merged into one mesh, and hair or tail vertices weighted to finger bones, plus a rigged character's VRM 1.0 readiness. A check that a fix-up answers offers it as a button; a prop that came as one mesh gets Split into parts. The preview shows the model shaded, coloured by part, as a wireframe, with a UV checker or with its skeleton. The Inbox also has a Table layout for going through many models at once: grouped by what each needs, filtered with chips, with bulk Accept, Redo, Accept and add to library and Discard (a discarded model is kept for 30 days and can be restored). The same preview opens as a 3D quick view from a Board card, a Library card or the Inbox, to look at one model without leaving the page.
+**An inbox that checks every model.** Triangles and texture sizes against the budgets, a Mixamo rig for characters, PBR maps, an origin away from the bottom centre, separate objects merged into one mesh, hair or tail vertices weighted to finger bones, and a walk clip that travels against the way the model faces, plus a rigged character's VRM 1.0 readiness. A check that a fix-up answers offers it as a button; a prop that came as one mesh gets Split into parts. The preview shows the model shaded, coloured by part, as a wireframe, with a UV checker or with its skeleton. The Inbox also has a Table layout for going through many models at once: grouped by what each needs, filtered with chips, with bulk Accept, Redo, Accept and add to library and Discard (a discarded model is kept for 30 days and can be restored). The same preview opens as a 3D quick view from a Board card, a Library card or the Inbox, to look at one model without leaving the page.
 
 **A pipeline with a cache.** Steps live in `pipeline.json`. A step whose inputs, script, args and tool version are unchanged is skipped, programs are spawned with an args array and never through a shell, and Blender always runs in the background. Starter scripts ship with the app, and the Pipeline view says when a project's copies are older.
 
@@ -104,6 +104,19 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 </table>
 
 **Motion and scroll.** Motion plays a model's clips with its skeleton, checks the rig, and sets object states (poses of a prop's parts and the transitions between them). The Timeline keys camera moves, states, explode tracks and lit paths to the page scroll; Ship sends it all to the site with the layout.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/recipe-editor.webp" alt="Maquette: the recipe editor in the Motion view, a slash joined to a block with pose keys on the chest, head and right upper arm, the turn gizmo on the clay figure's chest in the rough preview and the key's turn and ease on the right" /></td>
+    <td width="50%"><img src="assets/showcase/recipe-review.webp" alt="Maquette: the review of a baked recipe, the bake beside the base clip on the clay figure, a seam pop and a foot slide flagged against their limits, a pose sheet at the seams and two fixes with Try it" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Animation recipes: pose keys laid over a clip, with a rough preview of the bake.</sub></td>
+    <td align="center"><sub>Recipe review: the exact bake judged at its seams, with fixes best first.</sub></td>
+  </tr>
+</table>
+
+**Animation recipes.** A recipe changes a clip without redrawing it: a base clip or the rest pose, plus reaches, nudges, looks, waves, pinned feet and hands, pose keys and grips from a grip library, with clips joined, trimmed, retimed and mirrored on one timeline. The editor shows a rough preview, Apply bakes it exactly in headless Blender, and the review judges the bake (gaps, foot slide, stretch, seams, joint limits) before Add as vN lands it as the model's next version. Recipes keep revisions in a workspace library, and nine starters come built in. See the [Animation recipes guide](https://shironex.github.io/maquette/docs/guides/animation-recipes/).
 
 <table>
   <tr>
@@ -163,15 +176,15 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
   </tr>
   <tr>
     <td width="50%"><img src="assets/showcase/avatar.webp" alt="Maquette: the Avatar view asking to approve a new rest pose for Aria, with before and after sheets of the arms lifted to a T-pose and the measures before and after" /></td>
-    <td width="50%"></td>
+    <td width="50%"><img src="assets/showcase/built-replace.webp" alt="Maquette: the sheet that puts a rebuilt lantern in place of the crystal lantern, both models side by side by file, triangles, size and bounds, and the real size that carries over, three settings taken off and the placement that stays" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Avatar (early stages): a rigged character to VRM 1.0, each step waiting for your yes.</sub></td>
-    <td></td>
+    <td align="center"><sub>Built in place: a script made model takes a generated one's place, settings and all.</sub></td>
   </tr>
 </table>
 
-**Packs, rig doctor and game templates.** Export pack writes library models (a selection, a collection or a project's accepted models) as one folder and zip for another engine or a friend, each model opened again in headless Blender and checked. Rig doctor fixes the skin weights of a rigged model on a copy, shows before and after sheets with the numbers, and lands the result as the next version once you add it. One of eleven game templates (Prop set, Character, Level kit, Level kit .obj, Web game, Godot, Unity, Unreal, Mobile, VR standalone, Game jam) fills a game project's model format, texture format, texture size cap, whether normal and metal maps stay and the budget rows per folder, and nothing else. See the [Library](https://shironex.github.io/maquette/docs/views/library/#export-packs), [Rig doctor](https://shironex.github.io/maquette/docs/views/rig-doctor/) and [game project](https://shironex.github.io/maquette/docs/start/game-projects/#game-templates) pages.
+**Packs, rig doctor and game templates.** Export pack writes library models (a selection, a collection or a project's accepted models) as one folder and zip for another engine or a friend, each model opened again in headless Blender and checked. Rig doctor fixes the skin weights of a rigged model on a copy, binds wings, a cape or a braid that an auto rig weighted to the arms rigidly to one body bone, shows before and after sheets with the numbers, and lands the result as the next version once you add it. A built asset can also take the place of a generated model in one step, keeping its place in the layout, and one step brings the old model back. One of eleven game templates (Prop set, Character, Level kit, Level kit .obj, Web game, Godot, Unity, Unreal, Mobile, VR standalone, Game jam) fills a game project's model format, texture format, texture size cap, whether normal and metal maps stay and the budget rows per folder, and nothing else. See the [Library](https://shironex.github.io/maquette/docs/views/library/#export-packs), [Rig doctor](https://shironex.github.io/maquette/docs/views/rig-doctor/) and [game project](https://shironex.github.io/maquette/docs/start/game-projects/#game-templates) pages.
 
 **Built for agents.** A local MCP server lets Claude Code or Codex drive the whole flow, with the same rules as the app (see [Agents (MCP)](#agents-mcp)).
 
