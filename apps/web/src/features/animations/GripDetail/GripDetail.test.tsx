@@ -35,7 +35,10 @@ describe('a library grip on show', () => {
   it("shows the picked revision's hands and bones by group", async () => {
     await openOn('longsword-two-hands');
     const r3 = await screen.findByRole('region', { name: 'What r3 holds' });
-    expect(within(r3).getByRole('img', { name: /r3 of Longsword, two hands/ })).toBeVisible();
+    // The region shows a loader until the revision is read, so wait for the picture.
+    expect(
+      await within(r3).findByRole('img', { name: /r3 of Longsword, two hands/ })
+    ).toBeVisible();
     expect(r3).toHaveTextContent('Holds a longsword with both hands, the right hand holding.');
     const bones = within(r3).getByRole('list', { name: 'Bones' });
     expect(bones).toHaveTextContent('Right fingers15');
