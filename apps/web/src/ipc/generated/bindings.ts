@@ -8519,6 +8519,12 @@ export type ReplacedModel = {
 	 *  list is taken off.
 	 */
 	versions: number[],
+	/**
+	 *  The versions a build of the script made since: the built model the
+	 *  replace copied in and every rebuild. A version taken off by an undo
+	 *  that is not listed here came from elsewhere (an Inbox accept, say).
+	 */
+	built?: number[],
 	/**  The card's picture, library origin, status and stage as they were. */
 	thumbnail: string | null,
 	origin: AssetOrigin | null,
@@ -9719,6 +9725,11 @@ export type ShipSwap = {
 	newTriangles: number | null,
 	oldBytes: number | null,
 	newBytes: number | null,
+	/**
+	 *  An undo after a Ship wrote the built model: the old model goes back,
+	 *  so `old` is the built model and `new` the one that is current again.
+	 */
+	undone?: boolean,
 };
 
 /**  Where Ship writes in the site. */
@@ -10790,6 +10801,11 @@ export type UndoReport = {
 	 *  every version added since.
 	 */
 	takenOff: ModelRef[],
+	/**
+	 *  The versions among them that no build of the script made (an Inbox
+	 *  accept, say). An agent's undo is refused while there are any.
+	 */
+	notBuilt: number[],
 	/**  Where their files went, relative to the workspace, once it is done. */
 	setAside: string | null,
 	/**  The built asset whose card comes back from the asset trash, by name. */

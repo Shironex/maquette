@@ -113,7 +113,8 @@ export function undoneNotice(report: UndoReport) {
 
 /**
  * What the Ship approval says about one swap: the asset, the two files
- * and the numbers of both models.
+ * and the numbers of both models. An undone replace reads the other way:
+ * the old model takes the built one's place again.
  */
 export function swapLine(swap: ShipSwap): string {
   const { oldFile, newFile } = swap;
@@ -129,9 +130,10 @@ export function swapLine(swap: ShipSwap): string {
     swap.oldBytes === null || swap.newBytes === null
       ? null
       : `${formatBytes(swap.newBytes)}, was ${formatBytes(swap.oldBytes)}`;
-  return [`${swap.name} is a built model now: ${files}`, triangles, bytes]
-    .filter(Boolean)
-    .join(' · ');
+  const what = swap.undone
+    ? `${swap.name} goes back to its old model: ${files}`
+    : `${swap.name} is a built model now: ${files}`;
+  return [what, triangles, bytes].filter(Boolean).join(' · ');
 }
 
 /** "-0.49, 0, -0.41 to 0.49, 1.3, 0.41": a side's bounds in metres, or null without them. */

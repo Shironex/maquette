@@ -96,7 +96,9 @@ fn write_settings(planned: &Planned, version: u32) -> CoreResult<()> {
     if let Some(last) = source.last.as_mut() {
         last.version = Some(version);
     }
-    source.replaced = Some(planned.record.clone());
+    let mut record = planned.record.clone();
+    record.built = vec![version];
+    source.replaced = Some(record);
     update(dir, |file| {
         if file.assets.contains_key(id) {
             return Err(invalid(format!(
@@ -105,6 +107,8 @@ fn write_settings(planned: &Planned, version: u32) -> CoreResult<()> {
             )));
         }
         file.assets.insert(id.clone(), source);
+        // A replace again after an undo: that undo is no longer what ships.
+        file.undone.remove(id);
         Ok(())
     })?;
     set_prep(dir, id, Some(&planned.prep))?;

@@ -4,6 +4,7 @@
 //! nothing outside the project, one call undoes it, and Ship is gated on its
 //! own (the Ship approval shows the swap).
 
+use maquette_core::built::replace::UndoReport;
 use maquette_core::project;
 use rmcp::schemars;
 use serde::Deserialize;
@@ -33,7 +34,9 @@ pub(super) struct ReplaceArgs {
     pub dry_run: bool,
     /// Bring back the model the asset had before the replace, with its real size, fix-ups,
     /// material tweaks and library origin, and restore the built asset's card from the trash.
-    /// The versions added since move to the workspace trash. Defaults to false.
+    /// The versions added since move to the workspace trash. Refused when one of them did not
+    /// come from the script (notBuilt, an Inbox accept): a person undoes that on the Board. After
+    /// a Ship wrote the built model, the next Ship approval names the swap back. Defaults to false.
     #[serde(default)]
     pub undo: bool,
 }
@@ -47,17 +50,34 @@ fn id_of(host: &dyn Host, project_id: &str, wanted: &str) -> Result<String, Tool
     Ok(find_asset(&manifest, wanted)?.id.clone())
 }
 
+/// Why an agent may not undo: a version among those that leave came from
+/// elsewhere than the script (an Inbox accept, maybe a paid one).
+fn refusal(report: &UndoReport) -> Option<String> {
+    if report.not_built.is_empty() {
+        return None;
+    }
+    let list: Vec<String> = report.not_built.iter().map(|n| format!("v{n}")).collect();
+    Some(format!(
+        "{} of {} did not come from its script (an Inbox accept, say), and an undo would take it off with the built versions. Agents cannot undo this one: a person can bring the old model back from the Board, which shows what leaves.",
+        list.join(", "),
+        report.name
+    ))
+}
+
 fn undo(host: &dyn Host, args: &ReplaceArgs, asset: &str) -> Result<Value, ToolError> {
-    let (status, report) = if args.dry_run {
-        (
-            "would undo",
-            commands::undo_plan(host, &args.project, asset)?,
-        )
-    } else {
-        ("undone", commands::undo(host, &args.project, asset)?.report)
+    let plan = commands::undo_plan(host, &args.project, asset)?;
+    let why = refusal(&plan);
+    let (status, report) = match (&why, args.dry_run) {
+        (Some(_), true) => ("refused", plan),
+        (Some(why), false) => return Err(why.clone().into()),
+        (None, true) => ("would undo", plan),
+        (None, false) => ("undone", commands::undo(host, &args.project, asset)?.report),
     };
     let mut out = to_short_value(&report);
     out["status"] = json!(status);
+    if let Some(why) = why {
+        out["why"] = json!(why);
+    }
     Ok(out)
 }
 

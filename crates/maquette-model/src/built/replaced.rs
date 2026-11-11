@@ -7,6 +7,7 @@
 //!   "by": { "asset": "planner-built", "name": "Planner built", "index": 4,
 //!           "trash": "planner-built-20261110-093000123" },
 //!   "versions": [1, 2],
+//!   "built": [3],
 //!   "thumbnail": "thumbs/planner_v2.png",
 //!   "origin": null, "status": "done", "stage": "web",
 //!   "prep": { "size": { "axis": "longest", "value": 30, "unit": "cm" },
@@ -54,6 +55,11 @@ pub struct ReplacedModel {
     /// model an undo makes current again, and every version not in this
     /// list is taken off.
     pub versions: Vec<u32>,
+    /// The versions a build of the script made since: the built model the
+    /// replace copied in and every rebuild. A version taken off by an undo
+    /// that is not listed here came from elsewhere (an Inbox accept, say).
+    #[serde(default)]
+    pub built: Vec<u32>,
     /// The card's picture, library origin, status and stage as they were.
     pub thumbnail: Option<String>,
     pub origin: Option<AssetOrigin>,
@@ -70,4 +76,22 @@ impl ReplacedModel {
     pub fn version(&self) -> Option<u32> {
         self.versions.last().copied()
     }
+}
+
+/// A replace undone after a Ship wrote the built model, kept in
+/// `built.json` under `undone` by the asset's id: the next Ship puts the old
+/// model back, so its approval names the swap back like a replace.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoneReplace {
+    /// RFC 3339 UTC, when it was undone.
+    pub at: String,
+    /// The script that stopped building the asset, relative to the project.
+    pub script: String,
+    /// The built version that left, and the file it shipped as.
+    pub version: u32,
+    pub shipped_as: Option<String>,
+    pub triangles: Option<u32>,
+    /// Bytes as a JS safe number.
+    pub bytes: Option<f64>,
 }

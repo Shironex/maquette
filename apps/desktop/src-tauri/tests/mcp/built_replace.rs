@@ -366,6 +366,41 @@ async fn agents_replace_a_scan_with_a_built_asset_and_undo_it() {
     .await;
     assert!(twice.contains("is not a built asset"), "{twice}");
 
+    // Replaced again, then a model lands on the asset that no build made: an
+    // agent's undo would take it off too, so it is refused and the dry run
+    // says why.
+    call(
+        &client,
+        "replace_with_built_asset",
+        json!({ "project": PROJECT, "asset": "spiral-planner", "built": "planner-built" }),
+    )
+    .await;
+    let (root, config) = host.session.workspace().expect("workspace");
+    add_model(&root, &config, "spiral-planner", &fixture::clean_prop());
+    let dry = call(
+        &client,
+        "replace_with_built_asset",
+        json!({ "project": PROJECT, "asset": "spiral-planner", "undo": true, "dryRun": true }),
+    )
+    .await;
+    assert_eq!(dry["status"], json!("refused"), "{dry}");
+    assert_eq!(dry["notBuilt"], json!([3]));
+    let why = dry["why"].as_str().expect("why");
+    assert!(why.contains("v3") && why.contains("Board"), "{why}");
+    let refused = call_error(
+        &client,
+        "replace_with_built_asset",
+        json!({ "project": PROJECT, "asset": "spiral-planner", "undo": true }),
+    )
+    .await;
+    assert!(refused.contains("v3"), "{refused}");
+    let still = call(&client, "list_built_assets", json!({ "project": PROJECT })).await;
+    assert_eq!(
+        still["assets"][0]["asset"],
+        json!("spiral-planner"),
+        "{still}"
+    );
+
     client.cancel().await.expect("close");
     server.stop();
 }

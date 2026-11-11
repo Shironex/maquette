@@ -111,6 +111,7 @@ describe('a built asset in the place of a model', () => {
       script: 'built/planner.py',
       back: { version: 2, file: 'models/spiral_planner_v2.glb', triangles: 94_600, bytes: 1 },
       takenOff: [],
+      notBuilt: [],
       setAside: null,
       restores: 'Planner built',
       settings: [],
@@ -140,6 +141,15 @@ describe('a built asset in the place of a model', () => {
     );
     expect(swapLine(swap({ oldFile: null, newFile: null, oldBytes: null }))).toBe(
       'Spiral planner is a built model now: v3 takes the place of v2 · 1.2k triangles, was 94.6k'
+    );
+    // An undo after a Ship: the old model takes the built one's place again.
+    const back = swap({
+      undone: true,
+      oldFile: 'spiral_planner_v3.glb',
+      newFile: 'spiral_planner_v2.glb',
+    });
+    expect(swapLine(back)).toMatch(
+      /^Spiral planner goes back to its old model: spiral_planner_v2\.glb takes the place of spiral_planner_v3\.glb/
     );
   });
 

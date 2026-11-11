@@ -377,6 +377,7 @@ fn planned(env: &ReplaceEnv<'_>, asset_id: &str, built_id: &str) -> CoreResult<P
             trash: None,
         },
         versions: asset.versions.iter().map(|v| v.version).collect(),
+        built: Vec::new(),
         thumbnail: asset.thumbnail.clone(),
         origin: asset.origin.clone(),
         status: asset.status,

@@ -233,6 +233,7 @@ export function createBuiltReplace(ctx: ReplaceContext) {
         at,
         by: { asset: by.id, name: by.name, index: assets.indexOf(by), trash },
         versions: asset.versions.map(v => v.version),
+        built: [version.version],
         thumbnail: asset.thumbnail,
         origin: asset.origin ?? null,
         status: asset.status,
@@ -272,13 +273,16 @@ export function createBuiltReplace(ctx: ReplaceContext) {
         `The model ${asset.name} had before is no longer among its versions, so it cannot come back.`
       );
     const prep = record.prep ?? null;
+    const takenOff = asset.versions.filter(v => !record.versions.includes(v.version));
+    const notBuilt = takenOff.map(v => v.version).filter(n => !(record.built ?? []).includes(n));
     return {
       project: id,
       asset: asset.id,
       name: asset.name,
       script: source.script,
       back: ref(back),
-      takenOff: asset.versions.filter(v => !record.versions.includes(v.version)).map(ref),
+      takenOff: takenOff.map(ref),
+      notBuilt,
       setAside: null,
       restores: retired.has(`${id}/${asset.id}`) ? record.by.name : null,
       settings: [
@@ -287,7 +291,11 @@ export function createBuiltReplace(ctx: ReplaceContext) {
         ...(prep?.skipBake ? ['Skips the bake'] : []),
         ...(prep?.padEdges ? ['Pads texture edges'] : []),
       ],
-      warnings: [],
+      warnings: notBuilt.length
+        ? [
+            `${notBuilt.map(n => `v${n}`).join(', ')} did not come from a build of ${source.script} (an Inbox accept, say). The undo takes it off with the rest, into the workspace trash.`,
+          ]
+        : [],
     };
   }
 
@@ -327,7 +335,7 @@ export function createBuiltReplace(ctx: ReplaceContext) {
     };
   }
 
-  /** Every replace of the project: mock mode never ships one away. */
+  /** Every replace of the project: mock mode never ships one away, so an undo is never a swap back. */
   function swaps(id: string): ShipSwap[] {
     const p = ctx.project(id);
     return [...ctx.sources(id)].flatMap(([assetId, source]) => {
@@ -351,6 +359,7 @@ export function createBuiltReplace(ctx: ReplaceContext) {
           newTriangles: now.stats?.triangles ?? null,
           oldBytes: old.stats?.bytes ?? null,
           newBytes: now.stats?.bytes ?? null,
+          undone: false,
         },
       ];
     });

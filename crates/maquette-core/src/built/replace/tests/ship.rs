@@ -180,7 +180,7 @@ fn a_game_project_keeps_the_game_file() {
     );
 }
 
-fn run(number: u32, finished: SystemTime, ship: Option<StepState>) -> RunRecord {
+pub(super) fn run(number: u32, finished: SystemTime, ship: Option<StepState>) -> RunRecord {
     let ms = finished
         .duration_since(UNIX_EPOCH)
         .expect("after 1970")
@@ -259,7 +259,7 @@ fn the_swap_is_listed_until_a_ship_writes_it() {
 }
 
 /// A run that shipped after the replace, with its Build step as `build`.
-fn shipped_after(number: u32, build: StepState) -> RunRecord {
+pub(super) fn shipped_after(number: u32, build: StepState) -> RunRecord {
     let mut record = run(
         number,
         SystemTime::now() + Duration::from_secs(3600),

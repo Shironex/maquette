@@ -11,14 +11,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::apply::{set_looks, set_prep};
+use super::swaps::undone_record;
 use super::{ReplaceEnv, invalid};
 use crate::assets::copy::{key, thumb_of};
 use crate::assets::remove;
 use crate::assets::{self, Asset, AssetVersion};
-use crate::built::{ReplacedModel, load, update};
+use crate::built::{ReplacedModel, UndoneReplace, load, update};
 use crate::error::CoreResult;
 use crate::layout::stem;
 use crate::materials;
+use crate::pipeline::cache::project_cache_dir;
+use crate::pipeline::history;
 use crate::pipeline::template::CHARACTER_LOCK;
 use crate::prepare;
 use crate::project::{self, ProjectManifest, now_rfc3339};
@@ -60,6 +63,9 @@ pub struct UndoReport {
     /// The versions that leave the asset, oldest first: the built model and
     /// every version added since.
     pub taken_off: Vec<ModelRef>,
+    /// The versions among them that no build of the script made (an Inbox
+    /// accept, say). An agent's undo is refused while there are any.
+    pub not_built: Vec<u32>,
     /// Where their files went, relative to the workspace, once it is done.
     pub set_aside: Option<String>,
     /// The built asset whose card comes back from the asset trash, by name.
@@ -88,6 +94,8 @@ struct Planned {
     /// The stem the locked character row goes back to, when it names a
     /// version that leaves.
     preset: Option<String>,
+    /// What the next Ship names, when the built model shipped.
+    undone: Option<UndoneReplace>,
 }
 
 /// The file of a version, or the folder an `.obj` version keeps its files in.
@@ -222,6 +230,36 @@ fn planned(env: &ReplaceEnv<'_>, asset_id: &str) -> CoreResult<Planned> {
         paths.push(thumb_of(&asset.id, version.version));
     }
     let (trash, gone) = card_back(env, &manifest, &record)?;
+    let mut warnings: Vec<String> = gone.into_iter().collect();
+    let not_built: Vec<u32> = taken
+        .iter()
+        .map(|v| v.version)
+        .filter(|n| !record.built.contains(n))
+        .collect();
+    if !not_built.is_empty() {
+        let list: Vec<String> = not_built.iter().map(|n| format!("v{n}")).collect();
+        warnings.push(format!(
+            "{} did not come from a build of {} (an Inbox accept, say). The undo takes it off with the rest, into the workspace trash.",
+            list.join(", "),
+            source.script
+        ));
+    }
+    let cache = project_cache_dir(&env.root.join(&layout.cache), env.project);
+    let runs = history::load_runs(&cache);
+    let undone = undone_record(
+        &project_dir,
+        &manifest,
+        &asset,
+        &source.script,
+        &record,
+        &runs,
+    );
+    if undone.is_some() {
+        warnings.push(format!(
+            "The built model of {} has shipped since the replace. The next Ship puts the old model back, and its approval names it.",
+            asset.name
+        ));
+    }
     let preset = preset_back(&project_dir, &taken, back);
     let mut settings = settings_back(&record);
     if let Some(stem) = &preset {
@@ -237,16 +275,18 @@ fn planned(env: &ReplaceEnv<'_>, asset_id: &str) -> CoreResult<Planned> {
             script: source.script.clone(),
             back: ModelRef::of(back),
             taken_off: taken.into_iter().map(ModelRef::of).collect(),
+            not_built,
             set_aside: None,
             restores: trash.as_ref().map(|_| record.by.name.clone()),
             settings,
-            warnings: gone.into_iter().collect(),
+            warnings,
         },
         project_dir,
         record,
         paths,
         trash,
         preset,
+        undone,
     })
 }
 
@@ -291,6 +331,7 @@ pub fn undo(env: &ReplaceEnv<'_>, asset: &str) -> CoreResult<UndoDone> {
         paths,
         trash,
         preset,
+        undone,
     } = planned(env, asset)?;
     let layout = &env.config.layout;
     let id = report.asset.clone();
@@ -341,6 +382,9 @@ pub fn undo(env: &ReplaceEnv<'_>, asset: &str) -> CoreResult<UndoDone> {
     }
     update(&project_dir, |file| {
         file.assets.remove(&id);
+        if let Some(undone) = undone {
+            file.undone.insert(id.clone(), undone);
+        }
         Ok(())
     })?;
     set_prep(&project_dir, &id, record.prep.as_ref())?;

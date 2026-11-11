@@ -18,6 +18,7 @@ const report = (over: Partial<UndoReport> = {}): UndoReport => ({
     { version: 3, file: 'models/crystal_lantern_v3.glb', triangles: 1_840, bytes: 96_000 },
     { version: 4, file: 'models/crystal_lantern_v4.glb', triangles: null, bytes: null },
   ],
+  notBuilt: [],
   setAside: null,
   restores: 'Lantern rebuilt',
   settings: ['Real size, 1.8 m high', 'Decimate to 60k', 'Skips the bake'],

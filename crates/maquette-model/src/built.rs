@@ -35,7 +35,9 @@
 //!
 //! A built asset that took the place of another model (a generated scan,
 //! say) also carries `replaced`: what that asset was before, so the replace
-//! can be undone (see [`ReplacedModel`]).
+//! can be undone (see [`ReplacedModel`]). An undo after a Ship wrote the
+//! built model is kept under `undone` until the next Ship (see
+//! [`UndoneReplace`]).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -55,7 +57,7 @@ mod add;
 mod replaced;
 
 pub use add::{NewBuilt, add};
-pub use replaced::{ReplacedBy, ReplacedModel};
+pub use replaced::{ReplacedBy, ReplacedModel, UndoneReplace};
 
 pub const BUILT_FILE: &str = "built.json";
 pub const BUILT_VERSION: u32 = 1;
@@ -114,6 +116,9 @@ pub struct BuiltSource {
 pub struct BuiltFile {
     pub version: u32,
     pub assets: BTreeMap<String, BuiltSource>,
+    /// Replaces undone after a Ship wrote the built model, by asset id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub undone: BTreeMap<String, UndoneReplace>,
 }
 
 impl Default for BuiltFile {
@@ -121,6 +126,7 @@ impl Default for BuiltFile {
         Self {
             version: BUILT_VERSION,
             assets: BTreeMap::new(),
+            undone: BTreeMap::new(),
         }
     }
 }

@@ -316,6 +316,15 @@ mod rebuilding {
         let source = &load(&w.dir).expect("built").assets["spiral-planner"];
         assert!(source.replaced.is_some(), "a build keeps the record");
 
+        // Both versions came from the script, so nothing holds the undo back.
+        assert_eq!(source.replaced.as_ref().expect("record").built, [2, 3]);
+        assert!(
+            undo_plan(&w.env(), &planner.id)
+                .expect("plan")
+                .not_built
+                .is_empty()
+        );
+
         // The undo takes both built versions off and the scan is current again.
         let undone = undo(&w.env(), &planner.id).expect("undo");
         let off: Vec<u32> = undone.report.taken_off.iter().map(|v| v.version).collect();
