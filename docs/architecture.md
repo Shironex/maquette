@@ -681,7 +681,9 @@ reads that as a Pin drift line per pin (`pin-<layer>`, 1 cm). The web app's step
 Seams are judged on the baked frames. `recipes/seams.rs` lays each join's blend window and each
 freeze or hold over's ease in and out on the timeline, and `bake/seams.rs` measures, per seam, how
 far the hips move and the most any bone turns in one frame against the clips around it: past 2 cm
-of hips or 25 deg of turn it pops (warn only). The review gives a Seam pop and a Hold seam line,
+of hips or 25 deg of turn it pops (warn only). The clips around a seam leave out every other
+seam's window, so near seams never raise each other's bar, and a bake with no hips track reads its
+seams as not measured (`SeamCheck::measured`). The review gives a Seam pop and a Hold seam line,
 each for its worst seam, a Grip hand gap line per two handed grip (how far the hands drift from
 where they sit at its first whole frame, 2 cm) and a Mirror line naming side bones with no other
 side. `bake/sheet.rs` picks the frames worth a look (seams, keys, holds) for the pose sheet, which
@@ -694,9 +696,10 @@ Draft marks (`recipes/drafts.rs`) record what agents changed since a person last
 changes and keys they added or changed, and whether they made the recipe or touched its clips, time
 edits, blanks or mirror. They live beside the recipe at `recipes/<id>.drafts.json`, never in the
 recipe file, gathered over writes and pruned of what is gone. The MCP writes (`create_recipe`,
-`update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`) land in the file at once and bake
-as they are, then mark the diff under the client's name; a person's Save in the editor clears the
-marks, and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
+`update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`, `import_recipe`) land in the file
+at once and bake as they are, then mark the diff under the client's name. Marking and clearing run
+under the recipes' write lock; a person's Save (`recipes::save`) clears the marks in the same lock,
+before the recipe is written, and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
 banner, a drafted tag on each change and blue keys (`state/recipe-drafts.ts`).
 
 The built in starters live in `animations::recipes::library::starters`: five plain ones and four
