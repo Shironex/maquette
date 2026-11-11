@@ -156,6 +156,44 @@ fn a_bake_that_reports_no_hips_reads_its_seams_as_not_measured() {
 }
 
 #[test]
+fn a_hips_track_that_stops_part_way_reads_the_seams_after_it_as_not_measured() {
+    let p = joined();
+    let t = timeline(&p.recipe.recipe);
+    let mut moved = motion(t.frames, 0, 0.0);
+    let full = baked(&p, &report(t.frames, moved.clone()));
+    let hold_in = full
+        .seams
+        .iter()
+        .find(|s| s.kind == SeamKind::HoldIn)
+        .expect("hold in");
+    // The hips stop right after the freeze eases in, so its way out has no
+    // motion: the hold seam line must not read pass on the way in alone.
+    let keep = hold_in.last as usize + 1;
+    moved["tracks"]["hips"]
+        .as_array_mut()
+        .expect("hips")
+        .truncate(keep);
+    let result = baked(&p, &report(t.frames, moved));
+    let measured: Vec<bool> = result.seams.iter().map(|s| s.measured).collect();
+    assert_eq!(measured, [true, true, false], "{:?}", result.seams);
+    let review = review_of(&result);
+    let hold = review
+        .lines
+        .iter()
+        .find(|l| l.id == "hold-seam")
+        .expect("hold seam");
+    assert_eq!(hold.status, RecipeReviewStatus::NotMeasured, "{hold:?}");
+    assert!(
+        hold.note
+            .as_deref()
+            .is_some_and(|n| n.starts_with("1 of 2 seams")),
+        "{hold:?}"
+    );
+    let pop = review.lines.iter().find(|l| l.id == "seam").expect("seam");
+    assert_eq!(pop.status, RecipeReviewStatus::Pass, "{pop:?}");
+}
+
+#[test]
 fn a_two_handed_grip_s_hands_drifting_apart_reads_as_its_hand_gap() {
     let mut p = project_with(humanoid());
     p.change(grips(), Vec::new());
