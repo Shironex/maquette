@@ -110,9 +110,9 @@ mod rigid {
         });
         let part = |n: u32, side: &str| json!({ "part": n, "vertices": 900, "side": side, "bones": [], "acrossCm": 38.0 });
         serde_json::from_value(json!({
-            "id": "moth-v1", "name": "Moth", "startedBy": "person", "route": "humanoid",
+            "id": "winged-imp-v1", "name": "Winged imp", "startedBy": "person", "route": "humanoid",
             "state": "fixed", "step": "land",
-            "source": { "inbox": null, "project": "p", "asset": "moth", "version": 1 },
+            "source": { "inbox": null, "project": "p", "asset": "winged-imp", "version": 1 },
             "input": dir.join("in.glb"), "dir": dir, "model": model, "issues": [],
             "creature": null, "before": null,
             "after": null, "defects": [], "stats": [], "fixSteps": [], "checks": [],
@@ -134,7 +134,7 @@ mod rigid {
         session
             .set_workspace(root.clone(), config.clone())
             .expect("open");
-        let work = maquette_core::rig::work_dir(&root, &config, "moth-v1");
+        let work = maquette_core::rig::work_dir(&root, &config, "winged-imp-v1");
         maquette_core::rig::save(&fixed_case(&work)).expect("save");
         let studio = ProviderJobs::new(
             Arc::new(MemoryStore::default()),
@@ -167,20 +167,20 @@ mod rigid {
             .await
             .expect("initialize");
 
-        let read = call(&client, "get_rig_doctor", json!({ "id": "moth-v1" })).await;
+        let read = call(&client, "get_rig_doctor", json!({ "id": "winged-imp-v1" })).await;
         assert_eq!(read["parts"].as_array().map(Vec::len), Some(2));
         assert_eq!(read["bodyBones"][0], "mixamorig:Spine2");
         let no_part = call_error(
             &client,
             "run_rig_doctor",
-            json!({ "id": "moth-v1", "step": "rigid", "parts": [3] }),
+            json!({ "id": "winged-imp-v1", "step": "rigid", "parts": [3] }),
         )
         .await;
         assert!(no_part.contains("no part 3"), "{no_part}");
         let no_bone = call_error(
             &client,
             "run_rig_doctor",
-            json!({ "id": "moth-v1", "step": "rigid", "parts": [1], "bone": "LeftArm" }),
+            json!({ "id": "winged-imp-v1", "step": "rigid", "parts": [1], "bone": "LeftArm" }),
         )
         .await;
         assert!(no_bone.contains("not a body bone"), "{no_bone}");
@@ -190,13 +190,13 @@ mod rigid {
         let asked = call(
             &client,
             "run_rig_doctor",
-            json!({ "id": "moth-v1", "step": "rigid", "parts": [1, 2], "bone": "Spine2" }),
+            json!({ "id": "winged-imp-v1", "step": "rigid", "parts": [1, 2], "bone": "Spine2" }),
         )
         .await;
         assert!(asked.is_object(), "{asked}");
         let mut after = read.clone();
         for _ in 0..100 {
-            after = call(&client, "get_rig_doctor", json!({ "id": "moth-v1" })).await;
+            after = call(&client, "get_rig_doctor", json!({ "id": "winged-imp-v1" })).await;
             if after["error"].is_string() {
                 break;
             }
