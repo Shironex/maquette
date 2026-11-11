@@ -149,7 +149,21 @@ fn failure(cache_dir: &Path, record: &history::RunRecord) -> (String, Vec<String
     let reason = last
         .or(step)
         .unwrap_or_else(|| "Blender stopped without saying why.".to_string());
-    (reason, tail)
+    (explain(reason), tail)
+}
+
+/// A build stages only the files its asset lists, so a script that imports
+/// the shipped helpers without listing them fails with a bare import error.
+/// Say what to do about it.
+fn explain(reason: String) -> String {
+    if reason.contains("No module named 'maquette_helpers'") {
+        format!(
+            "{reason}. List {} among the script's helpers: a build only has the files its asset lists.",
+            super::HELPERS_FILE
+        )
+    } else {
+        reason
+    }
 }
 
 /// What one Blender run left, before it is recorded.
@@ -204,4 +218,21 @@ pub(super) fn run(
         output: work.join(OUTPUT_FILE),
         report,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::explain;
+
+    #[test]
+    fn a_missing_helper_import_says_to_list_the_helper_file() {
+        let said = explain("ModuleNotFoundError: No module named 'maquette_helpers'".into());
+        assert!(said.starts_with("ModuleNotFoundError"), "{said}");
+        assert!(
+            said.contains("List built/maquette_helpers.py among the script's helpers"),
+            "{said}"
+        );
+        let other = "ModuleNotFoundError: No module named 'common'";
+        assert_eq!(explain(other.into()), other);
+    }
 }
