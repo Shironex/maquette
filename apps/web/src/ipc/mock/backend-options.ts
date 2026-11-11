@@ -164,7 +164,8 @@ export interface BackendOptions {
   updater?: string | null;
   /**
    * Opens rig doctor cases (see rig-fixtures.ts): `read`, `compare`, `creature`,
-   * `refused`, `stopped`, `one-island` or `running`. The Inbox's top bar leads to them.
+   * `refused`, `stopped`, `one-island` or `running`; `rigid`, `rigid-asked` and `rigid-bound`
+   * for a winged character's rigid bind (see rig-rigid.ts). The Inbox's top bar leads to them.
    */
   rig?: string | null;
   /** `lists`: every long list at a busy workspace's size (see stress-fixtures.ts). */

@@ -13,6 +13,7 @@ import {
 import { Enlarges } from './RigEnlarge';
 import { useChoice, useRigActions } from './RigDoctor.hooks';
 import { WalkProof } from './RigCreature';
+import { RigRigid } from './RigRigid';
 import { RunProgress, Stats, Tile } from './parts';
 
 type Mode = 'side' | 'changed' | 'slider';
@@ -335,6 +336,7 @@ export function FixAside({ record }: { record: RigRecord }) {
         {checks}
       </ul>
       <JointMoveCard record={record} />
+      <RigRigid record={record} />
       <WalkProof record={record} />
     </aside>
   );

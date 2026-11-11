@@ -28,6 +28,7 @@ const RUN_STARTS: Record<RigRun, string> = {
   fix: 'Starting the fix...',
   round2: 'Starting round 2...',
   'walk-proof': 'Starting the walk proof...',
+  rigid: 'Binding the parts...',
 };
 
 /** What a run says before its first progress; a run nobody here started says only that it runs. */

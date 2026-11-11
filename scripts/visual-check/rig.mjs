@@ -4,8 +4,10 @@
  * and before and after enlarged, and both on the creature route, and an
  * agent's fixed draft with its card answered in place and another case's card
  * floating clear of Add, also at the minimum window size and over an Inbox
- * model's Accept, and a walk that goes against its face in the Inbox checks. Mock mode draws the pictures; the real renders are checked
- * by the core's Blender tests.
+ * model's Accept; a winged character's rigid parts, an agent's measured bind
+ * and a bind in the draft; and a walk that goes against its face in the Inbox
+ * checks. Mock mode draws the pictures; the real renders are checked by the
+ * core's Blender tests.
  */
 
 import { assertClear } from './floating.mjs';
@@ -84,6 +86,25 @@ export async function rigShots({ open, shot }) {
   await unchanged.getByText('The fix changed nothing', { exact: false }).waitFor();
   await shot(unchanged, 'rig-no-change');
   await unchanged.context().close();
+
+  // Wings on the arm bones: the parts to bind, an agent's measured ask, and a bind in the draft.
+  const winged = await openCase(open, 'rigid', /Moth/);
+  const parts = winged.getByRole('region', { name: 'Rigid parts' });
+  await parts.getByText('Part 1, left').waitFor();
+  await parts.scrollIntoViewIfNeeded();
+  await shot(winged, 'rig-rigid-parts');
+  await winged.context().close();
+  const asked = await openCase(open, 'rigid-asked', /Moth/);
+  const ask = asked.getByRole('alertdialog', { name: 'Use the bound parts?' });
+  await ask.waitFor();
+  await ask.scrollIntoViewIfNeeded();
+  await shot(asked, 'rig-rigid-asked');
+  await asked.context().close();
+  const bound = await openCase(open, 'rigid-bound', /Moth/);
+  await bound.getByText('Parts 1 and 2 follow Spine2 in the draft').waitFor();
+  await bound.getByRole('button', { name: 'Undo the bind' }).scrollIntoViewIfNeeded();
+  await shot(bound, 'rig-rigid-bound');
+  await bound.context().close();
 
   // A walk clip that carries the model backwards is flagged in the Inbox checks.
   const walk = await open('&scenario=configured&inbox=walk', '#/inbox');
