@@ -454,6 +454,8 @@ mod tests;
 #[cfg(test)]
 mod tests_blender;
 #[cfg(test)]
+mod tests_blender_facing;
+#[cfg(test)]
 mod tests_blender_person;
 #[cfg(test)]
 mod tests_blender_readings;

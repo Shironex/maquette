@@ -9,6 +9,7 @@ Usage: blender -b --factory-startup -P rig_models.py -- <which> out.glb
   misplaced   the same, with the left arm chain 10 cm inside the body and arm translation keys
   one-island  the same body remeshed into one continuous shell
   facing-x    humanoid turned to face +X in the file
+  biped-x     the same with its own bone names, so it takes the creature route: an upright creature facing +X
   long-robe   a clean rig under a floor length robe whose weights blend from the hips to the legs, and a wide walk
   robe-torn   the same robe with rows of it on the hips and on the thigh in turn: a real tear in the walk
   robe-arm    the same robe with its hem blended smoothly onto the far arm bone: a real stretch in raise
@@ -381,7 +382,10 @@ if which == "no-skin":
     for g in list(bpy.data.objects["Body"].vertex_groups):
         bpy.data.objects["Body"].vertex_groups.remove(g)
     bpy.data.objects["Body"].modifiers.clear()
-if which == "facing-x":
+if which == "biped-x":   # names that are not Mixamo's: the creature route reads it from the bones
+    for b in arm.data.bones:
+        b.name = "J_" + b.name[len(P):]
+if which in ("facing-x", "biped-x"):
     bpy.context.view_layer.objects.active = arm
     arm.rotation_euler = (0, 0, math.radians(90))     # the face (-Y) turns to +X
     bpy.context.view_layer.update()

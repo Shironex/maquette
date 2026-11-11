@@ -119,11 +119,37 @@ def thickness(s):
     return sum(near) / max(len(near), 1)
 
 
-head = max(long_, key=thickness) if long_ else (trunk[-1:] or spikes[0])
+# On two legs the head stands on top: the chain reaching highest, short as a neck may be. Arms in sleeves or cloth
+# read thicker than a head, so thickness only picks it on a beast.
+upright = len(legs) == 2
+if upright and (long_ or spikes):
+    head = max(long_ + spikes, key=lambda s: TAIL[s[-1]].z)
+    spikes = [s for s in spikes if s is not head]
+elif long_:
+    head = max(long_, key=thickness)
+else:
+    head = trunk[-1:] or spikes[0]
 long_ = [s for s in long_ if s is not head]
 tails = long_
 body_at = sum((HEAD[b] for b in trunk), Vector()) / max(len(trunk), 1) if trunk else (lo + hi) / 2
-flat = TAIL[head[-1]] - body_at; flat.z = 0
+
+
+def feet_forward():
+    """Feet and toes point the way a creature walks: the flat run of every leg bone near the ground."""
+    low = lo.z + 0.2 * (hi.z - lo.z)
+    run = Vector()
+    for s in legs:
+        for b in whole(s):
+            if HEAD[b].z < low and TAIL[b].z < low:
+                d = TAIL[b] - HEAD[b]; d.z = 0; run += d
+    return run
+
+
+# The facing: from the feet when they point somewhere (an upright head points up, so it says nothing), else from
+# where the head sits past the body, as on a beast. Blender's -Y is glTF's +Z: the labels below are glTF axes.
+flat = feet_forward()
+if flat.length < 0.02 * SIZE:
+    flat = TAIL[head[-1]] - body_at; flat.z = 0
 if flat.length < 1e-4: flat = Vector((0, -1, 0))
 flat.normalize()
 axis = max((Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0))), key=lambda a: a.dot(flat))
