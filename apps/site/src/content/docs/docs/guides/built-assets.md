@@ -132,3 +132,5 @@ The helper file and the example are starters. When a newer Maquette ships a newe
 ## For agents
 
 `add_built_asset` adds one and builds it, `list_built_assets` reads each one's files, state and last build, and `rebuild_built_asset` builds one again or every new or changed one. `get_starters` and `update_starters` read and update the helper file with the other starters. All are in [MCP tools](/docs/agents/mcp-tools/).
+
+To rebuild a generated model as a built asset and put it in that model's place, the `maquette-built-rebuild` [agent skill](/docs/agents/skills/) carries the whole recipe: the rules for the script, at least three render and fix rounds against the ref, and a side by side before anything ships.
