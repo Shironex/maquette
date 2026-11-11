@@ -2,7 +2,8 @@
 //! each have a job `<asset>-1`: a model there links to the job of its own
 //! project, through accept and discard, also when the inbox gives a name
 //! out a second time, a model saved by hand links only when one send can
-//! be meant, and a removed project's model links to no other project's accepted send of its id.
+//! be meant, and a removed project's model links neither to another
+//! project's accepted send of its id nor to one started after it came.
 
 use super::*;
 
@@ -230,4 +231,49 @@ fn a_removed_projects_inbox_model_never_links_to_another_projects_accepted_send_
         again.get(&other, &theirs.id).expect("job").state,
         JobState::Accepted
     );
+}
+
+#[test]
+fn a_removed_projects_inbox_model_never_lands_on_a_later_waiting_send_of_its_id() {
+    let world = World::new();
+    let other = second_project(&world);
+    let (server, _) = meshy_server(false);
+    let jobs = world.jobs(&server);
+
+    // The first project's Meshy model waits in the inbox, and has for a
+    // while when the first project is removed (a model in the Inbox does not
+    // hold a removal back).
+    let sent = jobs
+        .send(
+            &request_in(&world, &world.project, Provider::Meshy),
+            false,
+            false,
+        )
+        .expect("send");
+    let mine = finished(&jobs, &sent);
+    let name = mine.inbox_file.clone().expect("file");
+    let earlier = std::time::SystemTime::now() - Duration::from_secs(600);
+    fs::File::options()
+        .write(true)
+        .open(world.inbox().join(&name))
+        .and_then(|file| file.set_modified(earlier))
+        .expect("an older file");
+    project::trash::remove_project(&world.root, &world.config.layout, &world.project)
+        .expect("remove");
+    jobs.close();
+
+    // After a restart the second project starts a By hand send of its own
+    // asset, which numbering per project gives the same id.
+    let again = world.jobs(&server);
+    let theirs = again
+        .send(&request_in(&world, &other, Provider::ByHand), false, false)
+        .expect("by hand");
+    assert_eq!(theirs.id, mine.id);
+    assert_eq!(theirs.state, JobState::Waiting);
+
+    // The file is older than that send, so it is not the model it waits
+    // for: no link, and the send keeps waiting.
+    assert_eq!(links(&world, &again), [(name, None)]);
+    let still = again.get(&other, &theirs.id).expect("job");
+    assert_eq!((still.state, still.inbox_file), (JobState::Waiting, None));
 }
