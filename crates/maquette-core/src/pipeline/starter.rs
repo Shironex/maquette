@@ -360,21 +360,6 @@ pub fn status(project_dir: &Path, template: ProjectTemplate) -> Vec<StarterStatu
         .collect()
 }
 
-/// `tools/bake_light.py.bak`, or `.bak2`, `.bak3` when that is taken.
-fn backup_path(path: &Path) -> PathBuf {
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    (1u32..)
-        .map(|n| {
-            let suffix = if n == 1 { String::new() } else { n.to_string() };
-            path.with_file_name(format!("{name}.bak{suffix}"))
-        })
-        .find(|p| !p.exists())
-        .unwrap_or_else(|| path.with_file_name(format!("{name}.bak")))
-}
-
 /// Brings the starters at `paths` up to date. Outdated and missing ones are
 /// written; an edited one only when `replace_edited` is set, after moving it
 /// to `<name>.bak`. Current ones are left alone. Returns the status after
@@ -407,7 +392,7 @@ pub fn update(
             StarterState::Current => continue,
             StarterState::Edited if !replace_edited => continue,
             StarterState::Edited => {
-                let backup = backup_path(&path);
+                let backup = crate::fs::backup_path(&path);
                 fs::copy(&path, &backup).map_err(|e| CoreError::io(&backup, e))?;
                 let relative = backup
                     .strip_prefix(project_dir)
