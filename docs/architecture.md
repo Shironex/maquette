@@ -628,7 +628,7 @@ Version 2 adds `joined` clips after the base (each with a `blend` window and its
 on any clip, `mirror`, `time` edits (retime, freeze, hold over) on a clip's own frames, and the pin,
 pose key and grip changes. Each is written only when used: a save writes version 1 while a recipe
 uses none of it, so an older Maquette still opens it, and version 2 once it does; a version past 2
-is refused. Grips do not bake yet (`not-bakeable-yet`); pins and pose keys do. Keys and time edits sit
+is refused. Pins, pose keys and grips all bake. Keys and time edits sit
 on a clip by its index and its own frame. A change's `start` and `end` are shares of all the clips'
 own frames laid end to end (on one clip, of its length), so a trim, retime or freeze leaves it on
 the motion it covered; `recipes/clip_moves.rs` moves every share, key and time edit with its clip
@@ -701,8 +701,15 @@ preview is
 an eased turn or move for nudge, a sine for wave), and `check-reaches.ts` measures each reach's end.
 `features/viewer/recipe-pins.ts` then holds the pins roughly with the same two-bone IK, from spots
 taken at each pin's first frame, and checks how far the hips move against the limb's reach for the
-pin's settings. Pins have a Pin lane of their own in the editor, pose keys a lane per keyed bone;
-grips stay read only.
+pin's settings. Pins have a Pin lane of their own in the editor, pose keys a lane per keyed bone,
+grips a Grip lane named from the library. The editor adds a grip from `features/motion/GripPicker`
+(the library through `state/use-grip-library-store.ts`, drawn by `features/common/GripPicture` as a
+schematic hand) and edits it in `RecipeGripForm`, which offers a newer revision (`gripNote` in
+`state/recipe-library.ts`) and never swaps it on its own. `state/use-grip-save-store.ts` backs the
+Save a grip sheet (`features/animations/SaveGripSheet`): it reads the pose keys at one frame from the
+editor's draft or the file, plans after each choice and saves against the version it planned, and
+an agent's `propose_grip_save` opens the same sheet from its approval card. The Animations view's
+Grips part is `features/animations/LibraryGrips`.
 A joined recipe plays the timeline: each frame poses the clip frames it names, blends across a
 window and holds a frozen pose, the same frames the bake makes.
 Facing comes from the rig (`rigForward`: up crossed with left to right upper arm, else upper leg,
