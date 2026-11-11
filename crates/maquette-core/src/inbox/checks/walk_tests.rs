@@ -67,3 +67,19 @@ fn a_clip_that_plays_in_place_has_no_walk_row() {
     // A walk too short to travel is a sway, not a walk.
     assert_eq!(walk_row(90.0, 0.01), None);
 }
+
+#[test]
+fn a_clip_named_as_a_backward_walk_is_left_alone() {
+    let bytes = fixture::humanoid(&fixture::HumanoidSpec {
+        yaw: 90.0,
+        walk: Some(-0.8),
+        ..fixture::HumanoidSpec::default()
+    });
+    let mut report = analyse_bytes(&bytes, Path::new(".")).expect("analyse");
+    for name in ["Walking Backward", "Running Backwards"] {
+        for travel in &mut report.clip_travel {
+            travel.clip = name.to_string();
+        }
+        assert_eq!(walk_check(&report), None, "{name}");
+    }
+}

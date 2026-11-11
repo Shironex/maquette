@@ -10,12 +10,14 @@ use crate::inbox::vrm::Axis;
 /// cosine of 120 degrees.
 const AGAINST: f32 = -0.5;
 
-/// A clip whose name says it walks or runs.
+/// A clip whose name says it walks or runs forward. A backward walk, such
+/// as Mixamo's Walking Backward, travels against the face on purpose.
 fn walks(name: &str) -> bool {
     let name = name.to_ascii_lowercase();
-    ["walk", "run", "jog", "sprint"]
-        .iter()
-        .any(|w| name.contains(w))
+    !name.contains("backward")
+        && ["walk", "run", "jog", "sprint"]
+            .iter()
+            .any(|w| name.contains(w))
 }
 
 /// The axis a flat direction (x, z) points along, as the findings write it.
