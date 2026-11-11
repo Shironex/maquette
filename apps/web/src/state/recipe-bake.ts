@@ -106,6 +106,18 @@ export function reviewSummary(review: RecipeBakeReview): string {
   return `${review.warns} of ${all} ${all === 1 ? 'number' : 'numbers'} ${review.warns === 1 ? 'warns' : 'warn'}`;
 }
 
+/**
+ * What warns, in a sentence under the summary: "Worth a look: Seam pop
+ * (Slash into Thrust), Joint limits. It can still be added." With no warn,
+ * that a warn would not stop the add.
+ */
+export function worthALook(review: RecipeBakeReview): string {
+  const warned = review.lines.filter(l => l.status === 'warn');
+  if (!warned.length) return 'A warn asks for a look; it does not stop the add.';
+  const named = warned.map(l => (l.about && l.id === 'seam' ? `${l.label} (${l.about})` : l.label));
+  return `Worth a look: ${named.join(', ')}. It can still be added.`;
+}
+
 /** The add's label: "Add as v3", the version after the one it was baked onto. */
 export const addLabel = (result: RecipeBakeResult) => `Add as v${result.fromVersion + 1}`;
 

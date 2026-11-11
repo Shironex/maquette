@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
+import type { RecipeReviewFix } from '@/ipc/client';
 import { bakeKey, staleOf } from '@/state/recipe-bake';
+import { applyFix } from '@/state/apply-fix';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
+
+/** Why Try it laid nothing on the recipe. */
+export const FIX_GONE =
+  'The recipe no longer has what this fix changes. Bake it again for fresh fixes.';
+export const FIX_WAITS = 'Answer the question about your unsaved edits first, then try it again.';
 
 /** What the review shows: the bake, the base clip, or both side by side. */
 export type ReviewShow = 'both' | 'baked' | 'base';
@@ -41,6 +49,7 @@ export function useRecipeReview() {
   const [show, setShow] = useState<ReviewShow>('both');
   const [share, setShare] = useState(0);
   const [playing, setPlaying] = useState(true);
+  const [fixError, setFixError] = useState<string | null>(null);
   useEffect(() => {
     if (!useAnimationsStore.getState().view) void useAnimationsStore.getState().load();
   }, []);
@@ -83,6 +92,39 @@ export function useRecipeReview() {
       toggle: () => setPlaying(p => !p),
       tick: (delta: number) => {
         if (playing) setShare(s => (s + delta / length) % 1);
+      },
+    },
+    sheet: {
+      frames: result?.sheet ?? [],
+      /** Stops the player on frame `frame`, as a pose sheet tile picks it. */
+      seek: (frame: number) => {
+        setPlaying(false);
+        setShare(frames > 0 ? Math.min(frame / frames, 1) : 0);
+      },
+    },
+    fixes: {
+      list: record?.review?.fixes ?? [],
+      error: fixError,
+      /**
+       * Opens the recipe in the editor with `fix` laid on its draft, unsaved,
+       * and leaves the review: the person saves and bakes again.
+       */
+      tryFix: async (fix: RecipeReviewFix) => {
+        setFixError(null);
+        const editor = useRecipeEditorStore.getState();
+        await editor.open(project, recipe);
+        const editing = useRecipeEditorStore.getState().editing;
+        if (editing?.project !== project || editing.id !== recipe) {
+          setFixError(FIX_WAITS);
+          return;
+        }
+        const next = applyFix(editing.draft, fix.edit);
+        if (!next) {
+          setFixError(FIX_GONE);
+          return;
+        }
+        editor.edit(() => next);
+        store.closeReview();
       },
     },
     close: store.closeReview,

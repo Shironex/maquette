@@ -7,7 +7,15 @@ import { fileUrl } from '@/ipc/files';
 import type { RecipeReviewLine } from '@/ipc/client';
 import { lazyAfterPaint } from '@/lib/after-paint';
 import { useKeepClearOfFloating } from '@/lib/useFloatingClearance';
-import { STATUS_LOOK, addLabel, resultSummary, reviewSummary } from '@/state/recipe-bake';
+import {
+  STATUS_LOOK,
+  addLabel,
+  resultSummary,
+  reviewSummary,
+  worthALook,
+} from '@/state/recipe-bake';
+import { RecipeFixes } from '../RecipeFixes';
+import { RecipeSheet } from '../RecipeSheet';
 import { useRecipeReview, type ReviewShow } from './RecipeReview.hooks';
 
 const MotionStage = lazyAfterPaint(() => import('@/features/viewer/MotionStage'));
@@ -125,59 +133,72 @@ export default function RecipeReview() {
         />
       </div>
       <div className="flex min-h-0 flex-1 gap-3">
-        <div
-          className={cn('grid min-h-[240px] min-w-0 flex-1 gap-3', baked && base && 'grid-cols-2')}
-        >
-          {baked ? (
-            <figure
-              aria-label="Baked clip"
-              className="relative m-0 overflow-hidden rounded-card border border-line bg-studio"
-            >
-              {stagedUrl ? (
-                <CanvasBoundary resetKey={stagedUrl}>
-                  <Suspense fallback={<StageLoader />}>
-                    <MotionStage
-                      className="absolute! inset-0"
-                      label={`${result.clip} baked on ${result.assetName}, staged`}
-                      url={stagedUrl}
-                      clip={result.clip}
-                      time={{ share: r.play.share }}
-                      skeleton={false}
-                      trail={false}
-                      turntable={false}
-                      poses={null}
-                      outline={[]}
-                      onFrame={r.play.tick}
-                    />
-                  </Suspense>
-                </CanvasBoundary>
-              ) : (
-                <figcaption className="absolute inset-0 grid place-items-center p-3 text-center text-meta text-fg-mute">
-                  The staged model cannot be shown here.
-                </figcaption>
-              )}
-              <span className={CHIP}>
-                <Icon name="flask" size={13} className="text-fg-dim" />
-                Bake: {result.clip} on {result.assetName}, staged
-              </span>
-            </figure>
-          ) : null}
-          {base ? (
-            <RecipePreview
-              project={r.project}
-              model={r.model}
-              clip={r.rest ? 'rest' : r.clip}
-              layers={NO_LAYERS}
-              markers={[]}
-              play={{
-                share: r.play.share,
-                playing: r.show === 'base' && r.play.playing,
-                onTick: r.play.tick,
-              }}
-              label={`${r.rest ? 'Rest pose' : 'Base clip'} on ${r.model?.name ?? result.assetName} as it is now, rough preview`}
-              name="Base clip"
-            />
-          ) : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div
+            className={cn(
+              'grid min-h-[240px] min-w-0 flex-1 gap-3',
+              baked && base && 'grid-cols-2'
+            )}
+          >
+            {baked ? (
+              <figure
+                aria-label="Baked clip"
+                className="relative m-0 overflow-hidden rounded-card border border-line bg-studio"
+              >
+                {stagedUrl ? (
+                  <CanvasBoundary resetKey={stagedUrl}>
+                    <Suspense fallback={<StageLoader />}>
+                      <MotionStage
+                        className="absolute! inset-0"
+                        label={`${result.clip} baked on ${result.assetName}, staged`}
+                        url={stagedUrl}
+                        clip={result.clip}
+                        time={{ share: r.play.share }}
+                        skeleton={false}
+                        trail={false}
+                        turntable={false}
+                        poses={null}
+                        outline={[]}
+                        onFrame={r.play.tick}
+                      />
+                    </Suspense>
+                  </CanvasBoundary>
+                ) : (
+                  <figcaption className="absolute inset-0 grid place-items-center p-3 text-center text-meta text-fg-mute">
+                    The staged model cannot be shown here.
+                  </figcaption>
+                )}
+                <span className={CHIP}>
+                  <Icon name="flask" size={13} className="text-fg-dim" />
+                  Bake: {result.clip} on {result.assetName}, staged
+                </span>
+              </figure>
+            ) : null}
+            {base ? (
+              <RecipePreview
+                project={r.project}
+                model={r.model}
+                clip={r.rest ? 'rest' : r.clip}
+                layers={NO_LAYERS}
+                markers={[]}
+                play={{
+                  share: r.play.share,
+                  playing: r.show === 'base' && r.play.playing,
+                  onTick: r.play.tick,
+                }}
+                label={`${r.rest ? 'Rest pose' : 'Base clip'} on ${r.model?.name ?? result.assetName} as it is now, rough preview`}
+                name="Base clip"
+              />
+            ) : null}
+          </div>
+          <RecipeSheet
+            url={stagedUrl || null}
+            clip={result.clip}
+            last={result.frames}
+            frames={r.sheet.frames}
+            current={r.play.playing ? -1 : r.play.frame}
+            onPick={r.sheet.seek}
+          />
         </div>
         <aside
           aria-label="Review"
@@ -211,9 +232,7 @@ export default function RecipeReview() {
               {/* The note sits above the numbers, where a floating card never reaches. */}
               <div className="flex flex-col gap-0.5">
                 <p className="text-meta font-medium text-fg-dim">{reviewSummary(review)}</p>
-                <p className="text-meta text-fg-mute">
-                  A warn asks for a look; it does not stop the add.
-                </p>
+                <p className="text-meta text-fg-mute">{worthALook(review)}</p>
               </div>
               <ul
                 aria-label="Review numbers"
@@ -221,6 +240,11 @@ export default function RecipeReview() {
               >
                 {lines}
               </ul>
+              <RecipeFixes
+                fixes={r.fixes.list}
+                onTry={fix => void r.fixes.tryFix(fix)}
+                error={r.fixes.error}
+              />
             </>
           ) : null}
         </aside>
