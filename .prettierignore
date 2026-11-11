@@ -24,3 +24,6 @@ apps/site/src/scene/shipped.json
 
 # Recipe files the model reads byte for byte; their hashes are pinned in tests.
 crates/maquette-model/src/recipes/fixtures/
+
+# A workspace as Maquette 0.7.1 wrote it, which the provider tests load as it is.
+crates/maquette-core/src/providers/tests/ids/older_workspace/

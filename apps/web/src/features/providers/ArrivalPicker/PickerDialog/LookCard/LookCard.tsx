@@ -21,7 +21,7 @@ export default function LookCard({ arrival, now }: LookCardProps) {
   const asset = arrival.assetName ?? 'its asset';
   const otherButtons = others.map(o => (
     <Button
-      key={o.job}
+      key={o.key}
       size="sm"
       variant="ghost"
       disabled={busy || !o.here}

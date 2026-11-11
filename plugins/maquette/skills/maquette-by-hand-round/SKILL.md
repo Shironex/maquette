@@ -79,9 +79,14 @@ Read the answer:
   front. They never stop a send. Tell the person which assets carry them; offer to fix first.
 - `modelWarning`: the asset already has a model (for example from the library). The send makes
   its NEXT version and the library entry is unchanged.
-- The handoff folder and the export name the site's file must carry:
-  `maq_<asset>_v<n>_<provider>` (for example `maq_stone-well_v1_tripo.glb`). A download with that
-  name lands in the inbox on its own.
+- The handoff folder and `exportName`, the name the site's file must carry:
+  `maq_<project>_<asset>_v<n>_<provider>` (for example `maq_moon-island_stone-well_v1_tripo.glb`).
+  A download with that name lands in the inbox on its own. `n` is the asset's send number in its
+  project, so two projects can each wait for a `v1` of the same asset: always give the person the
+  whole name from the answer, never one you built yourself.
+- `id` and `project`: job ids are numbered per project (`stone-well-1` can be a send of two
+  projects). Keep both, and pass `project` with the id to `get_provider_job` and
+  `cancel_provider_jobs`.
 
 Give the person a checklist per asset: open the folder, upload the images in the slots the card
 names, apply the settings on the card (mesh, rig, face limit), generate, export GLB with the
@@ -91,7 +96,9 @@ expected name, save it where the Downloads watcher looks (Settings > 3D provider
 
 `list_handoffs` `{ project? }` reads only:
 
-- `pending`: each By hand send waiting (job, asset, provider, export name, folder, front ref).
+- `pending`: each By hand send waiting (job and project, asset, provider, export name, folder,
+  front ref). A send from before the project was part of the name waits for
+  `maq_<asset>_v<n>_<provider>`.
 - `watcher`: null when no watcher runs. Then nothing arrives on its own; tell the person to turn
   it on or use `add_model_file` (step 5).
 - `needsLook`: downloads whose picture looks like a waiting send's, whose name is close, or that

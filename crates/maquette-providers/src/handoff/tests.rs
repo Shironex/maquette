@@ -139,7 +139,7 @@ fn settings_md_lists_the_studio_rows_and_the_export_name() {
     let preset = TripoPreset::prop();
     let handoff = lamp_handoff(std::slice::from_ref(&image), &[], &preset, None);
     let (folder, card) = handoff.write(dir.path()).expect("write");
-    assert_eq!(card.export_name, "maq_iron-street-lamp_v1_tripo");
+    assert_eq!(card.export_name, "maq_p_iron-street-lamp_v1_tripo");
     assert_eq!(card.mode, "Image to 3D");
     let md = fs::read_to_string(folder.join("settings.md")).expect("md");
     for line in [
@@ -151,7 +151,7 @@ fn settings_md_lists_the_studio_rows_and_the_export_name() {
         "| Topology | Triangle | quads export FBX only |",
         "| Generate in Parts | Off | recommended |",
         "| Rig | None | skip Rig, export the model as is |",
-        "| Export | maq_iron-street-lamp_v1_tripo | GLB, with this file name |",
+        "| Export | maq_p_iron-street-lamp_v1_tripo | GLB, with this file name |",
     ] {
         assert!(md.contains(line), "{line} in {md}");
     }

@@ -1,26 +1,109 @@
-//! Job ids: `<asset>-<n>`, unique across the workspace, not only within a
-//! project, because every lookup (approve, cancel, the queue, the inbox
-//! link, the MCP tools) goes by id alone. Saved jobs from before that rule
-//! can share an id with a job of another project; opening the workspace
-//! gives all but one of them a fresh id.
+//! Job ids: `<asset>-<n>`, numbered per project, so the first send of an
+//! asset in a project is `<asset>-1` whatever other projects sent. An id
+//! alone can therefore be a send of several projects: every lookup goes by
+//! project and id ([`JobKey`]).
+//!
+//! For a while ids were unique across the whole workspace instead, and
+//! before that they were per project but looked up by id alone. Records
+//! from both times load as they are and keep their ids.
 
-use std::collections::HashSet;
 use std::path::Path;
 
-use super::{Entry, JobState, Stored};
-use crate::handoff::HANDOFF_DIR;
+use serde::{Deserialize, Serialize};
 
-/// The first free `<asset>-<n>`: no job of any project has it, and no
-/// handoff folder of this project is named after it.
-pub(super) fn next_id(jobs: &[Entry], project_dir: &Path, asset: &str) -> String {
-    let taken = |id: &str| {
-        jobs.iter().any(|e| e.stored.job.id == id)
-            || project_dir.join(HANDOFF_DIR).join(id).exists()
-    };
-    (1u32..)
-        .map(|n| format!("{asset}-{n}"))
-        .find(|id| !taken(id))
-        .unwrap_or_else(|| format!("{asset}-x"))
+use super::{JobState, ProviderJob, Stored};
+use crate::handoff::HANDOFF_DIR;
+use crate::naming::send_number;
+
+/// What names one send: its project and its id in that project.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JobKey {
+    pub project: String,
+    pub id: String,
+}
+
+impl JobKey {
+    pub fn new(project: &str, id: &str) -> Self {
+        Self {
+            project: project.to_string(),
+            id: id.to_string(),
+        }
+    }
+
+    /// The key of `job`.
+    pub fn of(job: &ProviderJob) -> Self {
+        Self::new(&job.project, &job.id)
+    }
+
+    /// True when it names `job`.
+    pub fn is(&self, job: &ProviderJob) -> bool {
+        job.project == self.project && job.id == self.id
+    }
+}
+
+/// How a saved job's id was numbered, which says where its files outside
+/// the project folder are.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum IdScope {
+    /// From before ids were numbered per project: no other job of the
+    /// workspace had its id, and its files sit under workspace wide names.
+    /// What a record without the field is.
+    #[default]
+    Workspace,
+    /// Numbered in its project; another project may hold the same id.
+    Project,
+}
+
+impl IdScope {
+    pub(super) fn is_workspace(&self) -> bool {
+        *self == Self::Workspace
+    }
+}
+
+/// The names in a project's handoff folder. A missing folder has none.
+pub(super) fn handoff_names(project_dir: &Path) -> Vec<String> {
+    std::fs::read_dir(project_dir.join(HANDOFF_DIR))
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The next id of `asset` in a project that uses the ids `used` (its jobs
+/// and its handoff folders): one past the highest number the asset has
+/// there, so a number never reads older than a record still on hand, and
+/// never an id in use.
+fn next_free(asset: &str, used: &[&str]) -> String {
+    let highest = used
+        .iter()
+        .filter_map(|id| send_number(id, asset))
+        .max()
+        .unwrap_or(0);
+    let fresh = (1u32..=u32::MAX - highest)
+        .map(|step| format!("{asset}-{}", highest + step))
+        .find(|id| !used.contains(&id.as_str()));
+    fresh.unwrap_or_else(|| format!("{asset}-x"))
+}
+
+/// The id the next send of `asset` in `project` gets. `jobs` is every job
+/// of the open workspace; only the project's own count.
+pub(super) fn next_id<'a>(
+    jobs: impl Iterator<Item = &'a ProviderJob>,
+    project: &str,
+    project_dir: &Path,
+    asset: &str,
+) -> String {
+    let folders = handoff_names(project_dir);
+    let used: Vec<&str> = jobs
+        .filter(|job| job.project == project)
+        .map(|job| job.id.as_str())
+        .chain(folders.iter().map(String::as_str))
+        .collect();
+    next_free(asset, &used)
 }
 
 /// A job whose id is already out in the world and should keep it: a paid
@@ -34,55 +117,100 @@ fn pinned(stored: &Stored) -> bool {
     }
 }
 
-/// Gives every loaded job a workspace-unique id. Of jobs sharing one, the
-/// pinned one (else the oldest) keeps it; each other one takes the next
-/// free `<asset>-<n>`, and the redo links of its project follow it.
-/// `handoff_taken(project, id)` says whether a handoff folder already uses
-/// an id. Returns the projects whose jobs changed, so they can be saved.
-pub(super) fn make_unique(
-    jobs: &mut [Stored],
-    handoff_taken: impl Fn(&str, &str) -> bool,
-) -> Vec<String> {
+/// Gives every job of one project (`jobs`, as its file was read) an id no
+/// other job of that project has: a hand edit or two computers saving at
+/// once can leave two records with one id, and every lookup needs the pair
+/// of project and id to name one job. Of jobs sharing an id the pinned one
+/// (else the oldest) keeps it and each other one takes the asset's next id.
+/// A redo link to the shared id stays with the job that kept it: which of
+/// the two it meant cannot be told. `folders` are the names in the
+/// project's handoff folder. True when a job changed.
+///
+/// Jobs of two projects sharing an id are left alone: that is what per
+/// project numbering gives.
+pub(super) fn make_unique(jobs: &mut [Stored], folders: &[String]) -> bool {
     let mut order: Vec<usize> = (0..jobs.len()).collect();
     order.sort_by(|&a, &b| {
         let (a, b) = (&jobs[a], &jobs[b]);
         pinned(b)
             .cmp(&pinned(a))
             .then(a.job.created_at_ms.total_cmp(&b.job.created_at_ms))
-            .then_with(|| a.job.project.cmp(&b.job.project))
     });
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut all: HashSet<String> = jobs.iter().map(|s| s.job.id.clone()).collect();
-    let mut touched = Vec::new();
+    let mut kept: Vec<String> = Vec::new();
+    let mut changed = false;
     for index in order {
-        if seen.insert(jobs[index].job.id.clone()) {
+        let old = jobs[index].job.id.clone();
+        if !kept.contains(&old) {
+            kept.push(old);
             continue;
         }
-        let (project, asset, old) = {
-            let job = &jobs[index].job;
-            (job.project.clone(), job.asset.clone(), job.id.clone())
+        let asset = jobs[index].job.asset.clone();
+        let fresh = {
+            let used: Vec<&str> = jobs
+                .iter()
+                .map(|s| s.job.id.as_str())
+                .chain(folders.iter().map(String::as_str))
+                .collect();
+            next_free(&asset, &used)
         };
-        let fresh = (1u32..)
-            .map(|n| format!("{asset}-{n}"))
-            .find(|id| !all.contains(id) && !handoff_taken(&project, id))
-            .unwrap_or_else(|| format!("{asset}-x"));
         tracing::info!(
-            project,
+            project = jobs[index].job.project,
             old,
             new = fresh,
-            "gave a job a workspace-unique id"
+            "gave a job an id of its own in its project"
         );
-        for other in jobs.iter_mut().filter(|s| s.job.project == project) {
-            if other.job.redo_of.as_deref() == Some(old.as_str()) {
-                other.job.redo_of = Some(fresh.clone());
-            }
-        }
         jobs[index].job.id.clone_from(&fresh);
-        all.insert(fresh.clone());
-        seen.insert(fresh);
-        if !touched.contains(&project) {
-            touched.push(project);
-        }
+        kept.push(fresh);
+        changed = true;
     }
-    touched
+    changed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_next_id_is_one_past_the_highest_the_asset_has() {
+        assert_eq!(next_free("desk-lamp", &[]), "desk-lamp-1");
+        assert_eq!(next_free("desk-lamp", &["desk-lamp-1"]), "desk-lamp-2");
+        // A project that holds only number 3 from the older numbering gets
+        // 4: never 3 again, and never a 1 that reads older than the 3.
+        assert_eq!(next_free("desk-lamp", &["desk-lamp-3"]), "desk-lamp-4");
+        assert_eq!(
+            next_free("desk-lamp", &["desk-lamp-5", "desk-lamp-2", "crate-9"]),
+            "desk-lamp-6"
+        );
+        // The sends of the second asset named Desk lamp are not the first's.
+        assert_eq!(
+            next_free("desk-lamp", &["desk-lamp-2-1", "desk-lamp-2-7"]),
+            "desk-lamp-1"
+        );
+        assert_eq!(
+            next_free("desk-lamp-2", &["desk-lamp-2", "desk-lamp-2-7"]),
+            "desk-lamp-2-8"
+        );
+        // An id with no number counts for nothing and is never handed out.
+        assert_eq!(next_free("lamp", &["lamp-x"]), "lamp-1");
+        let top = format!("lamp-{}", u32::MAX);
+        assert_eq!(next_free("lamp", &[top.as_str()]), "lamp-x");
+    }
+
+    #[test]
+    fn a_key_names_a_job_only_with_its_project() {
+        let key = JobKey::new("moon-island", "desk-lamp-1");
+        assert_eq!(key, JobKey::new("moon-island", "desk-lamp-1"));
+        assert_ne!(key, JobKey::new("lantern-bay", "desk-lamp-1"));
+        assert_ne!(key, JobKey::new("moon-island", "desk-lamp-2"));
+    }
+
+    #[test]
+    fn a_record_without_a_scope_is_from_the_older_numbering() {
+        assert_eq!(
+            serde_json::from_str::<IdScope>("\"project\"").expect("project"),
+            IdScope::Project
+        );
+        assert_eq!(IdScope::default(), IdScope::Workspace);
+        assert!(IdScope::Workspace.is_workspace() && !IdScope::Project.is_workspace());
+    }
 }

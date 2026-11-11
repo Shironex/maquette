@@ -27,8 +27,8 @@ impl Sends for ProviderJobs {
         self.list(Some(project)).iter().map(Sent::from).collect()
     }
 
-    fn stop(&self, id: &str) -> CoreResult<()> {
-        self.cancel(id).map(|_| ())
+    fn stop(&self, project: &str, id: &str) -> CoreResult<()> {
+        self.cancel(project, id).map(|_| ())
     }
 }
 

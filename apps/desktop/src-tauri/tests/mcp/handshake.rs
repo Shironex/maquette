@@ -745,7 +745,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(approvals[0].kind, ApprovalKind::SendTo3d);
     assert_eq!(approvals[0].job.as_deref(), Some(job_id.as_str()));
     assert_eq!(
-        host.studio.get(&job_id).expect("job").state,
+        host.studio.get(&project_id, &job_id).expect("job").state,
         JobState::Approval
     );
     // A preset setting that does not exist is refused before anything starts.
@@ -771,7 +771,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(waiting["decision"], Value::Null);
     assert_eq!(hub.approvals().len(), 1, "still waiting for a person");
     assert_eq!(
-        host.studio.get(&job_id).expect("job").state,
+        host.studio.get(&project_id, &job_id).expect("job").state,
         JobState::Approval
     );
     let raised = hub
@@ -884,7 +884,10 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         json!("Stopped waiting for this model.")
     );
     assert_eq!(
-        host.studio.get(&by_hand_id).expect("job").state,
+        host.studio
+            .get(&project_id, &by_hand_id)
+            .expect("job")
+            .state,
         JobState::Cancelled
     );
     let unknown = call(
@@ -936,7 +939,10 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(results[1]["ok"], json!(false));
     assert_eq!(results[2]["status"], json!("cancelled"));
     assert_eq!(
-        host.studio.get(&waiting_id).expect("job").state,
+        host.studio
+            .get(&project_id, &waiting_id)
+            .expect("job")
+            .state,
         JobState::Approval,
         "the agent did not deny it"
     );
@@ -1765,7 +1771,10 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
     assert_eq!(redo["redoOf"], json!("stone-lantern-1"));
     assert_eq!(redo["id"], json!("stone-lantern-2"));
     assert_eq!(redo["settings"], json!("Tripo H3.1, 1 image, 12,000 faces"));
-    let job = host.studio.get("stone-lantern-2").expect("job");
+    let job = host
+        .studio
+        .get(&project_id, "stone-lantern-2")
+        .expect("job");
     assert_eq!(job.tripo.as_ref().map(|t| t.pbr), Some(false));
     let approvals = hub.approvals();
     assert_eq!(approvals.len(), 1);
@@ -1774,7 +1783,12 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
 
     // By hand by default: a new handoff folder, the old model untouched.
     let deadline = Instant::now() + Duration::from_secs(5);
-    while host.studio.get("stone-lantern-2").map(|j| j.state) == Some(JobState::Approval) {
+    while host
+        .studio
+        .get(&project_id, "stone-lantern-2")
+        .map(|j| j.state)
+        == Some(JobState::Approval)
+    {
         assert!(Instant::now() < deadline, "the denial never landed");
         tokio::time::sleep(Duration::from_millis(20)).await;
     }

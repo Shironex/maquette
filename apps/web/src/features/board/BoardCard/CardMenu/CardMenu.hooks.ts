@@ -55,7 +55,7 @@ function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
             icon: 'image' as const,
             section,
             hint: `Selects ${front}, ready to drag into the browser`,
-            onSelect: () => void revealImage(waiting.id, front),
+            onSelect: () => void revealImage(waiting, front),
           },
         ]
       : []),
@@ -66,7 +66,7 @@ function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
             label: 'Open handoff folder',
             icon: 'folder-open' as const,
             section,
-            onSelect: () => void openHandoff(waiting.id),
+            onSelect: () => void openHandoff(waiting),
           },
         ]
       : []),
@@ -82,7 +82,7 @@ function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
       label: 'Add model...',
       icon: 'upload-simple',
       section,
-      onSelect: () => void addModel(waiting.id),
+      onSelect: () => void addModel(waiting),
     },
   ];
 }

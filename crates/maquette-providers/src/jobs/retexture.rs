@@ -7,22 +7,22 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 
 use super::ids::next_id;
 use super::remote::{create_failed, download, poll_meshy};
 use super::split::busy;
-use super::split_files::{SOURCE_FILE, split_dir, version_file};
+use super::split_files::{SOURCE_FILE, new_dir, version_file};
 use super::worker::Run;
 use super::{
-    CLOSED_WHILE_SENDING, CancelMode, Chain, Entry, Flow, FlowResult, JobPhase, JobState, Outcome,
+    CLOSED_WHILE_SENDING, CancelMode, Entry, Flow, FlowResult, JobPhase, JobState, Outcome,
     Provider, ProviderEvent, ProviderJob, ProviderJobs, RetextureJob, Stored, Workspace, api_key,
     persist, pump, snapshot, touch_asset,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::http::{ApiError, StopFlag};
+use crate::http::ApiError;
 use crate::meshy::{self, MAX_RETEXTURE_MODEL_BYTES, Meshy};
 use crate::presets::{PresetVariant, ProviderId};
 use crate::split::{MAX_RETEXTURE_PROMPT, MESHY_RETEXTURE_CREDITS};
@@ -132,8 +132,13 @@ impl ProviderJobs {
             )));
         }
         let project_dir = workspace.project_dir(&request.project)?;
-        let id = next_id(&self.shared.jobs(), &project_dir, &asset.id);
-        let dir = split_dir(&workspace, &id);
+        let id = next_id(
+            self.shared.jobs().iter().map(|e| &e.stored.job),
+            &request.project,
+            &project_dir,
+            &asset.id,
+        );
+        let dir = new_dir(&workspace, &request.project, &id);
         fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
         let copy = dir.join(SOURCE_FILE);
         fs::copy(&file, &copy).map_err(|e| CoreError::io(&copy, e))?;
@@ -184,20 +189,12 @@ impl ProviderJobs {
             }),
             denied: false,
         };
-        let stored = Stored {
-            job: job.clone(),
-            chain: Chain::default(),
-        };
+        let stored = Stored::new(job.clone());
         let saving = self.shared.saving();
         self.shared
             .still_open(&saving, Some(workspace.generation))?;
         let mut jobs = self.shared.jobs();
-        jobs.push(Entry {
-            stored: stored.clone(),
-            stop: Arc::new(StopFlag::default()),
-            thread: false,
-            cancelled: false,
-        });
+        jobs.push(Entry::new(stored.clone()));
         persist(&self.shared, &saving, &jobs, &job.project);
         drop(jobs);
         drop(saving);
@@ -212,7 +209,7 @@ impl ProviderJobs {
             job: Box::new(snapshot(&stored)),
         });
         pump(&self.shared);
-        Ok(self.get(&job.id).unwrap_or(job))
+        Ok(self.get(&job.project, &job.id).unwrap_or(job))
     }
 }
 

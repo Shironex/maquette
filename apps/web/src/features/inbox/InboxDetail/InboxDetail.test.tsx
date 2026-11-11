@@ -112,6 +112,7 @@ describe('InboxDetail', () => {
         {
           ...useProvidersStore.getState().jobs[0],
           id: 'ice-crystals-2',
+          project: shrubs.link!.project,
           asset: 'ice-crystals',
           state: 'running',
           progress: 0.5,

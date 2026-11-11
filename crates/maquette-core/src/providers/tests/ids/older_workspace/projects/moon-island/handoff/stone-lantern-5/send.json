@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "job": "stone-lantern-5",
+  "project": "moon-island",
+  "asset": "stone-lantern",
+  "assetName": "Stone lantern",
+  "version": 5,
+  "provider": "meshy",
+  "prompt": "weathered granite",
+  "expectedName": "maq_stone-lantern_v5_meshy",
+  "credits": 30.0,
+  "createdAtMs": 1794347203248.0
+}

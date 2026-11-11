@@ -8,7 +8,7 @@ import { MatchRow } from '.';
 
 afterEach(() => {
   clearMocks();
-  useProvidersStore.setState({ project: null, jobs: [], downloads: null });
+  useProvidersStore.setState({ project: null, jobs: [], downloads: null, busy: [] });
 });
 
 const file: DownloadMatch = {
@@ -58,6 +58,32 @@ describe('a Downloads match row', () => {
     );
     expect(screen.getByRole('button', { name: 'Use' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['Not one of these']);
+  });
+
+  it('is busy while its send imports, the send of the scanned project only', async () => {
+    const { job } = await openProviders();
+    const sent = job('guardian-statues-1');
+    const row = () => (
+      <ul>
+        <MatchRow
+          file={file}
+          waiting={[sent]}
+          choice="guardian-statues-1"
+          used={false}
+          taken={[]}
+          now={0}
+        />
+      </ul>
+    );
+    const downloads = { project: sent.project, scan: null, error: null, choices: {}, used: [] };
+    // Another project's send of the same id is importing: this row is free.
+    useProvidersStore.setState({ downloads, busy: [`lantern-bay/${sent.id}`] });
+    const { rerender } = render(row());
+    expect(screen.getByRole('button', { name: 'Use' })).toBeEnabled();
+    // Its own send is importing: Use waits, so a second click copies nothing.
+    useProvidersStore.setState({ busy: [`${sent.project}/${sent.id}`] });
+    rerender(row());
+    expect(screen.getByRole('button', { name: 'Use' })).toBeDisabled();
   });
 
   it('says which asset a used file was copied for', async () => {

@@ -9,8 +9,8 @@ const item = {
   link: { job: 'split-1', project: 'frostveil', asset: 'fern' },
 } as unknown as InboxItem;
 
-function seed(after: string) {
-  const job = { id: 'split-1', split: { after } } as unknown as ProviderJob;
+function seed(after: string, project = 'frostveil') {
+  const job = { id: 'split-1', project, split: { after } } as unknown as ProviderJob;
   useProvidersStore.setState({ jobs: [job] });
 }
 
@@ -29,6 +29,9 @@ describe('retextureOffer', () => {
 
   it('says nothing for the other choices or a model without a send', () => {
     seed('bake');
+    expect(retextureOffer(item, 2)).toBeNull();
+    // Another project's send with the same id is not this model's send.
+    seed('retexture', 'moon-island');
     expect(retextureOffer(item, 2)).toBeNull();
     expect(retextureOffer({ link: null } as unknown as InboxItem, 2)).toBeNull();
     expect(retextureOffer(null, 2)).toBeNull();

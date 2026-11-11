@@ -1,0 +1,54 @@
+{
+  "assets": [
+    {
+      "createdAt": "2026-11-10T21:46:43.044Z",
+      "id": "stone-lantern",
+      "kind": "prop",
+      "name": "Stone lantern",
+      "origin": null,
+      "refs": [],
+      "stage": "blender",
+      "status": "queued",
+      "thumbnail": null,
+      "updatedAt": "2026-11-10T21:46:43.255Z",
+      "versions": [
+        {
+          "createdAt": "2026-11-10T21:46:43.108Z",
+          "file": "models/stone_lantern_v1.glb",
+          "stats": {
+            "animations": 0,
+            "bytes": 39612.0,
+            "joints": 0,
+            "maxTexture": 64,
+            "textures": 3,
+            "triangles": 12
+          },
+          "version": 1
+        },
+        {
+          "createdAt": "2026-11-10T21:46:43.178Z",
+          "file": "models/stone_lantern_v2.glb",
+          "stats": {
+            "animations": 0,
+            "bytes": 3768.0,
+            "joints": 0,
+            "maxTexture": 0,
+            "textures": 0,
+            "triangles": 36
+          },
+          "version": 2
+        }
+      ]
+    }
+  ],
+  "createdAt": "2026-11-10T21:46:43.038Z",
+  "game": null,
+  "id": "moon-island",
+  "name": "Moon Island",
+  "siteRepo": null,
+  "siteRepoName": null,
+  "sourceFolder": null,
+  "target": "website",
+  "template": "floating-diorama",
+  "version": 1
+}

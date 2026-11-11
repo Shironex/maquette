@@ -28,14 +28,14 @@ export default function WaitingSends() {
           variant="ghost"
           icon="folder-open"
           tooltip="Opens the handoff folder with its refs and settings card"
-          onClick={() => void openHandoff(j.id)}
+          onClick={() => void openHandoff(j)}
         >
           Open handoff
         </Button>
         <Button
           size="sm"
           tooltip="Stops waiting for this model; nothing was spent"
-          onClick={() => void cancel(j.id)}
+          onClick={() => void cancel(j)}
         >
           Stop waiting
         </Button>

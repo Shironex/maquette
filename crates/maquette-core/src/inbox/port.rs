@@ -51,6 +51,10 @@ impl SendLinked for InboxItem {
         self.link = Some(link);
     }
 
+    fn modified_ms(&self) -> Option<f64> {
+        Some(self.modified_ms)
+    }
+
     fn apply_send(
         &mut self,
         kind: AssetKind,

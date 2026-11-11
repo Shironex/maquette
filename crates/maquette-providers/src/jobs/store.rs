@@ -7,8 +7,8 @@ use std::path::Path;
 
 use super::spend;
 use super::{
-    CLOSED_WHILE_SENDING, Entry, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
-    ProviderEvent, Saving, Shared, Stored, Workspace, snapshot,
+    CLOSED_WHILE_SENDING, Entry, FILE_VERSION, JOBS_FILE, JobKey, JobState, JobsFile,
+    KEEP_FINISHED, ProviderEvent, Saving, Shared, Stored, Workspace, snapshot,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
@@ -166,45 +166,50 @@ fn write_project(root: &Path, dir: &Path, mut mine: Vec<Stored>) {
     }
 }
 
-/// Changes one job, saves it when `save` and tells the UI.
+/// Changes the job `key` names, saves it when `save` and tells the UI.
 pub(super) fn update(
     shared: &Shared,
-    id: &str,
+    key: &JobKey,
     save: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
-    update_with(shared, id, save, true, change)
+    update_with(shared, key, save, true, change)
 }
 
 /// [`update`], writing the credits ledger line the change calls for only
 /// when `spend`.
 pub(super) fn update_with(
     shared: &Shared,
-    id: &str,
+    key: &JobKey,
     save: bool,
     spend: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
-    change_job(shared, None, id, save, spend, change)
+    change_job(shared, None, key, save, spend, change)
 }
 
 /// [`update`] for a job thread or bake started under workspace
 /// `generation`: refused once that workspace has closed, so it never
-/// changes a job of the next one that has the same id.
+/// changes a job of the next one that has the same project and id.
 pub(super) fn update_in(
     shared: &Shared,
     generation: u64,
-    id: &str,
+    key: &JobKey,
     save: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
-    change_job(shared, Some(generation), id, save, true, change)
+    change_job(shared, Some(generation), key, save, true, change)
+}
+
+/// How a job that is not there reads.
+pub(super) fn no_job(project: &str, id: &str) -> CoreError {
+    CoreError::NotFound(format!("the job {id} in {project}"))
 }
 
 fn change_job(
     shared: &Shared,
     generation: Option<u64>,
-    id: &str,
+    key: &JobKey,
     save: bool,
     spend: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
@@ -222,8 +227,8 @@ fn change_job(
         }
         let entry = jobs
             .iter_mut()
-            .find(|e| e.stored.job.id == id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+            .find(|e| e.is(&key.project, &key.id))
+            .ok_or_else(|| no_job(&key.project, &key.id))?;
         let before = spend::before(&entry.stored);
         change(&mut entry.stored)?;
         let job = snapshot(&entry.stored);

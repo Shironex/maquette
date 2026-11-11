@@ -11,7 +11,7 @@ export interface HandBackButtonsProps {
 
 /** Add model... and Check Downloads, for a send waiting for its model. */
 export default function HandBackButtons({ job, size, downloads = true }: HandBackButtonsProps) {
-  const { addModel, checkDownloads, busy } = useHandBack(job.id);
+  const { addModel, checkDownloads, busy } = useHandBack(job);
   return (
     <>
       <Button
@@ -21,7 +21,7 @@ export default function HandBackButtons({ job, size, downloads = true }: HandBac
         loading={busy}
         disabled={busy}
         tooltip="Choose the GLB, or the .zip the site downloads, that you made for this send"
-        onClick={() => void addModel(job.id)}
+        onClick={() => void addModel(job)}
       >
         Add model...
       </Button>

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use maquette_core::inbox;
 use maquette_core::providers::{
-    BatchItem, BatchRequest, JobState, PresetVariant, Provider, ProviderId, ProviderJob,
+    BatchItem, BatchRequest, JobKey, JobState, PresetVariant, Provider, ProviderId, ProviderJob,
     SendRequest, StudioChoice,
 };
 use rmcp::handler::server::wrapper::Parameters;
@@ -80,12 +80,14 @@ fn record(host: &dyn Host, id: &str) -> Result<ProviderJob, ToolError> {
             "{id} did not come from a send, so there are no settings to repeat. Use send_to_3d."
         )
     })?;
+    // The link names the send by its project and id: the id alone could be
+    // another project's send.
     host.studio()
-        .get(&link.job)
+        .get(&link.project, &link.job)
         .ok_or_else(|| {
             format!(
-                "The send {} behind {id} is no longer on record. Use send_to_3d.",
-                link.job
+                "The send {} of {} behind {id} is no longer on record. Use send_to_3d.",
+                link.job, link.project
             )
         })
         .map_err(ToolError::from)
@@ -284,7 +286,7 @@ impl McpTools {
                 Arc::clone(&self.host),
                 Arc::clone(&self.hub),
                 approval,
-                vec![job.id.clone()],
+                vec![JobKey::of(&job)],
             );
         }
         let mut out = job_value(&self.hub, &job);
@@ -313,7 +315,7 @@ impl McpTools {
                     .cloned()
                     .collect();
                 let pending = hub.request_batch(&waiting);
-                let ids = waiting.into_iter().map(|j| j.id).collect::<Vec<_>>();
+                let ids = waiting.iter().map(JobKey::of).collect::<Vec<_>>();
                 Ok((sent, pending, ids))
             })
             .await;

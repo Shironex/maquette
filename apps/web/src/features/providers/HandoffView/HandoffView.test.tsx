@@ -28,7 +28,7 @@ describe('the by hand settings card', () => {
     expect(screen.getAllByText(lanterns.card!.exportName ?? '')).toHaveLength(2);
     expect(screen.getByText('Ultra Mesh Quality')).toBeInTheDocument();
     expect(screen.queryByText('Face limit')).toBeNull();
-    expect(lanterns.card!.exportName).toMatch(/^maq_guardian-statues_v\d+_tripo$/);
+    expect(lanterns.card!.exportName).toMatch(/^maq_frostveil_guardian-statues_v\d+_tripo$/);
     expect(screen.getByText('30 credits')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy The export name' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy prompt' })).toBeNull();
@@ -44,8 +44,9 @@ describe('the by hand settings card', () => {
     const images = screen.getByText(lanterns.card!.images[0]!).closest('li')!;
     await userEvent.click(within(images).getByRole('button', { name: 'Reveal image in Finder' }));
     expect(sent('provider_open_site')).toHaveLength(1);
-    expect(sent('provider_open_handoff')).toHaveLength(1);
-    expect(sent('provider_reveal_image')).toHaveLength(1);
+    const mine = { project: 'frostveil', id: lanterns.id };
+    expect(sent('provider_open_handoff')).toEqual([mine]);
+    expect(sent('provider_reveal_image')).toEqual([{ ...mine, image: 'front.png' }]);
   });
 
   it('copies the prompt in one click when the send has one', async () => {

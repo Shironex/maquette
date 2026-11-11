@@ -2,9 +2,10 @@
 //! the input images named by view and a settings card (`settings.md` and
 //! `settings.json`) listing the exact values to enter in the service's web
 //! app, and `send.json`, a sidecar that names the send and the file name to
-//! export as (`maq_<asset>_v<n>_<provider>`, see [`super::naming`]). The
-//! model comes back through the Downloads watcher, Add model, a drop on the
-//! asset's card, or saved into the inbox under that name.
+//! export as (`maq_<project>_<asset>_v<n>_<provider>`, see
+//! [`super::naming`]). The model comes back through the Downloads watcher,
+//! Add model, a drop on the asset's card, or saved into the inbox under
+//! that name.
 
 pub mod options;
 pub mod sidecar;
@@ -54,7 +55,9 @@ pub struct HandoffCard {
     /// The name to give the GLB when saving it into the inbox.
     pub return_name: String,
     /// The name to export as on the site, without an extension:
-    /// `maq_<asset>_v<n>_<provider>`.
+    /// `maq_<project>_<asset>_v<n>_<provider>`, or without the project on a
+    /// card from before it was part of the name. It is what the send waits
+    /// for, so it never changes once the card is written.
     #[serde(default)]
     pub export_name: String,
     /// About what the site charges for it, from a subscription.
@@ -230,7 +233,7 @@ pub struct Handoff<'a> {
 impl Handoff<'_> {
     pub fn card(&self) -> HandoffCard {
         let multi = self.images.len() >= 2;
-        let export_name = export_stem(self.id, self.asset, self.service);
+        let export_name = export_stem(self.project, self.id, self.asset, self.service);
         let (rows, mode) = match self.service {
             ProviderId::Tripo => {
                 let preset = self.tripo.cloned().unwrap_or_else(TripoPreset::prop);

@@ -1,6 +1,6 @@
 import type { ProviderJob, SendOptions, SendRequest } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
-import { promptFor, type SendDraft } from './providers';
+import { promptFor, sameJob, type SendDraft } from './providers';
 import { studioDefaults } from './studio';
 import type { Panel, ProvidersStore } from './providers-store.types';
 
@@ -8,7 +8,7 @@ export const notify = (status: 'done' | 'failed' | 'info', title: string, detail
   useAppStore.getState().notify({ status, title, detail });
 
 export function upsert(jobs: readonly ProviderJob[], job: ProviderJob): ProviderJob[] {
-  const at = jobs.findIndex(j => j.id === job.id);
+  const at = jobs.findIndex(j => sameJob(j, job));
   if (at < 0) return [...jobs, job];
   const next = [...jobs];
   next[at] = job;

@@ -161,16 +161,20 @@ impl World {
     }
 }
 
-fn finished(jobs: &ProviderJobs, id: &str) -> ProviderJob {
+/// Waits until `sent` is over and answers it as it is then. A job is told
+/// by its project and its id.
+fn finished(jobs: &ProviderJobs, sent: &ProviderJob) -> ProviderJob {
     let end = std::time::Instant::now() + WAIT;
     loop {
-        let job = jobs.get(id).expect("job");
+        let job = jobs.get(&sent.project, &sent.id).expect("job");
         if !matches!(job.state, JobState::Queued | JobState::Running) {
             return job;
         }
         assert!(
             std::time::Instant::now() < end,
-            "job {id} did not finish: {job:?}"
+            "job {} of {} did not finish: {job:?}",
+            sent.id,
+            sent.project
         );
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -298,7 +302,7 @@ fn tripo_success_lands_in_the_inbox_linked_to_the_asset() {
         )
         .expect("send");
     assert_eq!(job.id, format!("{}-1", world.asset));
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(done.credits, Some(30.0));
     assert_eq!(done.inbox_file.as_deref(), Some("stone-lantern-1.glb"));
@@ -348,7 +352,7 @@ fn tripo_failure_fails_the_job_and_the_asset() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Failed);
     assert_eq!(
         done.message.as_deref(),
@@ -372,7 +376,7 @@ fn an_expired_download_link_is_fetched_again_from_the_task() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(server.count("GET", "/dl/old.glb"), 1);
     assert_eq!(fake.downloads.load(Ordering::SeqCst), 1);
@@ -399,7 +403,7 @@ fn out_of_credits_says_so() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &tripo.id);
+    let done = finished(&jobs, &tripo);
     assert_eq!(done.state, JobState::Failed);
     assert!(
         done.message
@@ -414,7 +418,7 @@ fn out_of_credits_says_so() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &meshy.id);
+    let done = finished(&jobs, &meshy);
     assert!(
         done.message
             .as_deref()
@@ -446,7 +450,7 @@ fn rate_limits_back_off_with_retry_after_then_give_up() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(server.count("POST", "/generation/image-to-model"), 3);
 
@@ -463,7 +467,7 @@ fn rate_limits_back_off_with_retry_after_then_give_up() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Failed);
     assert!(
         done.message
@@ -490,7 +494,7 @@ fn tripo_characters_check_rig_and_retarget() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(done.credits, Some(65.0));
     let create = server
@@ -533,7 +537,7 @@ fn an_unriggable_character_arrives_without_a_rig() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox);
     assert!(
         done.message
@@ -563,7 +567,11 @@ fn a_restart_resumes_polling_without_sending_again() {
         )
         .expect("send");
     let end = std::time::Instant::now() + WAIT;
-    while first.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while first
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         assert!(std::time::Instant::now() < end, "never sent");
         std::thread::sleep(Duration::from_millis(5));
     }
@@ -575,7 +583,7 @@ fn a_restart_resumes_polling_without_sending_again() {
 
     hold.store(false, Ordering::SeqCst);
     let second = world.jobs(&server);
-    let done = finished(&second, &job.id);
+    let done = finished(&second, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(server.count("POST", "/generation/image-to-model"), 1);
     assert_eq!(server.count("POST", "/files"), 1);
@@ -611,14 +619,14 @@ fn a_job_cut_off_while_sending_fails_cautiously() {
     fs::write(&path, file.to_string()).expect("write");
 
     let jobs = world.jobs(&server);
-    let cut = jobs.get(&job.id).expect("job");
+    let cut = jobs.get(&job.project, &job.id).expect("job");
     assert_eq!(cut.state, JobState::Failed);
     assert!(
         cut.message
             .as_deref()
             .is_some_and(|m| m.contains("do not pay twice"))
     );
-    let waiting = jobs.get("stone-lantern-9").expect("job");
+    let waiting = jobs.get(&world.project, "stone-lantern-9").expect("job");
     assert_eq!(waiting.state, JobState::Failed);
     assert!(
         waiting
@@ -720,7 +728,7 @@ fn meshy_success_and_the_rigging_chain() {
             false,
         )
         .expect("send");
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(done.credits, Some(25.0));
     let create = server.find("POST", "/multi-image-to-3d").expect("create");
@@ -753,12 +761,19 @@ fn meshy_cancels_while_pending_and_says_plainly_when_it_cannot() {
         )
         .expect("send");
     let end = std::time::Instant::now() + WAIT;
-    while jobs.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         assert!(std::time::Instant::now() < end, "never sent");
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert_eq!(jobs.get(&job.id).expect("job").cancel, CancelMode::Provider);
-    let cancelled = jobs.cancel(&job.id).expect("cancel");
+    assert_eq!(
+        jobs.get(&job.project, &job.id).expect("job").cancel,
+        CancelMode::Provider
+    );
+    let cancelled = jobs.cancel(&job.project, &job.id).expect("cancel");
     assert_eq!(cancelled.state, JobState::Cancelled);
     assert!(
         cancelled
@@ -782,15 +797,19 @@ fn meshy_cancels_while_pending_and_says_plainly_when_it_cannot() {
             false,
         )
         .expect("send");
-    while jobs.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         std::thread::sleep(Duration::from_millis(2));
     }
-    match jobs.cancel(&job.id) {
+    match jobs.cancel(&job.project, &job.id) {
         Err(err) => assert!(err.to_string().contains("cannot be cancelled"), "{err}"),
         // It may have finished first on a fast machine.
         Ok(job) => assert_eq!(job.state, JobState::Inbox),
     }
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox);
 
     // Tripo has no cancel at all once a task is sent.
@@ -805,10 +824,14 @@ fn meshy_cancels_while_pending_and_says_plainly_when_it_cannot() {
             false,
         )
         .expect("send");
-    while jobs.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         std::thread::sleep(Duration::from_millis(2));
     }
-    let err = jobs.cancel(&job.id).expect_err("no cancel");
+    let err = jobs.cancel(&job.project, &job.id).expect_err("no cancel");
     assert!(err.to_string().contains("Tripo cannot cancel"), "{err}");
     jobs.close();
 }
@@ -829,7 +852,7 @@ fn approval_holds_the_job_until_released_and_cancel_before_send_is_free() {
     assert!(job.via_agent);
     std::thread::sleep(Duration::from_millis(50));
     assert_eq!(server.requests().len(), 0, "nothing sent before approval");
-    let cancelled = jobs.cancel(&job.id).expect("cancel");
+    let cancelled = jobs.cancel(&job.project, &job.id).expect("cancel");
     assert_eq!(
         cancelled.message.as_deref(),
         Some("Cancelled. Nothing was spent.")
@@ -849,7 +872,7 @@ fn approval_holds_the_job_until_released_and_cancel_before_send_is_free() {
         job.summary(),
         "Tripo H3.1, 2 images as multi-view, 50,000 faces, rig with Mixamo, 2 animations"
     );
-    let denied = jobs.deny(&job.id).expect("deny");
+    let denied = jobs.deny(&job.project, &job.id).expect("deny");
     assert_eq!(denied.state, JobState::Cancelled);
     assert_eq!(
         denied.message.as_deref(),
@@ -865,12 +888,12 @@ fn approval_holds_the_job_until_released_and_cancel_before_send_is_free() {
         .expect("send");
     assert_eq!(job.id, format!("{}-3", world.asset));
     assert_eq!(job.summary(), "Tripo H3.1, 1 image");
-    jobs.approve(&job.id).expect("approve");
+    jobs.approve(&job.project, &job.id).expect("approve");
     assert!(
-        jobs.deny(&job.id).is_err(),
+        jobs.deny(&job.project, &job.id).is_err(),
         "only a send waiting for approval"
     );
-    assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+    assert_eq!(finished(&jobs, &job).state, JobState::Inbox);
 }
 
 #[test]
@@ -940,7 +963,7 @@ fn by_hand_writes_the_handoff_and_takes_the_model_back() {
     let md = fs::read_to_string(folder.join("settings.md")).expect("md");
     assert!(md.contains("https://www.meshy.ai/workspace"));
     assert!(md.contains("| AI model | Meshy 7.1 |"));
-    assert!(md.contains("maq_stone-lantern_v1_meshy"));
+    assert!(md.contains("maq_moon-island_stone-lantern_v1_meshy"));
     assert!(folder.join("send.json").is_file());
     let card = job.card.clone().expect("card");
     assert_eq!(card.mode, "Multi-image to 3D");
@@ -950,12 +973,14 @@ fn by_hand_writes_the_handoff_and_takes_the_model_back() {
     // Dropping something that is not a GLB is refused.
     let wrong = world.root.join("notes.txt");
     fs::write(&wrong, "hello").expect("write");
-    assert!(jobs.hand_back(&job.id, &wrong).is_err());
+    assert!(jobs.hand_back(&job.project, &job.id, &wrong).is_err());
 
     // A GLB dropped on the card goes to the inbox under the job's name.
     let made = world.root.join("Downloaded model.glb");
     fs::write(&made, fixture::character(false)).expect("write");
-    let back = jobs.hand_back(&job.id, &made).expect("hand back");
+    let back = jobs
+        .hand_back(&job.project, &job.id, &made)
+        .expect("hand back");
     assert_eq!(back.state, JobState::Inbox);
     assert_eq!(back.inbox_file.as_deref(), Some("stone-lantern-1.glb"));
     assert_eq!(world.asset_status().1, AssetStatus::Review);
@@ -997,7 +1022,7 @@ fn by_hand_writes_the_handoff_and_takes_the_model_back() {
         &world.asset,
         result.version.version,
     );
-    let accepted = jobs.get(&job.id).expect("job");
+    let accepted = jobs.get(&job.project, &job.id).expect("job");
     assert_eq!(accepted.state, JobState::Accepted);
     assert_eq!(accepted.version, Some(1));
 }
@@ -1021,10 +1046,10 @@ fn a_model_saved_into_the_inbox_under_the_handoff_name_links_too() {
         items[0].link.as_ref().map(|l| l.job.as_str()),
         Some(job.id.as_str())
     );
-    let job = jobs.get(&job.id).expect("job");
+    let job = jobs.get(&job.project, &job.id).expect("job");
     assert_eq!(job.state, JobState::Inbox);
     assert_eq!(job.inbox_file.as_deref(), Some("Stone_Lantern_1_final.glb"));
-    let stop = jobs.cancel(&job.id);
+    let stop = jobs.cancel(&job.project, &job.id);
     assert!(stop.is_err(), "an arrived model has nothing to cancel");
 }
 
@@ -1282,7 +1307,9 @@ fn a_by_hand_batch_writes_one_handoff_per_asset() {
         writer.write_all(&fixture::character(false)).expect("write");
         writer.finish().expect("finish");
     }
-    let back = jobs.hand_back(&sent.jobs[1].id, &zip).expect("zip back");
+    let back = jobs
+        .hand_back(&world.project, &sent.jobs[1].id, &zip)
+        .expect("zip back");
     assert_eq!(back.state, JobState::Inbox);
     assert_eq!(back.inbox_file.as_deref(), Some("plaster-plinth-1.glb"));
     assert!(zip.is_file(), "the download stays where it was");
@@ -1324,10 +1351,10 @@ fn an_api_batch_is_checked_whole_and_waits_for_one_approval() {
     std::thread::sleep(Duration::from_millis(50));
     assert_eq!(server.requests().len(), 0, "nothing sent before approval");
     for job in &sent.jobs {
-        jobs.approve(&job.id).expect("approve");
+        jobs.approve(&job.project, &job.id).expect("approve");
     }
     for job in &sent.jobs {
-        assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+        assert_eq!(finished(&jobs, job).state, JobState::Inbox);
     }
 }
 
@@ -1348,7 +1375,11 @@ fn check_downloads_offers_the_waiting_sends_of_the_project() {
     assert_eq!(scan.files.len(), 1);
     assert_eq!(scan.files[0].job.as_deref(), Some(sent.jobs[0].id.as_str()));
     let back = jobs
-        .hand_back(&sent.jobs[0].id, std::path::Path::new(&scan.files[0].path))
+        .hand_back(
+            &world.project,
+            &sent.jobs[0].id,
+            std::path::Path::new(&scan.files[0].path),
+        )
         .expect("confirm");
     assert_eq!(back.state, JobState::Inbox);
     assert!(
@@ -1389,7 +1420,7 @@ fn a_copied_asset_takes_its_finished_sends_along() {
     let mut request = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
     request.service = ProviderId::Meshy;
     let stopped = jobs.send(&request, true, false).expect("send");
-    jobs.cancel(&stopped.id).expect("cancel");
+    jobs.cancel(&stopped.project, &stopped.id).expect("cancel");
     let waiting = jobs.send(&request, true, false).expect("send again");
     assert_eq!(waiting.state, JobState::Waiting);
 
@@ -1427,8 +1458,8 @@ fn a_copied_asset_takes_its_finished_sends_along() {
 
     let theirs = jobs.list(Some(&landing.id));
     assert_eq!(theirs.len(), 1);
-    // Ids are unique across the workspace: the copy takes the next free one.
-    assert_eq!(theirs[0].id, "stone-lantern-3");
+    // The copy is a send of its new project, numbered there: its first.
+    assert_eq!(theirs[0].id, "stone-lantern-1");
     assert_eq!(theirs[0].asset, copied.asset.id);
     assert_eq!(theirs[0].state, JobState::Cancelled);
     assert_eq!(theirs[0].images, vec!["refs/front.png"]);
@@ -1476,7 +1507,7 @@ fn a_paid_send_goes_into_the_credits_ledger_with_what_it_cost() {
     assert_eq!(jobs.estimate(&request).expect("estimate"), Some(30.0));
     let job = jobs.send(&request, false, false).expect("send");
     assert_eq!(job.estimate, Some(30.0));
-    assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+    assert_eq!(finished(&jobs, &job).state, JobState::Inbox);
 
     // By hand is written as subscription spend, apart from the API's.
     let by_hand = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
@@ -1521,7 +1552,7 @@ fn a_failed_or_refunded_send_is_charged_nothing() {
     let jobs = world.jobs(&server);
     let request = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
     let job = jobs.send(&request, false, false).expect("send");
-    assert_eq!(finished(&jobs, &job.id).state, JobState::Failed);
+    assert_eq!(finished(&jobs, &job).state, JobState::Failed);
     let spend = settled(&jobs, 1).spends[0].clone();
     assert_eq!(spend.outcome, SpendOutcome::Failed);
     assert_eq!(spend.credits, 0.0);
@@ -1532,11 +1563,15 @@ fn a_failed_or_refunded_send_is_charged_nothing() {
     let request = world.request(Provider::Meshy, PresetVariant::Prop, &["front.png"]);
     let job = jobs.send(&request, false, false).expect("send");
     let end = std::time::Instant::now() + WAIT;
-    while jobs.get(&job.id).and_then(|j| j.remote_id).is_none() {
+    while jobs
+        .get(&job.project, &job.id)
+        .and_then(|j| j.remote_id)
+        .is_none()
+    {
         assert!(std::time::Instant::now() < end, "never sent");
         std::thread::sleep(Duration::from_millis(5));
     }
-    jobs.cancel(&job.id).expect("cancel");
+    jobs.cancel(&job.project, &job.id).expect("cancel");
     let ledger = settled(&jobs, 2);
     let spend = ledger
         .spends
@@ -1557,7 +1592,7 @@ fn an_approval_that_is_denied_never_reaches_the_ledger() {
     let job = jobs.send(&request, true, true).expect("send");
     assert_eq!(job.state, JobState::Approval);
     assert_eq!(world.asset_status(), (Stage::Tripo, AssetStatus::Queued));
-    let denied = jobs.deny(&job.id).expect("deny");
+    let denied = jobs.deny(&job.project, &job.id).expect("deny");
     assert!(denied.denied, "the card can say it was denied");
     assert_eq!(
         world.asset_status().0,
@@ -1569,7 +1604,7 @@ fn an_approval_that_is_denied_never_reaches_the_ledger() {
 
     // A cancel is no deny: the card stays where the send put it.
     let job = jobs.send(&request, true, true).expect("send again");
-    let cancelled = jobs.cancel(&job.id).expect("cancel");
+    let cancelled = jobs.cancel(&job.project, &job.id).expect("cancel");
     assert!(!cancelled.denied);
     assert_eq!(world.asset_status().0, Stage::Tripo);
 }
@@ -1586,7 +1621,7 @@ fn a_redo_sends_the_asset_again_as_a_new_version_and_says_so() {
             false,
         )
         .expect("send");
-    assert_eq!(finished(&jobs, &first.id).state, JobState::Inbox);
+    assert_eq!(finished(&jobs, &first).state, JobState::Inbox);
 
     let mut redo = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
     redo.redo_of = Some("stone-lantern-9".into());
@@ -1597,7 +1632,7 @@ fn a_redo_sends_the_asset_again_as_a_new_version_and_says_so() {
     let second = jobs.send(&redo, false, false).expect("redo");
     assert_eq!(second.id, format!("{}-2", world.asset));
     assert_eq!(second.redo_of.as_deref(), Some(first.id.as_str()));
-    assert_eq!(finished(&jobs, &second.id).state, JobState::Inbox);
+    assert_eq!(finished(&jobs, &second).state, JobState::Inbox);
 
     // Both models wait side by side; the new one names the send it redid.
     let mut items = inbox::list(&world.root, &world.config).expect("inbox");
@@ -1629,7 +1664,7 @@ fn the_texture_prompt_goes_to_meshy_and_tripo_refuses_one() {
         job.prompt.as_deref(),
         Some("weathered granite, moss in the cracks")
     );
-    assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+    assert_eq!(finished(&jobs, &job).state, JobState::Inbox);
     let body = server.find("POST", "/image-to-3d").expect("create").json();
     assert_eq!(
         body["texture_prompt"],

@@ -2,8 +2,10 @@
 //! model, a new `.glb`, `.fbx` or `.zip` in the watched folder (Downloads by
 //! default, set in Settings, with an off switch) is measured until it is
 //! whole, hashed so it is taken once and matched to its send. A file named
-//! for its send (the export name) is copied into the inbox, where the usual
-//! checks run. A file that only looks like one send's (a close name, or the
+//! for its send (the export name it was handed out with, which carries the
+//! project) is copied into the inbox, where the usual checks run. Sends of
+//! every project wait together, so a send is always told by its project
+//! and its id. A file that only looks like one send's (a close name, or the
 //! only send waiting) waits for a look, and a file it cannot place waits
 //! for "Which asset is this?". Either way a person (or an agent, by an
 //! explicit call) attaches it to an asset or leaves it.
@@ -92,7 +94,7 @@ pub struct Arrival {
     pub at_ms: f64,
     pub state: ArrivalState,
     /// The send it went to, or, while it waits for a look, the one it
-    /// looks like.
+    /// looks like: its id in `project`.
     pub job: Option<String>,
     pub project: Option<String>,
     /// The asset id, with `asset_name`.
@@ -135,6 +137,7 @@ pub enum PictureState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingHandoff {
+    /// The send's id in `project`.
     pub job: String,
     pub project: String,
     pub asset: String,
@@ -232,10 +235,7 @@ fn pending(job: &ProviderJob) -> PendingHandoff {
         asset: job.asset.clone(),
         asset_name: job.asset_name.clone(),
         service: job.service,
-        expected_name: card
-            .map(|c| c.export_name.clone())
-            .filter(|n| !n.is_empty())
-            .unwrap_or_else(|| super::naming::export_stem(&job.id, &job.asset, job.service)),
+        expected_name: job.export_name().unwrap_or_default(),
         handoff: job.handoff.clone(),
         image: job.images.first().cloned(),
         credits: card.and_then(|c| c.credits),
@@ -398,7 +398,7 @@ impl Arrivals {
         // A recipe bake's mark fails it: it becomes a version only by review.
         let path = Path::new(&arrival.path);
         let handed = crate::own_file::not_a_bake(path)
-            .and_then(|()| self.inner.studio.hand_back(&job.id, path));
+            .and_then(|()| self.inner.studio.hand_back(&job.project, &job.id, path));
         match handed {
             Ok(done) => {
                 arrival.state = ArrivalState::Imported;
@@ -468,13 +468,13 @@ impl Arrivals {
             render: None,
         };
         let arrival = match matching::decide(&name, inner_name.as_deref(), modified, &waiting) {
-            Verdict::Exact { id, reason } => {
-                let job = waiting.iter().find(|j| j.id == id)?;
+            Verdict::Exact { job, reason } => {
+                let job = waiting.iter().find(|j| job.is(j))?;
                 self.import(Arrival { reason, ..arrival }, &hash, job)
             }
             // A guess never lands by itself: it waits for a look.
-            Verdict::Close { id, reason } => {
-                let job = waiting.iter().find(|j| j.id == id)?;
+            Verdict::Close { job, reason } => {
+                let job = waiting.iter().find(|j| job.is(j))?;
                 let mut arrival = Arrival {
                     state: ArrivalState::Review,
                     reason,

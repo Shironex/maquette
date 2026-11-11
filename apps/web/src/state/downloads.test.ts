@@ -7,6 +7,7 @@ import {
   assetChoices,
   lookingArrivals,
   otherSuggestions,
+  pointsAt,
   shownSuggestion,
   suggestionLabel,
   waitingArrivals,
@@ -144,12 +145,33 @@ describe('Downloads watcher words', () => {
       suggestion('lantern', 0.4, null),
       suggestion('cup', 0.2, 0.2),
     ];
-    const look = arrival({ state: 'review', job: 'lantern-1', suggestions: ranks });
+    const look = arrival({
+      state: 'review',
+      job: 'lantern-1',
+      project: 'moon',
+      suggestions: ranks,
+    });
     expect(shownSuggestion(look)?.asset).toBe('lantern');
     expect(otherSuggestions(look).map(s => s.asset)).toEqual(['crate', 'cup']);
     expect(suggestionLabel(ranks[1]!)).toBe('Name only');
     expect(shownSuggestion(arrival({ suggestions: ranks }))?.asset).toBe('crate');
     expect(shownSuggestion(arrival())).toBeNull();
+  });
+
+  it('tells two projects sends of one id apart', () => {
+    // Both projects wait for their first lantern: one id, two sends.
+    const theirs = { ...suggestion('lantern', 0.9, 0.9), project: 'bay' };
+    const mine = suggestion('lantern', 0.5, 0.5);
+    const look = arrival({
+      state: 'review',
+      job: 'lantern-1',
+      project: 'moon',
+      suggestions: [theirs, mine],
+    });
+    expect(pointsAt(look, mine)).toBe(true);
+    expect(pointsAt(look, theirs)).toBe(false);
+    expect(shownSuggestion(look)).toBe(mine);
+    expect(otherSuggestions(look)).toEqual([theirs]);
   });
 
   it('asks for a look at a close name before anything goes in', () => {

@@ -36,7 +36,7 @@ fn a_create_that_cannot_connect_fails_saying_why_and_that_nothing_was_sent() {
             false,
         )
         .expect("send");
-    let failed = finished(&jobs, &job.id);
+    let failed = finished(&jobs, &job);
     assert_eq!(failed.state, JobState::Failed);
     let message = failed.message.unwrap_or_default();
     assert!(message.contains("tcp connect error"), "{message}");
@@ -78,7 +78,7 @@ fn a_create_goes_out_once_the_connection_comes_back() {
     });
     let handler = Arc::clone(&fake);
     let server = FakeServer::start_at(&addr, move |base, req| handler.handle(base, req));
-    let done = finished(&jobs, &job.id);
+    let done = finished(&jobs, &job);
     assert_eq!(done.state, JobState::Inbox, "{done:?}");
     assert_eq!(server.count("POST", "/image-to-3d"), 1, "created once");
 }
@@ -97,7 +97,7 @@ fn an_answer_that_never_came_keeps_the_send_in_flight_and_says_to_check() {
             false,
         )
         .expect("send");
-    let failed = finished(&jobs, &job.id);
+    let failed = finished(&jobs, &job);
     assert_eq!(failed.state, JobState::Failed);
     let message = failed.message.unwrap_or_default();
     assert!(message.contains("do not pay twice"), "{message}");

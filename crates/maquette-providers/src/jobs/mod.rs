@@ -6,12 +6,18 @@
 //! Jobs are saved per project in `projects/<p>/providers.json` with every
 //! remote task id, so a job sent before the app closed resumes polling the
 //! next time the workspace opens instead of paying again.
+//!
+//! A job is named by its project and its id ([`JobKey`]): ids are numbered
+//! per project (see [`ids`]), so every call that means one job takes both.
 
 mod cancel;
 mod credits;
 mod ids;
+#[cfg(test)]
+mod key_tests;
 mod landed;
 mod model;
+mod owner;
 mod records;
 mod remote;
 mod request;
@@ -37,7 +43,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use super::http::{ApiError, StopFlag, Timing};
+use super::http::{ApiError, Timing};
 use super::meshy;
 use super::presets::{MeshyTexture, ProviderId, TripoTextureQuality};
 use super::secrets::SecretStore;
@@ -47,6 +53,7 @@ use maquette_model::project;
 use maquette_model::sends::{SendNotes, SendPorts, SentMaps, SentTo};
 use maquette_model::workspace::WorkspaceConfig;
 
+pub use ids::JobKey;
 pub use model::{
     BakeBack, BakeState, CancelMode, InboxLink, JobPhase, JobState, Provider, ProviderEvent,
     ProviderJob, RetextureJob, SplitJob,
@@ -58,7 +65,9 @@ pub use split::{SplitRequest, SplitSource};
 
 use model::{Chain, JobsFile, Stored};
 use shared::{Entry, Saving, Shared, Workspace};
-use store::{load, persist, resume_fixup, touch_asset, touch_in, update, update_in, update_with};
+use store::{
+    load, no_job, persist, resume_fixup, touch_asset, touch_in, update, update_in, update_with,
+};
 use worker::pump;
 
 pub const JOBS_FILE: &str = "providers.json";
@@ -271,36 +280,26 @@ impl ProviderJobs {
             let Ok(dir) = workspace.project_dir(&manifest.id) else {
                 continue;
             };
-            let (saved, older) = load(root, &dir);
-            if older {
-                touched.push(manifest.id.clone());
-            }
-            for mut stored in saved {
+            let (mut saved, mut changed) = load(root, &dir);
+            for stored in &mut saved {
                 // A job belongs to the project whose folder holds it, also
                 // in a project folder copied by hand.
                 let moved = stored.job.project != manifest.id;
                 stored.job.project.clone_from(&manifest.id);
-                let baking = split_bake::resume(&mut stored);
-                if resume_fixup(&mut stored) || moved || baking {
-                    touched.push(manifest.id.clone());
-                }
-                loaded.push(stored);
+                let baking = split_bake::resume(stored);
+                changed |= resume_fixup(stored) || moved || baking;
             }
+            // Ids are kept as they were saved, whichever numbering made
+            // them: another project may hold the same one. Only inside one
+            // project must each be a job of its own.
+            changed |= ids::make_unique(&mut saved, &ids::handoff_names(&dir));
+            if changed {
+                touched.push(manifest.id.clone());
+            }
+            loaded.extend(saved);
         }
-        touched.extend(ids::make_unique(&mut loaded, |project, id| {
-            workspace
-                .project_dir(project)
-                .is_ok_and(|dir| dir.join(super::handoff::HANDOFF_DIR).join(id).exists())
-        }));
         let mut jobs = self.shared.jobs();
-        jobs.extend(loaded.into_iter().map(|stored| Entry {
-            stored,
-            stop: Arc::new(StopFlag::default()),
-            thread: false,
-            cancelled: false,
-        }));
-        touched.sort();
-        touched.dedup();
+        jobs.extend(loaded.into_iter().map(Entry::new));
         for project in touched {
             persist(&self.shared, &saving, &jobs, &project);
         }
@@ -369,12 +368,34 @@ impl ProviderJobs {
             .collect()
     }
 
-    pub fn get(&self, id: &str) -> Option<ProviderJob> {
+    /// The job `id` of `project`.
+    pub fn get(&self, project: &str, id: &str) -> Option<ProviderJob> {
+        self.stored(project, id).map(|stored| snapshot(&stored))
+    }
+
+    /// [`ProviderJobs::get`], or the error that says it is not there.
+    fn job(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
+        self.get(project, id).ok_or_else(|| no_job(project, id))
+    }
+
+    /// The job `id` of `project` as it is saved.
+    fn stored(&self, project: &str, id: &str) -> Option<Stored> {
         self.shared
             .jobs()
             .iter()
-            .find(|e| e.stored.job.id == id)
+            .find(|e| e.is(project, id))
+            .map(|e| e.stored.clone())
+    }
+
+    /// Every job with the id `id`, whichever project it is in: for a caller
+    /// that was given an id alone and has to say which projects it names.
+    pub fn with_id(&self, id: &str) -> Vec<ProviderJob> {
+        self.shared
+            .jobs()
+            .iter()
+            .filter(|e| e.stored.job.id == id)
             .map(|e| snapshot(&e.stored))
+            .collect()
     }
 
     /// Blocks until no job is queued or running, or `timeout` passes. For

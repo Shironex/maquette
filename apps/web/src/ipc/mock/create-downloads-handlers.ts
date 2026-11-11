@@ -20,7 +20,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { expand, fail, type Args } from './backend-options';
 import { DEFAULT_ROOT, HOME } from './fixtures';
-import { exportName } from './handoff-card';
+import { exportName } from './export-name';
 import { thumbsDir } from './inbox-fixtures';
 
 const DOWNLOADS = `${HOME}/Downloads`;
@@ -132,7 +132,7 @@ export function createDownloadsHandlers({
   });
 
   const take = (base: Arrival, job: ProviderJob, reason: string): Arrival => {
-    handBack({ id: job.id, file: base.path });
+    handBack({ project: job.project, id: job.id, file: base.path });
     return remember({
       ...base,
       state: 'imported',
@@ -225,7 +225,7 @@ export function createDownloadsHandlers({
     const target =
       (project(projectId).assets ?? []).find(a => a.id === assetId) ??
       fail('not-found', `Could not find the asset ${assetId}.`);
-    if (job) handBack({ id: job.id, file: found.path });
+    if (job) handBack({ project: job.project, id: job.id, file: found.path });
     return remember({
       ...found,
       state: 'attached',
@@ -267,7 +267,7 @@ export function createDownloadsHandlers({
       const [job] = waiting()
         .filter(j => j.project === projectId && j.asset === target.id)
         .sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
-      if (job) handBack({ id: job.id, file: String(path) });
+      if (job) handBack({ project: job.project, id: job.id, file: String(path) });
       return {
         inboxFile: job ? `${job.id}.glb` : `download-${target.id}.glb`,
         job: job?.id ?? null,

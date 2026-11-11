@@ -899,10 +899,49 @@ uses.
   the texture is kept and `HighlightsReport.note` says why. The report, `AvatarExport.highlights`
   and the Export panel's Last export show the mode and each image's coverage.
 
+## Send ids
+
+A send's job id is `<asset>-<n>`, numbered per project (`providers/jobs/ids.rs`): one past the highest
+number the project has on record for the asset, in its job records and its handoff folders. Two
+projects can hold the same id, so nothing looks a job up by id alone. `ProviderJobs` takes
+`(project, id)` (a `JobKey` where a key is kept: the job threads, the scheduled bakes, the watcher's
+verdicts, the MCP approval waits), the Tauri commands and the web store pass both, and
+`Hub::pending_for_job` matches the project and the approval kind.
+
+- **Saved jobs.** `providers.json` stays version 1, since an older Maquette ignores a newer file
+  and then saves its own list over it. Each record a new send writes carries `"scope": "project"`.
+  A record without it is from the numbering across the workspace: it keeps its id, its handoff
+  folder and the export name on its card, and is written back as it was read. Ids are only made
+  unique inside one project (`ids::make_unique`), for a file two computers saved at once.
+- **Names.** `providers/naming.rs` writes `maq_<project>_<asset>_v<n>_<provider>` and reads that and
+  the older `maq_<asset>_v<n>_<provider>`. A part holds only lower case letters, digits and `-`,
+  so `_` always separates: the provider is the last word, and one part or two before `_v<n>` tell
+  the forms apart. A project or asset id longer than its cap (24 and 40) or not a plain slug is
+  cut and ends in `--` and six hex characters of its FNV-1a hash. The web mock mirrors the rule in
+  `ipc/mock/export-name.ts`, and both tests pin the same strings.
+- **Inbox.** The inbox is one folder for the workspace and its files are named after job ids.
+  `jobs/owner.rs` finds the job a file belongs to: the one that saved it and is in the Inbox state,
+  else the send that waits for that export name, else the longest job id the name starts with,
+  among sends still waiting or with their model in the inbox (waiting first) that were made before
+  the file was written (with the Downloads watch's one minute of slack). A job that is over, or a
+  send newer than the file, never gets it by its id: another project's send of that id may be gone
+  with its project. Two candidates left means no link. `write_inbox` picks
+  the name and writes under one lock, so two projects' jobs of one id never take the same file.
+- **Files.** A split or re-texture keeps the model it went out with in
+  `<cache>/sends/<project>/<job id>/` (`jobs/split_files.rs`). A job from the older numbering keeps
+  reading `<cache>/splits/<job id>/`; nothing is moved.
+- **Agents.** `get_provider_job` and `cancel_provider_jobs` take `project`. An id that is a send
+  of several projects, given without it, answers code `job-in-several-projects` with the projects
+  and the fix.
+
 ## Downloads matching
 
-`providers/arrivals.rs` is the Downloads watcher. `matching.rs` places a file by its export name
-and suggests a send for a close name or the only send waiting, however late it came. Every other
+`providers/arrivals.rs` is the Downloads watcher. `matching.rs` places a file by the export name its
+send was handed out with (`ProviderJob::export_name`, the name stored on the card: the form with the
+project, or the older one without for a send from before), and only when exactly one waiting send
+expects it. A bare job id places a file only while one waiting send in the workspace has that id. A
+file named for a send that is not waiting is asked about, and fits no other send by its name. It
+suggests a send for a close name or the only send waiting, however late it came. Every other
 download is ranked against all waiting By hand sends: `arrivals/render.rs` queues a headless front
 render of a GLB copy (`render_thumb.py --view front --plain`, transparent ground) on its own runner,
 one at a time and cached by content hash under `<workspace cache>/download-pictures`, and

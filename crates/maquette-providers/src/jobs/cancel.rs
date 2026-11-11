@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use super::{
-    CancelMode, JobState, Provider, ProviderJob, ProviderJobs, Stored, api_key, cancel_mode, pump,
-    settle, update,
+    CancelMode, JobKey, JobState, Provider, ProviderJob, ProviderJobs, Stored, api_key,
+    cancel_mode, no_job, pump, settle, update,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::http::{Api, ApiError, StopFlag};
@@ -37,25 +37,26 @@ pub(super) fn stopped(mode: CancelMode, deny: bool, stored: &Stored) -> (String,
 }
 
 impl ProviderJobs {
-    /// Cancels a job where that is still possible, and says plainly when it
-    /// is not. Meshy is asked over the network, so call it off the UI thread.
-    pub fn cancel(&self, id: &str) -> CoreResult<ProviderJob> {
-        self.stop_job(id, false)
+    /// Cancels the job `id` of `project` where that is still possible, and
+    /// says plainly when it is not. Meshy is asked over the network, so
+    /// call it off the UI thread.
+    pub fn cancel(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
+        self.stop_job(&JobKey::new(project, id), false)
     }
 
     /// Turns down a send an agent asked for. Nothing was sent, so nothing
     /// is spent.
-    pub fn deny(&self, id: &str) -> CoreResult<ProviderJob> {
-        self.stop_job(id, true)
+    pub fn deny(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
+        self.stop_job(&JobKey::new(project, id), true)
     }
 
-    fn stop_job(&self, id: &str, deny: bool) -> CoreResult<ProviderJob> {
+    fn stop_job(&self, key: &JobKey, deny: bool) -> CoreResult<ProviderJob> {
         let (stored, stop) = {
             let jobs = self.shared.jobs();
             let entry = jobs
                 .iter()
-                .find(|e| e.stored.job.id == id)
-                .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+                .find(|e| e.is(&key.project, &key.id))
+                .ok_or_else(|| no_job(&key.project, &key.id))?;
             (entry.stored.clone(), Arc::clone(&entry.stop))
         };
         if deny && stored.job.state != JobState::Approval {
@@ -67,9 +68,9 @@ impl ProviderJobs {
         match mode {
             CancelMode::Provider => {
                 // Marked first, so a poll that sees CANCELED does not fail it.
-                self.mark_cancelled(id, true);
+                self.mark_cancelled(key, true);
                 if let Err(err) = self.cancel_meshy(&stored) {
-                    self.mark_cancelled(id, false);
+                    self.mark_cancelled(key, false);
                     return Err(err);
                 }
             }
@@ -89,9 +90,9 @@ impl ProviderJobs {
             CancelMode::Free | CancelMode::StopWaiting => {}
         }
         let (message, refunded) = stopped(mode, deny, &stored);
-        self.mark_cancelled(id, true);
+        self.mark_cancelled(key, true);
         stop.stop();
-        update(&self.shared, id, true, |stored| {
+        update(&self.shared, key, true, |stored| {
             stored.job.state = JobState::Cancelled;
             stored.chain.refunded = refunded;
             stored.job.finished_at_ms = Some(now_ms());
@@ -99,9 +100,7 @@ impl ProviderJobs {
             stored.job.denied = deny;
             Ok(())
         })?;
-        let job = self
-            .get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+        let job = self.job(&key.project, &key.id)?;
         if deny {
             settle::put_back(&self.shared, &job.project, &job.asset);
         }
@@ -110,9 +109,9 @@ impl ProviderJobs {
         Ok(job)
     }
 
-    fn mark_cancelled(&self, id: &str, cancelled: bool) {
+    fn mark_cancelled(&self, key: &JobKey, cancelled: bool) {
         let mut jobs = self.shared.jobs();
-        if let Some(entry) = jobs.iter_mut().find(|e| e.stored.job.id == id) {
+        if let Some(entry) = jobs.iter_mut().find(|e| e.is(&key.project, &key.id)) {
             entry.cancelled = cancelled;
         }
     }

@@ -335,7 +335,7 @@ export function createBackend({
       project,
       saveProject,
       jobs: providers.jobs,
-      stopJob: id => providers.handlers.provider_cancel?.({ id }),
+      stopJob: (project, id) => providers.handlers.provider_cancel?.({ project, id }),
       activeRun,
     }),
     ...createPipelineHandlers({

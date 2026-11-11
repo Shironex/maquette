@@ -33,7 +33,7 @@ fn removing_an_asset_stops_its_waiting_by_hand_send() {
     let out = &done.outcomes[0];
     assert_eq!(out.state, RemoveState::Removed, "{out:?}");
     assert_eq!(out.stopped, std::slice::from_ref(&waiting.id));
-    let stopped = jobs.get(&waiting.id).expect("job");
+    let stopped = jobs.get(&waiting.project, &waiting.id).expect("job");
     assert_eq!(stopped.state, JobState::Cancelled);
     assert_eq!(
         stopped.message.as_deref(),
@@ -76,7 +76,7 @@ fn a_paid_send_being_made_refuses_the_remove() {
         .expect("send");
     let end = std::time::Instant::now() + WAIT;
     while jobs
-        .get(&job.id)
+        .get(&job.project, &job.id)
         .is_none_or(|j| j.state != JobState::Running)
     {
         assert!(std::time::Instant::now() < end, "never running");
@@ -91,7 +91,10 @@ fn a_paid_send_being_made_refuses_the_remove() {
             .is_some_and(|r| r.contains("Meshy is making the model of Stone lantern now")),
         "{out:?}"
     );
-    assert_eq!(jobs.get(&job.id).expect("job").state, JobState::Running);
+    assert_eq!(
+        jobs.get(&job.project, &job.id).expect("job").state,
+        JobState::Running
+    );
     assert_eq!(done.project.assets.len(), 1);
     assert!(world.project_dir().join("refs/front.png").is_file());
 }

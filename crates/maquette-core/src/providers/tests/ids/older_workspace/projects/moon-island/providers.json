@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "job": {
+        "id": "stone-lantern-1",
+        "project": "moon-island",
+        "asset": "stone-lantern",
+        "assetName": "Stone lantern",
+        "provider": "tripo",
+        "service": "tripo",
+        "variant": "prop",
+        "images": [
+          "refs/front.png"
+        ],
+        "views": [
+          "front"
+        ],
+        "tripo": {
+          "model": "v3.1-20260211",
+          "faceLimit": 0,
+          "texture": true,
+          "pbr": true,
+          "textureQuality": "standard",
+          "geometryQuality": "standard",
+          "smartLowPoly": false,
+          "autoSize": true,
+          "imageAutofix": false,
+          "multiView": false,
+          "rig": false,
+          "rigModel": "v3.0-20260909",
+          "rigSpec": "mixamo",
+          "animations": []
+        },
+        "meshy": null,
+        "state": "accepted",
+        "phase": null,
+        "progress": 1.0,
+        "remoteId": "task_model",
+        "credits": 30.0,
+        "createdAtMs": 1794347203057.0,
+        "startedAtMs": 1794347203063.0,
+        "finishedAtMs": 1794347203101.0,
+        "message": "Accepted as v1",
+        "inboxFile": "stone-lantern-1.glb",
+        "handoff": null,
+        "card": null,
+        "version": 1,
+        "viaAgent": false,
+        "cancel": "free",
+        "batch": null,
+        "prompt": null,
+        "redoOf": null,
+        "estimate": 30.0,
+        "split": null,
+        "studio": null,
+        "retexture": null,
+        "denied": false
+      },
+      "chain": {
+        "sending": true,
+        "modelTask": "task_model",
+        "meshyKind": null,
+        "rigCheckTask": null,
+        "rigType": null,
+        "riggable": null,
+        "rigTask": null,
+        "retargetTask": null,
+        "completeTask": null,
+        "credits": {
+          "task_model": 30.0
+        },
+        "refunded": false
+      }
+    },
+    {
+      "job": {
+        "id": "stone-lantern-3",
+        "project": "moon-island",
+        "asset": "stone-lantern",
+        "assetName": "Stone lantern",
+        "provider": "tripo",
+        "service": "tripo",
+        "variant": "prop",
+        "images": [],
+        "views": [],
+        "tripo": null,
+        "meshy": null,
+        "state": "accepted",
+        "phase": null,
+        "progress": 1.0,
+        "remoteId": "task_seg",
+        "credits": 40.0,
+        "createdAtMs": 1794347203136.0,
+        "startedAtMs": 1794347203145.0,
+        "finishedAtMs": 1794347203168.0,
+        "message": "Accepted as v2",
+        "inboxFile": "stone-lantern-3.glb",
+        "handoff": null,
+        "card": null,
+        "version": 2,
+        "viaAgent": false,
+        "cancel": "free",
+        "batch": null,
+        "prompt": null,
+        "redoOf": null,
+        "estimate": 40.0,
+        "split": {
+          "fromVersion": 1,
+          "fromItem": null,
+          "tripo": {
+            "model": "geometry",
+            "granularity": "balanced",
+            "splitByConnectivity": true,
+            "complete": null
+          },
+          "meshy": null,
+          "inputTask": "task_model",
+          "texturesBefore": 3,
+          "textureKept": false,
+          "bake": {
+            "state": "offered",
+            "onto": 2,
+            "version": null,
+            "message": null
+          },
+          "after": "bake",
+          "texturePrompt": null
+        },
+        "studio": null,
+        "retexture": null,
+        "denied": false
+      },
+      "chain": {
+        "sending": true,
+        "modelTask": "task_seg",
+        "meshyKind": null,
+        "rigCheckTask": null,
+        "rigType": null,
+        "riggable": null,
+        "rigTask": null,
+        "retargetTask": null,
+        "completeTask": null,
+        "credits": {
+          "task_seg": 40.0
+        },
+        "refunded": false
+      }
+    },
+    {
+      "job": {
+        "id": "stone-lantern-5",
+        "project": "moon-island",
+        "asset": "stone-lantern",
+        "assetName": "Stone lantern",
+        "provider": "by-hand",
+        "service": "meshy",
+        "variant": "prop",
+        "images": [
+          "refs/front.png"
+        ],
+        "views": [
+          "front"
+        ],
+        "tripo": null,
+        "meshy": {
+          "aiModel": "latest",
+          "shouldTexture": true,
+          "enablePbr": true,
+          "textureResolution": "2k",
+          "shouldRemesh": false,
+          "topology": "triangle",
+          "targetPolycount": 30000,
+          "poseMode": "none",
+          "removeLighting": true,
+          "multiView": false,
+          "rig": false,
+          "heightMeters": 1.7
+        },
+        "state": "waiting",
+        "phase": null,
+        "progress": 0.0,
+        "remoteId": null,
+        "credits": null,
+        "createdAtMs": 1794347203239.0,
+        "startedAtMs": null,
+        "finishedAtMs": null,
+        "message": "Waiting for your model",
+        "inboxFile": null,
+        "handoff": "projects/moon-island/handoff/stone-lantern-5",
+        "card": {
+          "service": "meshy",
+          "site": "https://www.meshy.ai/workspace",
+          "mode": "Image to 3D",
+          "rows": [
+            {
+              "label": "AI model",
+              "value": "Meshy 7.1",
+              "note": null
+            },
+            {
+              "label": "Remesh",
+              "value": "Off",
+              "note": null
+            },
+            {
+              "label": "Texture",
+              "value": "On",
+              "note": null
+            },
+            {
+              "label": "Texture size",
+              "value": "2K",
+              "note": null
+            },
+            {
+              "label": "PBR",
+              "value": "On",
+              "note": null
+            },
+            {
+              "label": "Pose",
+              "value": "As drawn",
+              "note": null
+            },
+            {
+              "label": "Texture prompt",
+              "value": "weathered granite",
+              "note": null
+            }
+          ],
+          "images": [
+            "front.png"
+          ],
+          "returnName": "maq_stone-lantern_v5_meshy.glb",
+          "exportName": "maq_stone-lantern_v5_meshy",
+          "credits": 30.0,
+          "creditsNote": "mesh and texture",
+          "prompt": "weathered granite"
+        },
+        "version": null,
+        "viaAgent": false,
+        "cancel": "free",
+        "batch": null,
+        "prompt": "weathered granite",
+        "redoOf": null,
+        "estimate": null,
+        "split": null,
+        "studio": null,
+        "retexture": null,
+        "denied": false
+      },
+      "chain": {
+        "sending": false,
+        "modelTask": null,
+        "meshyKind": null,
+        "rigCheckTask": null,
+        "rigType": null,
+        "riggable": null,
+        "rigTask": null,
+        "retargetTask": null,
+        "completeTask": null,
+        "credits": {},
+        "refunded": false
+      }
+    }
+  ]
+}

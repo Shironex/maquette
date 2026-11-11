@@ -24,7 +24,8 @@ pub struct Sidecar {
     pub project: String,
     pub asset: String,
     pub asset_name: String,
-    /// The send's number for the asset, the `v<n>` of the export name.
+    /// The send's number for the asset in its project, the `v<n>` of the
+    /// export name.
     pub version: Option<u32>,
     pub provider: ProviderId,
     pub prompt: Option<String>,
@@ -81,20 +82,21 @@ mod tests {
             prompt: Some("brushed brass, warm bulb"),
         };
         let (folder, card) = handoff.write(dir.path()).expect("write");
-        assert_eq!(card.export_name, "maq_desk-lamp_v2_meshy");
-        assert_eq!(card.return_name, "maq_desk-lamp_v2_meshy.glb");
+        assert_eq!(card.export_name, "maq_studio_desk-lamp_v2_meshy");
+        assert_eq!(card.return_name, "maq_studio_desk-lamp_v2_meshy.glb");
         assert_eq!(card.prompt.as_deref(), Some("brushed brass, warm bulb"));
         assert!(card.credits.is_some());
 
         let text = std::fs::read_to_string(folder.join(SIDECAR_FILE)).expect("sidecar");
         let read: Sidecar = serde_json::from_str(&text).expect("parse");
         assert_eq!(read.job, "desk-lamp-2");
+        assert_eq!(read.project, "studio");
         assert_eq!(read.asset, "desk-lamp");
         assert_eq!(read.version, Some(2));
         assert_eq!(read.provider, ProviderId::Meshy);
-        assert_eq!(read.expected_name, "maq_desk-lamp_v2_meshy");
+        assert_eq!(read.expected_name, "maq_studio_desk-lamp_v2_meshy");
         assert_eq!(read.prompt.as_deref(), Some("brushed brass, warm bulb"));
         let md = std::fs::read_to_string(folder.join("settings.md")).expect("md");
-        assert!(md.contains("maq_desk-lamp_v2_meshy"), "{md}");
+        assert!(md.contains("maq_studio_desk-lamp_v2_meshy"), "{md}");
     }
 }

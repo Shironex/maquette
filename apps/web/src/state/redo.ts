@@ -103,9 +103,11 @@ export function redoUnderWay(
   jobs: readonly ProviderJob[],
   item: Pick<InboxItem, 'link'>
 ): ProviderJob | undefined {
-  const of = item.link?.job;
-  if (!of) return undefined;
-  return jobs.find(j => j.redoOf === of && isActive(j.state));
+  const link = item.link;
+  if (!link) return undefined;
+  // A redo is a send of the same project: another project's send may redo
+  // a send of its own with the same id.
+  return jobs.find(j => j.project === link.project && j.redoOf === link.job && isActive(j.state));
 }
 
 /** "Redo of veil-gate-1, Tripo": the panel's line about what it repeats. */

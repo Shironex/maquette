@@ -39,7 +39,7 @@ fn a_handoff_folder_is_saved_relative_to_the_workspace() {
     );
     jobs.close();
     let again = world.jobs(&server);
-    let reread = again.get(&job.id).expect("job");
+    let reread = again.get(&job.project, &job.id).expect("job");
     assert_eq!(reread.handoff, Some(folder.display().to_string()));
 }
 
@@ -54,7 +54,7 @@ fn an_older_absolute_folder_inside_the_workspace_is_converted() {
 
     let again = world.jobs(&server);
     assert_eq!(
-        again.get(&job.id).expect("job").handoff,
+        again.get(&job.project, &job.id).expect("job").handoff,
         Some(folder.display().to_string())
     );
     assert_eq!(
@@ -78,7 +78,7 @@ fn another_computers_folder_reads_as_this_ones_and_an_outside_one_stays() {
     let again = world.jobs(&server);
     let own = world.project_dir().join("handoff").join(&job.id);
     assert_eq!(
-        again.get(&job.id).expect("job").handoff,
+        again.get(&job.project, &job.id).expect("job").handoff,
         Some(own.display().to_string())
     );
     again.close();
@@ -88,7 +88,10 @@ fn another_computers_folder_reads_as_this_ones_and_an_outside_one_stays() {
     let kept = outside.path().display().to_string();
     save_folder_as(&world, &kept);
     let third = world.jobs(&server);
-    assert_eq!(third.get(&job.id).expect("job").handoff, Some(kept.clone()));
+    assert_eq!(
+        third.get(&job.project, &job.id).expect("job").handoff,
+        Some(kept.clone())
+    );
     third.close();
     assert_eq!(saved_folder(&world), json!(kept));
 }

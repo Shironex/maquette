@@ -188,9 +188,10 @@ describe('CardMenu', () => {
     expect(labels).toContain('Send to 3D');
     expect(labels).toContain('Add a model file as the next version...');
     await user.click(screen.getByRole('menuitem', { name: 'Reveal image in Finder' }));
-    expect(revealImage).toHaveBeenCalledWith('guardian-statues-1', 'front.png');
+    expect(revealImage).toHaveBeenCalledWith(waiting, 'front.png');
     await user.click(screen.getByRole('menuitem', { name: 'Open handoff folder' }));
-    expect(openHandoff).toHaveBeenCalledWith('guardian-statues-1');
+    expect(openHandoff).toHaveBeenCalledWith(waiting);
+    expect(waiting.project).toBe('frostveil');
     await user.click(screen.getByRole('menuitem', { name: 'Copy export name' }));
     expect(await navigator.clipboard.readText()).toBe(waiting.card!.exportName);
     expect(useAppStore.getState().notice).toMatchObject({

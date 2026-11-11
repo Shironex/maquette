@@ -45,14 +45,17 @@ describe('BoardCard', () => {
     render(<BoardCard asset={mockAsset('Sigil door')} board={fakeBoardEnv()} />);
     expect(screen.getByText('Waiting for your model')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add model...' }));
-    expect(addModel).toHaveBeenCalledWith('sigil-door-1');
+    // The send itself, so its project goes along: the id alone is not one send.
+    expect(addModel).toHaveBeenCalledWith(
+      expect.objectContaining({ project: 'frostveil', id: 'sigil-door-1' })
+    );
   });
 
   it('shows the export name a waiting card wants, with its copy button', () => {
     render(<BoardCard asset={mockAsset('Sigil door')} board={fakeBoardEnv()} />);
     const name = useProvidersStore.getState().jobs.find(j => j.id === 'sigil-door-1')
       ?.card?.exportName;
-    expect(name).toMatch(/^maq_sigil-door_v1_/);
+    expect(name).toMatch(/^maq_frostveil_sigil-door_v1_/);
     expect(screen.getByText(name!)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy export name' })).toBeInTheDocument();
   });

@@ -1,26 +1,55 @@
-//! The export name a By hand send asks for: `maq_<asset>_v<n>_<provider>`,
-//! where `<n>` is the send's number for that asset (the `n` of the job id
-//! `<asset>-<n>`). A file saved under it is matched to its send without a
-//! guess, whatever extension the site gives it and whatever copy number
-//! the browser adds ("maq_crate_v2_tripo (1).glb").
+//! The export name a By hand send asks for:
+//! `maq_<project>_<asset>_v<n>_<provider>`, where `<n>` is the send's number
+//! for that asset in its project (the `n` of the job id `<asset>-<n>`). A
+//! file saved under it is matched to its send without a guess, whatever
+//! extension the site gives it and whatever copy number the browser adds
+//! ("maq_moon_crate_v2_tripo (1).glb").
+//!
+//! Sends handed out before the project was part of the name wait for
+//! `maq_<asset>_v<n>_<provider>`. Both forms are read: a part holds only
+//! lower case letters, digits and `-`, so `_` always separates, and the
+//! older form has one part before `_v<n>` where the newer has two.
+
+use maquette_model::project::latin_slug;
 
 use super::presets::ProviderId;
 
 const PREFIX: &str = "maq_";
 const EXTENSIONS: [&str; 4] = ["glb", "gltf", "fbx", "zip"];
+/// The most characters the project part of a name takes.
+pub const PROJECT_PART_MAX: usize = 24;
+/// The most characters the asset part of a name takes.
+pub const ASSET_PART_MAX: usize = 40;
+/// What stands between a cut part and its tag. An id never holds it.
+const TAG_MARK: &str = "--";
+/// Hex characters of a cut part's tag.
+const TAG_LEN: usize = 6;
 
 /// A file name read back.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportName {
+    /// The project part; none for a name from before it carried one.
+    pub project: Option<String>,
+    /// The asset part: the asset id, unless it was cut (see [`part`]).
     pub asset: String,
     pub version: u32,
     pub provider: ProviderId,
 }
 
 impl ExportName {
-    /// The job id the name points at.
-    pub fn job_id(&self) -> String {
-        format!("{}-{}", self.asset, self.version)
+    /// The name as it is written, without an extension or a copy number.
+    pub fn stem(&self) -> String {
+        let project = self
+            .project
+            .as_deref()
+            .map(|p| format!("{p}_"))
+            .unwrap_or_default();
+        format!(
+            "{PREFIX}{project}{}_v{}_{}",
+            self.asset,
+            self.version,
+            provider_word(self.provider)
+        )
     }
 }
 
@@ -33,23 +62,98 @@ fn provider_word(service: ProviderId) -> &'static str {
 
 /// The send's number: `3` for `crate-lid-3` of asset `crate-lid`.
 pub fn send_number(job_id: &str, asset: &str) -> Option<u32> {
-    job_id
-        .strip_prefix(asset)?
-        .strip_prefix('-')?
-        .parse::<u32>()
-        .ok()
+    let digits = job_id.strip_prefix(asset)?.strip_prefix('-')?;
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse::<u32>().ok()
 }
 
-/// The name to export as, without an extension: `maq_crate-lid_v3_tripo`.
-pub fn export_stem(job_id: &str, asset: &str, service: ProviderId) -> String {
-    let version = send_number(job_id, asset).map_or_else(
+/// The `<n>` of a name: the send's number, or what follows the asset in an
+/// id that has none.
+fn number_text(job_id: &str, asset: &str) -> String {
+    send_number(job_id, asset).map_or_else(
         || job_id.strip_prefix(asset).unwrap_or(job_id).to_string(),
         |n| n.to_string(),
-    );
-    format!("{PREFIX}{asset}_v{version}_{}", provider_word(service))
+    )
 }
 
-/// The name without its model extension, any folder and surrounding space.
+/// True for text a name can carry as one part: lower case letters, digits
+/// and `-`.
+fn is_part(text: &str) -> bool {
+    !text.is_empty()
+        && text
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// True for an id that goes into a name as it is: a slug as Maquette makes
+/// them, which never starts or ends with `-` and never holds [`TAG_MARK`].
+fn is_plain(id: &str) -> bool {
+    is_part(id) && !id.starts_with('-') && !id.ends_with('-') && !id.contains(TAG_MARK)
+}
+
+/// FNV-1a, 32 bit: the same on every computer and in every version, which
+/// a name that syncs between two needs.
+fn fnv1a(bytes: &[u8]) -> u32 {
+    bytes.iter().fold(0x811c_9dc5_u32, |hash, byte| {
+        (hash ^ u32::from(*byte)).wrapping_mul(0x0100_0193)
+    })
+}
+
+/// An id as one part of a name, at most `max` characters. A slug within
+/// `max` is used as it is. A longer id, or one with other characters (a
+/// project folder named by hand can hold spaces, capitals or `_`), is cut:
+/// the start of its slug, [`TAG_MARK`] and six hex characters of its hash,
+/// so two long ids that start alike still get two names, and a cut part
+/// never reads as another id.
+pub fn part(id: &str, max: usize, fallback: &str) -> String {
+    if is_plain(id) && id.len() <= max {
+        return id.to_string();
+    }
+    let keep = max.saturating_sub(TAG_MARK.len() + TAG_LEN);
+    let slug = latin_slug(id).unwrap_or_else(|| fallback.to_string());
+    let mut head: String = slug.chars().take(keep).collect();
+    while head.ends_with('-') {
+        head.pop();
+    }
+    format!("{head}{TAG_MARK}{:06x}", fnv1a(id.as_bytes()) & 0x00ff_ffff)
+}
+
+/// The project part of a name.
+pub fn project_part(project: &str) -> String {
+    part(project, PROJECT_PART_MAX, "project")
+}
+
+/// The asset part of a name.
+pub fn asset_part(asset: &str) -> String {
+    part(asset, ASSET_PART_MAX, "asset")
+}
+
+/// The name to export as, without an extension:
+/// `maq_moon-island_crate-lid_v3_tripo`.
+pub fn export_stem(project: &str, job_id: &str, asset: &str, service: ProviderId) -> String {
+    format!(
+        "{PREFIX}{}_{}_v{}_{}",
+        project_part(project),
+        asset_part(asset),
+        number_text(job_id, asset),
+        provider_word(service)
+    )
+}
+
+/// The name a send from before the project was part of it waits for:
+/// `maq_crate-lid_v3_tripo`. Only for reading records that old.
+pub fn legacy_stem(job_id: &str, asset: &str, service: ProviderId) -> String {
+    format!(
+        "{PREFIX}{asset}_v{}_{}",
+        number_text(job_id, asset),
+        provider_word(service)
+    )
+}
+
+/// The name without its model extension, any folder and surrounding space,
+/// in lower case.
 fn bare(name: &str) -> String {
     let base = name.rsplit(['/', '\\']).next().unwrap_or(name).trim();
     let lower = base.to_lowercase();
@@ -69,106 +173,49 @@ fn is_copy_suffix(rest: &str) -> bool {
     rest.is_empty() || (!inner.is_empty() && inner.chars().all(|c| c.is_ascii_digit()))
 }
 
-fn is_asset_id(text: &str) -> bool {
-    !text.is_empty()
-        && text
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-}
-
-/// Reads `maq_<asset>_v<n>_<provider>` back, or `None` for any other name.
+/// Reads `maq_<project>_<asset>_v<n>_<provider>` or the older
+/// `maq_<asset>_v<n>_<provider>` back, or `None` for any other name.
+///
+/// The provider is the last word (before a copy number), so an asset or a
+/// project named after a provider reads right; `_v<n>` is the last `_v`
+/// before it; what is left is one part or two.
 pub fn parse(name: &str) -> Option<ExportName> {
     let stem = bare(name);
     let rest = stem.strip_prefix(PREFIX)?;
-    let (head, provider, tail) = ProviderId::ALL.iter().find_map(|&service| {
+    let (head, provider) = ProviderId::ALL.iter().find_map(|&service| {
         let word = format!("_{}", provider_word(service));
         let at = rest.rfind(&word)?;
-        Some((&rest[..at], service, &rest[at + word.len()..]))
+        is_copy_suffix(&rest[at + word.len()..]).then_some((&rest[..at], service))
     })?;
-    if !is_copy_suffix(tail) {
+    let (ids, digits) = head.rsplit_once("_v")?;
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    let (asset, version) = head.rsplit_once("_v")?;
-    let version = version.parse::<u32>().ok()?;
-    is_asset_id(asset).then(|| ExportName {
+    let version = digits.parse::<u32>().ok()?;
+    let (project, asset) = match ids.split_once('_') {
+        Some((project, asset)) => (Some(project), asset),
+        None => (None, ids),
+    };
+    (project.is_none_or(is_part) && is_part(asset)).then(|| ExportName {
+        project: project.map(str::to_string),
         asset: asset.to_string(),
         version,
         provider,
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_stem_carries_the_asset_the_send_number_and_the_provider() {
-        assert_eq!(
-            export_stem("crate-lid-3", "crate-lid", ProviderId::Tripo),
-            "maq_crate-lid_v3_tripo"
-        );
-        assert_eq!(
-            export_stem("lamp-1", "lamp", ProviderId::Meshy),
-            "maq_lamp_v1_meshy"
-        );
-        assert_eq!(send_number("lamp-12", "lamp"), Some(12));
-        assert_eq!(send_number("lamp-x", "lamp"), None);
-        assert_eq!(send_number("lamps-1", "lamp"), None);
+/// True when `file` is saved under the export name `expected`: that name,
+/// in any case, with any model extension and any copy number.
+pub fn is_named(file: &str, expected: &str) -> bool {
+    let expected = expected.trim().to_lowercase();
+    if expected.is_empty() {
+        return false;
     }
-
-    #[test]
-    fn names_read_back_with_any_extension_case_and_copy_number() {
-        let want = ExportName {
-            asset: "crate-lid".into(),
-            version: 3,
-            provider: ProviderId::Tripo,
-        };
-        for name in [
-            "maq_crate-lid_v3_tripo.glb",
-            "MAQ_Crate-Lid_V3_Tripo.GLB",
-            "maq_crate-lid_v3_tripo (1).glb",
-            "maq_crate-lid_v3_tripo-2.zip",
-            "maq_crate-lid_v3_tripo 2.fbx",
-            "/Users/me/Downloads/maq_crate-lid_v3_tripo.glb",
-            "C:\\Users\\me\\Downloads\\maq_crate-lid_v3_tripo.glb",
-            "maq_crate-lid_v3_tripo",
-        ] {
-            assert_eq!(parse(name), Some(want.clone()), "{name}");
-        }
-        assert_eq!(want.job_id(), "crate-lid-3");
-        let meshy = parse("maq_lamp_v12_meshy.glb").expect("meshy");
-        assert_eq!(meshy.provider, ProviderId::Meshy);
-        assert_eq!(meshy.version, 12);
-    }
-
-    #[test]
-    fn other_names_are_not_read_as_exports() {
-        for name in [
-            "crate-lid-3.glb",
-            "model (3).glb",
-            "maq_crate-lid_tripo.glb",
-            "maq__v3_tripo.glb",
-            "maq_crate lid_v3_tripo.glb",
-            "maq_crate-lid_v3_blender.glb",
-            "maq_crate-lid_v3_tripo_final.glb",
-            "maq_crate-lid_vx_tripo.glb",
-            "tripo_crate.zip",
-        ] {
-            assert_eq!(parse(name), None, "{name}");
-        }
-    }
-
-    #[test]
-    fn a_stem_always_parses_back_to_its_send() {
-        for (job, asset, service) in [
-            ("a-1", "a", ProviderId::Tripo),
-            ("v2-lamp-7", "v2-lamp", ProviderId::Meshy),
-            ("tripo-statue-2", "tripo-statue", ProviderId::Tripo),
-        ] {
-            let parsed = parse(&format!("{}.glb", export_stem(job, asset, service)))
-                .unwrap_or_else(|| panic!("{job}"));
-            assert_eq!(parsed.job_id(), job);
-            assert_eq!(parsed.provider, service);
-        }
-    }
+    parse(file).is_some_and(|named| named.stem() == expected)
+        || bare(file)
+            .strip_prefix(expected.as_str())
+            .is_some_and(is_copy_suffix)
 }
+
+#[cfg(test)]
+mod tests;

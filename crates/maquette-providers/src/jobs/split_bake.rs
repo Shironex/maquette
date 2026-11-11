@@ -5,9 +5,9 @@
 //! lost its texture offers it. The untextured version stays, so keeping it
 //! undoes the bake.
 
-use super::split_files::{source_of, split_dir, version_file};
+use super::split_files::{files_dir, source_of, version_file};
 use super::{BakeBack, BakeState, ProviderEvent, ProviderJob, ProviderJobs, Stored, Workspace};
-use super::{Provider, update, update_in};
+use super::{JobKey, Provider, no_job, update, update_in};
 use crate::error::{CoreError, CoreResult};
 use crate::split::SplitAfter;
 use maquette_base::ports::TextureBake;
@@ -88,7 +88,7 @@ pub(super) fn resume(stored: &mut Stored) -> bool {
 fn set_bake(
     jobs: &ProviderJobs,
     generation: Option<u64>,
-    id: &str,
+    key: &JobKey,
     change: impl FnOnce(&mut BakeBack),
 ) -> CoreResult<()> {
     let change = |stored: &mut Stored| {
@@ -104,28 +104,30 @@ fn set_bake(
         Ok(())
     };
     match generation {
-        Some(generation) => update_in(&jobs.shared, generation, id, true, change),
-        None => update(&jobs.shared, id, true, change),
+        Some(generation) => update_in(&jobs.shared, generation, key, true, change),
+        None => update(&jobs.shared, key, true, change),
     }
 }
 
 impl ProviderJobs {
-    /// The splits whose bake back waits to run, oldest first.
-    pub fn scheduled_bakes(&self) -> Vec<String> {
+    /// The splits whose bake back waits to run, oldest first, in whichever
+    /// project they are.
+    pub fn scheduled_bakes(&self) -> Vec<JobKey> {
         self.list(None)
-            .into_iter()
+            .iter()
             .filter(|j| {
                 j.split
                     .as_ref()
                     .and_then(|s| s.bake.as_ref())
                     .is_some_and(|b| b.state == BakeState::Scheduled)
             })
-            .map(|j| j.id)
+            .map(JobKey::of)
             .collect()
     }
 
     /// The split of an asset whose bake back can run now (offered, or
-    /// failed): the one onto `version`, or the newest without it.
+    /// failed): the one onto `version`, or the newest without it. Answers
+    /// its id in `project`.
     ///
     /// # Errors
     ///
@@ -136,9 +138,9 @@ impl ProviderJobs {
         asset: &str,
         version: Option<u32>,
     ) -> CoreResult<String> {
-        self.list(None)
+        self.list(Some(project))
             .into_iter()
-            .filter(|j| j.project == project && j.asset == asset)
+            .filter(|j| j.asset == asset)
             .filter_map(|j| {
                 let bake = j.split.as_ref()?.bake.as_ref()?;
                 let waiting = matches!(bake.state, BakeState::Offered | BakeState::Failed);
@@ -157,7 +159,7 @@ impl ProviderJobs {
     pub fn run_scheduled_bakes(&self, tools: &Toolbox) -> Vec<ProviderJob> {
         self.scheduled_bakes()
             .iter()
-            .filter_map(|id| self.bake_back(id, tools).ok())
+            .filter_map(|key| self.bake_back(&key.project, &key.id, tools).ok())
             .collect()
     }
 
@@ -170,14 +172,16 @@ impl ProviderJobs {
     ///
     /// Fails for a job that is not a split with a bake back, one already
     /// running or done, or without a workspace.
-    pub fn bake_back(&self, id: &str, tools: &Toolbox) -> CoreResult<ProviderJob> {
+    pub fn bake_back(&self, project: &str, id: &str, tools: &Toolbox) -> CoreResult<ProviderJob> {
         let workspace = self
             .shared
             .workspace()
             .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))?;
-        let job = self
-            .get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+        let key = JobKey::new(project, id);
+        let stored = self
+            .stored(project, id)
+            .ok_or_else(|| no_job(project, id))?;
+        let job = &stored.job;
         let bake = job
             .split
             .as_ref()
@@ -204,11 +208,17 @@ impl ProviderJobs {
             .as_ref()
             .map(super::SplitJob::source_label)
             .unwrap_or_default();
-        set_bake(self, Some(workspace.generation), id, |b| {
+        set_bake(self, Some(workspace.generation), &key, |b| {
             b.state = BakeState::Running;
             b.message = Some(format!("Baking the texture back from {from} in Blender"));
         })?;
-        let made = bake_onto(&*self.shared.ports.bake, &workspace, &job, bake.onto, tools);
+        let made = bake_onto(
+            &*self.shared.ports.bake,
+            &workspace,
+            &stored,
+            bake.onto,
+            tools,
+        );
         match made {
             Ok(landed) => {
                 if self.shared.generation() == Some(workspace.generation) {
@@ -217,7 +227,7 @@ impl ProviderJobs {
                     });
                 }
                 let version = landed.version.version;
-                set_bake(self, Some(workspace.generation), id, |b| {
+                set_bake(self, Some(workspace.generation), &key, |b| {
                     b.state = BakeState::Done;
                     b.version = Some(version);
                     b.message = Some(format!(
@@ -227,14 +237,13 @@ impl ProviderJobs {
                 })?;
             }
             Err(err) => {
-                set_bake(self, Some(workspace.generation), id, |b| {
+                set_bake(self, Some(workspace.generation), &key, |b| {
                     b.state = BakeState::Failed;
                     b.message = Some(format!("The bake back did not finish. {err}"));
                 })?;
             }
         }
-        self.get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))
+        self.job(project, id)
     }
 
     /// Offers a bake back again after it failed, or runs an offered one:
@@ -243,9 +252,9 @@ impl ProviderJobs {
     /// # Errors
     ///
     /// Fails for a job with no bake back, or one running or done.
-    pub fn schedule_bake(&self, id: &str) -> CoreResult<ProviderJob> {
+    pub fn schedule_bake(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
         let mut refused = None;
-        set_bake(self, None, id, |b| match b.state {
+        set_bake(self, None, &JobKey::new(project, id), |b| match b.state {
             BakeState::Offered | BakeState::Failed => b.state = BakeState::Scheduled,
             BakeState::Scheduled => {}
             BakeState::Running | BakeState::Done => {
@@ -255,24 +264,24 @@ impl ProviderJobs {
         if let Some(message) = refused {
             return Err(CoreError::Invalid(message));
         }
-        self.get(id)
-            .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))
+        self.job(project, id)
     }
 }
 
 fn bake_onto(
     baker: &dyn TextureBake,
     workspace: &Workspace,
-    job: &ProviderJob,
+    stored: &Stored,
     onto: u32,
     tools: &Toolbox,
 ) -> CoreResult<versions::Landed> {
-    let source = source_of(workspace, job).ok_or_else(|| {
+    let job = &stored.job;
+    let source = source_of(workspace, stored).ok_or_else(|| {
         CoreError::NotFound("the model this split came from, to bake from".to_string())
     })?;
     let target = version_file(workspace, &job.project, &job.asset, onto)
         .ok_or_else(|| CoreError::NotFound(format!("v{onto} of {}", job.asset_name)))?;
-    let work = split_dir(workspace, &job.id).join("bake");
+    let work = files_dir(workspace, stored).join("bake");
     let baked = baker.bake(&work, &source, &target, tools)?;
     versions::add(
         &workspace.root,

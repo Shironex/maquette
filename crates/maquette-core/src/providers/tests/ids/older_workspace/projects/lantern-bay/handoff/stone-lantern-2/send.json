@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "job": "stone-lantern-2",
+  "project": "lantern-bay",
+  "asset": "stone-lantern",
+  "assetName": "Stone lantern",
+  "version": 2,
+  "provider": "tripo",
+  "prompt": null,
+  "expectedName": "maq_stone-lantern_v2_tripo",
+  "credits": 30.0,
+  "createdAtMs": 1794347203129.0
+}

@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage } from '@/ipc/client';
-import { PROVIDER_LABEL, SERVICE_LABEL } from './providers';
+import { PROVIDER_LABEL, SERVICE_LABEL, jobKey, sameJob } from './providers';
 import { initialMatches } from './batch';
 import { createBatchSlice } from './create-batch-slice';
 import { createRedoSlice } from './create-redo-slice';
@@ -55,10 +55,11 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     if (event.type !== 'job') return;
     const job = event.job;
     if (job.project !== get().project) return;
-    const before = get().jobs.find(j => j.id === job.id);
+    const before = get().jobs.find(j => sameJob(j, job));
     set(s => ({
       jobs: upsert(s.jobs, job),
-      panel: s.panel?.handoff?.id === job.id ? { ...s.panel, handoff: job } : s.panel,
+      panel:
+        s.panel?.handoff && sameJob(s.panel.handoff, job) ? { ...s.panel, handoff: job } : s.panel,
     }));
     if (!before || before.state === job.state) return;
     const name = `${job.assetName}`;
@@ -172,26 +173,28 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   setQueueOpen: queueOpen =>
     set(s => ({ queueOpen, checklistOpen: queueOpen ? false : s.checklistOpen })),
 
-  cancel: async id => {
-    set(s => ({ busy: [...s.busy, id] }));
+  cancel: async ref => {
+    const key = jobKey(ref);
+    set(s => ({ busy: [...s.busy, key] }));
     try {
-      const job = await commands.providerCancel(id);
+      const job = await commands.providerCancel(ref.project, ref.id);
       set(s => ({ jobs: foldIn(s, job) }));
       notify('info', `${job.assetName} cancelled`, job.message ?? undefined);
     } catch (error) {
       notify('failed', 'Could not cancel', errorMessage(error));
     } finally {
-      set(s => ({ busy: s.busy.filter(b => b !== id) }));
+      set(s => ({ busy: s.busy.filter(b => b !== key) }));
     }
   },
 
-  handBack: async (id, file) => {
-    set(s => ({ busy: [...s.busy, id] }));
+  handBack: async (ref, file) => {
+    const key = jobKey(ref);
+    set(s => ({ busy: [...s.busy, key] }));
     try {
-      const job = await commands.providerHandBack(id, file);
+      const job = await commands.providerHandBack(ref.project, ref.id, file);
       set(s => ({
         jobs: foldIn(s, job),
-        panel: s.panel?.handoff?.id === id ? null : s.panel,
+        panel: s.panel?.handoff && sameJob(s.panel.handoff, ref) ? null : s.panel,
       }));
       notify(
         'done',
@@ -201,13 +204,13 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     } catch (error) {
       notify('failed', 'Could not take the model', errorMessage(error));
     } finally {
-      set(s => ({ busy: s.busy.filter(b => b !== id) }));
+      set(s => ({ busy: s.busy.filter(b => b !== key) }));
     }
   },
 
-  openHandoff: async id => {
+  openHandoff: async ref => {
     try {
-      await commands.providerOpenHandoff(id);
+      await commands.providerOpenHandoff(ref.project, ref.id);
     } catch (error) {
       notify('failed', 'Could not open the folder', errorMessage(error));
     }
@@ -306,21 +309,24 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   },
 
   useDownload: async path => {
-    const job = get().downloads?.choices[path];
-    if (!job) return;
+    const scanned = get().downloads;
+    const id = scanned?.choices[path];
+    if (!scanned || !id) return;
+    // The scan lists one project's sends, so its ids are that project's.
+    const job = { project: scanned.project, id };
     await get().handBack(job, path);
     // A failed hand-back keeps the job waiting; only a taken file is done.
-    if (get().jobs.find(j => j.id === job)?.state === 'waiting') return;
+    if (get().jobs.find(j => sameJob(j, job))?.state === 'waiting') return;
     const downloads = get().downloads;
     if (downloads) set({ downloads: { ...downloads, used: [...downloads.used, path] } });
   },
 
   closeDownloads: () => set({ downloads: null }),
 
-  addModel: async id => {
+  addModel: async job => {
     try {
       const file = await commands.dialogPickModel('Choose the model you made');
-      if (file) await get().handBack(id, file);
+      if (file) await get().handBack(job, file);
     } catch (error) {
       notify('failed', 'Could not open the file picker', errorMessage(error));
     }
@@ -350,9 +356,9 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     }
   },
 
-  revealImage: async (id, image) => {
+  revealImage: async (job, image) => {
     try {
-      await commands.providerRevealImage(id, image);
+      await commands.providerRevealImage(job.project, job.id, image);
     } catch (error) {
       notify('failed', 'Could not show the image', errorMessage(error));
     }

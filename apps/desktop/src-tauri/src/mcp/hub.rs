@@ -115,7 +115,8 @@ pub struct Approval {
     pub run_id: Option<String>,
     pub run_number: Option<u32>,
     pub step: Option<String>,
-    /// Send to 3D: the provider job, its asset and settings in a few words.
+    /// Send to 3D: the provider job (its id in `project`), its asset and
+    /// settings in a few words.
     pub job: Option<String>,
     pub asset_name: Option<String>,
     pub service: Option<String>,
@@ -149,7 +150,7 @@ pub struct Approval {
 }
 
 impl Approval {
-    /// The provider jobs this approval releases.
+    /// The provider jobs this approval releases, by their ids in `project`.
     pub fn jobs(&self) -> Vec<String> {
         self.job
             .iter()
@@ -334,11 +335,14 @@ impl Hub {
             .cloned()
     }
 
-    /// The approval a provider job waits for, if any.
-    pub fn pending_for_job(&self, job_id: &str) -> Option<Approval> {
+    /// The approval the provider job `job_id` of `project` waits for, if
+    /// any. Job ids are numbered per project, and other kinds of approval
+    /// keep their own ids in `job`, so both the project and the kind count.
+    pub fn pending_for_job(&self, project: &str, job_id: &str) -> Option<Approval> {
         self.lock()
             .approvals
             .iter()
+            .filter(|a| a.kind == ApprovalKind::SendTo3d && a.project == project)
             .find(|a| a.job.as_deref() == Some(job_id) || a.items.iter().any(|i| i.job == job_id))
             .cloned()
     }

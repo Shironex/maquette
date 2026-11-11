@@ -4,7 +4,7 @@
 use serde_json::json;
 
 use super::cancel::stopped;
-use super::records::match_job;
+use super::owner::match_job;
 use super::spend;
 use super::{CancelMode, JobState, Stored, cancel_mode, resume_fixup};
 use crate::ledger::SpendOutcome;

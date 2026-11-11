@@ -100,6 +100,9 @@ describe('a redo of one send', () => {
     expect(redoUnderWay([done, redo], linked)?.id).toBe('veil-gate-3');
     expect(redoUnderWay([done], linked)).toBeUndefined();
     expect(redoUnderWay([redo], { link: null })).toBeUndefined();
+    // Another project's send that redoes its own veil-gate-2 is not this model's redo.
+    const theirs = job({ ...redo, project: 'moon-island' });
+    expect(redoUnderWay([theirs], linked)).toBeUndefined();
   });
 });
 

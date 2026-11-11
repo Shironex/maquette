@@ -112,7 +112,9 @@ fn a_character_handed_back_goes_through_the_inbox_port_and_links_its_model() {
 
     let made = world.root.join("Downloaded model.glb");
     fs::write(&made, fixture::character(false)).expect("write");
-    let back = jobs.hand_back(&job.id, &made).expect("hand back");
+    let back = jobs
+        .hand_back(&job.project, &job.id, &made)
+        .expect("hand back");
     let file = back.inbox_file.expect("in the inbox");
     assert_eq!(
         *inbox.kinds.lock().expect("kinds"),

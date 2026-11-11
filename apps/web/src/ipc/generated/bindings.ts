@@ -756,10 +756,10 @@ export const commands = {
 	 */
 	retextureSend: (request: RetextureRequest) => __TAURI_INVOKE<ProviderJob>("retexture_send", { request }),
 	/**
-	 *  Bakes the texture back onto a split now: an offered one, or one that
-	 *  failed. Runs Blender, so off the main thread.
+	 *  Bakes the texture back onto the split `id` of `project` now: an offered
+	 *  one, or one that failed. Runs Blender, so off the main thread.
 	 */
-	splitBakeBack: (id: string) => __TAURI_INVOKE<ProviderJob>("split_bake_back", { id }),
+	splitBakeBack: (project: string, id: string) => __TAURI_INVOKE<ProviderJob>("split_bake_back", { project, id }),
 	/**
 	 *  Assembles one prop from part models, headless, as the next version of
 	 *  its target asset.
@@ -1002,13 +1002,19 @@ export const commands = {
 	 */
 	providerSendBatch: (request: BatchRequest) => __TAURI_INVOKE<BatchSent>("provider_send_batch", { request }),
 	providerJobs: (project: string | null) => __TAURI_INVOKE<ProviderJob[]>("provider_jobs", { project }),
-	/**  Meshy is asked over the network, so this runs off the main thread. */
-	providerCancel: (id: string) => __TAURI_INVOKE<ProviderJob>("provider_cancel", { id }),
-	/**  By hand: a GLB dropped on the asset's card. */
-	providerHandBack: (id: string, file: string) => __TAURI_INVOKE<ProviderJob>("provider_hand_back", { id, file }),
+	/**
+	 *  Cancels the send `id` of `project`: send ids are numbered per project.
+	 *  Meshy is asked over the network, so this runs off the main thread.
+	 */
+	providerCancel: (project: string, id: string) => __TAURI_INVOKE<ProviderJob>("provider_cancel", { project, id }),
+	/**
+	 *  By hand: a GLB dropped on the asset's card, for the send `id` of
+	 *  `project`.
+	 */
+	providerHandBack: (project: string, id: string, file: string) => __TAURI_INVOKE<ProviderJob>("provider_hand_back", { project, id, file }),
 	providerClearFinished: (project: string) => __TAURI_INVOKE<ProviderJob[]>("provider_clear_finished", { project }),
 	/**  Shows a By hand job's folder in Finder or Explorer. */
-	providerOpenHandoff: (id: string) => __TAURI_INVOKE<null>("provider_open_handoff", { id }),
+	providerOpenHandoff: (project: string, id: string) => __TAURI_INVOKE<null>("provider_open_handoff", { project, id }),
 	/**
 	 *  Opens the service's web studio in the system browser. Only the two
 	 *  allowlisted sites open, never an address from the web view.
@@ -1018,7 +1024,7 @@ export const commands = {
 	 *  Shows one image of a By hand job selected in Finder or Explorer, ready
 	 *  to drag into the web studio's upload.
 	 */
-	providerRevealImage: (id: string, image: string) => __TAURI_INVOKE<null>("provider_reveal_image", { id, image }),
+	providerRevealImage: (project: string, id: string, image: string) => __TAURI_INVOKE<null>("provider_reveal_image", { project, id, image }),
 	/**
 	 *  Looks for models in the Downloads folder (the OS known folder) that
 	 *  came after this project's handoffs. Reads only; each match is copied
@@ -1318,7 +1324,10 @@ export type Approval = {
 	runId: string | null,
 	runNumber: number | null,
 	step: string | null,
-	/**  Send to 3D: the provider job, its asset and settings in a few words. */
+	/**
+	 *  Send to 3D: the provider job (its id in `project`), its asset and
+	 *  settings in a few words.
+	 */
 	job: string | null,
 	assetName: string | null,
 	service: string | null,
@@ -1426,7 +1435,7 @@ export type Arrival = {
 	state: ArrivalState,
 	/**
 	 *  The send it went to, or, while it waits for a look, the one it
-	 *  looks like.
+	 *  looks like: its id in `project`.
 	 */
 	job: string | null,
 	project: string | null,
@@ -4019,7 +4028,9 @@ export type HandoffCard = {
 	returnName: string,
 	/**
 	 *  The name to export as on the site, without an extension:
-	 *  `maq_<asset>_v<n>_<provider>`.
+	 *  `maq_<project>_<asset>_v<n>_<provider>`, or without the project on a
+	 *  card from before it was part of the name. It is what the send waits
+	 *  for, so it never changes once the card is written.
 	 */
 	exportName?: string,
 	/**  About what the site charges for it, from a subscription. */
@@ -6184,6 +6195,7 @@ export type PbrMaps = {
 
 /**  A By hand send waiting for its model, as the watcher matches it. */
 export type PendingHandoff = {
+	/**  The send's id in `project`. */
 	job: string,
 	project: string,
 	asset: string,
@@ -7055,7 +7067,8 @@ export type ProviderId = "tripo" | "meshy";
 
 export type ProviderJob = {
 	/**
-	 *  `<asset id>-<n>`, unique across the workspace; also the handoff
+	 *  `<asset id>-<n>`, numbered in its project: with `project` it names
+	 *  one job, alone it can be a job of several projects. Also the handoff
 	 *  folder and the inbox file name.
 	 */
 	id: string,
@@ -9461,6 +9474,7 @@ export type SendRequest = {
 
 /**  One waiting send, ranked against a download. */
 export type SendSuggestion = {
+	/**  The send's id in `project`. */
 	job: string,
 	project: string,
 	asset: string,

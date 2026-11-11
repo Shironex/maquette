@@ -196,14 +196,15 @@ pub async fn retexture_send(
     Ok(blocking(move || jobs.send_retexture(&request, false, false)).await??)
 }
 
-/// Bakes the texture back onto a split now: an offered one, or one that
-/// failed. Runs Blender, so off the main thread.
+/// Bakes the texture back onto the split `id` of `project` now: an offered
+/// one, or one that failed. Runs Blender, so off the main thread.
 #[tauri::command]
 #[specta::specta]
 pub async fn split_bake_back(
     session: State<'_, Session>,
     studio: State<'_, Studio>,
     service: State<'_, Thumbs>,
+    project: String,
     id: String,
 ) -> CommandResult<ProviderJob> {
     let (root, config) = session.workspace()?;
@@ -211,8 +212,8 @@ pub async fn split_bake_back(
     let jobs = studio.0.clone();
     let thumbs = service.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        jobs.schedule_bake(&id)?;
-        let job = jobs.bake_back(&id, &tools)?;
+        jobs.schedule_bake(&project, &id)?;
+        let job = jobs.bake_back(&project, &id, &tools)?;
         thumb_for(&thumbs, &root, &config, &tools, &job);
         Ok(job)
     })

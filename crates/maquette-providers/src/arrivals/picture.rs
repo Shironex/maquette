@@ -30,6 +30,7 @@ pub(super) const LEAD: f64 = 0.05;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SendSuggestion {
+    /// The send's id in `project`.
     pub job: String,
     pub project: String,
     pub asset: String,

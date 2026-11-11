@@ -40,7 +40,7 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
             tooltip="Choose the GLB, or the .zip the site downloads, that you made for this card"
             data-card-action
             className="max-w-full"
-            onClick={() => void addModel(waiting.id)}
+            onClick={() => void addModel(waiting)}
           >
             <span className="min-w-0 truncate @max-[120px]:sr-only">Add model...</span>
           </Button>

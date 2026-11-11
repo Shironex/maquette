@@ -40,7 +40,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
         variant="ghost"
         icon="image"
         tooltip="Shows this image in your file manager"
-        onClick={() => void revealImage(job.id, image)}
+        onClick={() => void revealImage(job, image)}
       >
         {reveal('image')}
       </Button>
@@ -120,7 +120,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
               size="sm"
               icon="folder-open"
               tooltip="Shows the handoff folder in your file manager"
-              onClick={() => void openHandoff(job.id)}
+              onClick={() => void openHandoff(job)}
             >
               Open folder
             </Button>

@@ -6,6 +6,7 @@ import type { Asset, KeyStatus, ProviderJob, RetextureRequest } from '../client'
 import { clock } from '@/lib/clock';
 import { MESHY_RETEXTURE_CREDITS, retextureProblem } from '@/state/split';
 import { fail } from './backend-options';
+import { nextJobId } from './export-name';
 import type { createFakeProviders } from './providers';
 
 type Providers = ReturnType<typeof createFakeProviders>;
@@ -66,10 +67,9 @@ export function sendRetexture(
   if (!keys.find(k => k.service === 'meshy')?.saved) {
     fail('invalid', 'Save a Meshy API key first.');
   }
-  const used = providers.jobs().filter(j => j.asset === asset.id).length;
   return providers.start(
     providers.base({
-      id: `${asset.id}-${used + 1}`,
+      id: nextJobId(providers.jobs(), req.project, asset.id),
       project: req.project,
       asset: asset.id,
       assetName: asset.name,

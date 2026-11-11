@@ -36,6 +36,18 @@ const PHASE_LABEL: Record<JobPhase, string> = {
 /** The most images a send takes; Tripo multi-view and Meshy both stop at 4. */
 export const MAX_IMAGES = 4;
 
+/**
+ * What names one send: its project and its id. Ids are numbered per project
+ * (`desk-lamp-1` is the first desk lamp send of each project), so an id
+ * alone can be a send of several.
+ */
+export type JobRef = Pick<ProviderJob, 'project' | 'id'>;
+
+/** One string for a send, for lists that hold sends of more than one project. */
+export const jobKey = (job: JobRef): string => `${job.project}/${job.id}`;
+
+export const sameJob = (a: JobRef, b: JobRef): boolean => a.project === b.project && a.id === b.id;
+
 /** Multi-view views in the order Maquette sends them. */
 export const VIEW_NAMES = ['Front', 'Left', 'Back', 'Right'] as const;
 
@@ -260,8 +272,9 @@ export function makeFront(images: readonly string[], file: string): string[] {
 
 /**
  * The name a By hand send's model is exported as on the site, without an
- * extension: `maq_<asset>_v<n>_<provider>`. Older cards only had the file
- * name to save it as.
+ * extension: `maq_<project>_<asset>_v<n>_<provider>` (without the project on
+ * a card from before it was part of the name). Older cards only had the
+ * file name to save it as.
  */
 export function exportNameOf(card: Pick<HandoffCard, 'exportName' | 'returnName'>): string {
   return card.exportName || card.returnName.replace(/\.glb$/i, '');
