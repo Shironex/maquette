@@ -36,6 +36,19 @@ describe('exportName', () => {
   });
 });
 
+describe('the mock name and the core name', () => {
+  it('fold letters with marks and read the number as a number, as the core does', () => {
+    // The same strings the core's naming tests pin.
+    expect(namePart('Łódź Bay', 24, 'project')).toBe('lodz-bay--e69188');
+    expect(namePart('Café Ölberg', 24, 'project')).toBe('cafe-olberg--d524a0');
+    expect(namePart('雪 island', 24, 'project')).toBe('island--38c7be');
+    const odd = (id: string) =>
+      exportName({ id, project: 'moon', asset: 'lamp', service: 'tripo' });
+    expect(odd('lamp-07')).toBe('maq_moon_lamp_v7_tripo');
+    expect(odd('lamp-x')).toBe('maq_moon_lamp_v-x_tripo');
+  });
+});
+
 describe('nextJobId', () => {
   it('numbers an asset in its own project, one past its highest', () => {
     const jobs = [

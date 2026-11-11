@@ -24,12 +24,52 @@ function fnv1a(text: string): number {
 const isPlain = (id: string): boolean =>
   /^[a-z0-9-]+$/.test(id) && !id.startsWith('-') && !id.endsWith('-') && !id.includes(TAG_MARK);
 
-/** Lower case letters and digits, with a `-` for every run of anything else. */
-const slugOf = (id: string): string =>
-  id
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+/** Latin letters with marks and what the core folds them to (`project/slug.rs`). */
+const FOLDS: [string, string][] = [
+  ['àáâãäåąāă', 'a'],
+  ['æ', 'ae'],
+  ['çćčĉ', 'c'],
+  ['ďđð', 'd'],
+  ['èéêëęēě', 'e'],
+  ['ğĝ', 'g'],
+  ['ìíîïīı', 'i'],
+  ['łľĺ', 'l'],
+  ['ñńň', 'n'],
+  ['òóôõöøōő', 'o'],
+  ['œ', 'oe'],
+  ['řŕ', 'r'],
+  ['śšşŝ', 's'],
+  ['ß', 'ss'],
+  ['ťţ', 't'],
+  ['þ', 'th'],
+  ['ùúûüūůű', 'u'],
+  ['ýÿ', 'y'],
+  ['źżž', 'z'],
+];
+const FOLD = new Map(FOLDS.flatMap(([from, to]) => [...from].map(c => [c, to] as const)));
+
+const fold = (c: string): string =>
+  /^[A-Za-z0-9]$/.test(c) ? c.toLowerCase() : (FOLD.get([...c.toLowerCase()][0] ?? c) ?? '');
+
+/**
+ * The core's latin slug: letters with marks folded, a `-` where space or
+ * ASCII punctuation sat between kept characters, anything else dropped.
+ */
+function slugOf(id: string): string {
+  let slug = '';
+  let dash = false;
+  for (const c of id) {
+    const folded = fold(c);
+    if (!folded) {
+      if (/^\s$/u.test(c) || /^[!-/:-@[-`{-~]$/.test(c)) dash = true;
+      continue;
+    }
+    if (dash && slug) slug += '-';
+    dash = false;
+    slug += folded;
+  }
+  return slug.replace(/-+$/, '');
+}
 
 /** An id as one part of an export name, at most `max` characters. */
 export function namePart(id: string, max: number, fallback: string): string {
@@ -40,9 +80,19 @@ export function namePart(id: string, max: number, fallback: string): string {
   return `${head}${TAG_MARK}${tag}`;
 }
 
+/**
+ * The `<n>` of a name, as the core reads it: the send's number as a number,
+ * else what follows the asset in the id.
+ */
+function numberText(id: string, asset: string): string {
+  const digits = id.startsWith(`${asset}-`) ? id.slice(asset.length + 1) : '';
+  if (/^\d+$/.test(digits) && Number(digits) <= 0xffffffff) return String(Number(digits));
+  return id.startsWith(asset) ? id.slice(asset.length) : id;
+}
+
 /** The export name of `job`, n from its id `<asset>-<n>`. */
 export function exportName(job: Pick<ProviderJob, 'id' | 'project' | 'asset' | 'service'>): string {
-  const n = job.id.startsWith(`${job.asset}-`) ? job.id.slice(job.asset.length + 1) : job.id;
+  const n = numberText(job.id, job.asset);
   const project = namePart(job.project, PROJECT_PART_MAX, 'project');
   const asset = namePart(job.asset, ASSET_PART_MAX, 'asset');
   return `maq_${project}_${asset}_v${n}_${job.service}`;
