@@ -1200,9 +1200,11 @@ resolves there waits. `commands/ship.rs::save` takes who saves, puts the mark do
 agent's folders are written and takes it off once a person's are (the Ship view's Save folders,
 which a person may press on the agent's folders unchanged, `ShipTarget.setByAgent`). An agent's
 data file that names a file already in the site, other than its data file, is refused
-(`refuse_foreign_data`). A folder change is refused while the project has a run going, and
-`agent_run` hands the setup and gate to a `submit` closure and holds the repo turn until it has
-queued the run, so no save lands between the gate's answer and the queued run. The card names the
+(`refuse_foreign_data`). A folder change is refused while a run of any project that ships into
+the same real folder is queued or going (`refuse_while_shipping`, through
+`PipelineRunner::any_run_with` on the run's `siteRepo`), since Ship reads the folders when it gets
+there. `agent_run` hands the setup and gate to a `submit` closure and holds the repo turn until it
+has queued the run, so no save lands between the gate's answer and the queued run. The card names the
 repo with the folders from `maquette.site.json` (`run.rs::site_destination`). A `state.json` from
 before the mark has none, so folders an agent wrote before then count as a person's.
 
