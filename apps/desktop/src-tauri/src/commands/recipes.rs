@@ -196,12 +196,12 @@ pub fn recipe_update(
 }
 
 /// A person's save of the recipe `id` in the editor: the change, and the
-/// draft marks cleared in the same write lock, since what agents drafted is
-/// theirs now.
+/// draft marks cleared in the same write lock once it is written, since what
+/// agents drafted is theirs now.
 ///
 /// # Errors
 ///
-/// As the change is refused, or when the marks cannot be cleared.
+/// As the change is refused; marks that cannot be cleared never fail it.
 pub fn save(
     session: &Session,
     project: &str,

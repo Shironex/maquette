@@ -374,11 +374,11 @@ pub fn update(
 }
 
 /// A person's save of the recipe `id`: [`update`], with the draft marks
-/// cleared under the same write lock ([`recipes::save`]).
+/// cleared under the same write lock once it is written ([`recipes::save`]).
 ///
 /// # Errors
 ///
-/// As [`update`], and when the marks cannot be cleared.
+/// As [`update`]; marks that cannot be cleared never fail it.
 pub fn save(
     root: &Path,
     project_dir: &Path,
