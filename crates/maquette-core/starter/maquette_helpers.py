@@ -227,7 +227,10 @@ def cylinder(
     caps=True,
 ):
     """An upright cylinder standing on `location`, or a cone when `top_radius`
-    differs from `radius`. `bevel` rounds the rims."""
+    differs from `radius`. `bevel` rounds the rims. `segments` is the number
+    of sides: 64 reads as round up close. For a mobile or headset game,
+    where a prop has about 4,000 to 5,000 triangles and a kit piece about
+    2,000, lower it (24 or 32 for a small part)."""
     bm = bmesh.new()
     bmesh.ops.create_cone(
         bm,
