@@ -310,3 +310,41 @@ fn a_render_that_fails_says_why_once_and_a_cancelled_one_says_nothing() {
         Asked::Ready(_)
     ));
 }
+
+#[test]
+fn another_set_for_the_same_folder_is_refused_and_never_reads_as_cancelled() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let model = dir.path().join("signpost_v1.glb");
+    fs::write(&model, fixture::signpost()).expect("model");
+    let first = ViewsRequest {
+        dir: dir.path().join("views/v1"),
+        work: dir.path().join("work"),
+        models: vec![ViewModel {
+            id: "v1".into(),
+            version: 1,
+            file: model,
+        }],
+        views: standard_set(None, &[]).expect("set"),
+        refs: Vec::new(),
+        size: EDGE,
+    };
+    let mut other = first.clone();
+    other.views = standard_set(None, &[ViewTarget::Node("right".into())]).expect("other");
+    let views = Views::default();
+    let tools = crate::test_blender::toolbox(&blender);
+    assert_eq!(
+        views.request(&first, &tools).expect("start"),
+        Asked::Rendering
+    );
+    // A set made from something else does not join the render on its way.
+    let refused = views.request(&other, &tools).expect_err("refused");
+    assert!(refused.to_string().contains("Another set"), "{refused}");
+    views.wait();
+    // Once the first set has landed, the other is not told it was stopped.
+    let said = views.outcome(&other).expect_err("not cancelled");
+    assert!(said.to_string().contains("Another set"), "{said}");
+    assert!(views.outcome(&first).expect("first").is_some());
+}

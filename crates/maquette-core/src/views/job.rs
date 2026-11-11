@@ -10,9 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use super::spec::{self, OUT_DIR, SPEC_FILE};
-use super::{
-    Asked, LANE, RECORD_FILE, SCRIPT, SCRIPT_FILE, SIZE, SIZES, ViewSet, ViewsRequest, stored,
-};
+use super::{Asked, LANE, SCRIPT, SCRIPT_FILE, SIZE, SIZES, ViewSet, ViewsRequest, stored};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::{self, RunRecord, RunState};
 use crate::pipeline::runner::{
@@ -28,6 +26,9 @@ use crate::workspace::{MeshoptLevel, TextureCodec};
 const TIMEOUT: Duration = Duration::from_secs(20 * 60);
 /// The runner's records and logs, inside a run's scratch folder.
 const RUNS_DIR: &str = "runs";
+/// Said when a folder's set is not the one asked for.
+const OTHER_SET: &str =
+    "Another set for this folder is rendering or landed there: its model, refs or cameras changed.";
 
 struct Pending {
     run_id: Option<String>,
@@ -52,24 +53,6 @@ impl Shared {
     fn failed(&self) -> MutexGuard<'_, HashMap<PathBuf, (String, String)>> {
         self.failed.lock().unwrap_or_else(PoisonError::into_inner)
     }
-}
-
-/// Moves a finished run's pictures into their folder, then writes the
-/// record, so a folder never shows half a set as a whole one.
-fn land(request: &ViewsRequest, key: &str) -> CoreResult<ViewSet> {
-    let set = spec::read_set(request, key, &request.work)?;
-    fs::create_dir_all(&request.dir).map_err(|e| CoreError::io(&request.dir, e))?;
-    let out = request.work.join(OUT_DIR);
-    for target in spec::files_of(&set) {
-        let Some(name) = target.file_name() else {
-            continue;
-        };
-        let made = out.join(name);
-        fs::copy(&made, &target).map_err(|e| CoreError::io(&made, e))?;
-    }
-    crate::json::write_json(&request.dir.join(RECORD_FILE), &set)?;
-    let _ = fs::remove_dir_all(&out);
-    Ok(set)
 }
 
 /// Why a run failed: the script's own `Error:` line when its log has one,
@@ -112,7 +95,7 @@ impl RunSink for Sink {
         let trouble = if cancelled {
             None
         } else if run.state == RunState::Done {
-            land(&request, &key).err().map(|e| e.to_string())
+            spec::land(&request, &key).err().map(|e| e.to_string())
         } else {
             let said = why(&run, &request.work.join(RUNS_DIR));
             Some(format!("The views did not render. {said}"))
@@ -300,8 +283,13 @@ impl Views {
             return Ok(Asked::Ready(Box::new(set)));
         }
         let mut pending = self.shared.pending();
-        if pending.contains_key(&request.dir) {
-            return Ok(Asked::Rendering);
+        if let Some(on_its_way) = pending.get(&request.dir) {
+            if on_its_way.key == key {
+                return Ok(Asked::Rendering);
+            }
+            return Err(CoreError::Invalid(format!(
+                "{OTHER_SET} Ask again once it is done."
+            )));
         }
         self.take_failure(&request.dir, &key)?;
         if !tools.has(ToolId::Blender) {
@@ -358,7 +346,12 @@ impl Views {
             return Ok(Some(set));
         }
         self.take_failure(&request.dir, &key)?;
-        Ok(None)
+        match stored(&request.dir) {
+            Some(_) => Err(CoreError::Invalid(format!(
+                "{OTHER_SET} Ask again to render this one."
+            ))),
+            None => Ok(None),
+        }
     }
 
     /// True while a set for `dir` is queued or rendering.

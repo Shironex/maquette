@@ -10,8 +10,8 @@ use sha2::{Digest, Sha256};
 
 use super::cameras::{StandardView, ViewTarget};
 use super::{
-    PageLight, RECORD_VERSION, SAMPLES, SCRIPT, SHEET_FILE, SHEET_TILE, ViewSet, ViewShot,
-    ViewedModel, ViewsRequest,
+    PageLight, RECORD_FILE, RECORD_VERSION, SAMPLES, SCRIPT, SHEET_FILE, SHEET_TILE, ViewSet,
+    ViewShot, ViewedModel, ViewsRequest,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::cache::FileHasher;
@@ -212,4 +212,24 @@ pub(super) fn files_of(set: &ViewSet) -> Vec<PathBuf> {
         .flat_map(|m| m.shots.iter().map(|s| PathBuf::from(&s.file)))
         .chain(std::iter::once(PathBuf::from(&set.sheet)))
         .collect()
+}
+
+/// Moves a finished run's pictures into their folder, then writes the
+/// record, so a folder never shows half a set as a whole one. The old record
+/// goes first: it never vouches for pictures another run made.
+pub(super) fn land(request: &ViewsRequest, key: &str) -> CoreResult<ViewSet> {
+    let set = read_set(request, key, &request.work)?;
+    fs::create_dir_all(&request.dir).map_err(|e| CoreError::io(&request.dir, e))?;
+    let _ = fs::remove_file(request.dir.join(RECORD_FILE));
+    let out = request.work.join(OUT_DIR);
+    for target in files_of(&set) {
+        let Some(name) = target.file_name() else {
+            continue;
+        };
+        let made = out.join(name);
+        fs::copy(&made, &target).map_err(|e| CoreError::io(&made, e))?;
+    }
+    crate::json::write_json(&request.dir.join(RECORD_FILE), &set)?;
+    let _ = fs::remove_dir_all(&out);
+    Ok(set)
 }
