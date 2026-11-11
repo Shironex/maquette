@@ -89,6 +89,9 @@ pub struct HumanoidSpec {
     /// The armature is scaled by this, evenly, when it is not 1.
     pub armature_scale: f32,
     pub animation: bool,
+    /// A walk clip whose hips travel this far along the character's own
+    /// front, metres; negative walks it backwards.
+    pub walk: Option<f32>,
     /// A cape behind the back weighted to the left upper arm, as a rig
     /// that drags cloth with the arm has it.
     pub cape: bool,
@@ -142,6 +145,7 @@ impl Default for HumanoidSpec {
             scale_noise: false,
             armature_scale: 1.0,
             animation: true,
+            walk: None,
             cape: false,
             cape_strip: false,
             tail: false,
@@ -435,6 +439,24 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
             "samplers": [{ "input": times, "output": values, "interpolation": "LINEAR" }],
             "channels": [{ "sampler": 0, "target": { "node": offset, "path": "translation" } }],
         }]);
+        if let Some(d) = spec.walk {
+            // The hips' keys are in the armature's frame, where the body faces +Z.
+            let values = b.floats(
+                &[hips[0], hips[1], hips[2], hips[0], hips[1], hips[2] + d],
+                "VEC3",
+                3,
+                None,
+                false,
+            );
+            let walk = json!({
+                "name": "Walk",
+                "samplers": [{ "input": times, "output": values, "interpolation": "LINEAR" }],
+                "channels": [{ "sampler": 0, "target": { "node": offset, "path": "translation" } }],
+            });
+            if let Some(list) = root["animations"].as_array_mut() {
+                list.push(walk);
+            }
+        }
     }
     b.finish(root)
 }

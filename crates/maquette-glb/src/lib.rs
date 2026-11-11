@@ -27,6 +27,7 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<analyse::JointCount>()
         .register::<analyse::FingerWeights>()
         .register::<analyse::Islands>()
+        .register::<analyse::ClipTravel>()
         .register::<analyse::GlbReport>()
 }
 

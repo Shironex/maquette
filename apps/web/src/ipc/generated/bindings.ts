@@ -2827,6 +2827,18 @@ export type ClipStatus =
  */
 "revision";
 
+/**  One clip that travels. */
+export type ClipTravel = {
+	clip: string,
+	/**  The node that carries it. */
+	node: string,
+	/**
+	 *  From the first key to the last over the ground, along world X and Z,
+	 *  in file units.
+	 */
+	along: [(number | null), (number | null)],
+};
+
 /**  One model that baked a library clip. */
 export type ClipUse = {
 	project: string,
@@ -3891,6 +3903,8 @@ export type GlbReport = {
 	rigProbe?: RigProbe | null,
 	/**  How far a rigged model is from a VRM 1.0 file; `None` without a skin. */
 	vrm?: VrmReadiness | null,
+	/**  The clips that carry the model over the ground, and how far. */
+	clipTravel?: ClipTravel[],
 };
 
 /**
