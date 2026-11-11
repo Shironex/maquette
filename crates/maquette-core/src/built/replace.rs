@@ -339,13 +339,10 @@ fn planned(env: &ReplaceEnv<'_>, asset_id: &str, built_id: &str) -> CoreResult<P
         found.is_some().then_some(parts.as_slice()),
         clips.as_deref(),
     );
-    let presets = crate::pipeline::load(&project_dir)
-        .ok()
-        .flatten()
-        .map(|def| def.presets)
-        .unwrap_or_default();
+    let pipeline = crate::pipeline::load(&project_dir).ok().flatten();
     let (preset_lines, preset_warnings) = settings::preset_lines(
-        &presets,
+        pipeline.as_ref(),
+        &after,
         &newest_stem(&asset),
         &newest_stem(&by),
         &crate::layout::stem(&file),

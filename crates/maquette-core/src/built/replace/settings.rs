@@ -25,9 +25,10 @@
 
 use crate::assets::AssetOrigin;
 use crate::materials::{MaterialTweak, ModelMaterials};
-use crate::pipeline::CompressPreset;
-use crate::pipeline::template::CHARACTER_LOCK;
+use crate::pipeline::template::{self, CHARACTER_LOCK};
+use crate::pipeline::{CompressPreset, PipelineDef};
 use crate::prepare::{Fixup, FixupKind, ModelPrep, PartsPlan};
+use crate::project::ProjectManifest;
 
 use super::report::{SwapAction, SwapSetting};
 
@@ -300,17 +301,30 @@ fn preset_words(preset: &CompressPreset) -> String {
     .to_lowercase()
 }
 
+/// Whether the pipeline moves its locked character row to `new_stem` once
+/// the project is `after`: only a scene project's row of its first character
+/// follows (`template::fit_presets`), so the fit itself is asked.
+fn character_row_follows(def: &PipelineDef, after: &ProjectManifest, new_stem: &str) -> bool {
+    let mut moved = def.clone();
+    template::fit_presets(&mut moved, after);
+    moved.presets.iter().any(|p| {
+        p.lock.as_deref() == Some(CHARACTER_LOCK) && p.model.eq_ignore_ascii_case(new_stem)
+    })
+}
+
 /// The compression presets of the two assets' model files. A preset belongs
 /// to one model file, so none follows to the new file, except the locked
-/// character row, which the pipeline moves to its asset's newest model
-/// (`template::fit_presets`).
+/// character row where the pipeline moves it to its asset's newest model.
 pub(super) fn preset_lines(
-    presets: &[CompressPreset],
+    def: Option<&PipelineDef>,
+    after: &ProjectManifest,
     old_stems: &[String],
     own_stems: &[String],
     new_stem: &str,
 ) -> (Vec<SwapSetting>, Vec<String>) {
     let (mut lines, mut warnings) = (Vec::new(), Vec::new());
+    let presets = def.map(|d| d.presets.as_slice()).unwrap_or_default();
+    let follows = def.is_some_and(|d| character_row_follows(d, after, new_stem));
     let of = |stems: &[String]| -> Vec<&CompressPreset> {
         presets
             .iter()
@@ -323,7 +337,7 @@ pub(super) fn preset_lines(
             preset.model,
             preset_words(preset)
         );
-        if preset.lock.as_deref() == Some(CHARACTER_LOCK) {
+        if follows && preset.lock.as_deref() == Some(CHARACTER_LOCK) {
             warnings.push(format!(
                 "The locked character preset of {} follows the asset's newest model, so it applies to the built model too ({CHARACTER_LOCK}). Edit pipeline.json if the built model needs another.",
                 preset.model

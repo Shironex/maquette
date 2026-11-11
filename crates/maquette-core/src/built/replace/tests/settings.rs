@@ -415,3 +415,36 @@ fn the_locked_character_preset_follows_and_the_report_says_so() {
     let def = crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
     assert_eq!(def.presets[0].model, "hero_v2");
 }
+
+#[test]
+fn a_locked_row_the_pipeline_does_not_move_stays_with_its_file() {
+    let w = World::website();
+    let hero = w.scan("Hero");
+    let desk = w.built("Hero built", "hero.py");
+    // A locked row for a prop: only a scene's first character row follows.
+    let manifest = w.manifest();
+    crate::pipeline::ensure(&w.dir, &manifest).expect("pipeline");
+    crate::pipeline::update(&w.dir, &manifest, |def| {
+        def.presets = vec![CompressPreset {
+            model: "hero_v1".into(),
+            label: "Hero".into(),
+            ..crate::pipeline::template::character_preset()
+        }];
+        Ok(())
+    })
+    .expect("presets");
+
+    let report = w.replace(&hero.id, &desk.id).report;
+
+    assert_eq!(
+        action_of(&report, "Compression preset of hero_v1"),
+        Some(SwapAction::Reset)
+    );
+    assert!(
+        report.warnings.iter().all(|w| !w.contains("follows")),
+        "{:?}",
+        report.warnings
+    );
+    let def = crate::pipeline::ensure(&w.dir, &w.manifest()).expect("pipeline");
+    assert_eq!(def.presets[0].model, "hero_v1", "the row did not move");
+}
