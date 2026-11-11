@@ -139,6 +139,23 @@ fn a_seam_that_keeps_the_clips_pace_passes_with_no_fix() {
 }
 
 #[test]
+fn a_bake_that_reports_no_hips_reads_its_seams_as_not_measured() {
+    let p = joined();
+    let t = timeline(&p.recipe.recipe);
+    let mut moved = motion(t.frames, 0, 0.0);
+    moved["tracks"]
+        .as_object_mut()
+        .expect("tracks")
+        .remove("hips");
+    let result = baked(&p, &report(t.frames, moved));
+    let review = review_of(&result);
+    let pop = review.lines.iter().find(|l| l.id == "seam").expect("seam");
+    assert_eq!(pop.status, RecipeReviewStatus::NotMeasured, "{pop:?}");
+    assert_eq!(pop.value, "not measured");
+    assert!(review.fixes.is_empty(), "{:?}", review.fixes);
+}
+
+#[test]
 fn a_two_handed_grip_s_hands_drifting_apart_reads_as_its_hand_gap() {
     let mut p = project_with(humanoid());
     p.change(grips(), Vec::new());

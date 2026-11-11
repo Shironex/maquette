@@ -105,6 +105,14 @@ pub struct SeamCheck {
     /// and the most it may (its own frames).
     pub ease: Option<u32>,
     pub ease_most: Option<u32>,
+    /// The bake reported the hips over the window; when not, nothing of
+    /// it was measured and it never pops.
+    #[serde(default = "measured_by_default")]
+    pub measured: bool,
+}
+
+fn measured_by_default() -> bool {
+    true
 }
 
 impl SeamCheck {
@@ -211,11 +219,19 @@ fn step_cm(hips: &[[f32; 3]], i: usize) -> f32 {
     }
 }
 
-/// The steps either side of `w`, within the timeline's `frames`.
-fn around(w: &SeamWindow, frames: u32) -> impl Iterator<Item = u32> {
+/// The steps either side of `w`, within the timeline's `frames`, but none
+/// inside another of the seams `all`: a near seam's own jump never raises
+/// this one's bar.
+fn around<'a>(
+    w: &SeamWindow,
+    all: &'a [SeamWindow],
+    frames: u32,
+) -> impl Iterator<Item = u32> + 'a {
     let before = w.first.saturating_sub(AROUND_FRAMES).max(1)..w.first;
     let after = (w.last + 1)..=(w.last + AROUND_FRAMES).min(frames);
-    before.chain(after)
+    before
+        .chain(after)
+        .filter(move |i| !all.iter().any(|o| (o.first..=o.last).contains(i)))
 }
 
 fn worst(values: impl Iterator<Item = (u32, f32)>) -> (u32, f32) {
@@ -229,18 +245,30 @@ fn round(value: f32) -> f32 {
     (value * 10.0).round() / 10.0
 }
 
-/// Judges window `w` on `motion`, a timeline of `frames` frames.
+/// Judges window `w` on `motion`, a timeline of `frames` frames, as the
+/// only seam.
 pub fn judge(w: &SeamWindow, motion: &SeamMotion, frames: u32) -> SeamCheck {
+    judge_among(w, &[], motion, frames)
+}
+
+/// Judges window `w`, one of the seams `all`, on `motion`. Motion with no
+/// hips up to the window's end is not measured and never pops.
+pub fn judge_among(
+    w: &SeamWindow,
+    all: &[SeamWindow],
+    motion: &SeamMotion,
+    frames: u32,
+) -> SeamCheck {
     let inside = || w.first..=w.last;
     let hips_at = |i: u32| step_cm(&motion.hips, i as usize);
     let (hips_frame, hips) = worst(inside().map(|i| (i, hips_at(i))));
-    let (_, hips_around) = worst(around(w, frames).map(|i| (i, hips_at(i))));
+    let (_, hips_around) = worst(around(w, all, frames).map(|i| (i, hips_at(i))));
     let hips_over = (hips - hips_around).max(0.0);
     let mut bone: Option<(String, u32, f32, f32, f32)> = None;
     for (name, steps) in &motion.turns {
         let at = |i: u32| steps.get(i as usize).copied().unwrap_or(0.0);
         let (frame, turn) = worst(inside().map(|i| (i, at(i))));
-        let (_, near) = worst(around(w, frames).map(|i| (i, at(i))));
+        let (_, near) = worst(around(w, all, frames).map(|i| (i, at(i))));
         let over = (turn - near).max(0.0);
         if bone.as_ref().is_none_or(|b| over > b.4) {
             bone = Some((name.clone(), frame, turn, near, over));
@@ -271,8 +299,10 @@ pub fn judge(w: &SeamWindow, motion: &SeamMotion, frames: u32) -> SeamCheck {
         blend_most: None,
         ease: None,
         ease_most: None,
+        measured: motion.hips.len() > w.last as usize,
     };
-    check.pops = check.hips_over_cm > SEAM_HIPS_CM || check.turn_over_degrees > SEAM_TURN_DEGREES;
+    check.pops = check.measured
+        && (check.hips_over_cm > SEAM_HIPS_CM || check.turn_over_degrees > SEAM_TURN_DEGREES);
     check.frame = if check.hips_worse() && hips > 0.0 {
         hips_frame
     } else {
@@ -313,8 +343,8 @@ fn described(recipe: &RecipeFile, mut check: SeamCheck) -> SeamCheck {
 /// Every seam of `recipe` judged on `motion`, the timeline `t` it was
 /// baked on.
 pub fn checks(recipe: &RecipeFile, t: &Timeline, motion: &SeamMotion) -> Vec<SeamCheck> {
-    windows(recipe, t)
-        .iter()
-        .map(|w| described(recipe, judge(w, motion, t.frames)))
+    let all = windows(recipe, t);
+    all.iter()
+        .map(|w| described(recipe, judge_among(w, &all, motion, t.frames)))
         .collect()
 }

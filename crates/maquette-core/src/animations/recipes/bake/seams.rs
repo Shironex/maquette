@@ -17,7 +17,7 @@ use crate::recipes::grips::{GripHands, span_on};
 use crate::recipes::seams::{
     SEAM_HIPS_CM, SEAM_TURN_DEGREES, SeamCheck, SeamKind, SeamMotion, checks,
 };
-use crate::recipes::timeline::timeline;
+use crate::recipes::timeline::{Timeline, timeline};
 use crate::recipes::{LayerKind, RecipeFile};
 
 /// The two hands of a grip may move this far closer or further apart than
@@ -45,19 +45,25 @@ pub struct RecipeMirrorResult {
     pub unpaired: Vec<String>,
 }
 
-/// Every seam of the recipe `prepared` bakes, judged on the motion `run`
-/// reports.
-pub(crate) fn seam_checks(prepared: &Prepared, run: &MotionRun) -> Vec<SeamCheck> {
-    let recipe = &prepared.doc.recipe;
-    let t = prepared
+/// The timeline `prepared` bakes on: the one it carries for a joined or
+/// timed bake, else the plain recipe's own. Seams, grip gaps and the sheet
+/// all read this one.
+pub(crate) fn baked_timeline(prepared: &Prepared) -> Timeline {
+    prepared
         .timeline
         .clone()
-        .unwrap_or_else(|| timeline(recipe));
+        .unwrap_or_else(|| timeline(&prepared.doc.recipe))
+}
+
+/// Every seam of the recipe `prepared` bakes on its timeline `t`, judged on
+/// the motion `run` reports.
+pub(crate) fn seam_checks(prepared: &Prepared, t: &Timeline, run: &MotionRun) -> Vec<SeamCheck> {
+    let recipe = &prepared.doc.recipe;
     let motion = SeamMotion {
         hips: run.tracks.get("hips").cloned().unwrap_or_default(),
         turns: run.turns.clone(),
     };
-    checks(recipe, &t, &motion)
+    checks(recipe, t, &motion)
 }
 
 fn apart(a: [f32; 3], b: [f32; 3]) -> f32 {
@@ -66,13 +72,13 @@ fn apart(a: [f32; 3], b: [f32; 3]) -> f32 {
 
 /// `grips` with each two handed grip's hand gap: how far the hands move
 /// closer or further apart than at its first whole frame, over the frames
-/// it holds whole.
+/// it holds whole, on the timeline `t` it was baked on.
 pub(crate) fn with_gaps(
     recipe: &RecipeFile,
+    t: &Timeline,
     grips: &[RecipeGripResult],
     run: &MotionRun,
 ) -> Vec<RecipeGripResult> {
-    let t = timeline(recipe);
     let (Some(left), Some(right)) = (run.tracks.get("leftHand"), run.tracks.get("rightHand"))
     else {
         return grips.to_vec();
@@ -87,7 +93,7 @@ pub(crate) fn with_gaps(
                 .find(|l| l.kind == LayerKind::Grip && l.id == grip.layer);
             let both = layer.and_then(|l| l.pose.as_ref()).and_then(hands_of_pose)
                 == Some(GripHands::Both);
-            let span = layer.and_then(|l| span_on(&t, l));
+            let span = layer.and_then(|l| span_on(t, l));
             if let (true, Some(span)) = (both, span) {
                 let first = span.first + span.ease_in;
                 let last = span.last.saturating_sub(span.ease_out);
@@ -174,6 +180,20 @@ fn seam_line(
     place: impl Fn(&SeamCheck) -> String,
 ) -> Option<RecipeReviewLine> {
     let seam = seams.first()?;
+    if !seam.measured {
+        return Some(RecipeReviewLine {
+            id: id.to_string(),
+            label: label.to_string(),
+            about: Some(seam.about.clone()),
+            value: "not measured".to_string(),
+            limit: format!("{SEAM_HIPS_CM:.0} cm or {SEAM_TURN_DEGREES:.0} deg"),
+            measured: None,
+            max: None,
+            unit: None,
+            status: RecipeReviewStatus::NotMeasured,
+            note: Some("The bake reported no hips motion, so no seam was measured.".to_string()),
+        });
+    }
     let (value, limit, number, max, unit) = measured(seam);
     let more = seams.len() - 1;
     let others = if more == 0 {

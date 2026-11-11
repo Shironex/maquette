@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use super::seams::{
     AROUND_FRAMES, SEAM_HIPS_CM, SEAM_TURN_DEGREES, SeamKind, SeamMotion, SeamWindow, checks,
-    judge, windows,
+    judge, judge_among, windows,
 };
 use super::tests_v2::clip;
 use super::timeline::timeline;
@@ -182,4 +182,29 @@ fn every_seam_of_a_recipe_is_judged() {
     assert_eq!(found[1].about, "Thrust");
     assert_eq!(found[1].ease, Some(0));
     assert!(!found[1].pops && !found[2].pops, "the steady hold does not");
+}
+
+#[test]
+fn two_near_seams_never_raise_each_others_bar() {
+    // Two 10 cm jumps four steps apart: each sits in the other's around,
+    // and must still pop on its own.
+    let motion = jump(jump(steady(80, 1.0, 1.0), 40, 10.0), 44, 10.0);
+    let both = [window(40, 40), window(44, 44)];
+    for w in &both {
+        let check = judge_among(w, &both, &motion, 80);
+        assert!(check.pops, "{check:?}");
+        assert!((check.hips_around_cm - 1.0).abs() < 0.05, "{check:?}");
+    }
+}
+
+#[test]
+fn a_bake_with_no_hips_track_is_not_measured() {
+    let r = joined(8);
+    let t = timeline(&r);
+    let mut motion = steady(t.frames, 1.0, 1.0);
+    assert!(checks(&r, &t, &motion).iter().all(|c| c.measured));
+    motion.hips.clear();
+    let found = checks(&r, &t, &motion);
+    assert!(!found.is_empty());
+    assert!(found.iter().all(|c| !c.measured && !c.pops), "{found:?}");
 }
