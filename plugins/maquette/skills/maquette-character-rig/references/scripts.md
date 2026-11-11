@@ -60,7 +60,9 @@ RIG_CONFIG_DIR=/scratch/spider blender -b --factory-startup -P weightmap.py -- i
 
 `rigconfig.py` must name real bones before `weightmap.py` or `posetest.py` run (they look bones up by
 name). First pass: run `autoconfig.py`, or fill `CHAINS` from `probe.py` bone heads and parents and set
-`FRONT` from where the head is, then render and correct. Legs are any chain named `leg_*` or `rear_*`.
+`FRONT` from where the feet point (else where the head is), then render and correct. `autoconfig.py` reads it
+that way: an upright creature's head points up and says nothing about its front. It reports the front in glTF
+axes (Blender's -Y is glTF's +Z). Legs are any chain named `leg_*` or `rear_*`.
 
 `fix.py` writes the result as a byte patch of JOINTS_0 and WEIGHTS_0 (via `humanoid/glbio.py`) whenever
 the Blender vertex order matches the file, so `verify.py` should report only those two accessors changed;

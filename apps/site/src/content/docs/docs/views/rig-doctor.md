@@ -42,7 +42,7 @@ Click a cell to enlarge it; in a comparison, before and draft open together unde
 
 Bones with no weight, or next to none, down their whole branch make no chain and do not count as legs. They stay in the file, and a line under the table names them.
 
-A creature's chains are read from the bone tree, so the guess needs a person. The **Chains** table lists what each one was read as, with a **Not checked yet** mark until you answer. **Edit** lets you change what a chain is read as, and a leg's side. The body, neck and head, and the grouped spike rows stay as read.
+A creature's chains are read from the bone tree, so the guess needs a person. Its **Front** is the axis it faces in the file, as glTF and three.js name it: read from where its feet and toes point, and from where the head sits past the body when there are no feet. On two legs the head is the chain that reaches highest. The **Chains** table lists what each one was read as, with a **Not checked yet** mark until you answer. **Edit** lets you change what a chain is read as, and a leg's side. The body, neck and head, and the grouped spike rows stay as read.
 
 - **Chains are right** marks them **Checked by you** and keeps the sheets.
 - **Save and start over** keeps your corrections and sends the case back to the pose test. An existing draft is removed.
