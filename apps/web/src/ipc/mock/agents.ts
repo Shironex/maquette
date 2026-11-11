@@ -134,7 +134,8 @@ export function createFakeAgents({
           job: null,
           assetName: null,
           service: null,
-          detail: 'Writes to /Users/you/code/frostveil-site',
+          detail:
+            'Writes to /Users/you/code/frostveil-site: models in public/models, posters in public/posters, no data file',
           requestedAtMs: now - 12_000,
           items: [],
         },
