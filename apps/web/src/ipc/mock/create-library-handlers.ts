@@ -1,10 +1,8 @@
 /**
- * The library in mock mode: entries kept in memory and copied in and out
- * of the mock projects the way the core does it. `?library=demo` opens with
- * the entries of `library-fixtures.ts`, `?library=scale` with 214 models
- * (`library-scale-fixtures.ts`); without either the library is empty. The
- * bulk actions live in `create-library-batch-handlers.ts`.
- * Adding, using and updating spend nothing, as in the app.
+ * The library in mock mode: entries kept in memory and copied in and out of the mock projects the
+ * way the core does it. `?library=demo` opens with the entries of `library-fixtures.ts`, `?library=
+ * scale` with 214 models (`library-scale-fixtures.ts`); without either it is empty. The bulk
+ * actions live in `create-library-batch-handlers.ts`. Adding, using and updating spend nothing.
  */
 import type {
   AddToLibrary,
@@ -40,6 +38,7 @@ interface LibraryContext {
   /** Serves a project file at a library path and back, since mock mode has no disk. */
   alias: (path: string, from: string) => void;
   state: string | null;
+  drafted?: boolean; // `?agents=drafts`, for the recipes
   /** Export packs: how fast a model runs, and the pack changed event. */
   pack: { pace: number; emit: (record: PackRecord) => void };
   /** Render styles: the `?render=` state, and the render changed event. */
@@ -357,6 +356,7 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     alias: ctx.alias,
     root: ctx.root,
     state: ctx.state,
+    drafted: ctx.drafted,
   });
 
   const batch = createLibraryBatchHandlers({

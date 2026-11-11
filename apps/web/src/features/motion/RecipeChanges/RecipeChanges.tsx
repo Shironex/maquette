@@ -1,4 +1,4 @@
-import { Button, Icon, Select, type IconName } from '@maquette/ui';
+import { Button, Icon, Select, cn, type IconName } from '@maquette/ui';
 import type { LayerKind } from '@/ipc/client';
 import { layerLine } from '@/state/recipe-draft';
 import { RecipeChangeForm } from '../RecipeChangeForm';
@@ -20,8 +20,15 @@ export default function RecipeChanges() {
   const rows = c.layers.map(layer => {
     const open = c.picked === layer.id;
     const problem = c.problems[layer.id];
+    const drafted = c.drafted(layer);
     return (
-      <li key={layer.id} className="rounded-card border border-line bg-raised">
+      <li
+        key={layer.id}
+        className={cn(
+          'rounded-card border border-line bg-raised',
+          drafted && 'border-agent/50 shadow-[inset_3px_0_0_var(--color-agent)]'
+        )}
+      >
         <button
           type="button"
           aria-expanded={open}
@@ -37,6 +44,11 @@ export default function RecipeChanges() {
               <span className="block truncate text-meta text-danger">{problem}</span>
             ) : null}
           </span>
+          {drafted ? (
+            <span className="flex-none rounded-full bg-agent/15 px-1.5 py-0.5 text-[11px] font-medium text-agent">
+              {drafted}
+            </span>
+          ) : null}
           <span className="font-mono text-[11px] text-fg-mute">{layer.id}</span>
           <Icon name={open ? 'caret-up-down' : 'caret-down'} size={14} className="text-fg-mute" />
         </button>

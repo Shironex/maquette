@@ -146,11 +146,12 @@ export const useRecipeEditorStore = create<RecipeEditorStore>((set, get) => {
   const saveNow = async () => {
     const { editing, outside } = get();
     if (!editing) return false;
-    if (!isDirty(editing)) {
+    if (!isDirty(editing) && !editing.doc.drafts) {
       // Nothing left to write: whatever came in is what the file holds.
       if (!outside) set({ merged: null });
       return true;
     }
+    // With no edits, a save keeps what agents drafted as the person's.
     if (outside) {
       set({ saveError: ANSWER_FIRST });
       return false;

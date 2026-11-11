@@ -70,6 +70,7 @@ export const AGENT_SCENES = [
   'recipe',
   'recipe-save',
   'grip-save',
+  'drafts',
 ];
 
 export function createFakeAgents({
@@ -213,8 +214,9 @@ export function createFakeAgents({
     ];
   }
 
-  // Only the recipe bake's add, the recipe save or the grip save waits.
-  if (scene === 'recipe' || scene === 'recipe-save' || scene === 'grip-save') approvals = [];
+  // Only the recipe bake's add, the recipe save or the grip save waits; drafts ask nothing.
+  if (scene === 'recipe' || scene === 'recipe-save' || scene === 'grip-save' || scene === 'drafts')
+    approvals = [];
 
   if (preview) {
     approvals = [

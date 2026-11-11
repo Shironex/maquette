@@ -41,4 +41,15 @@ describe('a pose key lane', () => {
     fireEvent.keyDown(all[2]!, { key: 'Enter' });
     expect(usePoseKeysStore.getState().frame).toBe(20);
   });
+
+  it("marks an agent's keys as drafted", async () => {
+    await openRecipe('slash-with-a-lean');
+    const editing = useRecipeEditorStore.getState().editing!;
+    const drafts = { by: 'Motion agent', keys: [{ layer: 'l-1', clip: 0, frame: 20 }] };
+    useRecipeEditorStore.setState({ editing: { ...editing, doc: { ...editing.doc, drafts } } });
+    render(<PoseKeyLane id="l-1" bone="chest" frames={100} />);
+    expect(
+      screen.getAllByRole('button', { name: /drafted by an agent$/ }).map(b => b.ariaLabel)
+    ).toEqual([expect.stringMatching(/^Chest key at frame 20,/)]);
+  });
 });

@@ -35,6 +35,8 @@ interface AnimationContext {
   alias: (path: string, from: string) => void;
   root: () => string;
   state: string | null;
+  /** `?agents=drafts`, for the recipes. */
+  drafted?: boolean;
 }
 
 /** Where `install.ts` serves the bundled clip, for every clip to play. */
@@ -345,6 +347,7 @@ export function createAnimationHandlers(ctx: AnimationContext) {
         alias: ctx.alias,
         root: ctx.root,
         state: ctx.state,
+        drafted: ctx.drafted,
       }),
       animations_get: () => view(),
       dialog_pick_clips: () => PICKED,

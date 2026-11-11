@@ -3,6 +3,7 @@ import { RecipeBaseEdits } from '../RecipeBaseEdits';
 import { RecipeBlanks } from '../RecipeBlanks';
 import { GripPicker } from '../GripPicker';
 import { RecipeChanges } from '../RecipeChanges';
+import { RecipeDrafts } from '../RecipeDrafts';
 import { RecipePlayer } from '../RecipePlayer';
 import { ApplyButton, EditorBake } from './EditorApply';
 import { EditorDialogs } from './EditorDialogs';
@@ -15,7 +16,8 @@ import { useEditorApply, useRecipeEditor } from './RecipeEditor.hooks';
  * merges or asks which side wins. Base edits (joined clips, trims, time
  * edits, the mirror) sit above the changes. Add a grip shows the grip
  * library's picker in place of the preview and the changes until a grip is
- * added or the picker is closed.
+ * added or the picker is closed. What an agent drafted since the last save
+ * shows in its blue until Save.
  */
 export default function RecipeEditor() {
   const v = useRecipeEditor();
@@ -78,6 +80,7 @@ export default function RecipeEditor() {
         <InlineBanner tone="danger" title="The recipe was not saved" detail={v.saveError} />
       ) : null}
       {v.merged ? <InlineBanner tone="info" title={v.merged} /> : null}
+      <RecipeDrafts />
       {general}
       {v.pickingGrip ? (
         <GripPicker />

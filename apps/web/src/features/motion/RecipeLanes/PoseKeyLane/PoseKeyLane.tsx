@@ -23,11 +23,12 @@ export default function PoseKeyLane({ id, bone, frames }: PoseKeyLaneProps) {
   const diamonds = l.marks.map(m => {
     const f = m.frame ?? 0;
     const here = f === l.frame;
+    const drafted = l.drafted(m);
     return (
       <button
         key={`${m.spot.clip}:${m.spot.frame}`}
         type="button"
-        aria-label={`${what} key at frame ${f}, eases ${EASE_WORDS[m.ease].toLowerCase()}`}
+        aria-label={`${what} key at frame ${f}, eases ${EASE_WORDS[m.ease].toLowerCase()}${drafted ? ', drafted by an agent' : ''}`}
         title={
           bone
             ? `${boneWords(bone)}, frame ${f}`
@@ -41,6 +42,7 @@ export default function PoseKeyLane({ id, bone, frames }: PoseKeyLaneProps) {
           DIAMOND,
           'cursor-grab touch-none',
           bone ? 'border-clay bg-clay' : 'border-fg-dim bg-fg-dim',
+          drafted && 'border-agent bg-agent',
           here && 'size-3 border-fg ring-2 ring-clay/50'
         )}
         style={{ left: at(f, frames) }}

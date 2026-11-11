@@ -86,4 +86,18 @@ describe('adding a grip', () => {
     expect(useRecipeEditorStore.getState().picked).toEqual({ what: 'grips', id: '' });
     expect(useRecipeEditorStore.getState().editing?.draft.layers).toHaveLength(before!);
   });
+
+  it('tags what an agent drafted, with its share of the keys', async () => {
+    await openRecipe('slash-with-a-lean');
+    const editing = useRecipeEditorStore.getState().editing!;
+    const drafts = {
+      by: 'Motion agent',
+      layers: ['l-1'],
+      keys: [{ layer: 'l-1', clip: 0, frame: 20 }],
+    };
+    useRecipeEditorStore.setState({ editing: { ...editing, doc: { ...editing.doc, drafts } } });
+    render(<RecipeChanges />);
+    const list = screen.getByRole('list', { name: 'Recipe changes' });
+    expect(within(list).getByText('1 of 6 keys drafted')).toBeVisible();
+  });
 });

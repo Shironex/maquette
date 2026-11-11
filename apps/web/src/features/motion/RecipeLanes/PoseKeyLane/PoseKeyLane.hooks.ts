@@ -1,5 +1,7 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { draftedKey } from '@/state/recipe-drafts';
 import { usePoseKeyEditing, type KeyMark } from '@/state/use-pose-key-editing';
+import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 
 interface Drag {
   mark: KeyMark;
@@ -25,6 +27,9 @@ export function usePoseKeyLane(id: string, bone: string | null, frames: number) 
   const [ghost, setGhost] = useState<{ from: KeyMark; to: number } | null>(null);
   const marks = e.marks.filter(m => m.frame !== null && (!bone || m.bones.includes(bone)));
   const bones = bone ? [bone] : undefined;
+  const drafts = useRecipeEditorStore(s => s.editing?.doc.drafts ?? null);
+  /** An agent's key, shown in its blue until a person saves. */
+  const drafted = (m: KeyMark) => draftedKey(drafts, id, m.spot.clip, m.spot.frame);
 
   const down = (mark: KeyMark) => (ev: PointerEvent<HTMLElement>) => {
     ev.stopPropagation();
@@ -67,5 +72,5 @@ export function usePoseKeyLane(id: string, bone: string | null, frames: number) 
     const to = Math.min(Math.max(mark.frame + step * (ev.shiftKey ? 10 : 1), 0), frames);
     e.move(mark.spot, to, { copy: ev.altKey, bones });
   };
-  return { marks, ghost, frame: e.frame, down, move, up, key };
+  return { marks, ghost, frame: e.frame, drafted, down, move, up, key };
 }
