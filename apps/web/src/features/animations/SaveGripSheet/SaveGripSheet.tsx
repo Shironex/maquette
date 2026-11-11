@@ -52,10 +52,8 @@ export default function SaveGripSheet() {
       width={560}
       footer={
         <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-          <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-fg-mute">
-            {plan
-              ? `${plan.file} · ${formatBytes(plan.bytes)}`
-              : 'A save adds a revision; it never overwrites one.'}
+          <span className="min-w-0 flex-1 text-meta text-fg-mute">
+            A save adds a revision; it never overwrites one.
           </span>
           <Button onClick={v.close}>Cancel</Button>
           <Button
@@ -126,7 +124,7 @@ export default function SaveGripSheet() {
             </div>
             <section aria-label="Bones" className="flex flex-col gap-1.5">
               <span className={CAPTION}>Bones</span>
-              <ul className="m-0 grid list-none grid-cols-2 gap-x-4 gap-y-1 p-0 text-meta">
+              <ul className="m-0 flex max-w-[320px] list-none flex-col gap-1 p-0 text-meta">
                 {groups}
               </ul>
             </section>
@@ -155,6 +153,9 @@ export default function SaveGripSheet() {
                     {changes}
                   </ul>
                 )}
+                <p className="font-mono text-[11.5px] break-all text-fg-mute">
+                  {plan.file} · {formatBytes(plan.bytes)}
+                </p>
               </section>
             ) : null}
           </>

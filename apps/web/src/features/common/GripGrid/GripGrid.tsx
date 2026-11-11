@@ -57,7 +57,7 @@ function Card({
           <b className="truncate text-[13px] font-semibold">{grip.name}</b>
           <span
             className={cn(
-              'truncate font-mono text-[11px]',
+              'font-mono text-[11px] leading-4',
               grip.problem ? 'text-danger' : 'text-fg-mute'
             )}
           >

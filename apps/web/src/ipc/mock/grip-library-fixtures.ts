@@ -182,7 +182,8 @@ export function gripRecipe(clips: readonly AnimationClip[]): RecipeFile | null {
   if (!idle) return null;
   const recipe = newRecipe('Scythe charge, held', baseOf(idle));
   recipe.version = 2;
-  const keyed = scythe(2).pose;
+  // Closed a little further than r2, the charge's tighter hold: a revision worth saving.
+  const keyed = bothHands([66, 74, 48], [6, 0, -10], 14);
   const held = layerOf(
     'l-2',
     scythe(1),

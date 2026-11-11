@@ -57,13 +57,11 @@ describe('the save a grip sheet', () => {
     ).toMatchObject({ weapon: 'scythe', latest: 1 });
   });
 
-  it('says there is nothing to save as a revision holding the same pose', async () => {
+  it('says what changes against the newest revision of a library grip', async () => {
     const sheet = await opened();
     await userEvent.selectOptions(within(sheet).getByLabelText('Save as'), 'scythe-staff-grip');
-    expect(await within(sheet).findByText('Nothing changed since r2.')).toBeVisible();
-    expect(within(sheet).getByRole('button', { name: 'Save as r3' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
+    expect(await within(sheet).findByText('What changes against r2')).toBeVisible();
+    expect(within(sheet).getByLabelText('Name')).toHaveValue('Scythe, staff grip');
+    expect(within(sheet).getByRole('button', { name: 'Save as r3' })).toBeEnabled();
   });
 });

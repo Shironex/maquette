@@ -67,10 +67,7 @@ describe('the save a grip sheet', () => {
     await store().choose({ entry: 'scythe-staff-grip' });
     expect(sheet()).toMatchObject({ name: 'Scythe, staff grip', weapon: 'scythe' });
     expect(sheet().plan).toMatchObject({ entry: 'scythe-staff-grip', revision: 3, latest: 2 });
-    // The demo recipe keys what r2 holds, so it waits: nothing to save.
-    expect(sheet().plan?.same).toBe(true);
-    expect(await store().save()).toBe(false);
-    await store().choose({ weapon: 'staff' });
+    expect(sheet().plan?.changes).toEqual([expect.stringMatching(/another way/)]);
     expect(await store().save()).toBe(true);
     expect(store().sheet).toBeNull();
     const doc = await commands.gripLibraryGet('scythe-staff-grip', null);
@@ -88,7 +85,6 @@ describe('the save a grip sheet', () => {
     await openRecipe('scythe-charge-held');
     await open();
     await store().choose({ entry: 'scythe-staff-grip' });
-    await store().choose({ weapon: 'spear' });
     const planned = sheet().plan!;
     await commands.gripLibrarySave({
       grip: { ...planned.grip, weapon: 'staff' },

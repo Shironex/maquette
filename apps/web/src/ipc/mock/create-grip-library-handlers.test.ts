@@ -109,10 +109,15 @@ describe('the mock grip library', () => {
     const taken = await plan(handle, grip, null);
     expect(taken.entryName).toBe('Scythe, staff grip (2)');
     expect(taken.file).toBe('library/grips/scythe-staff-grip-2/r1.grip.json');
-    // The recipe's keys hold what r2 holds, so a save to that grip has nothing to add.
-    const same = await plan(handle, grip, 'scythe-staff-grip');
+    // The recipe's keys close the hands further than r2 does: a revision worth saving.
+    const tighter = await plan(handle, grip, 'scythe-staff-grip');
+    expect(tighter).toMatchObject({ latest: 2, revision: 3, same: false });
+    expect(tighter.changes).toEqual([expect.stringMatching(/^Turns \d+ bones another way\.$/)]);
+    // What r2 holds already has nothing to add.
+    const r2 = (await get(handle, 'scythe-staff-grip', 2)).grip;
+    const same = await plan(handle, r2, 'scythe-staff-grip');
     expect(same).toMatchObject({ latest: 2, revision: 3, same: true, changes: [] });
-    const turned: GripFile = { ...grip, pose: { ...grip.pose, rightIndexProximal: [0, 0, 80] } };
+    const turned: GripFile = { ...r2, pose: { ...r2.pose, rightIndexProximal: [0, 0, 80] } };
     const next = await plan(handle, { ...turned, name: 'Ignored' }, 'scythe-staff-grip');
     expect(next).toMatchObject({
       entry: 'scythe-staff-grip',
