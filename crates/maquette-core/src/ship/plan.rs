@@ -48,6 +48,10 @@ pub struct ShipTarget {
     pub models_exist: bool,
     /// Why the site config could not be read.
     pub error: Option<String>,
+    /// True when an agent set these folders and no person has saved them
+    /// since, so a Ship into them waits for a person. The app fills it in.
+    #[serde(default)]
+    pub set_by_agent: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -182,6 +186,7 @@ fn target_of(manifest: &ProjectManifest) -> ShipTarget {
         posters: config.posters,
         data: config.data,
         error,
+        set_by_agent: false,
     }
 }
 
