@@ -172,6 +172,9 @@ pub fn mark(
     at: &str,
 ) -> CoreResult<Option<RecipeDrafts>> {
     let path = file(project_dir, id)?;
+    // Under the recipes' write lock, so two writes at once never drop a
+    // mark and a person's save never lands between the read and the write.
+    let _lock = super::files::writing();
     let old = read(project_dir, id, after);
     let new = diff(before, after);
     if new.is_empty() {
@@ -198,6 +201,12 @@ pub fn mark(
 /// Fails for an id no recipe could have or when the file is there and
 /// cannot be removed.
 pub fn clear(project_dir: &Path, id: &str) -> CoreResult<()> {
+    let _lock = super::files::writing();
+    clear_held(project_dir, id)
+}
+
+/// [`clear`] for a caller that holds the write lock already.
+pub(super) fn clear_held(project_dir: &Path, id: &str) -> CoreResult<()> {
     let path = file(project_dir, id)?;
     match fs::remove_file(&path) {
         Err(e) if e.kind() != io::ErrorKind::NotFound => Err(CoreError::io(&path, e)),

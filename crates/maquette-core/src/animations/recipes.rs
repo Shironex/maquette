@@ -373,6 +373,23 @@ pub fn update(
     Ok(with_drafts(project_dir, doc_of(id, read, &list(root)?)))
 }
 
+/// A person's save of the recipe `id`: [`update`], with the draft marks
+/// cleared under the same write lock ([`recipes::save`]).
+///
+/// # Errors
+///
+/// As [`update`], and when the marks cannot be cleared.
+pub fn save(
+    root: &Path,
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    id: &str,
+    change: RecipeChange,
+) -> CoreResult<RecipeDoc> {
+    let read = recipes::save(project_dir, manifest, id, change)?;
+    Ok(with_drafts(project_dir, doc_of(id, read, &list(root)?)))
+}
+
 /// Makes a recipe in the project at `project_dir` on the library clip
 /// `clip_id`, or on the model's rest pose when there is none, called
 /// `name` or else after the clip (or "Rest pose").

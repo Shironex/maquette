@@ -73,7 +73,7 @@ pub mod pose_keys;
 pub mod seams;
 pub mod timeline;
 
-pub use change::{RecipeChange, update};
+pub use change::{RecipeChange, save, update};
 pub use check::{check_name, check_props, gone_props, settle_props, validate};
 pub use clip_moves::CLIP_IN_USE;
 pub use copies::{create_whole, link};

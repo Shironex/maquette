@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use super::super::tests_v2::clip;
+use super::super::tests_v2::{clip, project};
 use super::super::*;
 use super::{DraftKey, RecipeDrafts, diff};
 use crate::recipes::drafts;
@@ -108,4 +108,32 @@ fn marks_live_beside_the_recipe_and_clear_on_a_save_or_a_remove() {
     drafts::mark(dir.path(), &id, Some(&made), &after, "Agent", "now").expect("mark");
     remove(dir.path(), trash.path(), &id).expect("remove");
     assert!(!file.exists(), "a removed recipe takes its marks");
+}
+
+#[test]
+fn a_persons_save_clears_the_marks_and_one_that_cannot_writes_nothing() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, made) = create(dir.path(), "Swing", clip("Slash", 40)).expect("create");
+    let after = with_keys(vec![key(12, 20.0)]);
+    drafts::mark(dir.path(), &id, Some(&made), &after, "Agent", "now").expect("mark");
+    let named = |name: &str| RecipeChange {
+        name: Some(name.into()),
+        ..RecipeChange::default()
+    };
+    // An agent's update keeps them; a person's save clears them.
+    update(dir.path(), &project(), &id, named("Kept")).expect("update");
+    let marks = dir
+        .path()
+        .join(RECIPES_DIR)
+        .join(format!("{id}.drafts.json"));
+    assert!(marks.is_file());
+    save(dir.path(), &project(), &id, named("Saved")).expect("save");
+    assert!(!marks.exists());
+
+    // Marks that cannot be cleared refuse the save before the recipe is
+    // written, so the editor's "not saved" is true.
+    std::fs::create_dir_all(marks.join("stuck")).expect("stuck");
+    assert!(save(dir.path(), &project(), &id, named("Lost")).is_err());
+    let read = get(dir.path(), &project(), &id).expect("get");
+    assert_eq!(read.recipe.name, "Saved");
 }

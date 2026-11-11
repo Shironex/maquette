@@ -161,6 +161,33 @@ pub fn update(
     id: &str,
     change: RecipeChange,
 ) -> CoreResult<RecipeRead> {
+    changed(project_dir, manifest, id, change, false)
+}
+
+/// A person's save of the recipe `id`: [`update`], with the draft marks
+/// cleared under the same write lock, before the recipe is written, so no
+/// agent write lands between the two and a mark that cannot be cleared
+/// leaves the recipe as it was.
+///
+/// # Errors
+///
+/// As [`update`], and when the marks cannot be cleared.
+pub fn save(
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    id: &str,
+    change: RecipeChange,
+) -> CoreResult<RecipeRead> {
+    changed(project_dir, manifest, id, change, true)
+}
+
+fn changed(
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    id: &str,
+    change: RecipeChange,
+    by_person: bool,
+) -> CoreResult<RecipeRead> {
     if let Some(name) = &change.name {
         check_name(name)?;
     }
@@ -207,6 +234,9 @@ pub fn update(
                 blank.prop = None;
             }
         }
+    }
+    if by_person {
+        super::drafts::clear_held(project_dir, id)?;
     }
     let version = if next == current {
         current_version

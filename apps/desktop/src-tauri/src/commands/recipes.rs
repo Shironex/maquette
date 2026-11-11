@@ -193,7 +193,8 @@ pub fn recipe_update(
 }
 
 /// A person's save of the recipe `id` in the editor: the change, and the
-/// draft marks cleared, since what agents drafted is theirs now.
+/// draft marks cleared in the same write lock, since what agents drafted is
+/// theirs now.
 ///
 /// # Errors
 ///
@@ -204,10 +205,8 @@ pub fn save(
     id: &str,
     change: RecipeChange,
 ) -> CommandResult<RecipeDoc> {
-    let mut doc = update(session, project, id, change)?;
-    drafts::clear(&project_dir(session, project)?, id)?;
-    doc.drafts = None;
-    Ok(doc)
+    let (root, dir, manifest) = opened(session, project)?;
+    library_recipes::save(&root, &dir, &manifest, id, change).map_err(coded)
 }
 
 /// Moves the recipe file into the workspace trash; returns where it went.
