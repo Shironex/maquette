@@ -15,7 +15,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [start] get_started, create_project.
 [project] Projects, assets, the scene layout, copying assets, the asset trash.
 [lab] Concept images and jobs, the style board, picks to the Board, image backends, Codex usage.
-[refs] An asset's reference views: reading and tagging them, drawing missing ones, cleaning backgrounds.
+[refs] An asset's reference views: read, tag, draw missing ones, clean backgrounds.
 [plan] Planning canvases: presets, nodes, the change log, a website's camera plan. Agents never remove a person's nodes; they ask with propose_removal.
 [send] Refs to Tripo, Meshy or by hand, redos, splits, credits, By hand handoffs and downloads.
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.
@@ -42,15 +42,16 @@ A waiting answer gives status \"waiting for approval\", pollEverySeconds and whe
 Free: send_to_3d with provider by-hand, add_built_asset.
 
 ALWAYS
-start_page_preview runs the site repo's dev command on this computer; only a repo a person set runs it unasked. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
+start_page_preview runs the site repo's dev command here; only a repo a person set runs it unasked. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
 
-SKILLS (in the Maquette plugin, when your client has it)
+SKILLS (Maquette plugin, if your client has it)
 maquette-lab-round: concepts to clean refs.
-maquette-by-hand-round: models made on a provider's site, no API credits.
-maquette-character-rig: rigging and animating a character.
+maquette-by-hand-round: models from a provider's site, no API credits.
+maquette-character-rig: rig and animate a character.
 maquette-animation-recipe: animation recipes.
 maquette-avatar-vrm: a character as a VRM avatar.
-maquette-game-export: models into a game repo.";
+maquette-game-export: models into a game repo.
+maquette-built-rebuild: a model remade as a built asset.";
 
 #[cfg(test)]
 mod tests {
@@ -67,6 +68,27 @@ mod tests {
             if word.contains('_') && verbs.iter().any(|v| word.starts_with(v)) {
                 assert!(tools.iter().any(|t| t == word), "{word} is not a tool");
             }
+        }
+    }
+
+    #[test]
+    fn the_instructions_name_only_skills_of_the_plugin() {
+        let skills = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../plugins/maquette/skills");
+        let (_, section) = INSTRUCTIONS
+            .split_once("\nSKILLS")
+            .expect("a skills section");
+        let named: Vec<&str> = section
+            .lines()
+            .skip(1)
+            .filter_map(|line| line.split_once(':').map(|(name, _)| name))
+            .collect();
+        assert!(named.contains(&"maquette-built-rebuild"), "{named:?}");
+        for name in named {
+            assert!(
+                skills.join(name).join("SKILL.md").is_file(),
+                "{name} is not a skill in plugins/maquette/skills"
+            );
         }
     }
 }

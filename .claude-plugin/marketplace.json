@@ -6,7 +6,7 @@
     {
       "name": "maquette",
       "source": "./plugins/maquette",
-      "description": "Skills for driving Maquette over its local MCP server: concept rounds, by hand sends and landings, character rig fixes, game export, planning canvases, animation recipes"
+      "description": "Skills for driving Maquette over its local MCP server: concept rounds, by hand sends and landings, character rig fixes, game export, planning canvases, animation recipes, built rebuilds"
     }
   ]
 }

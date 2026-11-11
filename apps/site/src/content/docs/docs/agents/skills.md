@@ -1,6 +1,6 @@
 ---
 title: Agent skills
-description: Seven skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars, game export, planning canvases and animation recipes. Install them from the repo.
+description: Eight skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars, game export, planning canvases, animation recipes and built rebuilds. Install them from the repo.
 sidebar:
   label: Agent skills
 ---
@@ -18,6 +18,7 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 | `maquette-avatar-vrm`       | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                                                                      |
 | `maquette-plan-canvas`      | Plan beside you on a canvas in the Plan view: read it and its change log, add notes and links near the right node under its own name, tidy them, and undo its own run.                                                                        |
 | `maquette-animation-recipe` | Change a clip without redrawing it: start a recipe from a starter, the library, a clip or the rest pose, fill its changes and blanks, bake it, read the review numbers, then ask you to add it as a version or save it to the recipe library. |
+| `maquette-built-rebuild`    | Rebuild a generated model as a built asset: read its ref, size and facing, write the script at real size in the project's palette, run at least three render, critique and fix rounds, swap it in place and stop before Ship.                 |
 
 The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config), and the avatar skill the rest pose script Maquette itself runs. Everything else is instructions.
 
@@ -66,6 +67,12 @@ Nothing here costs credits. The agent's nodes carry its name and land in the cha
 Prompt: "Make the guardian wave hello on its idle, bake it and tell me if the numbers pass."
 
 Nothing here costs credits. The agent makes the recipe, fills its changes and blanks and bakes it in headless Blender. Adding the bake as the model's next version waits for you: you review it in the Motion view and press Add as vN. Saving a recipe to the library, copying a starter there, removing library recipes and exporting outside `exports/recipes` are yours too. A warn in the review is reported, never hidden. See [Animation recipes](/docs/guides/animation-recipes/).
+
+### `maquette-built-rebuild`
+
+Prompt: "Rebuild the desk lamp as a built asset."
+
+Nothing here costs credits or needs an approval. The agent renders the old model, writes the script, and goes through at least three rounds of renders and written fault lists before it swaps the built model into the lamp's place, where the lamp keeps its layout, camera stops and file name. It checks facing by holding the built model's top view beside the old model's, rendered with its own fix-ups before the swap, and ends with a side by side of old and new from the same cameras. Then it stops: Ship waits until you looked, and one call (or the Board) brings the old model back. See [Built assets](/docs/guides/built-assets/).
 
 ## Rules every skill keeps
 
