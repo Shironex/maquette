@@ -110,7 +110,9 @@ pub(crate) fn update(
 
 /// Marks what the agent `by` changed in `doc` (from `before`, none when it
 /// made it) as drafts, and puts the marks on `doc`. The write itself has
-/// landed; a mark that cannot be written only loses the editor's hint.
+/// landed; a mark that cannot be written only loses the editor's hint. The
+/// mark checks, under the recipes' write lock, that the file is still at
+/// `doc.version`, so a save that landed after the write is never drafted.
 pub(crate) fn drafted(
     session: &Session,
     project: &str,
@@ -121,7 +123,8 @@ pub(crate) fn drafted(
     let Ok(dir) = project_dir(session, project) else {
         return;
     };
-    match drafts::mark(&dir, &doc.id, before, &doc.recipe, by, &now_rfc3339()) {
+    let at = now_rfc3339();
+    match drafts::mark_written(&dir, &doc.id, &doc.version, before, &doc.recipe, by, &at) {
         Ok(marks) => doc.drafts = marks,
         Err(err) => tracing::warn!("recipe draft marks for {}: {err}", doc.id),
     }

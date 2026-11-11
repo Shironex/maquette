@@ -171,10 +171,46 @@ pub fn mark(
     by: &str,
     at: &str,
 ) -> CoreResult<Option<RecipeDrafts>> {
-    let path = file(project_dir, id)?;
     // Under the recipes' write lock, so two writes at once never drop a
     // mark and a person's save never lands between the read and the write.
     let _lock = super::files::writing();
+    mark_held(project_dir, id, before, after, by, at)
+}
+
+/// [`mark`] for the write that left the recipe `id` at `written` (its
+/// version). When the file is no longer at that version (a person saved
+/// it, someone else wrote it, or it went since), the agent's write is not
+/// the recipe's last and nothing is marked: the marks stay as they are, so
+/// a save that landed in between is never drafted again.
+///
+/// # Errors
+///
+/// As [`mark`].
+pub fn mark_written(
+    project_dir: &Path,
+    id: &str,
+    written: &str,
+    before: Option<&RecipeFile>,
+    after: &RecipeFile,
+    by: &str,
+    at: &str,
+) -> CoreResult<Option<RecipeDrafts>> {
+    let _lock = super::files::writing();
+    if super::files::version(project_dir, id).ok().as_deref() != Some(written) {
+        return Ok(read(project_dir, id, after));
+    }
+    mark_held(project_dir, id, before, after, by, at)
+}
+
+fn mark_held(
+    project_dir: &Path,
+    id: &str,
+    before: Option<&RecipeFile>,
+    after: &RecipeFile,
+    by: &str,
+    at: &str,
+) -> CoreResult<Option<RecipeDrafts>> {
+    let path = file(project_dir, id)?;
     let old = read(project_dir, id, after);
     let new = diff(before, after);
     if new.is_empty() {

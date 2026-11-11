@@ -146,3 +146,47 @@ fn a_persons_save_clears_the_marks_only_once_it_has_landed() {
     let read = get(dir.path(), &project(), &id).expect("get");
     assert_eq!(read.recipe.name, "Landed");
 }
+
+#[test]
+fn an_agents_mark_that_lands_after_a_persons_save_marks_nothing() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, made) = create(dir.path(), "Swing", clip("Slash", 40)).expect("create");
+    let after = with_keys(vec![key(12, 20.0)]);
+    let keys = RecipeChange {
+        layers: Some(after.layers.clone()),
+        ..RecipeChange::default()
+    };
+    let written = update(dir.path(), &project(), &id, keys).expect("agent write");
+    // A person saves before the agent's mark lands.
+    let named = RecipeChange {
+        name: Some("Saved".into()),
+        ..RecipeChange::default()
+    };
+    save(dir.path(), &project(), &id, named).expect("save");
+    let late = drafts::mark_written(
+        dir.path(),
+        &id,
+        &written.version,
+        Some(&made),
+        &written.recipe,
+        "Agent",
+        "now",
+    )
+    .expect("mark");
+    assert!(late.is_none(), "{late:?}");
+    let saved = get(dir.path(), &project(), &id).expect("get");
+    assert!(drafts::read(dir.path(), &id, &saved.recipe).is_none());
+
+    // On the version it wrote, the mark lands.
+    let marked = drafts::mark_written(
+        dir.path(),
+        &id,
+        &saved.version,
+        Some(&made),
+        &saved.recipe,
+        "Agent",
+        "now",
+    )
+    .expect("mark");
+    assert!(marked.is_some_and(|d| d.keys.len() == 1));
+}

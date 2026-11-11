@@ -697,7 +697,7 @@ changes and keys they added or changed, and whether they made the recipe or touc
 edits, blanks or mirror. They live beside the recipe at `recipes/<id>.drafts.json`, never in the
 recipe file, gathered over writes and pruned of what is gone. The MCP writes (`create_recipe`,
 `update_recipe`, `set_recipe_keys`, `apply_grip`, `use_recipe`, `import_recipe`) land in the file
-at once and bake as they are, then mark the diff under the client's name. Marking and clearing run
+at once and bake as they are, then mark the diff under the client's name (only while the file is still at the version they wrote, so a save in between is never drafted again). Marking and clearing run
 under the recipes' write lock; a person's Save (`recipes::save`) clears the marks in the same lock,
 once the recipe is written (a save that fails keeps them), and removing the recipe takes them. `RecipeDoc::drafts` carries them, and the editor shows a
 banner, a drafted tag on each change and blue keys (`state/recipe-drafts.ts`).
