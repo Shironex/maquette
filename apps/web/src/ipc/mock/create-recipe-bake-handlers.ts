@@ -1,14 +1,12 @@
 /**
- * Recipe bakes in mock mode: Apply runs a fake headless bake that steps
- * through its frames on a timer, telling the view through the recipe bake
- * changed event, and ends with made up numbers: each reach within its 2 cm,
- * a small stretch and a foot slide past its limit. Cancel stops it with nothing staged. A
- * recipe with open blanks or no changes is refused as the core refuses it.
- * Every change kind bakes, grips too: each grip says how many bones it posed.
- * A finished bake carries its review as the core works it out, and Add
- * makes it the model's next version (refused once out of date). With
- * `?library=demo`, Frostveil's lantern recipe opens with a finished bake for
- * headless shots; `?agents=recipe` also has an agent ask to add it.
+ * Recipe bakes in mock mode: Apply runs a fake headless bake that steps through its frames on
+ * a timer, telling the view through the recipe bake changed event, and ends with made up
+ * numbers: each reach within its 2 cm, a small stretch and a foot slide past its limit. Cancel
+ * stops it with nothing staged. A recipe with open blanks or no changes is refused as the core
+ * refuses it. Every change kind bakes, grips too: each grip says how many bones it posed. A
+ * finished bake carries its review as the core works it out, and Add makes it the model's next
+ * version (refused once out of date). With `?library=demo`, Frostveil's lantern recipe opens
+ * with a finished bake for headless shots; `?agents=recipe` also has an agent ask to add it.
  */
 import type {
   RecipeBakeRecord,
