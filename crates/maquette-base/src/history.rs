@@ -95,6 +95,10 @@ pub struct RunRecord {
     /// step: no repo to ship to.
     #[serde(default)]
     pub not_shipped: Option<String>,
+    /// The repo Ship wrote into for this run only, in place of the
+    /// project's own (an agent's worktree, say).
+    #[serde(default)]
+    pub repo_for_run: Option<String>,
 }
 
 impl RunRecord {
@@ -267,6 +271,7 @@ mod tests {
             steps: Vec::new(),
             message: None,
             not_shipped: None,
+            repo_for_run: None,
         }
     }
 

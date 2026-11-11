@@ -212,6 +212,7 @@ fn run(number: u32, finished: SystemTime, ship: Option<StepState>) -> RunRecord 
             .collect(),
         message: None,
         not_shipped: None,
+        repo_for_run: None,
     }
 }
 
@@ -255,4 +256,40 @@ fn the_swap_is_listed_until_a_ship_writes_it() {
     assert_eq!(swaps(&w.dir, &manifest, &failed).len(), 1);
     let shipped = [run(4, later, Some(StepState::Done))];
     assert!(swaps(&w.dir, &manifest, &shipped).is_empty());
+}
+
+/// A run that shipped after the replace, with its Build step as `build`.
+fn shipped_after(number: u32, build: StepState) -> RunRecord {
+    let mut record = run(
+        number,
+        SystemTime::now() + Duration::from_secs(3600),
+        Some(StepState::Done),
+    );
+    let mut step = record.steps[0].clone();
+    step.id = "build".into();
+    step.name = "Build scene".into();
+    step.state = build;
+    record.steps.insert(0, step);
+    record
+}
+
+#[test]
+fn only_a_run_that_built_and_shipped_into_the_projects_repo_writes_the_swap() {
+    let w = World::website();
+    let planner = w.scan("Spiral planner");
+    let desk = w.built("Planner built", "planner.py");
+    w.replace(&planner.id, &desk.id);
+    let manifest = w.manifest();
+
+    // Run from Ship: it ships the export from before the replace.
+    let mut from_ship = shipped_after(1, StepState::Skipped);
+    from_ship.from = Some("ship".into());
+    assert_eq!(swaps(&w.dir, &manifest, &[from_ship]).len(), 1);
+    // A run that shipped into another repo for this run only.
+    let mut elsewhere = shipped_after(2, StepState::Done);
+    elsewhere.repo_for_run = Some("worktrees/try".into());
+    assert_eq!(swaps(&w.dir, &manifest, &[elsewhere]).len(), 1);
+    // A run that built (or found the build up to date) and shipped home.
+    assert!(swaps(&w.dir, &manifest, &[shipped_after(3, StepState::Done)]).is_empty());
+    assert!(swaps(&w.dir, &manifest, &[shipped_after(4, StepState::Cached)]).is_empty());
 }

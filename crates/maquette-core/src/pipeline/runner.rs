@@ -88,6 +88,9 @@ pub struct RunOptions {
     pub timeout: Option<Duration>,
     /// Asked before each step whether it may run (see [`StepGate`]).
     pub gate: Option<Arc<dyn StepGate>>,
+    /// The repo Ship writes into for this run only, in place of the
+    /// project's, kept on the run's record.
+    pub repo_for_run: Option<String>,
 }
 
 impl std::fmt::Debug for RunOptions {
@@ -96,6 +99,7 @@ impl std::fmt::Debug for RunOptions {
             .field("stdin", &self.stdin.as_ref().map(String::len))
             .field("timeout", &self.timeout)
             .field("gate", &self.gate.is_some())
+            .field("repo_for_run", &self.repo_for_run)
             .finish()
     }
 }

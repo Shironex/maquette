@@ -951,3 +951,27 @@ fn run_next_moves_queued_runs_to_the_front_of_the_lane() {
     let log = fs::read_to_string(s.project_dir.join("order.log")).expect("log");
     assert_eq!(log, "a\nc\nd\nb\n");
 }
+
+#[test]
+fn a_repo_given_for_one_run_stays_on_its_record() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("say", "tools/say.sh", &[], &[])],
+    );
+    script(&s, "say.sh", "echo hi\n");
+    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let options = RunOptions {
+        repo_for_run: Some("/work/site-agent".into()),
+        ..RunOptions::default()
+    };
+    let run = runner.submit_with(s.clone(), options).expect("submit");
+    assert_eq!(run.repo_for_run.as_deref(), Some("/work/site-agent"));
+    while runner.active("moon").0.is_some() {
+        thread::sleep(Duration::from_millis(20));
+    }
+    let done = history::load_runs(&s.cache_dir);
+    assert_eq!(done[0].repo_for_run.as_deref(), Some("/work/site-agent"));
+    let plain = runner.run_blocking(s).expect("run");
+    assert_eq!(plain.repo_for_run, None, "the project's own repo");
+}

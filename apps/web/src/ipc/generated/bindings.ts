@@ -9270,6 +9270,11 @@ export type RunRecord = {
 	 *  step: no repo to ship to.
 	 */
 	notShipped?: string | null,
+	/**
+	 *  The repo Ship wrote into for this run only, in place of the
+	 *  project's own (an agent's worktree, say).
+	 */
+	repoForRun?: string | null,
 };
 
 export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";

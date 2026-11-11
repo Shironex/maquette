@@ -259,6 +259,7 @@ impl McpTools {
                 if args.from.is_none() {
                     super::built::rebuild_stale(host, &args.project, &tools)?;
                 }
+                let for_run = args.repo.is_some();
                 let (setup, gate) = pipeline::agent_run(
                     host.session(),
                     &gate_hub,
@@ -271,11 +272,13 @@ impl McpTools {
                     },
                     tools,
                 )?;
+                let repo_for_run = pipeline::destination(&setup).filter(|_| for_run);
                 host.runner()
                     .submit_with(
                         setup,
                         RunOptions {
                             gate,
+                            repo_for_run,
                             ..RunOptions::default()
                         },
                     )

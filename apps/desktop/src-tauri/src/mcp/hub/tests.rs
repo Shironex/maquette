@@ -25,6 +25,7 @@ fn run(id: &str) -> RunRecord {
         steps: Vec::new(),
         message: None,
         not_shipped: None,
+        repo_for_run: None,
     }
 }
 

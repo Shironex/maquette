@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::report::ships_as;
 use crate::built::load;
-use crate::pipeline::history::RunRecord;
+use crate::pipeline::history::{RunRecord, StepRecord, StepState};
 use crate::project::{ProjectManifest, rfc3339_utc};
 
 /// One asset whose model a built asset replaced since the last Ship.
@@ -36,10 +36,27 @@ pub struct ShipSwap {
     pub new_bytes: Option<f64>,
 }
 
-/// When the newest run that shipped finished, as RFC 3339.
+/// Whether `run` shipped what the project builds now into the project's own
+/// repo: its Ship step ran, no repo was given for this run only, and every
+/// step before Ship ran or was up to date. A run from Ship, say, ships the
+/// export from before the replace, so it does not count.
+fn shipped_the_project(run: &RunRecord) -> bool {
+    if !matches!(run.ship_outcome(), Some((true, _))) || run.repo_for_run.is_some() {
+        return false;
+    }
+    let is_ship = |s: &StepRecord| {
+        s.id.trim().eq_ignore_ascii_case("ship") || s.name.trim().eq_ignore_ascii_case("ship")
+    };
+    run.steps
+        .iter()
+        .take_while(|s| !is_ship(s))
+        .all(|s| matches!(s.state, StepState::Done | StepState::Cached))
+}
+
+/// When the newest run that shipped the project finished, as RFC 3339.
 fn last_shipped(runs: &[RunRecord]) -> Option<String> {
     runs.iter()
-        .filter(|run| matches!(run.ship_outcome(), Some((true, _))))
+        .filter(|run| shipped_the_project(run))
         .filter_map(|run| run.finished_at_ms)
         .filter(|ms| ms.is_finite() && *ms >= 0.0)
         // A finite, positive count of milliseconds.
@@ -48,7 +65,8 @@ fn last_shipped(runs: &[RunRecord]) -> Option<String> {
 }
 
 /// The replaces of `manifest` that no run in `runs` has shipped: a swap
-/// stays listed until a run whose Ship step ran finishes after it. `runs` is
+/// stays listed until a run that built and shipped into the project's own
+/// repo finishes after it. `runs` is
 /// the project's run history, which each computer keeps for itself, so a
 /// swap shipped from another computer is listed here once more.
 pub fn swaps(project_dir: &Path, manifest: &ProjectManifest, runs: &[RunRecord]) -> Vec<ShipSwap> {
