@@ -25,6 +25,12 @@ pub struct SizeRow {
     pub shipped_file: String,
     pub shipped_bytes: Option<f64>,
     pub shipped_triangles: Option<u32>,
+    /// The export Compress read, in the raw folder, when it is there.
+    pub export_bytes: Option<f64>,
+    /// Why the shipped file is larger than the source, when it is: the
+    /// pipeline adds data the source lacks (Bake light's lightmaps and
+    /// their UV set), which Compress then shrinks.
+    pub grew: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -71,6 +77,78 @@ fn change(source: f64, shipped: f64) -> String {
     format!("{:+.0}%", (shipped / source - 1.0) * 100.0)
 }
 
+/// What a model file carries that the size report explains growth with.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct Contents {
+    images: usize,
+    /// Materials with the `lightmap` extras Export GLB writes for a bake.
+    lightmaps: usize,
+}
+
+fn contents(path: &Path) -> Contents {
+    let json = std::fs::read(path)
+        .ok()
+        .and_then(|bytes| maquette_glb::motion::json_of(&bytes));
+    let Some(json) = json else {
+        return Contents::default();
+    };
+    let count = |key: &str| json[key].as_array().map_or(0, Vec::len);
+    let lightmaps = json["materials"].as_array().map_or(0, |materials| {
+        materials
+            .iter()
+            .filter(|m| m["extras"]["lightmap"].is_number())
+            .count()
+    });
+    Contents {
+        images: count("images"),
+        lightmaps,
+    }
+}
+
+fn plural(n: usize, one: &str, many: &str) -> String {
+    format!("{n} {}", if n == 1 { one } else { many })
+}
+
+/// Why `shipped` is larger than `source`, or `None` when it is not.
+fn growth(
+    (source, source_has): (f64, Contents),
+    export: Option<f64>,
+    (shipped, shipped_has): (f64, Contents),
+) -> Option<String> {
+    if shipped <= source {
+        return None;
+    }
+    if let Some(export) = export.filter(|e| shipped > *e) {
+        return Some(format!(
+            "Compress made it larger than its {} export. Run the pipeline again to ship the export as it is.",
+            kb(Some(export))
+        ));
+    }
+    let lightmaps = shipped_has.lightmaps.saturating_sub(source_has.lightmaps);
+    let images = shipped_has.images.saturating_sub(source_has.images);
+    let added = if lightmaps > 0 {
+        format!(
+            "Bake light added {} and their UV set",
+            plural(lightmaps, "lightmap", "lightmaps")
+        )
+    } else if images > 0 {
+        format!(
+            "the pipeline added {}",
+            plural(images, "texture", "textures")
+        )
+    } else {
+        "the pipeline added data the source does not have".to_string()
+    };
+    let kept = export.map_or_else(String::new, |export| {
+        format!(
+            " Compress kept {:.0}% of the {} export.",
+            shipped / export * 100.0,
+            kb(Some(export))
+        )
+    });
+    Some(format!("Larger than the source: {added}.{kept}"))
+}
+
 fn csv_field(text: &str) -> String {
     if text.contains([',', '"', '\n']) {
         format!("\"{}\"", text.replace('"', "\"\""))
@@ -81,12 +159,12 @@ fn csv_field(text: &str) -> String {
 
 fn to_csv(rows: &[SizeRow]) -> String {
     let mut out = String::from(
-        "asset,name,version,source_file,source_bytes,source_triangles,shipped_file,shipped_bytes,shipped_triangles\n",
+        "asset,name,version,source_file,source_bytes,source_triangles,shipped_file,shipped_bytes,shipped_triangles,export_bytes,grew\n",
     );
     for r in rows {
         let _ = writeln!(
             out,
-            "{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{}",
             csv_field(&r.asset),
             csv_field(&r.name),
             r.version,
@@ -96,9 +174,21 @@ fn to_csv(rows: &[SizeRow]) -> String {
             csv_field(&r.shipped_file),
             num(r.shipped_bytes),
             num(r.shipped_triangles),
+            num(r.export_bytes),
+            csv_field(r.grew.as_deref().unwrap_or_default()),
         );
     }
     out
+}
+
+/// The share column: "-42%", or "+157% larger" when the file grew.
+fn size_change(source: f64, shipped: f64) -> String {
+    let delta = change(source, shipped);
+    if shipped > source && source > 0.0 {
+        format!("{delta} larger")
+    } else {
+        delta
+    }
 }
 
 fn to_markdown(rows: &[SizeRow], totals: &SizeTotals) -> String {
@@ -107,7 +197,7 @@ fn to_markdown(rows: &[SizeRow], totals: &SizeTotals) -> String {
     );
     for r in rows {
         let delta = match (r.source_bytes, r.shipped_bytes) {
-            (Some(a), Some(b)) => change(a, b),
+            (Some(a), Some(b)) => size_change(a, b),
             _ => "-".to_string(),
         };
         let _ = writeln!(
@@ -127,10 +217,15 @@ fn to_markdown(rows: &[SizeRow], totals: &SizeTotals) -> String {
             totals.models,
             kb(Some(totals.source_bytes)),
             kb(Some(totals.shipped_bytes)),
-            change(totals.source_bytes, totals.shipped_bytes),
+            size_change(totals.source_bytes, totals.shipped_bytes),
             totals.source_triangles,
             totals.shipped_triangles,
         );
+    }
+    for r in rows {
+        if let Some(why) = &r.grew {
+            let _ = write!(out, "\n**{}**: {why}\n", r.name.replace('|', "/"));
+        }
     }
     out
 }
@@ -142,7 +237,7 @@ pub fn size_report(
     def: &PipelineDef,
 ) -> SizeReport {
     let ship = load_or_default(project_dir);
-    let (_, dist) = crate::inspect::folders(project_dir, def);
+    let (raw, dist) = crate::inspect::folders(project_dir, def);
     let index = crate::site::ship_index(manifest, &ship);
     let mut rows = Vec::new();
     for asset in &manifest.assets {
@@ -151,16 +246,33 @@ pub fn size_report(
         };
         let source = project_dir.join(&latest.file);
         let shipped = dist.join(&entry.file);
+        // Export GLB writes the model under its source stem; only the
+        // shipped file is renamed.
+        let export = Path::new(&latest.file)
+            .file_stem()
+            .map(|stem| raw.join(format!("{}.glb", stem.to_string_lossy().to_lowercase())));
+        let export_bytes = export.as_deref().and_then(size);
+        let (source_bytes, shipped_bytes) = (size(&source), size(&shipped));
+        let grew = match (source_bytes, shipped_bytes) {
+            (Some(a), Some(b)) => growth(
+                (a, contents(&source)),
+                export_bytes,
+                (b, contents(&shipped)),
+            ),
+            _ => None,
+        };
         rows.push(SizeRow {
             asset: asset.id.clone(),
             name: asset.name.clone(),
             version: latest.version,
             source_file: latest.file.clone(),
-            source_bytes: size(&source),
+            source_bytes,
             source_triangles: triangles(&source),
             shipped_file: entry.file.clone(),
-            shipped_bytes: size(&shipped),
-            shipped_triangles: size(&shipped).and_then(|_| triangles(&shipped)),
+            shipped_bytes,
+            shipped_triangles: shipped_bytes.and_then(|_| triangles(&shipped)),
+            export_bytes,
+            grew,
         });
     }
     let mut totals = SizeTotals::default();

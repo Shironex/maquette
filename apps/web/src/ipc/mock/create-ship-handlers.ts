@@ -97,6 +97,8 @@ function sizeRow(m: ModelFile, settings: Settings): SizeRow {
     shippedFile: `web/dist/${shipName(m, settings)}.glb`,
     shippedBytes: m.shippedBytes,
     shippedTriangles: tris === null ? null : Math.round(tris * 0.6),
+    exportBytes: m.rawBytes,
+    grew: null,
   };
 }
 

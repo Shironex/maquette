@@ -10231,6 +10231,14 @@ export type SizeRow = {
 	shippedFile: string,
 	shippedBytes: number | null,
 	shippedTriangles: number | null,
+	/**  The export Compress read, in the raw folder, when it is there. */
+	exportBytes: number | null,
+	/**
+	 *  Why the shipped file is larger than the source, when it is: the
+	 *  pipeline adds data the source lacks (Bake light's lightmaps and
+	 *  their UV set), which Compress then shrinks.
+	 */
+	grew: string | null,
 };
 
 export type SizeTotals = {

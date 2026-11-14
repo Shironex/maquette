@@ -268,3 +268,82 @@ fn the_size_report_compares_source_and_shipped() {
         "rows without triangles stay out of the totals"
     );
 }
+
+/// A GLB with `json` and a binary chunk of `pad` bytes, so its size is
+/// easy to set.
+fn glb(json: &serde_json::Value, pad: usize) -> Vec<u8> {
+    let mut text = serde_json::to_vec(json).expect("json");
+    text.resize(text.len().div_ceil(4) * 4, b' ');
+    let bin = vec![0u8; pad.div_ceil(4) * 4];
+    let total = 12 + 8 + text.len() + 8 + bin.len();
+    let mut out = Vec::with_capacity(total);
+    out.extend_from_slice(b"glTF");
+    out.extend_from_slice(&2u32.to_le_bytes());
+    out.extend_from_slice(&u32::try_from(total).expect("len").to_le_bytes());
+    out.extend_from_slice(&u32::try_from(text.len()).expect("len").to_le_bytes());
+    out.extend_from_slice(b"JSON");
+    out.extend_from_slice(&text);
+    out.extend_from_slice(&u32::try_from(bin.len()).expect("len").to_le_bytes());
+    out.extend_from_slice(b"BIN\0");
+    out.extend_from_slice(&bin);
+    out
+}
+
+/// A built asset as the v0.8.0 test shipped it (#203): flat colours and no
+/// UV in, Bake light's two lightmaps and their UV set added on the way.
+/// Compress shrinks the export, yet the shipped file is larger than the
+/// source, and the report says why instead of "Kept 257%".
+#[test]
+fn the_size_report_explains_a_model_the_bake_made_larger() {
+    use serde_json::json;
+    let dir = tempfile::tempdir().expect("dir");
+    let (m, project, _) = scene(dir.path());
+    fs::create_dir_all(project.join("models")).expect("models");
+    fs::create_dir_all(project.join("web/raw")).expect("raw");
+    let flat = json!({
+        "asset": { "version": "2.0" },
+        "materials": [{ "name": "pale" }, { "name": "tie" }],
+    });
+    let baked = json!({
+        "asset": { "version": "2.0" },
+        "materials": [
+            { "name": "pale", "extras": { "lightmap": 1.25, "lightmapUv": 1 } },
+            { "name": "tie", "extras": { "lightmap": 1.0, "lightmapUv": 1 } },
+        ],
+        "images": [{ "name": "cushion_body_light" }, { "name": "cushion_knot_light" }],
+    });
+    fs::write(project.join("models/desk_v1.glb"), glb(&flat, 22_000)).expect("source");
+    fs::write(project.join("web/raw/desk_v1.glb"), glb(&baked, 270_000)).expect("export");
+    fs::write(project.join("web/dist/desk.glb"), glb(&baked, 57_000)).expect("shipped");
+    fs::write(
+        project.join("models/reading_armchair_v1.glb"),
+        vec![0u8; 4096],
+    )
+    .expect("chair");
+    let def = for_template(ProjectTemplate::Room);
+    let report = size_report(&project, &m, &def);
+    let desk = &report.rows[0];
+    let (source, shipped) = (
+        desk.source_bytes.expect("source"),
+        desk.shipped_bytes.expect("shipped"),
+    );
+    assert!(shipped > source && shipped < desk.export_bytes.expect("export"));
+    let why = desk.grew.as_deref().expect("a reason");
+    assert!(
+        why.starts_with("Larger than the source: Bake light added 2 lightmaps and their UV set.")
+            && why.contains("Compress kept 21% of the 264 KB export."),
+        "{why}"
+    );
+    assert!(report.markdown.contains("larger |"), "{}", report.markdown);
+    assert!(
+        report.markdown.contains(&format!("**Desk**: {why}")),
+        "{}",
+        report.markdown
+    );
+    let row = report.csv.lines().nth(1).expect("row");
+    assert!(row.contains(",Larger than the source: Bake light"), "{row}");
+    assert_eq!(
+        report.rows[1].grew, None,
+        "a smaller shipped file needs no reason"
+    );
+}
