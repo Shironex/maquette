@@ -213,6 +213,9 @@ pub fn write_ship_index(
     Ok(path)
 }
 
+mod ready;
+pub use ready::{BAD_LAYOUT, BAD_SITE_CONFIG, NO_PLACED, NO_SITE_REPO, NO_STOPS, ship_blocker};
+
 #[cfg(test)]
 mod ship_script;
 #[cfg(test)]
