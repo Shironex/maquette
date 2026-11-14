@@ -132,6 +132,41 @@ const BY_MESSAGE: &[(&str, Advice)] = &[
         ),
     ),
     (
+        "has no game repo",
+        agent(
+            "Set the game's repo with set_game_settings (repo), no need to open Settings.",
+            "set_game_settings",
+        ),
+    ),
+    (
+        "A game project ships through Game export",
+        agent(
+            "Game export is the pipeline's last step: run_pipeline does it (it waits for a person to approve), and get_ship_plan shows what it would write.",
+            "run_pipeline",
+        ),
+    ),
+    (
+        "is already on its way to",
+        agent(
+            "Wait for that send: get_provider_job with project and the job id shows where it is.",
+            "get_provider_job",
+        ),
+    ),
+    (
+        "is not a game project",
+        agent(
+            "The tool needs a game project. list_projects shows each project's target; create_project with target game makes one.",
+            "list_projects",
+        ),
+    ),
+    (
+        "There is no send ",
+        agent(
+            "get_provider_job with project and no id lists that project's sends and their ids.",
+            "get_provider_job",
+        ),
+    ),
+    (
         "is already a project",
         agent(
             "Use that project, or call create_project with another name.",
@@ -365,6 +400,20 @@ mod tests {
                 source!("crates/maquette-core/src/thumbs/picture.rs"),
             ),
             ("has not run yet", include_str!("runs.rs")),
+            ("has no game repo", include_str!("../../commands/game.rs")),
+            (
+                "A game project ships through Game export",
+                include_str!("../../commands/ship.rs"),
+            ),
+            (
+                "is already on its way to",
+                source!("crates/maquette-providers/src/jobs/send.rs"),
+            ),
+            (
+                "is not a game project",
+                source!("crates/maquette-model/src/settings/game/lookup.rs"),
+            ),
+            ("There is no send ", include_str!("sending/by_id.rs")),
             ("is already a project", include_str!("start.rs")),
         ];
         for (phrase, source) in sent {
@@ -381,6 +430,28 @@ mod tests {
                 named.contains(phrase) || sent.iter().any(|(p, _)| p == phrase),
                 "{phrase:?} is not pinned to a source"
             );
+        }
+    }
+
+    #[test]
+    fn the_common_game_and_send_refusals_say_what_to_do() {
+        for (message, tool) in [
+            (
+                "Moon has no game repo. Pick one in Settings.",
+                "set_game_settings",
+            ),
+            ("A game project ships through Game export.", "run_pipeline"),
+            (
+                "Lamp is already on its way to Tripo (lamp-1).",
+                "get_provider_job",
+            ),
+            ("Site is not a game project.", "list_projects"),
+            ("There is no send lantern-1 in moon.", "get_provider_job"),
+        ] {
+            let out = err(message);
+            assert_eq!(out["tryTool"], tool, "{message}");
+            assert!(out.get("personOnly").is_none(), "{message}");
+            assert!(out["fix"].as_str().is_some(), "{message}");
         }
     }
 
