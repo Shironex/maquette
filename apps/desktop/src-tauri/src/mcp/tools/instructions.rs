@@ -33,7 +33,7 @@ WAITS FOR A PERSON (in the Maquette app; poll, never start the work again)
 - Paid images: a round an agent asks for on openai-images (follow get_concepts).
 - Shipping: run_pipeline at Ship while Ask before shipping is on; always in a game, with repo, or into a site repo an agent set (follow get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview on a repo an agent set, first and when its path or command changes (follow get_page_preview).
-- Avatars: new weights, rest pose and spring chains (follow get_avatar). Rig doctor: a joint move, adding its draft as a version.
+- Avatars: new weights, rest pose and spring chains (follow get_avatar). Rig doctor: a joint move, adding its draft as a version (get_rig_doctor).
 - Recipes: add_recipe_bake, propose_recipe_save, propose_grip_save (follow get_recipe_bake, get_recipe, get_grip).
 - Camera plan: agents propose with propose_camera_plan; the person's Apply writes layout.json.
 - Canvases: removal proposals (Keep it or Remove), Mark as fine on a mechanics overlap and the Auto layout after agents switch.
@@ -51,7 +51,8 @@ maquette-character-rig: rig and animate a character.
 maquette-animation-recipe: animation recipes.
 maquette-avatar-vrm: a character as a VRM avatar.
 maquette-game-export: models into a game repo.
-maquette-built-rebuild: a model remade as a built asset.";
+maquette-built-rebuild: a model remade as a built asset.
+maquette-plan-canvas: planning canvases.";
 
 #[cfg(test)]
 mod tests {
@@ -61,11 +62,12 @@ mod tests {
     fn the_instructions_stay_short_and_name_only_real_tools() {
         assert!(INSTRUCTIONS.len() < 4000, "{} bytes", INSTRUCTIONS.len());
         let tools = crate::mcp::tools::McpTools::tool_names();
-        let verbs = [
-            "get_", "set_", "send_", "redo_", "run_", "create_", "add_", "split_",
-        ];
+        // Every verb a tool name starts with, so a tool renamed to any of
+        // them, or to a new one the text still names, fails here.
+        let verbs: std::collections::BTreeSet<&str> =
+            tools.iter().filter_map(|t| t.split('_').next()).collect();
         for word in INSTRUCTIONS.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
-            if word.contains('_') && verbs.iter().any(|v| word.starts_with(v)) {
+            if word.contains('_') && word.split('_').next().is_some_and(|v| verbs.contains(v)) {
                 assert!(tools.iter().any(|t| t == word), "{word} is not a tool");
             }
         }
@@ -83,7 +85,19 @@ mod tests {
             .skip(1)
             .filter_map(|line| line.split_once(':').map(|(name, _)| name))
             .collect();
-        assert!(named.contains(&"maquette-built-rebuild"), "{named:?}");
+        let mut on_disk: Vec<String> = std::fs::read_dir(&skills)
+            .expect("the plugin's skills folder")
+            .filter_map(Result::ok)
+            .filter(|e| e.path().join("SKILL.md").is_file())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        on_disk.sort();
+        let mut listed: Vec<String> = named.iter().map(|n| n.to_string()).collect();
+        listed.sort();
+        assert_eq!(
+            listed, on_disk,
+            "the skills list and the plugin's skills differ"
+        );
         for name in named {
             assert!(
                 skills.join(name).join("SKILL.md").is_file(),

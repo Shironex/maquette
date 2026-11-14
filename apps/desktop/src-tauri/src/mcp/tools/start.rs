@@ -48,7 +48,7 @@ pub struct CreateProjectArgs {
     #[serde(alias = "kind")]
     pub target: TargetArg,
     /// A website template id such as floating-diorama (the default), room or character-showcase,
-    /// or a game template id as get_game lists them, such as prop-set (none by default).
+    /// or a game template id such as prop-set (set_game_settings lists the ids) (none by default).
     pub template: Option<String>,
     /// The site repo, or the game repo for a game: a git repo or worktree on this computer,
     /// absolute or starting with ~, outside the workspace. It can be set later
@@ -61,7 +61,7 @@ pub struct CreateProjectArgs {
 pub struct GetStartedArgs {
     /// true adds every tool's version and hint, each project's template, repo,
     /// stages and activity, the image backend's settings and every gate a
-    /// person passes, the approvals too. Left out, the answer is short.
+    /// person passes and the kinds of approval a person gives. Left out, the answer is short.
     pub detail: Option<bool>,
 }
 
@@ -414,7 +414,7 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
 #[tool_router(router = start_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every approval a person gives. Works with no workspace open. Reads only; spends nothing.",
+        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and the kinds of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
         annotations(read_only_hint = true)
     )]
     async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
