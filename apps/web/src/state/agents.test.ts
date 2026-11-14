@@ -133,7 +133,22 @@ describe('agents', () => {
   it('counts approvals by kind', () => {
     expect(approvalsLabel([approval])).toBe('1 run waits for approval');
     expect(approvalsLabel([send, { ...send, id: 'approval-3' }])).toBe('2 sends wait for approval');
-    expect(approvalsLabel([approval, send])).toBe('2 requests wait for approval');
+    expect(approvalsLabel([approval, send])).toBe('1 run and 1 send wait for approval');
+    const pose = { ...send, id: 'pose', kind: 'rest-pose' as const };
+    expect(approvalsLabel([approval, send, pose])).toBe('3 requests wait for approval');
+  });
+
+  it('names a rig doctor fix and a recipe bake apart, in the title and the status bar', () => {
+    const doctor = { ...send, id: 'rig', kind: 'rig-doctor' as const, assetName: 'Hero v4' };
+    const bake = { ...doctor, id: 'bake', kind: 'recipe-bake' as const };
+    expect(approvalTitle(doctor)).toBe('Add the rig doctor fix as Hero v4?');
+    expect(approvalTitle(bake)).toBe('Add the recipe bake as Hero v4?');
+    expect(approvalsLabel([doctor])).toBe('1 rig doctor fix waits for approval');
+    expect(approvalsLabel([bake, { ...bake, id: 'bake-2' }])).toBe(
+      '2 recipe bakes wait for approval'
+    );
+    const save = { ...doctor, id: 'save', kind: 'recipe-save' as const };
+    expect(approvalsLabel([save])).toBe('1 recipe save waits for approval');
   });
 
   it('titles a grip save and says where it goes', () => {

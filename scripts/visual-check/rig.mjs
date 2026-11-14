@@ -29,8 +29,14 @@ async function agentDraftShots(open, shot) {
     const page = await openCase(open, 'agent-fixed', /^Spiked hound: draft v2 waits/, viewport);
     const add = page.getByRole('button', { name: 'Add as v2' });
     await add.waitFor();
-    await page.getByRole('alertdialog', { name: 'Add Duchess Vesperine v2?' }).waitFor();
-    if (await page.getByRole('alertdialog', { name: 'Add Spiked hound v2?' }).count()) {
+    await page
+      .getByRole('alertdialog', { name: 'Add the rig doctor fix as Duchess Vesperine v2?' })
+      .waitFor();
+    if (
+      await page
+        .getByRole('alertdialog', { name: 'Add the rig doctor fix as Spiked hound v2?' })
+        .count()
+    ) {
       throw new Error('The open case still floats its own card');
     }
     await assertClear(page, add, 'Add as v2');

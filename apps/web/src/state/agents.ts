@@ -80,10 +80,10 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
     return `Add spring chains to ${approval.assetName ?? 'the avatar'}?`;
   }
   if (approval.kind === 'rig-doctor') {
-    return `Add ${approval.assetName ?? 'the draft'}?`;
+    return `Add the rig doctor fix as ${approval.assetName ?? 'a new version'}?`;
   }
   if (approval.kind === 'recipe-bake') {
-    return `Add ${approval.assetName ?? 'the recipe bake'}?`;
+    return `Add the recipe bake as ${approval.assetName ?? 'a new version'}?`;
   }
   if (approval.kind === 'recipe-save') {
     return `Save ${approval.assetName ?? 'the recipe'} to the recipe library?`;
@@ -119,33 +119,37 @@ export function gripSaveLine(approval: Approval): string | null {
   return [folder, bones, revisions].join(' · ');
 }
 
-/** "1 run waits", "2 sends wait", "3 requests wait" for approval. */
+/** What the status bar calls one waiting approval of each kind, and several. */
+const APPROVAL_NOUN: Record<Approval['kind'], [one: string, many: string]> = {
+  ship: ['run', 'runs'],
+  'send-to-3d': ['send', 'sends'],
+  'image-round': ['image round', 'image rounds'],
+  'rest-pose': ['rest pose', 'rest poses'],
+  reweight: ['reweight', 'reweights'],
+  springs: ['spring chain', 'spring chains'],
+  'rig-doctor': ['rig doctor fix', 'rig doctor fixes'],
+  'recipe-bake': ['recipe bake', 'recipe bakes'],
+  'recipe-save': ['recipe save', 'recipe saves'],
+  'grip-save': ['grip save', 'grip saves'],
+  'page-preview': ['dev server', 'dev servers'],
+};
+
+/**
+ * "1 run waits", "2 sends wait", "1 run and 1 rig doctor fix wait" for
+ * approval; three kinds or more are "4 requests wait".
+ */
 export function approvalsLabel(approvals: Approval[]): string {
   const n = approvals.length;
-  const kinds = new Set(approvals.map(a => a.kind));
-  const noun =
-    kinds.size > 1
-      ? 'request'
-      : kinds.has('ship')
-        ? 'run'
-        : kinds.has('image-round')
-          ? 'image round'
-          : kinds.has('rest-pose')
-            ? 'rest pose'
-            : kinds.has('reweight')
-              ? 'reweight'
-              : kinds.has('springs')
-                ? 'spring chain'
-                : kinds.has('page-preview')
-                  ? 'dev server'
-                  : kinds.has('recipe-bake')
-                    ? 'recipe bake'
-                    : kinds.has('recipe-save')
-                      ? 'recipe save'
-                      : kinds.has('grip-save')
-                        ? 'grip save'
-                        : 'send';
-  return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
+  const counts = new Map<Approval['kind'], number>();
+  for (const a of approvals) counts.set(a.kind, (counts.get(a.kind) ?? 0) + 1);
+  const named = (kind: Approval['kind'], count: number) => {
+    const [one, many] = APPROVAL_NOUN[kind] ?? ['request', 'requests'];
+    return `${count} ${count === 1 ? one : many}`;
+  };
+  const verb = n === 1 ? 'waits' : 'wait';
+  if (counts.size > 2) return `${n} requests ${verb} for approval`;
+  const parts = Array.from(counts, ([kind, count]) => named(kind, count));
+  return `${parts.join(' and ')} ${verb} for approval`;
 }
 
 /** The status bar line for the server, or null when it is off. */

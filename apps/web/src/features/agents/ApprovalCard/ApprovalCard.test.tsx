@@ -210,7 +210,9 @@ describe('an approval card', () => {
       sheets: null,
     } satisfies Approval;
     render(<ApprovalCard approval={rig} />);
-    expect(screen.getByRole('alertdialog', { name: 'Add Spiked hound v2?' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('alertdialog', { name: 'Add the rig doctor fix as Spiked hound v2?' })
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Open the sheets' }));
     expect(showCase).toHaveBeenCalledWith('spiked-hound-v1');
@@ -239,7 +241,9 @@ describe('an approval card', () => {
       version: 2,
     } satisfies Approval;
     render(<ApprovalCard approval={ask} />);
-    expect(screen.getByRole('alertdialog', { name: 'Add Clay figure v3?' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('alertdialog', { name: 'Add the recipe bake as Clay figure v3?' })
+    ).toBeInTheDocument();
     expect(screen.getByText(/2 numbers of the review warn/)).toBeVisible();
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Review the bake' }));
