@@ -24,8 +24,8 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
   row(
     'project',
     'Projects',
-    9,
-    'Projects, assets, the scene layout, copying assets and the asset trash',
+    10,
+    'Projects, assets, the scene layout, copying, thumbnails and the asset trash',
     true
   ),
   row(
@@ -52,21 +52,21 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
     14,
     'Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads'
   ),
-  row('inbox', 'Inbox', 7, 'Models waiting to be accepted: checks, accept, discard and restore'),
+  row('inbox', 'Inbox', 6, 'Models waiting to be accepted: checks, accept, discard and restore'),
   row(
     'prepare',
     'Prepare',
-    14,
-    'Real size, fix-ups, parts, materials, assembling props and comparing versions'
+    15,
+    'Real size, pad and bake switches, fix-ups, parts, materials, props, version compare'
   ),
   row('built', 'Built models', 4, 'Models a Blender script in the project makes, with no credits'),
   row(
     'pipeline',
     'Pipeline and ship',
     17,
-    "Runs, presets, bake settings, starter scripts, shipping and the site's dev server"
+    'Runs, game export, presets, bake settings, starter scripts, ship plans, the dev server'
   ),
-  row('game', 'Game projects', 5, "A game project's repo, format, budgets, imports and ship plan"),
+  row('game', 'Game projects', 4, "A game project's repo, format, budgets and imports"),
   row('library', 'Library', 12, 'Models kept outside any project, copied in and out'),
   row(
     'animation',
@@ -74,6 +74,6 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
     24,
     'The clip library, baking clips onto a rigged model and animation recipes'
   ),
-  row('export', 'Export packs', 8, 'Export packs for other engines and render styles'),
+  row('export', 'Packs', 8, 'Packs for other engines and render styles, not the game export'),
   row('avatar-rig', 'Avatar and rig', 7, 'VRM avatars and the rig doctor'),
 ];

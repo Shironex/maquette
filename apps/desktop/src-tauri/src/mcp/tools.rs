@@ -138,10 +138,22 @@ pub struct ProjectArgs {
     pub project: String,
 }
 
+/// Tools whose router sits in another file than the group a person would
+/// look in: their tag names that group instead.
+const REGROUPED: &[(&str, &str)] = &[
+    ("get_ship_plan", "pipeline"),
+    ("render_thumbnail", "project"),
+    ("set_skip_bake", "prepare"),
+];
+
 /// Starts every description in `router` with its group, so an agent can
 /// tell the groups apart in a long list.
 fn tagged(group: &str, mut router: ToolRouter<McpTools>) -> ToolRouter<McpTools> {
-    for route in router.map.values_mut() {
+    for (name, route) in router.map.iter_mut() {
+        let group = REGROUPED
+            .iter()
+            .find(|(tool, _)| *tool == name.as_ref())
+            .map_or(group, |(_, moved)| *moved);
         let text = route.attr.description.as_deref().unwrap_or_default();
         route.attr.description = Some(format!("[{group}] {text}").into());
     }

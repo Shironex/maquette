@@ -13,7 +13,7 @@ Each tool's description starts with its [group]; project tools take the project 
 
 TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroupsOff in get_started names them; ask the person.)
 [start] get_started, create_project.
-[project] Projects, assets, the scene layout, copying assets, the asset trash.
+[project] Projects, assets, layout, copying, thumbnails, asset trash.
 [lab] Concept images and jobs, the style board, picks to the Board, image backends, Codex usage.
 [refs] An asset's reference views: read, tag, draw missing ones, clean backgrounds.
 [plan] Planning canvases: presets, nodes, the change log, a website's camera plan. Agents never remove a person's nodes; they ask with propose_removal.
@@ -21,8 +21,8 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.
 [prepare] Real size, fix-ups, parts, materials, assembling props, comparing versions.
 [built] Blender-script models, free, no approval; replace_with_built_asset swaps one in.
-[pipeline] Runs, presets, bake settings, starter scripts, how a website ships, the site's dev server.
-[game] A game project's repo, format, budgets, imports and ship plan.
+[pipeline] Runs (run_pipeline is the game export), presets, bake settings, starter scripts, ship plan, dev server.
+[game] A game project's repo, format, budgets and imports.
 [library] Models outside any project, copied, never linked; free.
 [animation] Clips, recipes, grips and baking them onto a rigged model. Mixamo clips stay on this computer. Recipes: use_recipe, update_recipe, set_recipe_keys, get_recipe_pose, apply_grip, bake_recipe.
 [export] Packs for other engines and render styles: headless Blender, no credits.

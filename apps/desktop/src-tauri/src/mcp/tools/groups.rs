@@ -51,7 +51,7 @@ pub const GROUPS: &[ToolGroup] = &[
     core(
         "project",
         "Projects",
-        "Projects, assets, the scene layout, copying assets and the asset trash",
+        "Projects, assets, the scene layout, copying, thumbnails and the asset trash",
     ),
     group(
         "lab",
@@ -81,7 +81,7 @@ pub const GROUPS: &[ToolGroup] = &[
     group(
         "prepare",
         "Prepare",
-        "Real size, fix-ups, parts, materials, assembling props and comparing versions",
+        "Real size, pad and bake switches, fix-ups, parts, materials, props, version compare",
     ),
     group(
         "built",
@@ -91,12 +91,12 @@ pub const GROUPS: &[ToolGroup] = &[
     group(
         "pipeline",
         "Pipeline and ship",
-        "Runs, presets, bake settings, starter scripts, shipping and the site's dev server",
+        "Runs, game export, presets, bake settings, starter scripts, ship plans, the dev server",
     ),
     group(
         "game",
         "Game projects",
-        "A game project's repo, format, budgets, imports and ship plan",
+        "A game project's repo, format, budgets and imports",
     ),
     group(
         "library",
@@ -110,8 +110,8 @@ pub const GROUPS: &[ToolGroup] = &[
     ),
     group(
         "export",
-        "Export packs",
-        "Export packs for other engines and render styles",
+        "Packs",
+        "Packs for other engines and render styles, not the game export",
     ),
     group(
         "avatar-rig",
