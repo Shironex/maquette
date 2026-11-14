@@ -101,7 +101,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Start a rig doctor case's pose test, fix or second round in headless Blender, on a copy: minutes, and it answers at once; follow it with get_rig_doctor. step pose-test renders the sheets and names the defects; fix changes joints and weights only, verifies that and tests again into a draft; round-2 is one last try with a wider seam. The draft never replaces the model: when it is ready a person gets an approval card in the app, looks at the sheets and adds it as the next version. A joint move is offered only there, naming the clips it would break. step rigid binds parts (numbers from the case's parts: what the arm bones hold away from the arms, such as wings or a cape) rigidly to bone (from bodyBones, Spine2 by default) on a copy of a humanoid's fixed draft, measured against it; a person uses it or not. No tool approves any of these. Spends no credits."
+        description = "Start a rig doctor case's pose test, fix or second round in headless Blender, on a copy: minutes, and it answers at once; follow it with get_rig_doctor. step pose-test renders the sheets and names the defects; fix changes joints and weights only, verifies that and tests again into a draft; round-2 is one last try with a wider seam. The draft never replaces the model: when it is ready a person gets an approval card in the app, looks at the sheets and adds it as the next version. A joint move is offered only there, naming the clips it would break. step rigid binds parts (numbers from the case's parts: what the arm bones hold away from the arms, such as wings or a cape) rigidly to bone (from bodyBones, Spine2 by default) on a copy of a humanoid's fixed draft, measured against it; a person uses it or not. A part with notRigid (a sleeve, or a bind of it that stretched more) is refused with why; a bind whose pose test stretches more carries worse. No tool approves any of these. Spends no credits."
     )]
     async fn run_rig_doctor(&self, Parameters(args): Parameters<RunRigArgs>) -> Out {
         let found = self
@@ -130,7 +130,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a rig doctor case: its state (refused, ready, testing, tested, fixing, fixed, stopped, landed, discarded, cancelled or failed), the model, what it refuses, defects by place, the chains of a creature, the before and after sheets with each pose's stretch and seam gap in mm, the fix steps, the verify checks, the joint move if one is asked (with the clips it would break), a humanoid's parts and bodyBones and its rigid bind (state, its sheet, stretchBefore and stretchAfter), progress, the log and why it stopped. Look at the sheet files: the numbers say where to look."
+        description = "Read a rig doctor case: its state (refused, ready, testing, tested, fixing, fixed, stopped, landed, discarded, cancelled or failed), the model, what it refuses, defects by place, the chains of a creature, the before and after sheets with each pose's stretch and seam gap in mm, the fix steps, the verify checks, the joint move if one is asked (with the clips it would break), a humanoid's parts (each with notRigid, why it is not offered, or null) and bodyBones and its rigid bind (state, its sheet, stretchBefore, stretchAfter and worse), progress, the log and why it stopped. Look at the sheet files: the numbers say where to look."
     )]
     async fn get_rig_doctor(&self, Parameters(args): Parameters<RigIdArgs>) -> Out {
         let found = self

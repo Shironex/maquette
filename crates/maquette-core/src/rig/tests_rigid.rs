@@ -31,6 +31,7 @@ fn part(n: u32) -> RigPart {
         side: "left".to_string(),
         bones: vec!["LeftArm".to_string()],
         across_cm: 38.0,
+        not_rigid: None,
     }
 }
 
@@ -84,6 +85,7 @@ fn asked(checks_ok: bool) -> RigRigid {
         row: Some("forward".to_string()),
         stretch_before: Some(139.0),
         stretch_after: Some(25.0),
+        worse: None,
     }
 }
 
@@ -243,4 +245,77 @@ fn a_bind_asked_or_in_the_draft_holds_the_joint_move_yes_but_not_its_no() {
         .expect("no");
     assert_eq!(no.draft.as_deref(), Some("draft.glb"));
     assert_eq!(no.rigid.expect("bind").state, RigidState::Approved);
+}
+
+#[test]
+fn a_sleeve_is_listed_but_a_bind_refuses_it_with_why() {
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    let why = "It wraps the left forearm like a sleeve, so it has to bend with the arm: bound rigidly it would tear.";
+    fixed(root, |c| c.parts[0].not_rigid = Some(why.to_string()));
+    let refused = bind(root, &[1, 2], None);
+    assert!(
+        refused.starts_with("Part 1 is not a rigid part."),
+        "{refused}"
+    );
+    assert!(refused.contains("like a sleeve"), "{refused}");
+    let config = WorkspaceConfig::default();
+    let case = doctors().get(root, &config, "winged-imp-v1").expect("case");
+    assert_eq!(rigid::cannot_bind(&case, &[2], "mixamorig:Spine2"), None);
+}
+
+/// A bound sheet row: `before` on the fix's draft, `after` bound.
+fn moved(id: &str, before: f64, after: f64) -> RigRow {
+    RigRow {
+        id: id.to_string(),
+        label: id.to_string(),
+        stretch_mm: after,
+        change: Some(RigRowChange {
+            stretch_before: before,
+            beyond_body_before: None,
+            seam_gap_before: 0.0,
+            stretch: RigTrend::Same,
+            seam_gap: RigTrend::Same,
+        }),
+        ..RigRow::default()
+    }
+}
+
+#[test]
+fn a_bind_that_stretches_more_says_so_and_its_parts_are_not_offered_again() {
+    // The sleeves of the v0.8.0 real-app test, bound to Spine2.
+    let sheet = RigSheet {
+        rows: vec![
+            moved("raise", 31.4, 75.1),
+            moved("clip:reach_for_a_prop:0.5", 36.9, 91.3),
+        ],
+        ..RigSheet::default()
+    };
+    let why = rigid::worse_of(&sheet, "mixamorig:Spine2").expect("worse");
+    assert!(why.contains("worst stretch 37 to 91 mm"), "{why}");
+    assert!(
+        why.contains("Spine2") && why.contains("Keep the fix's weights"),
+        "{why}"
+    );
+    let bind = RigRigid {
+        parts: vec![1],
+        worse: Some(why.clone()),
+        ..asked(true)
+    };
+    let mut parts = vec![part(1), part(2)];
+    rigid::refuse_again(&mut parts, &bind);
+    assert_eq!(parts[0].not_rigid.as_deref(), Some(why.as_str()));
+    assert_eq!(parts[1].not_rigid, None);
+
+    // Wings that stop following the arms, and noise of a few mm, are fine.
+    let wings = RigSheet {
+        rows: vec![moved("raise", 57.0, 16.0), moved("forward", 139.0, 25.0)],
+        ..RigSheet::default()
+    };
+    assert_eq!(rigid::worse_of(&wings, "mixamorig:Spine2"), None);
+    let noise = RigSheet {
+        rows: vec![moved("raise", 40.0, 43.0)],
+        ..RigSheet::default()
+    };
+    assert_eq!(rigid::worse_of(&noise, "mixamorig:Spine2"), None);
 }

@@ -11,7 +11,7 @@ pub const TEAR_MM: f64 = 80.0;
 /// Seam copies this far apart read as a crack.
 pub const SEAM_MM: f64 = 5.0;
 /// A number has to move this far to count as changed: smaller moves are noise.
-const SAME_MM: f64 = 5.0;
+pub(super) const SAME_MM: f64 = 5.0;
 
 /// The stretch the weights answer for. A record from before the number
 /// existed has only the raw stretch.

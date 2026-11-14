@@ -189,6 +189,7 @@ mod tests {
             row: None,
             stretch_before: None,
             stretch_after: None,
+            worse: None,
         };
         fixed.rigid = Some(bind.clone());
         hub.ask_about_rig_draft(&fixed);
