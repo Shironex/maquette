@@ -18,8 +18,18 @@ export function useCopyReport(text: string, what: string) {
     );
 }
 
-/** The share of the source a shipped number keeps, "24%". */
-export function keptShare(source: number | null, shipped: number | null): string {
-  if (!source || shipped === null) return '·';
-  return `${Math.round((shipped / source) * 100)}%`;
+export interface KeptShare {
+  /** "24%" of the source, "+157%" when it grew, "·" unmeasured. */
+  text: string;
+  /** True when the shipped number is larger than the source. */
+  grew: boolean;
+}
+
+/** The share of the source a shipped number keeps, or how much it grew. */
+export function keptShare(source: number | null, shipped: number | null): KeptShare {
+  if (!source || shipped === null) return { text: '·', grew: false };
+  if (shipped > source) {
+    return { text: `+${Math.round((shipped / source - 1) * 100)}%`, grew: true };
+  }
+  return { text: `${Math.round((shipped / source) * 100)}%`, grew: false };
 }
