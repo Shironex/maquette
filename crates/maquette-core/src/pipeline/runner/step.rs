@@ -201,7 +201,9 @@ impl Execution {
             }
         }
         if let Some(spec) = &step.compress
-            && let Err(message) = self.unmark_outputs(spec, &root)
+            && let Err(message) = self
+                .unmark_outputs(spec, &root)
+                .and_then(|()| self.keep_smaller_outputs(step, spec, &root))
         {
             return StepOutcome::Failed(message, None);
         }

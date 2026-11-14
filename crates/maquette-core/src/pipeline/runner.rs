@@ -6,6 +6,7 @@
 
 mod execution;
 mod queue;
+mod smaller;
 mod spawn;
 mod step;
 mod tweaks;
