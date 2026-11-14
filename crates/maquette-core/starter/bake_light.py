@@ -31,7 +31,11 @@ The second UV
   Project when it is missing (an existing "lightmap" layer is kept, so you
   can lay it out by hand). The first UV layer stays as it is and keeps the
   textures. A mesh without any UV gets an empty "UVMap" first, so
-  "lightmap" is always the second set (TEXCOORD_1 in the GLB).
+  "lightmap" is always the second set (TEXCOORD_1 in the GLB). That first
+  set is left at zero, not filled with Blender's default square per face:
+  no texture reads it, and the default would split every vertex at every
+  face corner in the export, growing a small built asset's shipped file
+  by up to half.
 - Linked duplicates are made single user first and every object gets its
   own copies of its materials, so each object has its own lightmap.
   Meshes without a material get a plain grey one so they bake.
@@ -220,7 +224,8 @@ def ensure_lightmap_uv(obj):
     if UV in uvs:
         return False
     if len(uvs) == 0:
-        uvs.new(name="UVMap")
+        # Zero, so this unused set never splits a vertex in the export.
+        uvs.new(name="UVMap", do_init=False)
     first = uvs[0]
     layer = uvs.new(name=UV)
     uvs.active = layer

@@ -41,6 +41,10 @@ const OLDER: &[(&str, &str)] = &[
         "861b25a56504ec254b2bafa4a0d5080431ebd9b4be52eb80afaac09f807ebf98",
     ),
     (
+        "tools/bake_light.py",
+        "59b452b8edc8a6c90c97f263a77db89050b10022b53b799ee0c7f03704d65e99",
+    ),
+    (
         "tools/build_scene.py",
         "27e68367ae83272ee3f0e4336a1480163e5be43beb437e70f36e601086c6f604",
     ),
