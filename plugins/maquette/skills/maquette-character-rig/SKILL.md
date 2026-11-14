@@ -42,7 +42,7 @@ at its sheets. Its numbers: stretch past the body (a row is flagged from about 8
 person adds it as the next version on the approval card in the app: no tool does that or approves
 a joint move. When wings or a cape on the arm bones still stretch after the fix, `run_rig_doctor`
 `{ id, step: "rigid", parts, bone? }` binds the case's `parts` to a body bone (Spine2 by default) on
-a copy of the draft; the person uses it or not. Come back to the manual steps below when the doctor refuses a model or stops.
+a copy of the draft; the person uses it or not. Never bind sleeves: a part with `notRigid` is refused with why, and a bind with `worse` stretched more than the fix's draft. Come back to the manual steps below when the doctor refuses a model or stops.
 
 ## Hard rules
 
