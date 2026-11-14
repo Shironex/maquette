@@ -87,6 +87,7 @@ export async function gripShots({ open, shot }) {
   await asked.waitForTimeout(400);
   await assertClear(asked, review.getByRole('button', { name: 'Save as r3' }), 'Save as r3');
   await assertClear(asked, review.getByRole('button', { name: 'Cancel' }), 'Cancel');
+  await assertClear(asked, review.getByText('What it holds'), 'What it holds');
   await shot(asked, 'motion-recipe-grip-review');
   await asked.context().close();
 }

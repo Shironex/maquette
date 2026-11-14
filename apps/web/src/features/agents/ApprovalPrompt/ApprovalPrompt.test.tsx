@@ -7,6 +7,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useClearanceStore } from '@/lib/useFloatingClearance';
 import { openAgentSession } from '../openAgentSession';
+import { APPROVAL_TRAY_WIDTH } from './ApprovalPrompt.hooks';
 import { ApprovalPrompt } from '.';
 
 afterEach(() => {
@@ -59,26 +60,25 @@ describe('the approval prompt', () => {
     expect(within(card).getByRole('button', { name: 'Approve and run' })).toBeVisible();
   });
 
-  it('holds the bottom right corner, clear of the views header controls', async () => {
+  it('docks in a tray beside the view instead of floating over it', async () => {
     await openAgentSession('batch');
     act(() => useAppStore.setState({ view: 'board' }));
-    const { container } = render(<ApprovalPrompt />);
-    const column = container.firstElementChild;
-    expect(column).toHaveClass('bottom-11', 'right-5', 'overflow-y-auto');
-    expect(column).not.toHaveClass('top-[68px]');
+    render(<ApprovalPrompt />);
+    const tray = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(tray).toHaveStyle({ width: `${APPROVAL_TRAY_WIDTH}px` });
+    expect(tray).toHaveClass('flex-none', 'overflow-y-auto');
+    expect(tray).not.toHaveClass('fixed');
+    expect(within(tray).getAllByRole('alertdialog')).toHaveLength(2);
   });
 
-  it('rises above a view bottom action bar instead of covering its buttons', async () => {
+  it('stays in its tray when a view registers a bottom bar', async () => {
     await openAgentSession('batch');
     act(() => useAppStore.setState({ view: 'inbox' }));
     act(() => useClearanceStore.getState().set('rig-doctor-bar', 110));
-    const { container } = render(<ApprovalPrompt />);
-    const column = container.firstElementChild as HTMLElement;
-    expect(column.style.bottom).toBe('126px');
-    expect(column.style.maxHeight).toBe('calc(100vh - 322px)');
-    act(() => useClearanceStore.getState().set('rig-doctor-bar', null));
-    expect(column.style.bottom).toBe('');
-    expect(column).toHaveClass('bottom-11');
+    render(<ApprovalPrompt />);
+    const tray = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(tray.style.bottom).toBe('');
+    expect(tray.style.maxHeight).toBe('');
   });
 
   it('renders nothing with no approvals', async () => {

@@ -1,6 +1,7 @@
 /**
- * Keeps what floats in the bottom right corner (the approval cards and the
- * notices) clear of a view's bottom action bar. A bar registers how far its
+ * Keeps what floats in the bottom right corner (the notices) clear of a
+ * view's bottom action bar. The approval cards dock in a tray beside the
+ * view instead (see ApprovalPrompt). A bar registers how far its
  * top sits from the window's bottom edge; the floating layers sit that far up
  * plus a gap, instead of over the bar's buttons.
  */
@@ -12,9 +13,6 @@ export const FLOATING_GAP = 16;
 
 /** Where the floating layers sit with no bar: just above the status bar (`bottom-11`). */
 export const FLOATING_BOTTOM = 44;
-
-/** How far the floating column reaches from the window's top edge at most. */
-const FLOATING_TOP = 196;
 
 interface ClearanceStore {
   /** Each mounted bar's distance from its top edge to the window's bottom edge, in px. */
@@ -42,13 +40,11 @@ export function floatingBottom(bars: Record<string, number>): number {
 
 /**
  * The floating layers' lift as an inline style, or undefined with no bar on
- * show (they keep their `bottom-11`). With `column`, the height cap shrinks
- * by as much, so a tall stack still stops where it always did.
+ * show (they keep their `bottom-11`).
  */
-export function useFloatingLift(column = false): CSSProperties | undefined {
+export function useFloatingLift(): CSSProperties | undefined {
   const bottom = useClearanceStore(s => floatingBottom(s.bars));
-  if (bottom === FLOATING_BOTTOM) return undefined;
-  return column ? { bottom, maxHeight: `calc(100vh - ${FLOATING_TOP + bottom}px)` } : { bottom };
+  return bottom === FLOATING_BOTTOM ? undefined : { bottom };
 }
 
 /**

@@ -1,20 +1,26 @@
 /**
- * The overlap check the visual sets share: no floating approval card may
- * cover a button a view or a sheet keeps in its bottom bar.
+ * The overlap check the visual sets share: no approval card may cover a
+ * button, a row or the numbers a view or a sheet shows. The cards dock in a
+ * tray beside the view, and a sheet opens over that tray, so a card behind a
+ * sheet's backdrop overlaps on paper but covers nothing.
  */
 
-/** Fails the run when a floating card covers `button`. */
-export async function assertClear(page, button, what) {
-  const target = await button.boundingBox();
+/** Fails the run when an approval card covers `target` on screen. */
+export async function assertClear(page, target, what) {
+  const box = await target.boundingBox();
   const cards = await page.getByRole('alertdialog').all();
   for (const card of cards) {
-    const box = await card.boundingBox();
-    if (!target || !box) continue;
-    const apart =
-      box.x >= target.x + target.width ||
-      target.x >= box.x + box.width ||
-      box.y >= target.y + target.height ||
-      target.y >= box.y + box.height;
-    if (!apart) throw new Error(`A floating approval card covers ${what}`);
+    const area = await card.boundingBox();
+    if (!box || !area) continue;
+    const left = Math.max(box.x, area.x);
+    const right = Math.min(box.x + box.width, area.x + area.width);
+    const top = Math.max(box.y, area.y);
+    const bottom = Math.min(box.y + box.height, area.y + area.height);
+    if (left >= right || top >= bottom) continue;
+    const onTop = await card.evaluate(
+      (el, [x, y]) => el.contains(document.elementFromPoint(x, y)),
+      [(left + right) / 2, (top + bottom) / 2]
+    );
+    if (onTop) throw new Error(`An approval card covers ${what}`);
   }
 }

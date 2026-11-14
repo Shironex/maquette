@@ -55,7 +55,7 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     redo,
   } = useInboxDetail(item);
   const preview = useInboxPreview(item, project?.id ?? null);
-  // The approval cards float above the action bar, never over Accept.
+  // Notices float above the action bar, never over Accept.
   const bar = useKeepClearOfFloating<HTMLDivElement>();
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
     preview;

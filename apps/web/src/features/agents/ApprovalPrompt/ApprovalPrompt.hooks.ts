@@ -4,6 +4,9 @@ import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { useRigStore } from '@/state/use-rig-store';
 
+/** The width of the tray the approval cards dock in, beside the view. */
+export const APPROVAL_TRAY_WIDTH = 360;
+
 /**
  * The approvals to float over the current view; Settings > Agents lists them
  * in place, and so do the Pipeline view's Ship diff for the open game, the

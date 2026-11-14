@@ -184,7 +184,7 @@ export function Footer({
   warning?: string | null;
   children: ReactNode;
 }) {
-  // The approval cards float above this bar, never over its buttons.
+  // Notices float above this bar, never over its buttons.
   const bar = useKeepClearOfFloating<HTMLElement>();
   return (
     <footer ref={bar} className="flex flex-none items-center gap-3 border-t border-line px-5 py-3">

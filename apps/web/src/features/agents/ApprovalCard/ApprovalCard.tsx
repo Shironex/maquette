@@ -78,10 +78,7 @@ export default function ApprovalCard({
     <section
       role="alertdialog"
       aria-labelledby={titleId}
-      className={cn(
-        'pointer-events-auto flex flex-col gap-3 rounded-card border border-amber/40 bg-panel p-3.5',
-        floating && 'shadow-window'
-      )}
+      className="flex flex-col gap-3 rounded-card border border-amber/40 bg-panel p-3.5"
     >
       <div className="flex items-start gap-3">
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">

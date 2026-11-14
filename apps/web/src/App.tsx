@@ -1,5 +1,8 @@
-import { Button, EmptyState, Toast, cn } from '@maquette/ui';
-import { useFloatingApprovals } from '@/features/agents/ApprovalPrompt/ApprovalPrompt.hooks';
+import { Button, EmptyState, Toast } from '@maquette/ui';
+import {
+  APPROVAL_TRAY_WIDTH,
+  useFloatingApprovals,
+} from '@/features/agents/ApprovalPrompt/ApprovalPrompt.hooks';
 import { useFloatingLift } from '@/lib/useFloatingClearance';
 import { AppShell } from '@/features/shell/AppShell';
 import { Onboarding } from '@/features/onboarding/Onboarding';
@@ -43,15 +46,13 @@ function NoticeHost() {
   const { notice, dismiss, act } = useNoticeHost();
   const approvals = useFloatingApprovals();
   const lift = useFloatingLift();
+  // The approval tray holds the right edge, so a notice sits beside it.
+  const right = approvals?.length ? APPROVAL_TRAY_WIDTH + 20 : undefined;
   return (
     <div
       aria-live="polite"
-      style={lift}
-      // An approval prompt holds the corner, so a notice sits beside it.
-      className={cn(
-        'pointer-events-none fixed bottom-11 z-50',
-        approvals?.length ? 'right-[436px]' : 'right-5'
-      )}
+      style={{ ...lift, right }}
+      className="pointer-events-none fixed right-5 bottom-11 z-50"
     >
       {notice ? (
         <Toast
