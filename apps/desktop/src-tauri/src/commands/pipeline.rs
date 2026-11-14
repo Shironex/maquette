@@ -427,7 +427,7 @@ pub(crate) mod bake;
 pub(crate) use bake::save_bake;
 mod run;
 pub use run::RunAsk;
-pub(crate) use run::{agent_run, destination, setup};
+pub(crate) use run::{SHIP_NOT_READY, agent_run, destination, setup};
 
 #[cfg(test)]
 mod tests;

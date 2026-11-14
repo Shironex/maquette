@@ -99,6 +99,15 @@ const CAP: Advice = agent(
     "set_image_backend",
 );
 
+const NO_STOPS: Advice = agent(
+    "Add a camera stop with set_layout (stops), or propose a tour with propose_camera_plan for a person to apply in the app, then run again. buildOnly true builds without shipping and asks no approval.",
+    "set_layout",
+);
+const NO_PLACED: Advice = agent(
+    "Place the models with set_layout (models), then run again. buildOnly true builds without shipping and asks no approval.",
+    "set_layout",
+);
+
 /// Message parts to the advice they call for, first match wins. Whole phrases,
 /// because a bare word can sit in an asset's name or a path. A test reads the
 /// sources these come from, so a reworded message fails it.
@@ -124,6 +133,31 @@ const BY_MESSAGE: &[(&str, Advice)] = &[
     ("needs ffmpeg, and it was not found", FFMPEG),
     ("ffmpeg is not installed", FFMPEG),
     ("No workspace is open", NO_WORKSPACE),
+    ("No camera stops:", NO_STOPS),
+    ("No placed models:", NO_PLACED),
+    // The Ship starter's own words, from a run whose Ship was not checked first.
+    ("add the stops in the Inspector", NO_STOPS),
+    (
+        "The site repo is not there:",
+        agent(
+            "Set the site repo again with set_ship_settings siteRepo, or pass repo for this run only; either makes Ship wait for a person. buildOnly true builds without shipping and asks no approval.",
+            "set_ship_settings",
+        ),
+    ),
+    (
+        "The site's maquette.site.json cannot be used:",
+        agent(
+            "Set the site folders again with set_ship_settings (models, posters, data), which rewrites the file, or ask the person to fix the file the message names. buildOnly true builds without shipping and asks no approval.",
+            "get_ship_settings",
+        ),
+    ),
+    (
+        "The layout cannot be read:",
+        agent(
+            "Read the layout with get_layout and fix what the message names with set_layout, then run again. buildOnly true builds without shipping and asks no approval.",
+            "get_layout",
+        ),
+    ),
     (
         "has not run yet",
         agent(
@@ -248,6 +282,12 @@ fn advice(err: &ToolError) -> Option<Advice> {
         .find(|(part, _)| err.message.contains(part))
         .map(|(_, advice)| *advice)
         .or_else(|| by_code(&err.code, &err.message))
+}
+
+/// What fixes a failure an agent reads somewhere else than an error, such
+/// as a failed run's message: the fix and the tool to try, when known.
+pub(super) fn fix_for(message: &str) -> Option<(&'static str, Option<&'static str>)> {
+    advice(&ToolError::from(message)).map(|a| (a.fix, a.try_tool))
 }
 
 /// The error as an agent reads it: `{ error, code, fix?, tryTool?, personOnly? }`.

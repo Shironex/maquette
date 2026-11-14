@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use maquette_core::ErrorPayload;
 use maquette_core::fs::real_folder;
 use maquette_core::materials;
 use maquette_core::pipeline::runner::{RunSetup, StepGate};
@@ -15,6 +16,13 @@ use crate::commands::CommandResult;
 use crate::mcp::gate::{ShipGate, ShipReason};
 use crate::mcp::hub::Hub;
 use crate::session::Session;
+
+/// The code of a run an agent asked for that is refused before it starts,
+/// because its Ship would fail before it copies anything (no camera stops in
+/// a site that takes scene data, a site repo that is gone, a site file that
+/// cannot be read). The run never raises a Ship card a person approves for
+/// nothing.
+pub(crate) const SHIP_NOT_READY: &str = "ship-not-ready";
 
 /// What a run is asked to do besides its steps.
 #[derive(Debug, Clone, Default, serde::Deserialize, specta::Type)]
@@ -140,8 +148,10 @@ fn setup_in(
 }
 
 /// [`setup`] for a run an agent starts, with the gate it passes before Ship,
-/// handed to `submit`, which queues the run. A game's Ship always waits. A
-/// website's waits when an agent chose the repo it ships into (the run names
+/// handed to `submit`, which queues the run. A run whose Ship would fail
+/// before it copies anything is refused here with [`SHIP_NOT_READY`] and
+/// the reason; `buildOnly` leaves Ship out and is never refused for it. A
+/// game's Ship always waits. A website's waits when an agent chose the repo it ships into (the run names
 /// one, or an agent set the project's and no person has set it since) or the
 /// site folders in it (an agent set that repo's folders, from any project, and
 /// no person has saved them since), whatever "Ask before shipping" says, and
@@ -166,6 +176,12 @@ pub(crate) fn agent_run<R>(
     let root = ctx.root.clone();
     let ask_before_shipping = ctx.config.agents.rules.ask_before_shipping;
     let setup = setup_in(session, ctx, project_id, ask, tools)?;
+    if let Some(reason) = setup.ship_blocker() {
+        return Err(ErrorPayload {
+            code: SHIP_NOT_READY.to_string(),
+            message: reason,
+        });
+    }
     let to = destination(&setup);
     if let Some(gate) = crate::commands::game::ship_gate(session, project_id, hub, to.clone()) {
         return submit(setup, Some(gate));
