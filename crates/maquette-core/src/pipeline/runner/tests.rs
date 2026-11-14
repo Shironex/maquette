@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
@@ -1048,4 +1048,161 @@ fn a_run_only_queued_on_a_repo_counts_and_the_repo_frees_once_it_ends() {
         thread::sleep(Duration::from_millis(20));
     }
     assert!(!on_site(&runner), "the repo frees once its run ends");
+}
+
+#[test]
+fn a_failed_step_says_why_in_the_words_it_wrote_to_stderr() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("ship", "tools/ship.sh", &[], &[])],
+    );
+    script(
+        &s,
+        "ship.sh",
+        "echo '[ship] copying'\necho 'a warning first' >&2\necho '[ship] the layout has 1 placed models and 0 camera stops.' >&2\nexit 1\n",
+    );
+    let runner = PipelineRunner::new(Arc::new(Recorder::default()));
+    let run = runner.run_blocking(s).expect("run");
+    assert_eq!(run.state, RunState::Failed);
+    let step = run.steps[0].message.clone().unwrap_or_default();
+    assert_eq!(
+        step,
+        "The layout has 1 placed models and 0 camera stops. sh exited with code 1."
+    );
+    assert_eq!(run.steps[0].exit_code, Some(1));
+    assert_eq!(
+        run.message.as_deref(),
+        Some(format!("Step ship failed. {step}").as_str())
+    );
+}
+
+#[test]
+fn an_exit_message_keeps_the_code_and_trims_the_line() {
+    use super::step::exit_message;
+    assert_eq!(exit_message("node", 1, None), "node exited with code 1.");
+    assert_eq!(
+        exit_message("node", 1, Some("   ")),
+        "node exited with code 1."
+    );
+    assert_eq!(
+        exit_message("node", 2, Some("...")),
+        "node exited with code 2."
+    );
+    assert_eq!(
+        exit_message("node", 1, Some("[ship] the site repo /x does not exist")),
+        "The site repo /x does not exist. node exited with code 1."
+    );
+    // A bracket that is not a one word tag stays.
+    assert_eq!(
+        exit_message("python3", 1, Some("[not a tag] KeyError: 'x'")),
+        "[not a tag] KeyError: 'x'. python3 exited with code 1."
+    );
+    let long = "x".repeat(1000);
+    let message = exit_message("blender", 3, Some(&long));
+    assert!(
+        message.ends_with("x... blender exited with code 3."),
+        "{message}"
+    );
+    assert!(message.chars().count() < 450, "{}", message.len());
+}
+
+/// A website Ship step into `site`, gated, in a project whose layout holds
+/// a placed model and, when `stop` is set, a camera stop.
+fn gated_site_ship(dir: &Path, stop: bool) -> (RunSetup, PathBuf) {
+    let mut ship = shell_step("ship", "tools/ship.sh", &[], &[]);
+    ship.args.extend(["--site".into(), "{siteRepo}".into()]);
+    let mut s = setup(dir, vec![ship]);
+    let site = dir.join("site");
+    fs::create_dir_all(&site).expect("site");
+    fs::write(
+        site.join(crate::site::CONFIG_FILE),
+        r#"{ "version": 1, "models": "public/models", "data": "src/shipped.json" }"#,
+    )
+    .expect("config");
+    let stops = if stop {
+        r#"[{ "id": "hero", "name": "Hero", "position": [0, 1, 3], "target": [0, 0, 0], "fov": 40, "models": null }]"#
+    } else {
+        "[]"
+    };
+    let layout = format!(
+        r#"{{ "version": 1, "models": {{ "lamp": {{ "position": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1 }} }}, "stops": {stops}, "desk": null }}"#
+    );
+    fs::write(s.project_dir.join("layout.json"), layout).expect("layout");
+    s.vars.insert("siteRepo".into(), site.display().to_string());
+    script(&s, "ship.sh", "echo ran >> ran.log\n");
+    (s, site)
+}
+
+#[test]
+fn a_gated_ship_that_cannot_go_fails_with_its_reason_and_asks_nobody() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (s, _site) = gated_site_ship(dir.path(), false);
+    assert!(
+        s.ship_blocker()
+            .expect("blocked")
+            .starts_with(crate::site::NO_STOPS),
+        "the same answer before the run"
+    );
+    let built_only = RunSetup {
+        build_only: true,
+        ..s.clone()
+    };
+    assert_eq!(built_only.ship_blocker(), None, "buildOnly reaches no Ship");
+    let (_tx, rx) = mpsc::channel();
+    let gate = Arc::new(Approval {
+        answer: Mutex::new(rx),
+        asked: AtomicBool::new(false),
+    });
+    let sink = Arc::new(Recorder::default());
+    let runner = PipelineRunner::new(sink.clone());
+    let options = RunOptions {
+        gate: Some(gate.clone()),
+        ..RunOptions::default()
+    };
+    runner.submit_with(s.clone(), options).expect("submit");
+    while runner.active("moon").0.is_some() {
+        thread::sleep(Duration::from_millis(20));
+    }
+    let run = history::load_runs(&s.cache_dir).remove(0);
+    assert_eq!(run.state, RunState::Failed);
+    assert_eq!(states(&run), vec![StepState::Failed]);
+    let reason = run.steps[0].message.clone().expect("reason");
+    assert!(reason.starts_with(crate::site::NO_STOPS), "{reason}");
+    assert_eq!(
+        run.message.as_deref(),
+        Some(format!("Step ship failed. {reason}").as_str())
+    );
+    assert!(!gate.asked.load(Ordering::SeqCst), "no card was raised");
+    assert!(
+        !s.project_dir.join("ran.log").exists(),
+        "the script did not run"
+    );
+}
+
+#[test]
+fn a_gated_ship_that_can_go_still_asks() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (s, _site) = gated_site_ship(dir.path(), true);
+    assert_eq!(s.ship_blocker(), None);
+    let (tx, rx) = mpsc::channel();
+    let gate = Arc::new(Approval {
+        answer: Mutex::new(rx),
+        asked: AtomicBool::new(false),
+    });
+    let sink = Arc::new(Recorder::default());
+    let runner = PipelineRunner::new(sink.clone());
+    let options = RunOptions {
+        gate: Some(gate.clone()),
+        ..RunOptions::default()
+    };
+    runner.submit_with(s.clone(), options).expect("submit");
+    assert!(sink.wait_for_line("Waiting for approval", Duration::from_secs(10)));
+    tx.send(GateDecision::Allow).expect("answer");
+    while runner.active("moon").0.is_some() {
+        thread::sleep(Duration::from_millis(20));
+    }
+    let run = history::load_runs(&s.cache_dir).remove(0);
+    assert_eq!(run.state, RunState::Done, "{:?}", run.message);
+    assert!(s.project_dir.join("ran.log").exists());
 }

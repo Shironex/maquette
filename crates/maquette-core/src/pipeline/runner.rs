@@ -78,6 +78,41 @@ pub struct RunSetup {
     pub build_only: bool,
 }
 
+impl RunSetup {
+    /// The site repo Ship writes into, or None when it has none.
+    fn site_repo(&self) -> Option<&str> {
+        self.vars
+            .get("siteRepo")
+            .map(|repo| repo.trim())
+            .filter(|repo| !repo.is_empty())
+    }
+
+    /// Why the website Ship step `step` would fail before it copies
+    /// anything ([`crate::site::ship_blocker`]), checked before anyone is
+    /// asked to approve it. None for any other step, a game's Ship
+    /// (`--game`), and a Ship with no repo, which the runner leaves out.
+    pub fn ship_blocker_at(&self, step: &StepDef) -> Option<String> {
+        let takes_repo = step.args.iter().any(|a| a.contains("{siteRepo}"));
+        let game = step.args.iter().any(|a| a == "--game");
+        if !super::is_ship_step(step) || !takes_repo || game {
+            return None;
+        }
+        crate::site::ship_blocker(&self.project_dir, std::path::Path::new(self.site_repo()?))
+    }
+
+    /// [`Self::ship_blocker_at`] for the Ship step this run reaches, or None
+    /// when it reaches none (`build_only`, or a `from` after it).
+    pub fn ship_blocker(&self) -> Option<String> {
+        let planned =
+            super::graph::plan_run(&self.def, self.from.as_deref(), self.force, self.build_only)
+                .ok()?;
+        planned
+            .iter()
+            .filter(|(_, p)| *p != super::graph::Planned::Skip)
+            .find_map(|(index, _)| self.ship_blocker_at(&self.def.steps[*index]))
+    }
+}
+
 /// Extra controls for one run, for jobs that are not project pipelines
 /// (the Concept lab's Codex jobs) and for runs an agent started.
 #[derive(Clone, Default)]
