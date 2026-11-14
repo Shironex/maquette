@@ -148,6 +148,26 @@ fn a_key_the_store_could_not_read_is_not_called_missing() {
     assert!(!says_no_key(&keys(Some(true), Some(false))));
 }
 
+#[test]
+fn an_unreadable_key_store_is_not_a_saved_key() {
+    let keys = |tripo, meshy| Keys {
+        tripo,
+        meshy,
+        openai: None,
+    };
+    assert!(keys(Some(true), None).any_saved());
+    assert!(keys(None, Some(true)).any_saved());
+    assert!(!keys(None, None).any_saved());
+    assert!(!keys(None, Some(false)).any_saved());
+    assert!(keys(None, Some(false)).unreadable());
+    let all_read = Keys {
+        tripo: Some(false),
+        meshy: Some(false),
+        openai: Some(false),
+    };
+    assert!(!all_read.unreadable());
+}
+
 fn found(id: ToolId, warning: &str) -> ToolReport {
     ToolReport {
         id,

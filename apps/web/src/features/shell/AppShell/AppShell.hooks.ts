@@ -10,6 +10,7 @@ import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { useCodexUsageStore } from '@/state/use-codex-usage-store';
+import { KIND_LABEL, newlyPaidKinds } from '@/state/image-api';
 import { useImageApiStore } from '@/state/use-image-api-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useLabStore } from '@/state/use-lab-store';
@@ -166,8 +167,18 @@ export function useAppShell() {
  */
 /** An agent changed the Lab's image backends: the Lab and Settings follow. */
 function onImageSettings(images: ImageSettings) {
-  const { workspace, setConfig } = useAppStore.getState();
-  if (workspace) setConfig({ ...workspace.config, lab: { ...workspace.config.lab, images } });
+  const { workspace, setConfig, notify } = useAppStore.getState();
+  if (workspace) {
+    const paid = newlyPaidKinds(workspace.config.lab.images, images);
+    if (paid.length > 0) {
+      notify({
+        status: 'info',
+        title: 'An agent switched the Lab to OpenAI Images',
+        detail: `${paid.map(kind => KIND_LABEL[kind]).join(', ')} now cost money per image, within the monthly cap. Change it back in Settings > Image generation.`,
+      });
+    }
+    setConfig({ ...workspace.config, lab: { ...workspace.config.lab, images } });
+  }
   void useImageApiStore.getState().load();
 }
 

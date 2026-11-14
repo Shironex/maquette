@@ -307,6 +307,20 @@ struct Keys {
     openai: Option<bool>,
 }
 
+impl Keys {
+    /// A paid 3D provider's key is known to be saved. A store that could not
+    /// say is not a yes: `next` would offer providers that then fail.
+    fn any_saved(&self) -> bool {
+        self.tripo == Some(true) || self.meshy == Some(true)
+    }
+
+    /// The store could not say for at least one key (null above): `next` does
+    /// not offer paid providers on it.
+    fn unreadable(&self) -> bool {
+        [self.tripo, self.meshy, self.openai].contains(&None)
+    }
+}
+
 /// Reads through [`SecretStore::is_saved`], so asking again and again never
 /// raises a Keychain prompt.
 fn read_keys(host: &dyn Host) -> Keys {
@@ -377,7 +391,7 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
         workspace_open: true,
         blender: blender_works(&reports),
         codex: tool_works(&reports, ToolId::Codex),
-        any_key: keys.tripo != Some(false) || keys.meshy != Some(false),
+        any_key: keys.any_saved(),
         inbox: inbox_count,
         project: facts.into_iter().nth(current),
         off: super::groups::off_in(&config),
@@ -385,7 +399,7 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
     let full = json!({
         "workspace": host.session().display(&root),
         "toolchain": tools,
-        "keys": { "tripo": keys.tripo, "meshy": keys.meshy, "openai": keys.openai },
+        "keys": { "tripo": keys.tripo, "meshy": keys.meshy, "openai": keys.openai, "unreadable": keys.unreadable() },
         "imageBackend": image_value,
         "askBeforeShipping": ask,
         "inboxModels": inbox_count,

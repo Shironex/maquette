@@ -130,7 +130,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change how the Lab makes images, as Settings > Image generation does: the backend per kind of job (codex or openai-images), and the Image API's quality (low, medium or high). Fields left out keep their value. The monthly cap is not changed here: only a person sets it, in the app's Settings, and a request that carries monthlyCapUsd is refused with nothing changed. openai-images is paid per image from the OpenAI key saved in the app; a batch that would pass the cap is refused before anything is made, a round an agent asks for waits for a person to approve it in the app, and every image is written to the credits ledger. The key itself can only be set in the app. Returns the result like get_image_backend.",
+        description = "Change how the Lab makes images, as Settings > Image generation does: the backend per kind of job (codex or openai-images), and the Image API's quality (low, medium or high). Fields left out keep their value. The monthly cap is not changed here: only a person sets it, in the app's Settings, and a request that carries monthlyCapUsd is refused with nothing changed. openai-images is paid per image from the OpenAI key saved in the app; a batch that would pass the cap is refused before anything is made, a round an agent asks for waits for a person to approve it in the app, a switch to openai-images shows the person a notice in the app, and every image is written to the credits ledger. The key itself can only be set in the app. Returns the result like get_image_backend.",
         annotations(destructive_hint = false)
     )]
     async fn set_image_backend(&self, Parameters(args): Parameters<SetImageBackendArgs>) -> Out {
