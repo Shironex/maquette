@@ -2,6 +2,8 @@
  * The rigid bind in mock mode: a winged character whose wings the auto rig
  * weighted to the arms. Binding them to the chest answers at once with the
  * bound draft measured against the fix's; only a person's answer uses it.
+ * Sleeves the arm chain holds are listed but not rigid, as the core reads
+ * them, and a bind that stretches more says so.
  */
 import type { RigPart, RigRecord, RigRigid, RigRow, RigStarter } from '../client';
 import { fail } from './backend-options';
@@ -11,6 +13,28 @@ import { DIR, fixedCase } from './rig-fixtures';
 const PARTS: RigPart[] = [
   { part: 1, vertices: 1840, side: 'left', bones: ['LeftArm', 'LeftForeArm'], acrossCm: 41.5 },
   { part: 2, vertices: 1792, side: 'right', bones: ['RightArm', 'RightForeArm'], acrossCm: 40.8 },
+];
+
+const SLEEVE = (side: string) =>
+  `It wraps the ${side} forearm like a sleeve, so it has to bend with the arm: bound rigidly it would tear.`;
+
+const SLEEVES: RigPart[] = [
+  {
+    part: 1,
+    vertices: 172,
+    side: 'left',
+    bones: ['LeftForeArm', 'LeftArm'],
+    acrossCm: 10.3,
+    notRigid: SLEEVE('left'),
+  },
+  {
+    part: 2,
+    vertices: 115,
+    side: 'right',
+    bones: ['RightForeArm'],
+    acrossCm: 10.6,
+    notRigid: SLEEVE('right'),
+  },
 ];
 
 const BODY_BONES = ['Spine2', 'Spine1', 'Spine', 'Hips', 'Neck', 'LeftShoulder', 'RightShoulder'];
@@ -96,6 +120,18 @@ export const rigidSeeds = {
     ...wingedCase(),
     jointMove: fixedCase('winged-imp-v1', 'Winged imp').jointMove,
   }),
+  'rigid-sleeves': () => ({ ...wingedCase(), parts: SLEEVES }),
+  'rigid-worse': () => {
+    const c = wingedCase();
+    const bind = askedBind(c, [1, 2], 'mixamorig:Spine2', 'agent');
+    const worse =
+      "Bound to Spine2 it stretches more: worst stretch 37 to 91 mm, at reach_for_a_prop. Keep the fix's weights.";
+    return {
+      ...c,
+      parts: c.parts?.map(p => ({ ...p, notRigid: worse })),
+      rigid: { ...bind, stretchBefore: 37, stretchAfter: 91, worse },
+    };
+  },
   'rigid-bound': () => {
     const c = wingedCase();
     const bind = askedBind(c, [1, 2], 'mixamorig:Spine2', 'person');
@@ -112,6 +148,8 @@ export function bindRigid(c: RigRecord, parts: number[], bone: string | null): R
   if (c.rigid?.state === 'approved')
     fail('invalid', "Undo the bound parts first: a new bind starts from the fix's draft.");
   if (parts.length === 0) fail('invalid', 'Pick at least one part.');
+  const left = (c.parts ?? []).find(p => parts.includes(p.part) && p.notRigid);
+  if (left) fail('invalid', `Part ${left.part} is not a rigid part. ${left.notRigid}`);
   const named = bone ?? 'Spine2';
   const whole = (c.bodyBones ?? []).find(b => b === named || b.endsWith(`:${named}`));
   if (!whole) fail('invalid', `${named} is not a body bone of this model.`);

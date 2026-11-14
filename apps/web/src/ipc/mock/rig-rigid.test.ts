@@ -43,4 +43,9 @@ describe('the rigid bind in mock mode', () => {
     expect(() => refuseHeldJointMove(withMove, true)).toThrow();
     expect(() => refuseHeldJointMove(withMove, false)).not.toThrow();
   });
+
+  it('refuses a sleeve, as the core does, and says why', () => {
+    const { h, c } = seeded('rigid-sleeves');
+    expect(() => h.rig_bind_rigid({ id: c.id, parts: [1], bone: null })).toThrow(/like a sleeve/);
+  });
 });
