@@ -411,6 +411,12 @@ impl ServerHandler for McpTools {
     ) -> Result<CallToolResponse, ErrorData> {
         let tool = request.name.to_string();
         let detail = describe(request.arguments.as_ref());
+        let project = request
+            .arguments
+            .as_ref()
+            .and_then(|a| a.get("project"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
         let started = Instant::now();
         let result = match groups::off_group_of(&tool, self.host.as_ref()) {
             // A list from before the person turned the group off: nothing runs.
@@ -421,6 +427,7 @@ impl ServerHandler for McpTools {
                     .await
             }
         };
+        let result = hints::table::add_next(&tool, project.as_deref(), result);
         let result = groups::scrub_off_tools(result, &groups::off_now(self.host.as_ref()));
         let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
@@ -438,23 +445,4 @@ impl ServerHandler for McpTools {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The longest a tool's description may grow. Detail goes on the arguments.
-    const MAX_DESCRIPTION: usize = 1250;
-
-    #[test]
-    fn every_tool_has_a_group_and_a_description_of_reasonable_length() {
-        for (name, description) in McpTools::descriptions() {
-            assert!(description.starts_with('['), "{name} has no group");
-            let (tag, rest) = description.split_once("] ").expect("group");
-            assert!(!tag.is_empty() && !rest.is_empty(), "{name}");
-            assert!(
-                description.len() <= MAX_DESCRIPTION,
-                "{name} has {} characters",
-                description.len()
-            );
-        }
-    }
-}
+mod tests;

@@ -39,5 +39,6 @@ mod ship;
 mod ship_folders;
 mod ship_gate;
 mod start;
+mod start_waiting;
 mod trash;
 mod views;

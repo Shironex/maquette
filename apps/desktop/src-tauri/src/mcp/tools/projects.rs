@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 
 use crate::commands::{assets, layout};
 
+use super::hints::table::{Can, Place, start_of};
 use super::hints::{step, with_next};
 use super::motion::{ClipEdit, StatesEdit, clips_patch, states_patch};
 use super::paths::{EnergizeEdit, PathEdit, energize_patch, paths_patch};
@@ -296,18 +297,13 @@ a project id; no tool changes which project the app has open. An empty workspace
                     .collect();
                 let answer = json!({ "project": manifest.id, "assets": assets });
                 Ok(if manifest.assets.is_empty() {
+                    let place = Place {
+                        project: &manifest.id,
+                        target: manifest.target,
+                    };
                     with_next(
                         answer,
-                        vec![
-                            step(
-                                "start_concepts",
-                                "Make concept images, then pick_concepts puts them on the Board.",
-                            ),
-                            step(
-                                "add_built_asset",
-                                "Or make a model with a Blender script: no credits, no approval.",
-                            ),
-                        ],
+                        start_of(place, manifest.site_repo.is_some(), Can::BOTH),
                     )
                 } else {
                     answer

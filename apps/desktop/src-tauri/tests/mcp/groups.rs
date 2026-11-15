@@ -134,7 +134,7 @@ async fn a_success_answer_s_next_skips_the_tools_of_an_off_group() {
         .iter()
         .filter_map(|s| s["tool"].as_str())
         .collect();
-    assert_eq!(tools, ["add_built_asset"], "{listed}");
+    assert_eq!(tools, ["add_built_asset", "set_ship_settings"], "{listed}");
     client.cancel().await.expect("close");
     server.stop();
 }

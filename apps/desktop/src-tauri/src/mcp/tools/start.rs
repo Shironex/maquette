@@ -3,7 +3,7 @@
 
 use maquette_core::app_state::RepoSetBy;
 use maquette_core::game::inspect_game_repo;
-use maquette_core::providers::{ProviderId, secrets};
+use maquette_core::pipeline::history::now_ms;
 use maquette_core::settings::game::{DEFAULT_MODELS_DIR, GameFormat, GameTemplateId, NewGame};
 use maquette_core::{
     ProjectManifest, ProjectTarget, ProjectTemplate, Stage, ToolId, ToolReport, ToolStatus, inbox,
@@ -14,18 +14,23 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::hints::{person_step, step};
+use super::hints::person_step;
+use super::hints::table::{Can, Place, start_of};
 use super::image_api::status_value;
 use super::{McpTools, Out, ToolError, respond, to_value};
 use crate::commands::image_api;
 use crate::commands::project::{checked_repo, create_in_workspace, summaries};
 use crate::mcp::host::Host;
+use crate::mcp::hub::Hub;
 
 mod compact;
+mod keys;
 mod next;
 #[cfg(test)]
 mod tests;
+mod waiting;
 
+use keys::{Keys, read_keys};
 use next::{Facts, ProjectFacts, next_steps};
 
 /// Where the project ships, as list_projects says it.
@@ -60,9 +65,13 @@ pub struct CreateProjectArgs {
 #[serde(rename_all = "camelCase")]
 pub struct GetStartedArgs {
     /// true adds every tool's version and hint, each project's template, repo,
-    /// stages and activity, the image backend's settings and every gate a
-    /// person passes and the kinds of approval a person gives. Left out, the answer is short.
+    /// stages and activity, the image backend's settings and every kind of
+    /// gate a person passes. Left out, the answer is short. The approvals
+    /// waiting now are in waiting either way.
     pub detail: Option<bool>,
+    /// The project id next is about. Left out, the app's open project, else
+    /// the first one listed. nextFor names it.
+    pub project: Option<String>,
 }
 
 const WEBSITE_DEFAULT: ProjectTemplate = ProjectTemplate::FloatingDiorama;
@@ -163,29 +172,11 @@ fn new_project(
 
 /// What to do in a project just made.
 fn after_create(manifest: &ProjectManifest) -> Vec<Value> {
-    let mut steps = vec![
-        step(
-            "start_concepts",
-            "Make concept images (Codex usage, or a paid backend a person approves).",
-        ),
-        step(
-            "add_built_asset",
-            "Or make a model with a Blender script: no credits, no approval.",
-        ),
-    ];
-    if manifest.site_repo.is_none() {
-        steps.push(match manifest.target {
-            ProjectTarget::Website => step(
-                "set_ship_settings",
-                "Set siteRepo before shipping. Until then run with buildOnly true.",
-            ),
-            ProjectTarget::Game => step(
-                "set_game_settings",
-                "Set repo before shipping. Until then run with buildOnly true.",
-            ),
-        });
-    }
-    steps
+    let place = Place {
+        project: &manifest.id,
+        target: manifest.target,
+    };
+    start_of(place, manifest.site_repo.is_some(), Can::BOTH)
 }
 
 fn tool_value(report: &ToolReport) -> Value {
@@ -299,48 +290,24 @@ fn blocking_gates(reports: &[ToolReport], keys: &Keys) -> Vec<Value> {
     out
 }
 
-/// Whether each key is saved. None when the store could not say, which is not
-/// the same as no key.
-struct Keys {
-    tripo: Option<bool>,
-    meshy: Option<bool>,
-    openai: Option<bool>,
-}
-
-impl Keys {
-    /// A paid 3D provider's key is known to be saved. A store that could not
-    /// say is not a yes: `next` would offer providers that then fail.
-    fn any_saved(&self) -> bool {
-        self.tripo == Some(true) || self.meshy == Some(true)
-    }
-
-    /// The store could not say for at least one key (null above): `next` does
-    /// not offer paid providers on it.
-    fn unreadable(&self) -> bool {
-        [self.tripo, self.meshy, self.openai].contains(&None)
-    }
-}
-
-/// Reads through [`SecretStore::is_saved`], so asking again and again never
-/// raises a Keychain prompt.
-fn read_keys(host: &dyn Host) -> Keys {
-    let store = host.studio().secrets();
-    Keys {
-        tripo: store.is_saved(secrets::account(ProviderId::Tripo)),
-        meshy: store.is_saved(secrets::account(ProviderId::Meshy)),
-        openai: store.is_saved(secrets::OPENAI_ACCOUNT),
-    }
-}
-
-fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
+fn started(
+    host: &dyn Host,
+    hub: &Hub,
+    detail: bool,
+    wanted: Option<&str>,
+) -> Result<Value, ToolError> {
     let reports = host.tool_reports();
     let tools: Vec<Value> = reports.iter().map(tool_value).collect();
+    let jobs = host.studio().list(None);
+    let waiting = waiting::waiting(&hub.approvals(), &jobs, now_ms());
     let Ok((root, config)) = host.session().workspace() else {
         let next = next_steps(&Facts::no_workspace());
         let full = json!({
             "workspace": Value::Null,
             "toolchain": tools,
             "projects": [],
+            "waiting": waiting,
+            "nextFor": Value::Null,
             "next": next,
         });
         return Ok(if detail { full } else { compact::compact(full) });
@@ -380,20 +347,28 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
             "stages": stage_counts(&manifest),
             "activity": to_value(&row.activity),
         }));
-        facts.push(ProjectFacts::of(&manifest));
+        facts.push(ProjectFacts::of(&manifest, &jobs));
     }
-    let current = config
-        .current_project
-        .as_deref()
-        .and_then(|id| facts.iter().position(|p| p.id == id))
-        .unwrap_or(0);
+    let current = match wanted {
+        Some(id) => Some(facts.iter().position(|p| p.id == id).ok_or_else(|| {
+            ToolError::from(format!(
+                "There is no project {id:?}. list_projects names every project."
+            ))
+        })?),
+        None => config
+            .current_project
+            .as_deref()
+            .and_then(|id| facts.iter().position(|p| p.id == id))
+            .or_else(|| (!facts.is_empty()).then_some(0)),
+    };
+    let next_for = current.map(|i| facts[i].id.clone());
     let next = next_steps(&Facts {
         workspace_open: true,
         blender: blender_works(&reports),
         codex: tool_works(&reports, ToolId::Codex),
         any_key: keys.any_saved(),
         inbox: inbox_count,
-        project: facts.into_iter().nth(current),
+        project: current.and_then(|i| facts.into_iter().nth(i)),
         off: super::groups::off_in(&config),
     });
     let full = json!({
@@ -406,6 +381,8 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
         "projects": projects,
         "openProject": config.current_project,
         "personGates": if detail { gates(&reports, &keys, ask) } else { blocking_gates(&reports, &keys) },
+        "waiting": waiting,
+        "nextFor": next_for,
         "next": next,
     });
     Ok(if detail { full } else { compact::compact(full) })
@@ -414,14 +391,15 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
 #[tool_router(router = start_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and the kinds of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
+        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, waiting: every approval waiting for a person now (kind, project, age and poll, the tool and arguments that follow it) and each project's sends to 3D in flight, and next: what to do now in the project nextFor names (project picks it, else the open project), each step a tool with its args or a thing a person has to do. Follow what waits; never start it again. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every kind of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
         annotations(read_only_hint = true)
     )]
     async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
         let detail = args.detail.unwrap_or(false);
         respond(
-            self.blocking(move |host, _| {
-                started(host, detail).map(|v| super::groups::with_off_line(v, host))
+            self.blocking(move |host, hub| {
+                started(host, hub, detail, args.project.as_deref())
+                    .map(|v| super::groups::with_off_line(v, host))
             })
             .await,
         )

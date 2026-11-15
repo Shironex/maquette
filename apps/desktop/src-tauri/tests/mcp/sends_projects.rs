@@ -37,7 +37,7 @@ const LIGHTHOUSE: &str = "lighthouse";
 
 /// A workspace with two projects, each with an asset named Lantern and a
 /// front ref.
-fn fixture(dir: &Path) -> Session {
+pub(super) fn fixture(dir: &Path) -> Session {
     let root = dir.join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
     let session = Session::with_state(dir.join("cfg"), None, AppState::default());
@@ -81,7 +81,7 @@ fn fixture(dir: &Path) -> Session {
 }
 
 /// Provider jobs that can never reach Tripo or Meshy.
-fn studio(session: &Session) -> ProviderJobs {
+pub(super) fn studio(session: &Session) -> ProviderJobs {
     let secrets = Arc::new(MemoryStore::default());
     secrets
         .set(ProviderId::Tripo, "tsk_test_only_1234")
@@ -99,7 +99,7 @@ fn studio(session: &Session) -> ProviderJobs {
     jobs
 }
 
-fn send(project: &str, provider: &str) -> Value {
+pub(super) fn send(project: &str, provider: &str) -> Value {
     json!({
         "project": project,
         "asset": "lantern",
