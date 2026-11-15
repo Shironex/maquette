@@ -145,15 +145,17 @@ function useApprovalHold(layout: string, anyOpen: boolean) {
 /**
  * Which of a list of approval cards are open, the toggle each one gets, and
  * the hold on their Approve: `column` goes on the element around the cards.
+ * `shown` is false while the cards are folded away; showing them again is a
+ * new layout, so it restarts the hold too.
  */
-export function useApprovalStack(approvals: readonly Approval[] | undefined) {
+export function useApprovalStack(approvals: readonly Approval[] | undefined, shown = true) {
   const [stored, setOpen] = useState<Readonly<Record<string, boolean>>>({});
   const ids = approvals?.map(a => a.id) ?? [];
   const open = settleOpen(stored, ids);
   if (open !== stored) setOpen(open);
   const { column, armed } = useApprovalHold(
-    ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','),
-    ids.some(id => open[id])
+    `${shown ? 'shown' : 'folded'}|${ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(',')}`,
+    shown && ids.some(id => open[id])
   );
   return {
     column,

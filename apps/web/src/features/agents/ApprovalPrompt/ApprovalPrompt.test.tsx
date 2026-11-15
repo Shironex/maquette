@@ -2,18 +2,23 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useClearanceStore } from '@/lib/useFloatingClearance';
 import { openAgentSession } from '../openAgentSession';
-import { APPROVAL_TRAY_WIDTH } from './ApprovalPrompt.hooks';
+import {
+  APPROVAL_RAIL_WIDTH,
+  APPROVAL_TRAY_WIDTH,
+  useApprovalTrayStore,
+} from './ApprovalPrompt.hooks';
 import { ApprovalPrompt } from '.';
 
 afterEach(() => {
   clearMocks();
   useAgentsStore.setState({ status: null });
   useClearanceStore.setState({ bars: {} });
+  useApprovalTrayStore.setState({ folded: null });
 });
 
 describe('the approval prompt', () => {
@@ -66,9 +71,38 @@ describe('the approval prompt', () => {
     render(<ApprovalPrompt />);
     const tray = screen.getByRole('complementary', { name: 'Waiting for approval' });
     expect(tray).toHaveStyle({ width: `${APPROVAL_TRAY_WIDTH}px` });
-    expect(tray).toHaveClass('flex-none', 'overflow-y-auto');
+    expect(tray).toHaveClass('flex-none');
     expect(tray).not.toHaveClass('fixed');
     expect(within(tray).getAllByRole('alertdialog')).toHaveLength(2);
+  });
+
+  it('folds to a rail with the count and opens again, keeping every card waiting', async () => {
+    await openAgentSession('batch');
+    act(() => useAppStore.setState({ view: 'board' }));
+    render(<ApprovalPrompt />);
+    await userEvent.click(screen.getByRole('button', { name: 'Fold the approval cards' }));
+    const rail = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(rail).toHaveStyle({ width: `${APPROVAL_RAIL_WIDTH}px` });
+    expect(rail).toHaveTextContent('2');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the approval cards' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(2);
+  });
+
+  it('starts folded in a window too narrow for a view beside the tray', async () => {
+    const narrow = vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    vi.stubGlobal('matchMedia', narrow);
+    await openAgentSession('batch');
+    act(() => useAppStore.setState({ view: 'board' }));
+    render(<ApprovalPrompt />);
+    expect(screen.getByRole('button', { name: 'Show the approval cards' })).toBeVisible();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it('stays in its tray when a view registers a bottom bar', async () => {

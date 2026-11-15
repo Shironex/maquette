@@ -1,6 +1,6 @@
 import { Button, EmptyState, Toast } from '@maquette/ui';
 import {
-  APPROVAL_TRAY_WIDTH,
+  useApprovalTray,
   useFloatingApprovals,
 } from '@/features/agents/ApprovalPrompt/ApprovalPrompt.hooks';
 import { useFloatingLift } from '@/lib/useFloatingClearance';
@@ -45,9 +45,10 @@ function BootFailure() {
 function NoticeHost() {
   const { notice, dismiss, act } = useNoticeHost();
   const approvals = useFloatingApprovals();
+  const tray = useApprovalTray();
   const lift = useFloatingLift();
   // The approval tray holds the right edge, so a notice sits beside it.
-  const right = approvals?.length ? APPROVAL_TRAY_WIDTH + 20 : undefined;
+  const right = approvals?.length ? tray.width + 20 : undefined;
   return (
     <div
       aria-live="polite"

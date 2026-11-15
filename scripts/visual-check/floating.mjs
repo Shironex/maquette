@@ -24,3 +24,12 @@ export async function assertClear(page, target, what) {
     if (onTop) throw new Error(`An approval card covers ${what}`);
   }
 }
+
+/** Waits for the approval tray and opens it when a narrow window started it folded. */
+export async function showCards(page) {
+  const tray = page.getByRole('complementary', { name: 'Waiting for approval' });
+  await tray.waitFor();
+  const show = tray.getByRole('button', { name: 'Show the approval cards' });
+  if (await show.count()) await show.click();
+  await page.getByRole('alertdialog').first().waitFor();
+}
