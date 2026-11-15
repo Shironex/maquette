@@ -117,6 +117,18 @@ fn place(from: &Path, refs: &Path, name: &str) -> CoreResult<(String, bool)> {
 /// one that differs gets a free name beside it. Every file is checked before
 /// anything is written, and a failed copy takes back what this call wrote.
 pub fn import_refs(project_dir: &Path, paths: &[PathBuf]) -> CoreResult<Vec<String>> {
+    let mut out: Vec<String> = Vec::with_capacity(paths.len());
+    for path in import_ref_files(project_dir, paths)? {
+        if !out.contains(&path) {
+            out.push(path);
+        }
+    }
+    Ok(out)
+}
+
+/// As [`import_refs`], with one path per image given, in order: two images
+/// with the same bytes answer with the same ref.
+pub(super) fn import_ref_files(project_dir: &Path, paths: &[PathBuf]) -> CoreResult<Vec<String>> {
     let extensions = check_drop(paths)?;
     let refs = project_dir.join(REFS_DIR);
     fs::create_dir_all(&refs).map_err(|e| CoreError::io(&refs, e))?;
@@ -128,10 +140,7 @@ pub fn import_refs(project_dir: &Path, paths: &[PathBuf]) -> CoreResult<Vec<Stri
                 if wrote {
                     written.push(refs.join(&name));
                 }
-                let path = format!("{REFS_DIR}/{name}");
-                if !out.contains(&path) {
-                    out.push(path);
-                }
+                out.push(format!("{REFS_DIR}/{name}"));
             }
             Err(error) => {
                 for file in &written {

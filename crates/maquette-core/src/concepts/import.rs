@@ -353,8 +353,10 @@ pub fn import_images(
     }
 }
 
+pub use asset_refs::{AddedRefs, NewRef, RefsFor, add_refs};
 pub use refs::import_refs;
 
+mod asset_refs;
 mod refs;
 
 #[cfg(test)]
