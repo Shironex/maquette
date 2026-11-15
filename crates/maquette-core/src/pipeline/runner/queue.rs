@@ -394,6 +394,7 @@ fn worker(inner: &Arc<Inner>, project: &str, job: Job, handles: Handles) {
             progress_sent: None,
             stop: None,
             last_error_line: None,
+            last_script_line: None,
         };
         exec.run();
         let mut lanes = inner.lanes();

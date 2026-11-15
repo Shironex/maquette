@@ -1078,6 +1078,47 @@ fn a_failed_step_says_why_in_the_words_it_wrote_to_stderr() {
 }
 
 #[test]
+fn a_failed_step_with_nothing_on_stderr_says_why_in_its_last_tagged_line() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("export", "tools/export.sh", &[], &[])],
+    );
+    // Blender's own banner lines around the script's carry no tag.
+    script(
+        &s,
+        "export.sh",
+        "echo 'Blender 4.2.0 (hash 1a2b3c)'\necho '[export_web] baked light on 0 of 0 objects'\necho '[export_web] nothing to export: add .glb files to models/ and run Build scene again'\necho ''\necho 'Blender quit'\nexit 1\n",
+    );
+    let runner = PipelineRunner::new(Arc::new(Recorder::default()));
+    let run = runner.run_blocking(s).expect("run");
+    assert_eq!(run.state, RunState::Failed);
+    assert_eq!(
+        run.steps[0].message.as_deref(),
+        Some(
+            "Nothing to export: add .glb files to models/ and run Build scene again. sh exited with code 1."
+        )
+    );
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("export", "tools/export.sh", &[], &[])],
+    );
+    script(
+        &s,
+        "export.sh",
+        "echo 'Blender 4.2.0'\necho 'Blender quit'\nexit 1\n",
+    );
+    let run = runner.run_blocking(s).expect("run");
+    assert_eq!(
+        run.steps[0].message.as_deref(),
+        Some("sh exited with code 1."),
+        "no banner line stands in for a reason"
+    );
+}
+
+#[test]
 fn an_exit_message_keeps_the_code_and_trims_the_line() {
     use super::step::exit_message;
     assert_eq!(exit_message("node", 1, None), "node exited with code 1.");

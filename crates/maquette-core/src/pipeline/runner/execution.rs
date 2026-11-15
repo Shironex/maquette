@@ -39,6 +39,9 @@ pub(super) struct Execution {
     /// The last line the running call wrote to stderr, so a failed step
     /// says why in its own words and not only its exit code.
     pub(super) last_error_line: Option<String>,
+    /// The last tagged line (`[export_web] ...`) it wrote to stdout, the
+    /// reason a failed step gives when stderr has none.
+    pub(super) last_script_line: Option<String>,
 }
 
 pub(super) enum StepOutcome {
