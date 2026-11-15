@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RecipeDrafts as Drafts } from '@/ipc/client';
 import { clock } from '@/lib/clock';
@@ -6,7 +7,10 @@ import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { clearMocks, openRecipe } from '@/test/open-recipe';
 import RecipeDrafts from './RecipeDrafts';
 
-afterEach(clearMocks);
+afterEach(() => {
+  clearMocks();
+  window.localStorage.clear();
+});
 
 /** Lays `drafts` on the open recipe as a read from the core would carry them. */
 function withDrafts(drafts: Drafts | undefined) {
@@ -28,7 +32,7 @@ describe('the agent drafts banner', () => {
     });
     rerender(<RecipeDrafts />);
     const banner = screen.getByRole('status', { name: 'Agent drafts' });
-    expect(banner).toHaveTextContent('Motion agent changed this recipe just now');
+    expect(banner).toHaveTextContent('Motion agent edited this recipe just now');
     expect(banner).toHaveTextContent('Drafted: 1 key and 1 change.');
     expect(banner).toHaveTextContent('Saving keeps them as yours.');
     expect(banner).toHaveTextContent('Blue: drafted by an agent, until you save.');
@@ -37,5 +41,21 @@ describe('the agent drafts banner', () => {
     await useRecipeEditorStore.getState().save();
     expect(useRecipeEditorStore.getState().editing?.doc.drafts).toBeUndefined();
     expect(screen.queryByRole('status', { name: 'Agent drafts' })).toBeNull();
+  });
+
+  it('folds to its title line, so the lanes keep their room', async () => {
+    await openRecipe('slash-with-a-lean');
+    withDrafts({ by: 'rmcp', at: clock.now().toISOString(), writes: 1, layers: ['l-1'] });
+    render(<RecipeDrafts />);
+    const banner = screen.getByRole('status', { name: 'Agent drafts' });
+    expect(banner).toHaveTextContent('An agent edited this recipe just now');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide what the agent drafted' }));
+    expect(banner).toHaveTextContent('An agent edited this recipe just now');
+    expect(banner).not.toHaveTextContent('Drafted:');
+    expect(banner).not.toHaveTextContent('Blue: drafted by an agent');
+    expect(screen.getByRole('button', { name: 'Show what the agent drafted' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 });

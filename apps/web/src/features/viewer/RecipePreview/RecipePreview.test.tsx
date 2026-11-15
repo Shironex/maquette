@@ -39,4 +39,22 @@ describe('the recipe preview', () => {
     expect(screen.queryByText(/not in the animation library/)).not.toBeInTheDocument();
     expect(screen.getByText(ROUGH_LABEL)).toBeVisible();
   });
+
+  it('says it is loading until the first frame is on screen', () => {
+    render(
+      <RecipePreview
+        {...base}
+        project={null}
+        model={{ asset: 'clay', name: 'Clay figure', file: '/m.glb' }}
+        clip="rest"
+      />
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the model...');
+    expect(screen.queryByRole('toolbar', { name: 'Camera' })).toBeNull();
+  });
+
+  it('shows no loader while it waits for a model to be picked', () => {
+    render(<RecipePreview {...base} model={null} clip={null} />);
+    expect(screen.queryByText('Loading the model...')).toBeNull();
+  });
 });

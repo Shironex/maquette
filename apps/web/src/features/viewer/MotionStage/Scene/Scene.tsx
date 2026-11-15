@@ -1,6 +1,7 @@
-import { Controls } from '../../ModelPreview/Controls';
+import { useOrbitControls } from '../../ModelPreview/Controls/Controls.hooks';
 import { Skeleton } from '../../ModelPreview/Skeleton';
 import { useFraming, useStudioRig } from '../../ModelPreview/Studio/Studio.hooks';
+import { useRootFollow } from '../../root-follow';
 import { useClip, useMotionModel, useOverlays, usePoses } from './Scene.hooks';
 import type { SceneProps } from './Scene.types';
 
@@ -13,6 +14,15 @@ export default function Scene(props: SceneProps) {
   usePoses(loaded, props.poses);
   const walk = useClip(loaded, props, framing);
   const overlays = useOverlays(loaded, props.outline, extent, props.onFrame);
+  const controls = useOrbitControls(props.camera.turntable ?? false, walk.target);
+  useRootFollow({
+    scene: loaded?.scene ?? null,
+    rig,
+    framing,
+    controls,
+    follow: props.camera.follow ?? false,
+    frameKey: props.camera.follow !== undefined,
+  });
   const skeleton = loaded && framing && props.skeleton && loaded.bones.length > 0;
   return (
     <>
@@ -21,7 +31,6 @@ export default function Scene(props: SceneProps) {
       {walk.line ? <primitive object={walk.line} /> : null}
       {overlays ? <primitive object={overlays} /> : null}
       {skeleton ? <Skeleton bones={loaded.bones} extent={extent} /> : null}
-      <Controls turntable={props.turntable} target={walk.target} />
     </>
   );
 }

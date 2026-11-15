@@ -32,6 +32,11 @@ pub struct RecipeSummary {
     /// The base clip's name; empty when the file could not be read.
     pub base: String,
     pub frames: u32,
+    /// The clips joined after the base, by name, in order.
+    pub joined: Vec<String>,
+    /// How many frames the whole recipe runs once its clips are joined and
+    /// its time edits played (its last frame, as the editor shows it).
+    pub length: u32,
     /// The base clip came from a Mixamo rig.
     pub mixamo: bool,
     pub layers: u32,
@@ -153,6 +158,9 @@ pub(super) fn summary(
         name: recipe.name.clone(),
         base: recipe.base.name.clone(),
         frames: recipe.base.frames,
+        joined: recipe.joined.iter().map(|c| c.name.clone()).collect(),
+        length: super::timeline::length_within(recipe, super::MAX_TIMELINE_FRAMES)
+            .unwrap_or(super::MAX_TIMELINE_FRAMES),
         mixamo: recipe.clips().any(|c| c.mixamo || clip_mixamo(c)),
         layers: count(recipe.layers.len()),
         blanks: count(recipe.blanks.len()),
@@ -184,6 +192,8 @@ fn broken(id: &str, problem: String) -> RecipeSummary {
         name: id.to_string(),
         base: String::new(),
         frames: 0,
+        joined: Vec::new(),
+        length: 0,
         mixamo: false,
         layers: 0,
         blanks: 0,

@@ -210,3 +210,17 @@ fn kept_has_to_name_the_clip_sent_in_its_place() {
         "not written"
     );
 }
+
+#[test]
+fn a_joined_recipe_lists_its_clips_and_the_length_they_run_together() {
+    let dir = tempfile::tempdir().expect("temp");
+    let (id, _, _) = on_three(dir.path());
+    let listed = list(dir.path(), &project()).expect("list");
+    let line = listed.iter().find(|r| r.id == id).expect("listed");
+    assert_eq!(line.frames, 60);
+    assert_eq!(line.joined, vec!["B".to_string(), "C".to_string()]);
+    // The three clips joined with their blends and the freeze, as the editor counts them.
+    let read = get(dir.path(), &project(), &id).expect("read");
+    assert_eq!(line.length, timeline::timeline(&read.recipe).frames);
+    assert!(line.length > 2 * line.frames, "{}", line.length);
+}

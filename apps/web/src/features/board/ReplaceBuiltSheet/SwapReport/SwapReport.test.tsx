@@ -62,7 +62,7 @@ describe('SwapReport', () => {
     ]);
     expect(cells('Ships as')).toEqual(['crystal_lantern_v2.glb', 'crystal_lantern_v3.glb']);
     expect(cells('Model')).toEqual(['12.9k triangles · 400 KB', '1.8k triangles · 96 KB']);
-    expect(cells('Stands')).toEqual(['1.4 × 1.8 × 1.1 m', '1.4 × 1.8 × 1.1 m']);
+    expect(cells('Stands')).toEqual(['1.36 × 1.8 × 1.14 m', '1.36 × 1.8 × 1.14 m']);
     expect(cells('Real size')).toEqual(['scaled by 1.38', 'not scaled']);
     expect(cells('Bounds, m')).toEqual([
       '-0.68, 0, -0.57\nto 0.68, 1.8, 0.57',

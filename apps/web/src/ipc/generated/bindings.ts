@@ -4970,6 +4970,13 @@ export type LibraryRecipeSummary = {
 	/**  The newest revision's base clip, frames and Mixamo flag. */
 	base: string,
 	frames: number,
+	/**  The newest revision's clips joined after the base, by name, in order. */
+	joined: string[],
+	/**
+	 *  How many frames the newest revision runs once its clips are joined
+	 *  and its time edits played.
+	 */
+	length: number,
 	mixamo: boolean,
 	layers: number,
 	blanks: number,
@@ -8275,6 +8282,13 @@ export type RecipeSummary = {
 	/**  The base clip's name; empty when the file could not be read. */
 	base: string,
 	frames: number,
+	/**  The clips joined after the base, by name, in order. */
+	joined: string[],
+	/**
+	 *  How many frames the whole recipe runs once its clips are joined and
+	 *  its time edits played (its last frame, as the editor shows it).
+	 */
+	length: number,
 	/**  The base clip came from a Mixamo rig. */
 	mixamo: boolean,
 	layers: number,

@@ -98,12 +98,20 @@ export function travelFraming(framing: Framing, points: readonly THREE.Vector3[]
 
 /**
  * Plays clip `clip` at `time`, frames the camera on the whole walk of a
- * clip whose root travels, and with `trail` on returns the dashed path its
- * root walks. The camera target comes back with it for the orbit controls.
+ * clip whose root travels (unless the camera follows the model), and with
+ * `trail` on returns the dashed path its root walks. The camera target
+ * comes back with it for the orbit controls.
  */
 export function useClip(
   loaded: LoadedMotion | null,
-  { clip, time, trail }: Pick<SceneProps, 'clip' | 'time' | 'trail'>,
+  {
+    clip,
+    time,
+    trail,
+    camera: view,
+  }: Pick<SceneProps, 'clip' | 'time' | 'trail'> & {
+    camera?: SceneProps['camera'];
+  },
   framing: Framing | null
 ): { line: THREE.Line | null; target: THREE.Vector3 | null } {
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
@@ -126,13 +134,14 @@ export function useClip(
     const out = rootTrail(player, loaded.scene, root, animation.duration);
     return out[0]!.distanceTo(out[out.length - 1]!) > 0.01 ? out : null;
   }, [loaded, animation, player]);
+  const walks = points && !view?.follow ? points : null;
   const framed = useMemo(
-    () => (framing && points ? travelFraming(framing, points) : framing),
-    [framing, points]
+    () => (framing && walks ? travelFraming(framing, walks) : framing),
+    [framing, walks]
   );
   useEffect(() => {
-    if (framed && points) frameCamera(camera, framed);
-  }, [camera, framed, points]);
+    if (framed && walks) frameCamera(camera, framed);
+  }, [camera, framed, walks]);
   const extent = framing?.extent ?? 1;
   const line = useMemo(
     () => (points && trail ? trailLine(points, '#e9e5dc', extent * 0.002) : null),

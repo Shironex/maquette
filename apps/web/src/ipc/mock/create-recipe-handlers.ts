@@ -29,6 +29,7 @@ import type {
 } from '../client';
 import { clock } from '@/lib/clock';
 import { checkDraft } from '@/state/recipe-check';
+import { MAX_TIMELINE_FRAMES, lengthWithin } from '@/state/recipe-timeline';
 import { fail, type Args } from './backend-options';
 import { createGripLibraryHandlers } from './create-grip-library-handlers';
 import { createRecipeBakeHandlers } from './create-recipe-bake-handlers';
@@ -188,6 +189,8 @@ export function createRecipeHandlers(ctx: RecipeContext) {
       name: recipe.name,
       base: recipe.base.name,
       frames: recipe.base.frames,
+      joined: (recipe.joined ?? []).map(c => c.name),
+      length: lengthWithin(recipe) ?? MAX_TIMELINE_FRAMES,
       mixamo: recipe.base.mixamo || (recipe.joined ?? []).some(c => c.mixamo),
       layers: recipe.layers.length,
       blanks: recipe.blanks.length,

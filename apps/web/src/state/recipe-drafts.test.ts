@@ -24,13 +24,29 @@ const drafts = (over: Partial<RecipeDrafts> = {}): RecipeDrafts => ({
 describe('draft marks in words', () => {
   it('names the agent, when, what it drafted and what a save does', () => {
     expect(draftsBanner(drafts(), NOW)).toEqual({
-      title: 'Motion agent changed this recipe 4 min ago',
+      title: 'Motion agent edited this recipe 4 min ago',
       detail:
         'Drafted: 2 keys and 1 change. They are in the recipe now and bake as they are. Saving keeps them as yours.',
     });
-    const made = draftsBanner(drafts({ made: true, keys: [], layers: [], time: true }), NOW);
+    const made = draftsBanner(
+      drafts({ made: true, writes: 1, keys: [], layers: [], time: true }),
+      NOW
+    );
     expect(made.title).toBe('Motion agent made this recipe 4 min ago');
     expect(made.detail).toMatch(/^Drafted: the time edits\./);
+  });
+
+  it('says edited once a later write follows the one that made it', () => {
+    const later = draftsBanner(drafts({ made: true, writes: 2 }), NOW);
+    expect(later.title).toBe('Motion agent edited this recipe 4 min ago');
+  });
+
+  it("names the agent as people read it, not its MCP client's raw name", () => {
+    expect(draftsBanner(drafts({ by: 'rmcp' }), NOW).title).toMatch(/^An agent edited/);
+    expect(draftsBanner(drafts({ by: 'claude-code' }), NOW).title).toMatch(/^Claude Code edited/);
+    expect(draftsBanner(drafts({ by: 'mqtest' }), NOW).title).toMatch(
+      /^An agent \(mqtest\) edited/
+    );
   });
 
   it('finds the drafted keys and changes, and counts a change keys', () => {

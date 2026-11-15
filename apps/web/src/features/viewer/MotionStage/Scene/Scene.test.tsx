@@ -152,7 +152,7 @@ describe('the motion scene', () => {
           time={0}
           skeleton
           trail={false}
-          turntable={false}
+          camera={{}}
           poses={null}
           outline={[]}
         />

@@ -126,6 +126,11 @@ pub struct LibraryRecipeSummary {
     /// The newest revision's base clip, frames and Mixamo flag.
     pub base: String,
     pub frames: u32,
+    /// The newest revision's clips joined after the base, by name, in order.
+    pub joined: Vec<String>,
+    /// How many frames the newest revision runs once its clips are joined
+    /// and its time edits played.
+    pub length: u32,
     pub mixamo: bool,
     pub layers: u32,
     pub blanks: u32,
@@ -326,6 +331,8 @@ fn summary(root: &Path, id: &str, clips: &[AnimationClip]) -> LibraryRecipeSumma
         revisions: Vec::new(),
         base: String::new(),
         frames: 0,
+        joined: Vec::new(),
+        length: 0,
         mixamo: false,
         layers: 0,
         blanks: 0,
@@ -347,6 +354,9 @@ fn summary(root: &Path, id: &str, clips: &[AnimationClip]) -> LibraryRecipeSumma
         Ok(recipe) => {
             line.latest = recipe.revision;
             line.mixamo = base_mixamo(clips, &recipe.base);
+            line.joined = recipe.joined.iter().map(|c| c.name.clone()).collect();
+            line.length = recipes::timeline::length_within(&recipe, recipes::MAX_TIMELINE_FRAMES)
+                .unwrap_or(recipes::MAX_TIMELINE_FRAMES);
             line.base = recipe.base.name;
             line.frames = recipe.base.frames;
             line.layers = count(recipe.layers.len());

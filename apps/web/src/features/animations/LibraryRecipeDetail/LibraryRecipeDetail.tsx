@@ -1,58 +1,18 @@
 import { Button, InlineBanner, Loader, cn } from '@maquette/ui';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { MixamoBadge } from '@/features/common/MixamoBadge';
-import type { LibraryRecipeDoc, LibraryRecipeSummary } from '@/ipc/client';
+import type { LibraryRecipeSummary } from '@/ipc/client';
 import { clock } from '@/lib/clock';
 import { whenOf } from '@/state/plan-log';
-import { BLANK_WORDS, layerLine } from '@/state/recipe-draft';
 import { libraryLine, revisionSource } from '@/state/recipe-library';
 import { useLibraryRecipeDetail } from './LibraryRecipeDetail.hooks';
+import RecipeHolds from './RecipeHolds';
 
 export interface LibraryRecipeDetailProps {
   summary: LibraryRecipeSummary;
 }
 
 const CAPTION = 'text-caption tracking-[0.04em] text-fg-mute uppercase';
-
-/** What a revision holds: its changes in the order they are laid over the clip, and its blanks. */
-function Holds({ doc }: { doc: LibraryRecipeDoc }) {
-  const { recipe } = doc;
-  const changes = recipe.layers.map(l => (
-    <li key={l.id} className="truncate" title={layerLine(l, recipe.base.frames)}>
-      {layerLine(l, recipe.base.frames)}
-    </li>
-  ));
-  const blanks = recipe.blanks.map(b => (
-    <li key={b.id} className="truncate">
-      {BLANK_WORDS[b.kind]} · {b.label}
-    </li>
-  ));
-  const list = 'm-0 flex list-none flex-col gap-1 p-0 text-meta text-fg-dim';
-  return (
-    <>
-      <p className="text-meta text-fg-mute">
-        On {recipe.base.name}, {recipe.base.frames} frames
-      </p>
-      {doc.base.warning ? <p className="text-meta text-amber">{doc.base.warning}</p> : null}
-      <p className={CAPTION}>Changes</p>
-      {changes.length ? (
-        <ul aria-label="Changes" className={list}>
-          {changes}
-        </ul>
-      ) : (
-        <p className="text-meta text-fg-mute">No changes.</p>
-      )}
-      <p className={CAPTION}>Blanks</p>
-      {blanks.length ? (
-        <ul aria-label="Blanks" className={list}>
-          {blanks}
-        </ul>
-      ) : (
-        <p className="text-meta text-fg-mute">No blanks.</p>
-      )}
-    </>
-  );
-}
 
 /**
  * The selected library recipe: every revision newest first with where it
@@ -106,7 +66,7 @@ export default function LibraryRecipeDetail({ summary }: LibraryRecipeDetailProp
       {summary.latest > 0 ? (
         <section aria-label={`What r${d.revision} holds`} className="flex flex-col gap-1.5">
           {d.doc ? (
-            <Holds doc={d.doc} />
+            <RecipeHolds doc={d.doc} />
           ) : d.error ? (
             <p role="alert" className="text-meta text-danger">
               {d.error}

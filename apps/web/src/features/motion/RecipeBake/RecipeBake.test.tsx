@@ -1,8 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { record } from '@/test/recipe-bake-fixture';
 import RecipeBake from './RecipeBake';
+
+afterEach(() => window.localStorage.clear());
 
 describe('a recipe bake panel', () => {
   it('shows a running bake with its progress and Cancel', async () => {
@@ -79,5 +81,29 @@ describe('a recipe bake panel', () => {
     expect(screen.getByText('The bake did not start')).toBeVisible();
     rerender(<RecipeBake record={null} busy={false} error={null} onCancel={() => {}} />);
     expect(screen.queryByText(/bake/i)).toBeNull();
+  });
+
+  it('folds the numbers to one line and remembers it, keeping Review', async () => {
+    const { unmount } = render(
+      <RecipeBake
+        record={record()}
+        busy={false}
+        error={null}
+        onCancel={() => {}}
+        onReview={() => {}}
+      />
+    );
+    const fold = screen.getByRole('button', { name: 'Hide the bake numbers' });
+    expect(fold).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(fold);
+    expect(screen.queryByRole('list', { name: 'Bake result' })).toBeNull();
+    expect(screen.getByText('2 of 6 numbers warn')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Review' })).toBeVisible();
+    unmount();
+    render(<RecipeBake record={record()} busy={false} error={null} onCancel={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Show the bake numbers' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 });

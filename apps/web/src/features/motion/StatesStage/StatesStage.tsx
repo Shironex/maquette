@@ -59,7 +59,7 @@ export default function StatesStage() {
                 time={0}
                 skeleton={false}
                 trail={false}
-                turntable={false}
+                camera={{}}
                 poses={stage.poses}
                 outline={stage.outline}
                 report={{ onError: stage.setFailed, onLoaded: shown.onLoaded }}

@@ -14,10 +14,16 @@ import type {
   RecipeUsed,
 } from '@/ipc/client';
 import { counted } from '@/lib/format';
+import { clipsWords } from './recipes';
 
-/** "Standing Idle · 120 f · 3 changes · r3". */
+/** "Standing Idle · 120 f · 3 changes · r3", or "Slash + 2 clips · 160 f · ..." for a joined one. */
 export const libraryLine = (s: LibraryRecipeSummary) =>
-  [s.base, `${s.frames} f`, counted(s.layers, 'change'), `r${s.latest}`].join(' · ');
+  [
+    clipsWords(s.base, s.joined.length),
+    `${s.length} f`,
+    counted(s.layers, 'change'),
+    `r${s.latest}`,
+  ].join(' · ');
 
 /** "r3 · both hands · 33 bones": a library grip in one line. */
 export const gripLine = (g: LibraryGripSummary) =>

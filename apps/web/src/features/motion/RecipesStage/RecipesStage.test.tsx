@@ -130,6 +130,8 @@ describe('the recipes stage', () => {
         name: 'Reach for the lantern',
         base: 'Standing Idle',
         frames: 120,
+        joined: [],
+        length: 120,
         mixamo: false,
         layers: 1,
         blanks: 1,
@@ -145,6 +147,14 @@ describe('the recipes stage', () => {
     ]);
     render(<RecipesStage />);
     expect(await screen.findByText(warning)).toBeInTheDocument();
+  });
+
+  it('shows a joined recipe with its clips and the length they run together', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const row = within(list).getByText('Slash into block').closest('li')!;
+    expect(row).toHaveTextContent('Sword And Shield Slash + 2 clips · 101 f');
   });
 
   it('reads a gone prop as an open blank with its warning, from the demo', async () => {

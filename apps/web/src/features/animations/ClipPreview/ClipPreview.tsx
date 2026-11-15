@@ -39,7 +39,7 @@ export default function ClipPreview({ item, className }: ClipPreviewProps) {
               time={time}
               skeleton
               trail={Boolean(clip.rootMotion)}
-              turntable={false}
+              camera={{}}
               poses={null}
               outline={[]}
               onFrame={tick}

@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Button, Icon, InlineBanner, cn } from '@maquette/ui';
-import { StageLoader } from '@/features/common/ViewLoader';
+import { StageLoader, useStageReady } from '@/features/common/ViewLoader';
+import { CameraBar, useFollow } from '@/features/viewer/CameraBar';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import RecipePreview from '@/features/viewer/RecipePreview';
 import { fileUrl } from '@/ipc/files';
@@ -71,7 +72,10 @@ function Line({ line }: { line: RecipeReviewLine }) {
 export default function RecipeReview() {
   const r = useRecipeReview();
   const bar = useKeepClearOfFloating<HTMLDivElement>();
+  const cam = useFollow();
   const { record, result, review } = r;
+  const stagedUrl = result ? fileUrl(result.file, String(record?.finishedMs ?? '')) : '';
+  const staged = useStageReady(stagedUrl || null);
   if (!record || !result) {
     return (
       <section aria-label="Recipe review" className="flex flex-1 flex-col gap-3">
@@ -87,7 +91,6 @@ export default function RecipeReview() {
       </section>
     );
   }
-  const stagedUrl = fileUrl(result.file, String(record.finishedMs ?? ''));
   const baked = r.show !== 'base';
   const base = r.show !== 'baked';
   const label = addLabel(result);
@@ -148,7 +151,7 @@ export default function RecipeReview() {
               >
                 {stagedUrl ? (
                   <CanvasBoundary resetKey={stagedUrl}>
-                    <Suspense fallback={<StageLoader />}>
+                    <Suspense fallback={null}>
                       <MotionStage
                         className="absolute! inset-0"
                         label={`${result.clip} baked on ${result.assetName}, staged`}
@@ -157,12 +160,18 @@ export default function RecipeReview() {
                         time={{ share: r.play.share }}
                         skeleton={false}
                         trail={false}
-                        turntable={false}
                         poses={null}
                         outline={[]}
+                        camera={{ follow: cam.follow }}
                         onFrame={r.play.tick}
+                        report={{ onLoaded: staged.onLoaded }}
                       />
                     </Suspense>
+                    {staged.ready ? (
+                      <CameraBar follow={cam.follow} onFollow={cam.setFollow} />
+                    ) : (
+                      <StageLoader />
+                    )}
                   </CanvasBoundary>
                 ) : (
                   <figcaption className="absolute inset-0 grid place-items-center p-3 text-center text-meta text-fg-mute">

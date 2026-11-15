@@ -7,6 +7,7 @@ import type { RecipeLayer, RecipeStarter } from '@/ipc/client';
 import { counted } from '@/lib/format';
 import { boneWords } from './recipe-bones';
 import { KIND_WORDS, num } from './recipe-draft';
+import { clipsWords } from './recipes';
 import { handsOfPose } from './recipe-grips';
 
 /** What every starter id starts with; no library recipe id can hold it. */
@@ -21,10 +22,7 @@ export const isStarterId = (id: string | null | undefined): id is string =>
  */
 export function starterLine(s: RecipeStarter): string {
   const joined = s.joined?.length ?? 0;
-  const parts = [
-    joined ? `${s.baseName} + ${counted(joined, 'clip')}` : s.baseName,
-    counted(s.layers.length, 'change'),
-  ];
+  const parts = [clipsWords(s.baseName, joined), counted(s.layers.length, 'change')];
   if (s.blanks.length) parts.push(counted(s.blanks.length, 'blank'));
   if (s.mirror) parts.push('left handed');
   return parts.join(' · ');
