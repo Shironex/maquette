@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
 use maquette_core::pipeline::runner::{JobRunner as _, RunOptions};
+use maquette_core::{ProjectTarget, project};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
@@ -14,7 +15,7 @@ use serde_json::{Value, json};
 use crate::commands::pipeline;
 
 mod presets;
-use super::hints::{RunEnd, after_run};
+use super::hints::table::{Place, RunEnd, after_run};
 use crate::mcp::gate::DENIED;
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
@@ -112,7 +113,16 @@ fn find_run(host: &dyn Host, hub: &Hub, args: &GetRunArgs) -> Result<RunRecord, 
     }
 }
 
-fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
+/// Where a project ships, for the steps after its run: a website when the
+/// project cannot be read.
+fn target_of(host: &dyn Host, project_id: &str) -> ProjectTarget {
+    workspace(host)
+        .ok()
+        .and_then(|(root, config)| project::load(&root, &config.layout, project_id).ok())
+        .map_or(ProjectTarget::Website, |m| m.target)
+}
+
+fn run_summary(hub: &Hub, run: &RunRecord, target: ProjectTarget) -> Value {
     let approval = hub.pending_for(&run.id);
     let status = if approval.is_some() {
         WAITING
@@ -153,6 +163,10 @@ fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
             build_only: run.build_only,
             no_repo: run.not_shipped.is_some(),
             ship_denied: run.message.as_deref() == Some(DENIED),
+        },
+        Place {
+            project: &run.project,
+            target,
         },
     ) {
         out["next"] = Value::Array(next);
@@ -237,7 +251,7 @@ impl McpTools {
                     .skip(log.len().saturating_sub(lines))
                     .map(log_line)
                     .collect();
-                let mut out = run_summary(hub, &run);
+                let mut out = run_summary(hub, &run, target_of(host, &args.project));
                 out["log"] = json!(tail);
                 Ok(out)
             })
@@ -281,11 +295,11 @@ impl McpTools {
                         Ok(host.runner().submit_with(setup, options)?)
                     },
                 )?;
-                Ok(record)
+                Ok((record, target_of(host, &args.project)))
             })
             .await;
-        let record = match started {
-            Ok(record) => record,
+        let (record, target) = match started {
+            Ok(started) => started,
             Err(message) => return failed(message),
         };
         let deadline = Instant::now() + wait;
@@ -300,7 +314,7 @@ impl McpTools {
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        let mut out = run_summary(&self.hub, &latest);
+        let mut out = run_summary(&self.hub, &latest, target);
         if !latest.state.is_finished() && self.hub.pending_for(&latest.id).is_none() {
             out["note"] = json!("The run carries on. Follow it with get_run.");
         }

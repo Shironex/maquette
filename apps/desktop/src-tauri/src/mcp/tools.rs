@@ -411,6 +411,12 @@ impl ServerHandler for McpTools {
     ) -> Result<CallToolResponse, ErrorData> {
         let tool = request.name.to_string();
         let detail = describe(request.arguments.as_ref());
+        let project = request
+            .arguments
+            .as_ref()
+            .and_then(|a| a.get("project"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
         let started = Instant::now();
         let result = match groups::off_group_of(&tool, self.host.as_ref()) {
             // A list from before the person turned the group off: nothing runs.
@@ -421,6 +427,7 @@ impl ServerHandler for McpTools {
                     .await
             }
         };
+        let result = hints::table::add_next(&tool, project.as_deref(), result);
         let result = groups::scrub_off_tools(result, &groups::off_now(self.host.as_ref()));
         let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
