@@ -376,14 +376,18 @@ mod tests {
             "Ship failed. {} the site takes scene data. Add one in the layout, then ship again.",
             maquette_core::site::NO_STOPS
         );
-        let out = run_summary(&hub, &failed_run(&message));
+        let out = run_summary(&hub, &failed_run(&message), ProjectTarget::Website);
         assert_eq!(out["status"], "failed");
         assert_eq!(out["message"], json!(message));
         assert!(out["fix"].as_str().expect("fix").contains("set_layout"));
         assert_eq!(out["next"][0]["tool"], "set_layout");
         assert_eq!(out["next"][1]["tool"], "get_run", "the usual steps stay");
 
-        let bare = run_summary(&hub, &failed_run("Ship failed. node exited with code 1."));
+        let bare = run_summary(
+            &hub,
+            &failed_run("Ship failed. node exited with code 1."),
+            ProjectTarget::Website,
+        );
         assert!(bare.get("fix").is_none(), "{bare}");
         assert_eq!(bare["next"][0]["tool"], "get_run");
     }
