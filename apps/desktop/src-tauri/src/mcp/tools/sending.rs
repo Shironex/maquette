@@ -14,7 +14,7 @@ use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 
 mod by_id;
-mod next;
+pub(super) mod next;
 mod redo;
 mod requests;
 mod retry;

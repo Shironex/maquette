@@ -15,7 +15,8 @@ use serde_json::{Value, json};
 
 use super::animations::inside;
 use super::concepts::job_value;
-use super::hints::{step, with_next};
+use super::hints::table::step_with;
+use super::hints::with_next;
 use super::image_api::{BackendArg, backend};
 use super::picks::KindArg;
 use super::{McpTools, Out, respond, to_value, workspace};
@@ -244,20 +245,29 @@ fn add_own(host: &dyn Host, args: AddRefsArgs) -> Result<Value, ToolError> {
     out["stage"] = to_value(added.asset.stage);
     out["created"] = json!(added.created);
     out["added"] = json!(added.files);
-    Ok(with_next(
-        out,
-        vec![
-            step(
-                "send_to_3d",
-                "Send the asset: it takes front, left, back and right.",
-            ),
-            step("set_ref_views", "Retag the views if one is wrong."),
-            step(
-                "make_other_views",
-                "Draw the views it is missing from the front.",
-            ),
-        ],
-    ))
+    Ok(with_next(out, refs_next(&args.project, &added.asset.id)))
+}
+
+/// What follows add_refs, each step with the project and the asset.
+pub(super) fn refs_next(project: &str, asset: &str) -> Vec<Value> {
+    let args = json!({ "project": project, "asset": asset });
+    vec![
+        step_with(
+            "send_to_3d",
+            "Send the asset: it takes front, left, back and right.",
+            args.clone(),
+        ),
+        step_with(
+            "set_ref_views",
+            "Retag the views if one is wrong (give refs).",
+            args.clone(),
+        ),
+        step_with(
+            "make_other_views",
+            "Draw the views it is missing from the front.",
+            args,
+        ),
+    ]
 }
 
 /// The asset's id, checked to be on the project's Board.
