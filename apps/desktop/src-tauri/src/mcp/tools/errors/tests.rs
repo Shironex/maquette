@@ -103,30 +103,30 @@ fn the_table_matches_what_the_sources_really_say() {
             source!("crates/maquette-core/src/thumbs/picture.rs"),
         ),
         ("has not run yet", include_str!("../runs.rs")),
-    (
-        "No camera stops:",
-        source!("crates/maquette-core/src/site/ready.rs"),
-    ),
-    (
-        "No placed models:",
-        source!("crates/maquette-core/src/site/ready.rs"),
-    ),
-    (
-        "The site repo is not there:",
-        source!("crates/maquette-core/src/site/ready.rs"),
-    ),
-    (
-        "The site's maquette.site.json cannot be used:",
-        source!("crates/maquette-core/src/site/ready.rs"),
-    ),
-    (
-        "The layout cannot be read:",
-        source!("crates/maquette-core/src/site/ready.rs"),
-    ),
-    (
-        "add the stops in the Inspector",
-        source!("crates/maquette-core/starter/ship.mjs"),
-    ),
+        (
+            "No camera stops:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "No placed models:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "The site repo is not there:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "The site's maquette.site.json cannot be used:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "The layout cannot be read:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "add the stops in the Inspector",
+            source!("crates/maquette-core/starter/ship.mjs"),
+        ),
         (
             "has no game repo",
             include_str!("../../../commands/game.rs"),
