@@ -179,10 +179,9 @@ impl Execution {
             match self.spawn(step, &tool, &full, &root, &mut tracker) {
                 Ok(0) => {}
                 Ok(code) => {
-                    return StepOutcome::Failed(
-                        format!("{} exited with code {code}.", program_name(&tool)),
-                        Some(code),
-                    );
+                    let why =
+                        exit_message(&program_name(&tool), code, self.last_error_line.as_deref());
+                    return StepOutcome::Failed(why, Some(code));
                 }
                 Err(SpawnError::Cancelled) => return StepOutcome::Cancelled,
                 Err(SpawnError::Start(message)) => return StepOutcome::Failed(message, None),
@@ -401,4 +400,40 @@ impl Execution {
             }
         }
     }
+}
+
+/// The longest part of a tool's own error line a step message carries.
+const MAX_REASON_CHARS: usize = 400;
+
+/// Why a call that exited with `code` failed: the last line it wrote to
+/// stderr, when it wrote one, then the exit code. A starter script prefixes
+/// its lines with its name in brackets (`[ship] ...`), which the message
+/// leaves out.
+pub(super) fn exit_message(program: &str, code: i32, last_error_line: Option<&str>) -> String {
+    let exit = format!("{program} exited with code {code}.");
+    let Some(line) = last_error_line.map(str::trim).filter(|l| !l.is_empty()) else {
+        return exit;
+    };
+    let line = match line
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once("] "))
+    {
+        Some((tag, rest)) if !tag.contains(' ') && !rest.trim().is_empty() => rest.trim(),
+        _ => line,
+    };
+    let line = line.trim_end_matches(['.', ' ']);
+    if line.is_empty() {
+        return exit;
+    }
+    let mut chars = line.chars();
+    let reason: String = chars
+        .next()
+        .into_iter()
+        .flat_map(char::to_uppercase)
+        .chain(chars.by_ref().take(MAX_REASON_CHARS - 1))
+        .collect();
+    if chars.next().is_some() {
+        return format!("{reason}... {exit}");
+    }
+    format!("{reason}. {exit}")
 }

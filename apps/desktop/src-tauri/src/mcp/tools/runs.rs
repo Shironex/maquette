@@ -157,7 +157,15 @@ fn run_summary(hub: &Hub, run: &RunRecord, target: ProjectTarget) -> Value {
         out["shipped"] = json!(shipped);
         out["shipReason"] = json!(reason);
     }
-    if let Some(next) = after_run(
+    // A failure whose reason is known says what fixes it, first in `next`.
+    let fix = (status == "failed")
+        .then_some(run.message.as_deref())
+        .flatten()
+        .and_then(super::errors::fix_for);
+    if let Some((fix, _)) = fix {
+        out["fix"] = json!(fix);
+    }
+    if let Some(mut next) = after_run(
         status,
         RunEnd {
             build_only: run.build_only,
@@ -169,6 +177,9 @@ fn run_summary(hub: &Hub, run: &RunRecord, target: ProjectTarget) -> Value {
             target,
         },
     ) {
+        if let Some((fix, Some(tool))) = fix {
+            next.insert(0, super::hints::step(tool, fix));
+        }
         out["next"] = Value::Array(next);
     }
     if let Some(approval) = approval {
@@ -260,7 +271,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline (for a game project this is the game export), optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run. Ship asks whatever that setting says in a game project, in a run with repo, and while the project's site repo is one an agent set (create_project, set_ship_settings, set_game_settings, or a project restore that wrote it back) that no person has set since, or an agent set the site folders of the repo it ships into (set_ship_settings models, posters, data, from any project on that repo) and no person has saved them since. A project with no site repo builds, skips Ship without asking and answers done with shipped false and shipReason."
+        description = "Run a project's pipeline (a game's export), optionally from one step and ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused if one fails. Waits up to waitSeconds, then answers with its status. buildOnly true stops before Ship: no site write or approval. repo ships this run into another git repo or worktree (absolute path) without saving it. At Ship the run answers \"waiting for approval\" until a person decides in the app (follow with get_run) when \"Ask before shipping\" is on, and always in a game project, in a run with repo, while the project's site repo is one an agent set (create_project, set_ship_settings, set_game_settings, a project restore) that no person has set since, or its site folders (set_ship_settings models, posters, data) were agent-set and not saved by a person since. With no site repo the run builds, skips Ship and answers done, shipped false, with shipReason. A run bound to fail at Ship before copying anything (scene data without placed models or a camera, a missing site repo, an unreadable site file) is refused up front with code ship-not-ready, a reason and a fix; nobody is asked to approve it, and buildOnly is never refused."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
@@ -332,5 +343,52 @@ impl McpTools {
             })
             .await;
         respond(found)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn failed_run(message: &str) -> RunRecord {
+        RunRecord {
+            id: "moon-run-3".into(),
+            number: 3,
+            project: "moon".into(),
+            from: None,
+            force: false,
+            build_only: false,
+            state: RunState::Failed,
+            queued_at_ms: 0.0,
+            started_at_ms: Some(0.0),
+            finished_at_ms: Some(1.0),
+            steps: Vec::new(),
+            message: Some(message.into()),
+            not_shipped: None,
+            repo_for_run: None,
+        }
+    }
+
+    #[test]
+    fn a_failed_ship_with_a_known_reason_says_what_fixes_it() {
+        let hub = Hub::new(|| {});
+        let message = format!(
+            "Ship failed. {} the site takes scene data. Add one in the layout, then ship again.",
+            maquette_core::site::NO_STOPS
+        );
+        let out = run_summary(&hub, &failed_run(&message), ProjectTarget::Website);
+        assert_eq!(out["status"], "failed");
+        assert_eq!(out["message"], json!(message));
+        assert!(out["fix"].as_str().expect("fix").contains("set_layout"));
+        assert_eq!(out["next"][0]["tool"], "set_layout");
+        assert_eq!(out["next"][1]["tool"], "get_run", "the usual steps stay");
+
+        let bare = run_summary(
+            &hub,
+            &failed_run("Ship failed. node exited with code 1."),
+            ProjectTarget::Website,
+        );
+        assert!(bare.get("fix").is_none(), "{bare}");
+        assert_eq!(bare["next"][0]["tool"], "get_run");
     }
 }

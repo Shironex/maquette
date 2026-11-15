@@ -104,6 +104,30 @@ fn the_table_matches_what_the_sources_really_say() {
         ),
         ("has not run yet", include_str!("../runs.rs")),
         (
+            "No camera stops:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "No placed models:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "The site repo is not there:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "The site's maquette.site.json cannot be used:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "The layout cannot be read:",
+            source!("crates/maquette-core/src/site/ready.rs"),
+        ),
+        (
+            "add the stops in the Inspector",
+            source!("crates/maquette-core/starter/ship.mjs"),
+        ),
+        (
             "has no game repo",
             include_str!("../../../commands/game.rs"),
         ),
@@ -214,4 +238,26 @@ fn a_try_tool_in_a_group_that_is_off_is_dropped() {
     let list = without_off_tool(err("No workspace is open"), &off);
     assert_eq!(list["tryTool"], "get_started");
     assert_eq!(without_off_tool(err("plain"), &off), err("plain"));
+}
+
+#[test]
+fn a_ship_that_cannot_go_says_what_fixes_it() {
+    let stops = body(&ToolError {
+        message: format!(
+            "{} the site takes scene data. Add one in the layout, then ship again.",
+            maquette_core::site::NO_STOPS
+        ),
+        code: "ship-not-ready".to_string(),
+    });
+    assert_eq!(stops["code"], "ship-not-ready");
+    assert_eq!(stops["tryTool"], "set_layout");
+    assert!(stops.get("personOnly").is_none());
+    let fix = stops["fix"].as_str().expect("fix");
+    assert!(fix.contains("buildOnly"), "{fix}");
+    // A failed run carries the same reason after the step's name.
+    let run = "Ship failed. No camera stops: the site takes scene data.";
+    assert_eq!(fix_for(run).map(|(_, tool)| tool), Some(Some("set_layout")));
+    let script = "Ship failed. The layout has 1 placed models and 0 camera stops. Place the models and add the stops in the Inspector, then ship again; nothing was copied. node exited with code 1.";
+    assert!(fix_for(script).is_some());
+    assert!(fix_for("Ship failed. node exited with code 1.").is_none());
 }

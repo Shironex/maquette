@@ -35,7 +35,28 @@ fn shipping(rule: bool, by: RepoSetBy) -> (tempfile::TempDir, Session, String) {
         source_folder: None,
     };
     let manifest = create_in_workspace(&session, new, by).expect("project");
+    // A placed model and a camera stop, so a site that takes scene data can ship.
+    write_layout(&session, &manifest.id, true);
     (dir, session, manifest.id)
+}
+
+/// Writes the project's layout: one placed model, and a camera stop when
+/// `stop` is set.
+fn write_layout(session: &Session, id: &str, stop: bool) {
+    let stops = if stop {
+        serde_json::json!([{ "id": "hero", "name": "Hero", "position": [0, 1, 3],
+                              "target": [0, 0, 0], "fov": 40, "models": null }])
+    } else {
+        serde_json::json!([])
+    };
+    let layout = serde_json::json!({
+        "version": 1,
+        "models": { "lamp": { "position": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1 } },
+        "stops": stops,
+        "desk": null,
+    });
+    let project_dir = context(session, id).expect("context").project_dir;
+    std::fs::write(project_dir.join("layout.json"), layout.to_string()).expect("layout");
 }
 
 /// What Ship says while it waits in a run an agent starts, into `repo` for
@@ -255,4 +276,36 @@ fn a_folder_save_waits_until_the_agents_run_is_queued() {
             .expect("the save lands once the run is queued");
     });
     assert!(waits(&session, &id, None).is_some(), "the next run asks");
+}
+
+#[test]
+fn a_run_whose_ship_would_fail_is_refused_before_it_raises_a_card() {
+    let (_dir, session, id) = shipping(false, RepoSetBy::Agent);
+    save_folders(&session, &id, Some("public/scene"), RepoSetBy::Agent);
+    write_layout(&session, &id, false);
+    let hub = Arc::new(Hub::new(|| {}));
+    let tools = maquette_core::pipeline::tools::Toolbox::default;
+    let refused = agent_run::<()>(&session, &hub, &id, RunAsk::default(), tools(), |_, _| {
+        panic!("a run whose Ship cannot go is never queued")
+    })
+    .expect_err("refused");
+    assert_eq!(refused.code, run::SHIP_NOT_READY);
+    assert!(
+        refused.message.starts_with(maquette_core::site::NO_STOPS),
+        "{}",
+        refused.message
+    );
+    assert!(hub.approvals().is_empty(), "no card was raised");
+
+    // buildOnly leaves Ship out, so nothing about it is refused.
+    let build = RunAsk {
+        build_only: true,
+        ..RunAsk::default()
+    };
+    let queued = agent_run(&session, &hub, &id, build, tools(), |_, _| Ok(()));
+    assert!(queued.is_ok(), "{queued:?}");
+
+    // With a stop the run goes on to its gate as before.
+    write_layout(&session, &id, true);
+    assert!(waits(&session, &id, None).expect("asks").contains(CHOSE));
 }

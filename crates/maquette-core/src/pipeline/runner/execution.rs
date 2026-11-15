@@ -36,6 +36,9 @@ pub(super) struct Execution {
     pub(super) progress_sent: Option<Instant>,
     /// Why the run stopped early without a failure (a gate said no).
     pub(super) stop: Option<String>,
+    /// The last line the running call wrote to stderr, so a failed step
+    /// says why in its own words and not only its exit code.
+    pub(super) last_error_line: Option<String>,
 }
 
 pub(super) enum StepOutcome {
@@ -169,6 +172,19 @@ impl Execution {
                 self.emit_run();
                 continue;
             }
+            if let Some(reason) = self.blocked_before_gate(&step) {
+                let rec = &mut self.record.steps[slot];
+                rec.state = StepState::Failed;
+                rec.message = Some(reason.clone());
+                failure = Some(format!("{} failed. {reason}", step.name));
+                self.system(
+                    Some(&step.id),
+                    LogLevel::Error,
+                    format!("{} not started, nobody was asked: {reason}", step.name),
+                );
+                self.emit_run();
+                continue;
+            }
             if self.gated(&step) && self.unchanged_since_last(&step, &mut hasher) {
                 let rec = &mut self.record.steps[slot];
                 rec.state = StepState::Cached;
@@ -273,6 +289,17 @@ impl Execution {
         Some(format!(
             "No {word} repo is set for this project, so nothing was shipped. Pick one in Settings."
         ))
+    }
+
+    /// Why a gated website Ship would fail before it copies anything, so
+    /// it fails here with that reason and no approval card asks a person to
+    /// approve it. Ungated, the Ship script refuses the same things itself
+    /// and its own words become the step's message.
+    fn blocked_before_gate(&self, step: &StepDef) -> Option<String> {
+        if !self.gated(step) {
+            return None;
+        }
+        self.setup.ship_blocker_at(step)
     }
 
     fn gated(&self, step: &StepDef) -> bool {

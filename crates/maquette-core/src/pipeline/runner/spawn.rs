@@ -78,6 +78,7 @@ impl Execution {
                 let _ = input.write_all(text.as_bytes());
             });
         }
+        self.last_error_line = None;
         let started = Instant::now();
         let mut timed_out = false;
         let (tx, rx) = mpsc::channel::<(LogStream, String)>();
@@ -99,6 +100,9 @@ impl Execution {
         loop {
             match rx.recv_timeout(POLL) {
                 Ok((stream, text)) => {
+                    if stream == LogStream::Stderr && !text.trim().is_empty() {
+                        self.last_error_line = Some(text.clone());
+                    }
                     let level = history::classify(&text);
                     let moved = tracker.line(&text);
                     self.log(Some(&step_id), stream, level, text);
