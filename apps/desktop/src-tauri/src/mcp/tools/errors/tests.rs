@@ -247,7 +247,7 @@ fn a_ship_that_cannot_go_says_what_fixes_it() {
             "{} the site takes scene data. Add one in the layout, then ship again.",
             maquette_core::site::NO_STOPS
         ),
-        code: crate::commands::pipeline::SHIP_NOT_READY.to_string(),
+        code: "ship-not-ready".to_string(),
     });
     assert_eq!(stops["code"], "ship-not-ready");
     assert_eq!(stops["tryTool"], "set_layout");
