@@ -1,9 +1,10 @@
 //! Tools for an asset's refs and their views: read and set the views,
-//! draw the missing ones from the front, clean a ref's background and take
-//! a candidate into the refs. The drawing and cleaning are Lab jobs on the
+//! add an agent's own images, draw the missing ones from the front, clean a
+//! ref's background and take a candidate into the refs. The drawing and cleaning are Lab jobs on the
 //! Codex lane, the same as start_concepts.
 
 use crate::mcp::tools::ToolError;
+use maquette_core::concepts::import::{MAX_IMAGES_PER_DROP, NewRef, RefsFor, add_refs};
 use maquette_core::concepts::{CleanGround, NewCleanRef, NewOtherViews};
 use maquette_core::refs::{AssetRef, RefView};
 use maquette_core::{assets, project};
@@ -12,8 +13,11 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::animations::inside;
 use super::concepts::job_value;
+use super::hints::{step, with_next};
 use super::image_api::{BackendArg, backend};
+use super::picks::KindArg;
 use super::{McpTools, Out, respond, to_value, workspace};
 use crate::commands::refs as shared;
 use crate::mcp::host::Host;
@@ -133,6 +137,33 @@ pub struct UseCandidateArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct AddRefArg {
+    /// A PNG, JPEG or WebP image inside the workspace: relative to the workspace folder, or
+    /// absolute inside it. Files outside the workspace are refused; copy them in first.
+    pub path: String,
+    /// The view it shows. Left out, it joins as other, except that the first image without a
+    /// view becomes the front of an asset that has none.
+    pub view: Option<ViewArg>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddRefsArgs {
+    /// The project id.
+    pub project: String,
+    /// An existing asset, by id or name, as list_assets returns it. Give this or name.
+    pub asset: Option<String>,
+    /// Or the asset's name: the asset of that name, or a new one at Refs when there is none
+    /// (its name starts with a capital letter, 80 characters at most).
+    pub name: Option<String>,
+    /// "prop", "character" or "scene", for a new asset only. "prop" by default.
+    pub kind: Option<KindArg>,
+    /// The images, 1 to 50, each copied into the project's refs/.
+    pub images: Vec<AddRefArg>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RefViewsArgs {
     /// The project id.
     pub project: String,
@@ -174,6 +205,59 @@ fn after(host: &dyn Host, project_id: &str, asset_id: &str) -> Result<Value, Too
         host.concepts_changed(project_id, d);
     }
     Ok(refs_value(&view))
+}
+
+/// add_refs: the images copied into refs/ and tagged on the asset.
+fn add_own(host: &dyn Host, args: AddRefsArgs) -> Result<Value, ToolError> {
+    let target = match (args.asset, args.name) {
+        (Some(asset), None) => {
+            RefsFor::Asset(super::prepare::asset_id(host, &args.project, &asset)?)
+        }
+        (None, Some(name)) => RefsFor::Named {
+            name,
+            kind: args.kind.unwrap_or(KindArg::Prop).into(),
+        },
+        _ => {
+            return Err("Give asset (an existing asset) or name (found or made), not both.".into());
+        }
+    };
+    if args.images.is_empty() || args.images.len() > MAX_IMAGES_PER_DROP {
+        return Err(format!("Give 1 to {MAX_IMAGES_PER_DROP} images.").into());
+    }
+    let (root, config) = workspace(host)?;
+    let raw: Vec<String> = args
+        .images
+        .iter()
+        .map(|i| host.session().expand(&i.path).display().to_string())
+        .collect();
+    let images: Vec<NewRef> = inside(&root, &raw)?
+        .into_iter()
+        .zip(&args.images)
+        .map(|(path, image)| NewRef {
+            path: path.into(),
+            view: image.view.map(RefView::from),
+        })
+        .collect();
+    let added = add_refs(&root, &config.layout, &args.project, &target, &images)?;
+    let mut out = after(host, &args.project, &added.asset.id)?;
+    out["name"] = json!(added.asset.name);
+    out["stage"] = to_value(added.asset.stage);
+    out["created"] = json!(added.created);
+    out["added"] = json!(added.files);
+    Ok(with_next(
+        out,
+        vec![
+            step(
+                "send_to_3d",
+                "Send the asset: it takes front, left, back and right.",
+            ),
+            step("set_ref_views", "Retag the views if one is wrong."),
+            step(
+                "make_other_views",
+                "Draw the views it is missing from the front.",
+            ),
+        ],
+    ))
 }
 
 /// The asset's id, checked to be on the project's Board.
@@ -227,6 +311,15 @@ impl McpTools {
                 after(host, &args.project, &args.asset)
             })
             .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Add your own images to an asset's refs: each PNG, JPEG or WebP (checked by its bytes, 50 MB at most, 1 to 50 images) is copied into the project's refs/, never linked or moved, and tagged with its view. Paths are relative to the workspace folder or absolute inside it; files outside the workspace are refused, so copy them in first. asset names an existing asset by id or name; name finds the asset of that name or makes a new one (kind, prop by default), and either way it ends at the Refs stage (one at Concept moves up). A named view takes its slot and the ref that held it stays with the asset as other; an image without a view joins as other, except that the first one becomes the front of an asset with none. An image already in refs/ with the same bytes is reused, another of the same name gets a free name. Every image is checked before anything is written. This is the free way to refs when no image backend is set up (no Codex sign in, no OpenAI key): then send_to_3d, by hand or on a provider. Answers as get_ref_views does, with added (each image's ref, in order) and created. Spends nothing; the app updates live.",
+        annotations(destructive_hint = false)
+    )]
+    async fn add_refs(&self, Parameters(args): Parameters<AddRefsArgs>) -> Out {
+        let found = self.blocking(move |host, _| add_own(host, args)).await;
         respond(found)
     }
 

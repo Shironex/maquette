@@ -29,7 +29,7 @@ use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use serde_json::{Value, json};
 
-use super::support::{Client, call, raw_call, text};
+use super::support::{Client, call, call_error, raw_call, text};
 
 struct TestHost {
     session: Session,
@@ -663,4 +663,104 @@ fn stop_waits(studio: &ProviderJobs, project: &str) {
             studio.cancel(&job.project, &job.id).expect("stop waiting");
         }
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_agent_brings_its_own_images_in_as_refs_and_sends_them() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let root = dir.path().join("ws");
+    let mine = root.join("agent-images");
+    std::fs::create_dir_all(&mine).expect("folder");
+    std::fs::write(mine.join("crate front.png"), PNG).expect("front");
+    std::fs::write(mine.join("crate side.png"), b"\x89PNG\r\n\x1a\nside").expect("side");
+    std::fs::write(mine.join("notes.txt"), "not an image").expect("text");
+    let outside = dir.path().join("elsewhere.png");
+    std::fs::write(&outside, PNG).expect("outside");
+    let (_host, client, server) = connect(session).await;
+
+    // Outside the workspace, or not an image: refused, nothing written.
+    let far = call_error(
+        &client,
+        "add_refs",
+        json!({ "project": project_id, "name": "Wooden crate", "images": [
+            { "path": outside.display().to_string() },
+        ] }),
+    )
+    .await;
+    assert!(far.contains("outside the workspace"), "{far}");
+    let text = call_error(
+        &client,
+        "add_refs",
+        json!({ "project": project_id, "name": "Wooden crate", "images": [
+            { "path": "agent-images/notes.txt" },
+        ] }),
+    )
+    .await;
+    assert!(text.contains("not a PNG, JPEG or WebP"), "{text}");
+    let none = call(&client, "list_assets", json!({ "project": project_id })).await;
+    assert!(
+        !none["assets"]
+            .as_array()
+            .expect("assets")
+            .iter()
+            .any(|a| a["id"] == "wooden-crate"),
+        "{none}"
+    );
+
+    // A new asset at Refs: the first image is the front, the named one its slot.
+    let added = call(
+        &client,
+        "add_refs",
+        json!({ "project": project_id, "name": "wooden crate", "images": [
+            { "path": "agent-images/crate front.png" },
+            { "path": mine.join("crate side.png").display().to_string(), "view": "left" },
+        ] }),
+    )
+    .await;
+    assert_eq!(added["created"], json!(true), "{added}");
+    assert_eq!(added["asset"], "wooden-crate");
+    assert_eq!(added["name"], "Wooden crate");
+    assert_eq!(added["stage"], "refs");
+    let files: Vec<String> = added["added"]
+        .as_array()
+        .expect("added")
+        .iter()
+        .map(|f| f.as_str().expect("file").to_string())
+        .collect();
+    assert_eq!(files, ["refs/crate front.png", "refs/crate side.png"]);
+    assert_eq!(added["refs"][0]["view"], "front");
+    assert_eq!(added["refs"][1]["view"], "left");
+    assert_eq!(added["next"][0]["tool"], "send_to_3d");
+    // Copied, never linked: the agent's own files stay as they are.
+    for f in &files {
+        let copy = project_dir.join(f);
+        assert!(copy.is_file() && !copy.is_symlink(), "{f}");
+    }
+    assert!(mine.join("crate front.png").is_file());
+
+    // The same asset again by id: the same bytes reuse the ref.
+    let again = call(
+        &client,
+        "add_refs",
+        json!({ "project": project_id, "asset": "wooden-crate", "images": [
+            { "path": "agent-images/crate front.png" },
+        ] }),
+    )
+    .await;
+    assert_eq!(again["created"], json!(false));
+    assert_eq!(again["added"], json!(["refs/crate front.png"]));
+    assert_eq!(again["refs"].as_array().map(Vec::len), Some(2), "{again}");
+
+    let sent = call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "wooden-crate", "provider": "by-hand" }),
+    )
+    .await;
+    assert_eq!(sent["images"], json!(files), "front then left: {sent}");
+
+    client.cancel().await.expect("close");
+    server.stop();
 }

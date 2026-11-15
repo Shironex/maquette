@@ -133,7 +133,7 @@ fn listed(item: &AnimationItem) -> Value {
 }
 
 /// The paths as absolute ones, refusing any outside the workspace.
-fn inside(root: &Path, paths: &[String]) -> Result<Vec<String>, String> {
+pub(super) fn inside(root: &Path, paths: &[String]) -> Result<Vec<String>, String> {
     let base = root.canonicalize().map_err(|e| e.to_string())?;
     paths
         .iter()

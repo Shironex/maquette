@@ -15,7 +15,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [start] get_started, create_project.
 [project] Projects, assets, layout, copying, thumbnails, asset trash.
 [lab] Concept images and jobs, the style board, picks to the Board, image backends, Codex usage.
-[refs] An asset's reference views: read, tag, draw missing ones, clean backgrounds.
+[refs] An asset's reference views: add your own images (add_refs), read, tag, draw missing ones, clean backgrounds.
 [plan] Planning canvases: presets, nodes, the change log, a website's camera plan. Agents never remove a person's nodes; they ask with propose_removal.
 [send] Refs to Tripo, Meshy or by hand, redos, splits, credits, By hand handoffs and downloads.
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.

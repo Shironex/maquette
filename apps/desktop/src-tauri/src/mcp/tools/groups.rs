@@ -63,7 +63,7 @@ pub const GROUPS: &[ToolGroup] = &[
     group(
         "refs",
         "Refs",
-        "An asset's reference views: tagging, drawing missing ones, cleaning backgrounds",
+        "An asset's reference views: your own images, tagging, drawing missing ones, cleaning backgrounds",
     ),
     group(
         "plan",
