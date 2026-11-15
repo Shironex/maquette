@@ -21,6 +21,21 @@ fn persons_repo(world: &World) -> PathBuf {
     site
 }
 
+/// A layout with one placed model and one camera stop, so a site that takes
+/// scene data has something to ship and Ship is not refused up front.
+fn place_a_model(world: &World) {
+    let (root, config) = world.host.session.workspace().expect("ws");
+    let dir = project::dir(&root, &config.layout, "web").expect("dir");
+    let layout = json!({
+        "version": 1,
+        "models": { "lamp": { "position": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1 } },
+        "stops": [{ "id": "hero", "name": "Hero", "position": [0, 1, 3], "target": [0, 0, 0],
+                    "fov": 40, "models": null }],
+        "desk": null,
+    });
+    std::fs::write(dir.join("layout.json"), layout.to_string()).expect("layout");
+}
+
 async fn run(world: &World) -> Value {
     let args = json!({ "project": "web", "waitSeconds": 30 });
     call(&world.client, "run_pipeline", args).await
@@ -74,6 +89,7 @@ async fn each_folder_an_agent_sets_waits_for_a_person_with_the_rule_off() {
         assert_eq!(saved["target"]["setByAgent"], json!(true), "{saved}");
         let written = std::fs::read_to_string(site.join("maquette.site.json")).expect("file");
         assert!(written.contains(value), "{written}");
+        place_a_model(&world);
         let run = run(&world).await;
         world.denied(&run, &site, FOLDERS, shows).await;
         world.close().await;
