@@ -4,6 +4,7 @@
 //! changing its clips, time edits, mirror, changes, blanks or name. Nothing
 //! here bakes, runs Blender or spends anything.
 
+use maquette_core::animations::recipes::pin_seams::pin_seam_warnings;
 use maquette_core::animations::recipes::{ClipPick, kept_of};
 use maquette_core::recipes::RecipeChange;
 use rmcp::RoleServer;
@@ -13,7 +14,7 @@ use serde_json::{Value, json};
 
 use super::hints::{step, with_next};
 use super::plans::agent_name;
-use super::{McpTools, Out, ProjectArgs, ToolError, respond};
+use super::{McpTools, Out, ProjectArgs, ToolError, respond, workspace};
 use crate::commands::recipes as commands;
 
 mod args;
@@ -195,7 +196,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an animation recipe: its name (the file and id stay), changes, blanks, clips, time edits, mirror, or any of them. changes, blanks, clips and time each replace the list whole, so read get_recipe first and send every entry you keep. All is checked first: bones, weights, spans, targets naming blanks, nudge, wave, pose key, grip, clip and time limits, and prop blanks naming project assets. A clip sent with keep stays as it was (trim and blend too unless sent), and keys, changes and time edits not sent move with it; dropping a clip they sit on, or parting clips a change spans, is refused (clip-in-use). A file too big to open again is refused (recipe-too-big). Nothing new keeps format 1, which an older Maquette opens; clips, trims, mirror, time, pins, pose keys or grips make format 2, which bakes too. Blanks left out stay as they are: one whose asset is gone keeps its prop, reads as open, and warnings says which; one sent open keeps it too unless clear names it. Sending anything but the name needs expected, the version get_recipe answered with: a recipe changed since is refused (moved) and nothing is written. Answers as get_recipe does; what you changed shows in drafts until a person saves. Nothing is baked."
+        description = "Change an animation recipe: its name (the file and id stay), changes, blanks, clips, time edits, mirror, or any of them. changes, blanks, clips and time each replace the list whole, so read get_recipe first and send every entry you keep. All is checked first: bones, weights, spans, targets naming blanks, every kind's limits, prop blanks naming project assets. A clip sent with keep stays as it was (trim and blend too unless sent), and keys, changes and time edits not sent move with it; dropping a clip they sit on, or parting clips a change spans, is refused (clip-in-use). A file too big to open again is refused (recipe-too-big). Nothing new keeps format 1 (older Maquettes open it); clips, trims, mirror, time, pins, pose keys or grips make format 2, which bakes too. Blanks left out stay as they are: one whose asset is gone keeps its prop, reads as open, and warnings says which; one sent open keeps it too unless clear names it. Sending anything but the name needs expected, the version get_recipe answered with: a recipe changed since is refused (moved), nothing written. Answers as get_recipe does (drafts: your changes until a person saves; warnings: also a foot pin across a seam into a travelling clip). Nothing is baked."
     )]
     async fn update_recipe(
         &self,
@@ -258,6 +259,13 @@ impl McpTools {
                 let mut doc =
                     commands::update(host.session(), &args.project, &args.recipe, change)?;
                 commands::drafted(host.session(), &args.project, Some(&before), &mut doc, &by);
+                if lists {
+                    // A foot pin across a seam into a clip that travels drags:
+                    // said now, not only in the bake review.
+                    let (root, _) = workspace(host)?;
+                    let clips = maquette_core::animations::list(&root)?;
+                    doc.warnings.extend(pin_seam_warnings(&doc.recipe, &clips));
+                }
                 host.recipe_changed(&args.project);
                 Ok(with_next(recipe_view(&doc), after(&doc)))
             })
