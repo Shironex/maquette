@@ -21,6 +21,7 @@ use crate::recipes::{
 
 pub mod bake;
 pub mod library;
+pub mod pin_seams;
 
 /// How a recipe's base clip stands in this computer's library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

@@ -69,6 +69,7 @@ fn doctors(host: &dyn Host) -> Result<&RigDoctors, String> {
 fn line(case: &RigRecord) -> Value {
     json!({
         "id": case.id,
+        "project": case.source.project,
         "name": case.name,
         "state": to_value(case.state),
         "route": to_value(case.route),
@@ -81,7 +82,7 @@ fn line(case: &RigRecord) -> Value {
 #[tool_router(router = rig_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Open the rig doctor's case of a rigged model: give inbox (an Inbox item) or project and asset (with version, or the newest). It reads the file at once with no Blender: the route (humanoid for Mixamo names, creature otherwise), what the doctor refuses and why (no skin, several skinned meshes, interleaved or compressed data), hand and arm weight far from the limb, islands and whether it is one continuous mesh. An Inbox model must be accepted (accept_inbox_model) before it can run. Answers the case, whose id the other rig tools take. Starts nothing and spends no credits."
+        description = "Open the rig doctor's case of a rigged model: give inbox (an Inbox item) or project and asset (with version, or the newest). It reads the file at once with no Blender: the route (humanoid for Mixamo names, creature otherwise), what the doctor refuses and why (no skin, several skinned meshes, interleaved or compressed data), hand and arm weight far from the limb, islands and whether it is one continuous mesh. An Inbox model must be accepted (accept_inbox_model) before it can run. Answers the case, whose id the other rig tools take: the project, the asset name and the version (moon-island-hero-v1), or the name and inbox for an Inbox model, so ids never clash across projects. Starts nothing and spends no credits."
     )]
     async fn start_rig_doctor(&self, Parameters(args): Parameters<StartRigArgs>) -> Out {
         let found = self
@@ -144,7 +145,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "List the rig doctor's cases, newest first: id, name, state, route, round, who started it and the version it landed as."
+        description = "List the rig doctor's cases of every project, newest first: id, project, name, state, route, round, who started it and the version it landed as."
     )]
     async fn list_rig_doctors(&self) -> Out {
         let found = self

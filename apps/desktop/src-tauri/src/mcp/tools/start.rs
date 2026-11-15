@@ -283,7 +283,7 @@ fn blocking_gates(reports: &[ToolReport], keys: &Keys) -> Vec<Value> {
     }
     if !tool_works(reports, ToolId::Codex) {
         out.push(gate(
-            "Install Codex CLI and run codex login, or bring your own images as refs",
+            "Install Codex CLI and run codex login, or bring your own images as refs with add_refs",
             "A terminal, then Settings > Toolchain",
         ));
     }

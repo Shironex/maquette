@@ -24,8 +24,10 @@ use super::hints::{step, with_next};
 use super::{McpTools, Out, ToolError, failed, json_result, respond, to_short_value, to_value};
 
 /// How long render_views waits for Blender before it answers "rendering".
-const DEFAULT_WAIT: u32 = 60;
-const MAX_WAIT: u32 = 240;
+/// Both stay under the tool timeout of common MCP clients (about 60 s), so a
+/// long render answers "rendering" to poll rather than a client error.
+const DEFAULT_WAIT: u32 = 45;
+const MAX_WAIT: u32 = 50;
 const LIGHT: &str = "The page light (preview_rig.py): the sun and the even grey fill the Bake light step bakes into a model, shown through the page's tone mapping, three.js ACES Filmic. A colour that reads right in these pictures reads right on a page that shows the baked light.";
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -79,7 +81,8 @@ pub struct RenderViewsArgs {
     /// Stops the render of this set that is running, and renders nothing. Defaults to false.
     #[serde(default)]
     pub cancel: bool,
-    /// Seconds to wait for Blender, 60 by default and 240 at most.
+    /// Seconds to wait for Blender, 45 by default and 50 at most (a larger value is clamped
+    /// to 50, under common client timeouts). A longer render answers "rendering": call again.
     pub wait_seconds: Option<u32>,
 }
 
@@ -259,12 +262,10 @@ impl McpTools {
 #[tool_router(router = views_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Render an asset version from the standard views, headless in Blender, in the light of its page: three-quarter (front right, the angle refs are drawn from; angle moves it), front, top (straight down, the front at the bottom) and two close ups (the two halves of the model, or closeUps names a part or a box). 1024 px PNGs, built models and provider models alike. They go to the project's exports/renders/<asset>/views/v<n>/ (another angle or closeUps: v<n>-<8 hex>/, a folder of their own), never outside the workspace, with sheet.png (every picture on one PNG, the asset's refs first) and views.json. compare renders another version with the same cameras into v<n>-vs-v<m>/, for a side by side of a rebuild and the model it replaces. The asset's fix-ups and real size are applied, as Build scene places it (asIs leaves them out). Answers each picture's path, the camera that took it and what it frames, and the paths of the asset's refs. A set that is already there answers at once; a render takes about a minute, and past waitSeconds the answer says rendering: call again with the same arguments. cancel stops it. Spends no credits and needs no approval."
+        description = "Render an asset version from the standard views, headless in Blender, in the light of its page: three-quarter (front right, the angle refs are drawn from; angle moves it), front, top (straight down, the front at the bottom) and two close ups (the two halves of the model, or closeUps names a part or a box). 1024 px PNGs, built models and provider models alike. They go to the project's exports/renders/<asset>/views/v<n>/ (another angle or closeUps: v<n>-<8 hex>/, a folder of their own), never outside the workspace, with sheet.png (every picture on one PNG, the asset's refs first) and views.json. compare renders another version with the same cameras into v<n>-vs-v<m>/, for a side by side of a rebuild and the model it replaces. The asset's fix-ups and real size are applied, as Build scene places it (asIs leaves them out). Answers each picture's path, the camera that took it and what it frames, and the paths of the asset's refs. A set already there answers at once. A render takes about a minute, past waitSeconds (clamped to 50, under client timeouts): then status is rendering, so poll with the same arguments (it joins, never restarts). cancel stops it. Spends no credits and needs no approval."
     )]
     async fn render_views(&self, Parameters(args): Parameters<RenderViewsArgs>) -> Out {
-        let wait = Duration::from_secs(u64::from(
-            args.wait_seconds.unwrap_or(DEFAULT_WAIT).min(MAX_WAIT),
-        ));
+        let wait = wait_for(args.wait_seconds);
         let cancel = args.cancel;
         let started = self
             .blocking(move |host, _| {
@@ -338,8 +339,26 @@ impl McpTools {
     }
 }
 
+/// How long render_views waits: the default, or what was asked clamped to
+/// [`MAX_WAIT`].
+fn wait_for(asked: Option<u32>) -> Duration {
+    Duration::from_secs(u64::from(asked.unwrap_or(DEFAULT_WAIT).min(MAX_WAIT)))
+}
+
 /// What starting render_views led to.
 enum Started {
     Cancelled(PathBuf, bool),
     Asked(Box<(Views, ViewsPlan, Asked)>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_wait_stays_under_common_client_timeouts() {
+        assert_eq!(wait_for(None), Duration::from_secs(45));
+        assert_eq!(wait_for(Some(10)), Duration::from_secs(10));
+        assert_eq!(wait_for(Some(240)), Duration::from_secs(50));
+    }
 }

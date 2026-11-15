@@ -33,13 +33,21 @@ pub struct RigDoctors {
     inner: Arc<Inner>,
 }
 
-/// A case's id: the name in lowercase words, with the version or `inbox`.
+/// A case's id: the project (for a model in one), the name in lowercase
+/// words, and the version or `inbox`. The project keeps two projects' assets
+/// of one name and version apart: each has its own case and folder.
 fn case_id(name: &str, source: &RigSource) -> String {
-    let words: Vec<String> = name
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|w| !w.is_empty())
-        .map(str::to_ascii_lowercase)
-        .collect();
+    let mut words: Vec<String> = Vec::new();
+    if source.version.is_some()
+        && let Some(project) = &source.project
+    {
+        words.push(project.clone());
+    }
+    words.extend(
+        name.split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .map(str::to_ascii_lowercase),
+    );
     let tail = source
         .version
         .map_or_else(|| "inbox".to_string(), |v| format!("v{v}"));
@@ -403,5 +411,38 @@ impl RigDoctors {
         case.rigid = None;
         self.publish(&mut case)?;
         Ok(case)
+    }
+}
+
+#[cfg(test)]
+mod case_ids {
+    use super::{RigSource, case_id};
+
+    fn in_project(project: &str, version: u32) -> RigSource {
+        RigSource {
+            inbox: None,
+            project: Some(project.into()),
+            asset: Some("hero".into()),
+            version: Some(version),
+        }
+    }
+
+    #[test]
+    fn two_projects_assets_of_one_name_and_version_get_their_own_case() {
+        let a = case_id("Hero", &in_project("moon-island", 1));
+        let b = case_id("Hero", &in_project("sun-keep", 1));
+        assert_eq!(a, "moon-island-hero-v1");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn an_inbox_model_has_no_project_yet() {
+        let inbox = RigSource {
+            inbox: Some("inbox/hero.glb".into()),
+            project: None,
+            asset: None,
+            version: None,
+        };
+        assert_eq!(case_id("Hero", &inbox), "hero-inbox");
     }
 }

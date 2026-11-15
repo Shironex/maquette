@@ -5,10 +5,13 @@
 //! workspace and export only new files under `exports/recipes`, never
 //! anywhere else. Nothing here bakes, runs Blender or spends anything.
 
+use maquette_core::animations::AnimationClip;
 use maquette_core::animations::recipes::library::starters::{RecipeStarter, starter_key};
 use maquette_core::animations::recipes::library::{
     self, AGENT_EXPORTS, ExportSource, LibraryRecipeDoc, RecipeUsed, UseRecipe,
 };
+use maquette_core::animations::recipes::match_base;
+use maquette_core::recipes::RecipeBase;
 use rmcp::RoleServer;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{Peer, schemars, tool, tool_router};
@@ -95,8 +98,30 @@ pub struct ExportRecipeArgs {
     pub file: Option<String>,
 }
 
+/// The clips a recipe joins after its base, each with how it stands in
+/// this computer's clip library (found, hash-differs or missing), so an
+/// agent knows before use_recipe which ones to import.
+fn joined_view(clips: &[AnimationClip], joined: &[RecipeBase]) -> Vec<Value> {
+    joined
+        .iter()
+        .map(|c| {
+            let (found, _) = match_base(clips, c);
+            let mut out = json!({
+                "name": c.name, "frames": c.frames, "library": to_value(found.status),
+            });
+            if let Some(clip) = found.clip {
+                out["clip"] = json!(clip);
+            }
+            if let Some(warning) = found.warning {
+                out["warning"] = json!(warning);
+            }
+            out
+        })
+        .collect()
+}
+
 /// A library recipe's revision as agents read it.
-fn library_view(doc: &LibraryRecipeDoc) -> Value {
+fn library_view(doc: &LibraryRecipeDoc, clips: &[AnimationClip]) -> Value {
     let recipe = &doc.recipe;
     let mut base = json!({
         "name": recipe.base.name, "frames": recipe.base.frames, "hash": recipe.base.hash,
@@ -108,7 +133,7 @@ fn library_view(doc: &LibraryRecipeDoc) -> Value {
     if let Some(warning) = &doc.base.warning {
         base["warning"] = json!(warning);
     }
-    json!({
+    let mut out = json!({
         "entry": doc.entry.id, "name": doc.entry.name, "version": doc.version,
         "revision": doc.revision, "revisions": to_value(&doc.entry.revisions),
         "recipe": {
@@ -116,7 +141,11 @@ fn library_view(doc: &LibraryRecipeDoc) -> Value {
             "blanks": to_value(&recipe.blanks),
             "changes": recipe.layers.iter().map(change_view).collect::<Vec<_>>(),
         },
-    })
+    });
+    if !recipe.joined.is_empty() {
+        out["recipe"]["joined"] = json!(joined_view(clips, &recipe.joined));
+    }
+    out
 }
 
 /// A starter recipe as agents read it, in short (`full` adds its blanks
@@ -142,7 +171,19 @@ fn starter_view(starter: &RecipeStarter, full: bool) -> Value {
         "changes": starter.layers.len(), "blanks": starter.blanks.len(),
     });
     if !starter.joined.is_empty() {
-        out["joined"] = json!(starter.joined);
+        let joined: Vec<Value> = starter
+            .joined
+            .iter()
+            .map(|name| {
+                let library = if starter.missing.contains(name) {
+                    "missing"
+                } else {
+                    "found"
+                };
+                json!({ "name": name, "library": library })
+            })
+            .collect();
+        out["joined"] = json!(joined);
     }
     if starter.mirror {
         out["mirror"] = json!(true);
@@ -179,7 +220,7 @@ fn used_view(used: &RecipeUsed) -> Value {
 #[tool_router(router = recipe_library_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the recipe library: recipes kept outside any project (library/recipes at the workspace root), each with its id, name, newest revision, every revision with where it came from (the project and recipe it was saved from, or the file it was imported from, and when), the newest revision's base clip, frames, Mixamo flag and change and blank counts, and its version. An entry that cannot be read lists with its problem. starters lists the starter recipes built into the app (starter true, id starter:...), read only: each names its base clip by name only (names, tried in order, and library: found or missing on this computer) or runs on the rest pose (rest), with what it does (about); a combat starter also names the clips it joins (joined) and a left handed copy says mirror. Use one with use_recipe; a person copies one to the library. Listing writes nothing. Reads only.",
+        description = "List the recipe library: recipes kept outside any project (library/recipes at the workspace root), each with its id, name, newest revision, every revision with where it came from (the project and recipe it was saved from, or the file it was imported from, and when), the newest revision's base clip, frames, Mixamo flag and change and blank counts, its version, and joined: each clip it joins after the base with library (found, hash-differs or missing in this computer's clip library). An entry that cannot be read lists with its problem. starters lists the starter recipes built into the app (starter true, id starter:...), read only: each names its base clip by name only (names, tried in order, and library: found or missing on this computer) or runs on the rest pose (rest), with what it does (about); a combat starter also names the clips it joins (joined, each with library: found or missing, so a missing one can be imported before use_recipe) and a left handed copy says mirror. Use one with use_recipe; a person copies one to the library. Listing writes nothing. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn list_library_recipes(&self) -> Out {
@@ -187,8 +228,21 @@ impl McpTools {
             .blocking(|host, _| {
                 let listed = commands::list(host.session())?;
                 let starters = commands::starter_list(host.session())?;
+                let (root, _) = workspace(host)?;
+                let clips = maquette_core::animations::list(&root)?;
+                let mut recipes = to_value(&listed);
+                if let Some(rows) = recipes.as_array_mut() {
+                    for (row, summary) in rows.iter_mut().zip(&listed) {
+                        let Ok(doc) = commands::get(host.session(), &summary.id, None) else {
+                            continue;
+                        };
+                        if !doc.recipe.joined.is_empty() {
+                            row["joined"] = json!(joined_view(&clips, &doc.recipe.joined));
+                        }
+                    }
+                }
                 let out = json!({
-                    "recipes": to_value(&listed),
+                    "recipes": recipes,
                     "starters": starters.iter().map(|s| starter_view(s, false)).collect::<Vec<_>>(),
                 });
                 Ok(if listed.is_empty() {
@@ -208,7 +262,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a library recipe: its name, version, every revision with where it came from, and one revision (the newest unless revision is given) in full: name, base clip (name, frames, hash, and library: found, hash-differs, missing or rest in this computer's clip library), mixamo, blanks and changes. A revision is never changed once saved. A starter id (starter:...) reads that starter in full instead: its base by name or rest, blanks and changes. Reads only.",
+        description = "Read a library recipe: its name, version, every revision with where it came from, and one revision (the newest unless revision is given) in full: name, base clip (name, frames, hash, and library: found, hash-differs, missing or rest in this computer's clip library), joined (each clip joined after the base with its library status the same way), mixamo, blanks and changes. A revision is never changed once saved. A starter id (starter:...) reads that starter in full instead: its base by name or rest, joined clips found or missing, blanks and changes. Reads only.",
         annotations(read_only_hint = true)
     )]
     async fn get_library_recipe(&self, Parameters(args): Parameters<LibraryRecipeArgs>) -> Out {
@@ -222,8 +276,10 @@ impl McpTools {
                     ));
                 }
                 let doc = commands::get(host.session(), &args.entry, args.revision)?;
+                let (root, _) = workspace(host)?;
+                let clips = maquette_core::animations::list(&root)?;
                 Ok(with_next(
-                    library_view(&doc),
+                    library_view(&doc, &clips),
                     vec![step("use_recipe", "Copy this revision into a project.")],
                 ))
             })

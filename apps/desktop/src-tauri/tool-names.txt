@@ -8,6 +8,7 @@ add_many_to_library
 add_model_file
 add_nodes
 add_recipe_bake
+add_refs
 add_to_library
 apply_grip
 assemble_prop

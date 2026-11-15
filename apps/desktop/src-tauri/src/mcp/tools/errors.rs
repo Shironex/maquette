@@ -74,12 +74,12 @@ const NEW_KEY: Advice = person(
     Some("send_to_3d"),
 );
 const OPENAI_KEY: Advice = person(
-    "A person saves the key in Maquette (Settings > Image generation). No tool can. The free routes: the codex backend (set_image_backend), or a person's own images added as refs.",
+    "A person saves the key in Maquette (Settings > Image generation). No tool can. The free routes: the codex backend (set_image_backend), or your own images added as refs with add_refs.",
     Some("set_image_backend"),
 );
 const CODEX: Advice = person(
-    "A person installs Codex CLI and runs codex login, then checks the tools in Settings > Toolchain. The other routes: the openai-images backend (needs an OpenAI key and a person's approval), or a person's own images added as refs.",
-    Some("get_started"),
+    "A person installs Codex CLI and runs codex login, then checks the tools in Settings > Toolchain. The other routes: the openai-images backend (needs an OpenAI key and a person's approval), or your own images added as refs with add_refs.",
+    Some("add_refs"),
 );
 const BLENDER: Advice = person(
     "A person installs Blender from blender.org or locates it in Settings > Toolchain. No tool can. get_started reads the tools again.",

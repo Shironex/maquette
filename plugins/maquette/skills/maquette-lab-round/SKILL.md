@@ -42,6 +42,17 @@ in the app: agents may propose a tour, never apply one.
   `waiting for approval`. Do not start the round again; poll `get_concepts`.
 - Never capture the screen. The tools return file paths; read the images from disk.
 
+## No image backend: bring your own images
+
+When Codex is not signed in and no OpenAI key is saved, no concept round can run, but images you
+or the person already have can still become refs. `add_refs`
+`{ project, asset? | name?, kind?, images: [{ path, view? }] }` copies each PNG, JPEG or WebP (1 to
+50, 50 MB each) into `refs/`, never linking or moving it, and tags its view. A `path` is relative
+to the workspace folder or absolute inside it; copy files from elsewhere into the workspace first.
+`asset` names an existing asset; `name` finds or makes one at Refs (`kind` for a new one). An image
+without a `view` joins as other, except that the first becomes the front of an asset with none.
+Then go on at step 6 (views) or straight to a send.
+
 ## 1. Read the cost state
 
 1. `list_projects`, then `list_assets` for the project (and `get_project` if you need the target:
