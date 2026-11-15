@@ -28,8 +28,8 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [export] Packs for other engines and render styles: headless Blender, no credits.
 [avatar-rig] VRM avatars and the rig doctor.
 
-WAITS FOR A PERSON (in the Maquette app; poll, never start the work again)
-- Spending: send_to_3d, send_batch_to_3d, redo_inbox_model, redo_inbox_models and split_with_provider on Tripo or Meshy (follow get_provider_job).
+WAITS FOR A PERSON (in the Maquette app; never resend while waiting, only once failed or cancelled)
+- Spending: send_to_3d, send_batch_to_3d, redo_inbox_model(s), retry_provider_jobs and split_with_provider on Tripo or Meshy; by-hand is free but waits for a model (follow get_provider_job).
 - Paid images: a round an agent asks for on openai-images (follow get_concepts).
 - Shipping: run_pipeline at Ship while Ask before shipping is on; always in a game, with repo, or into a site repo an agent set (follow get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview on a repo an agent set, first and when its path or command changes (follow get_page_preview).
@@ -38,8 +38,7 @@ WAITS FOR A PERSON (in the Maquette app; poll, never start the work again)
 - Camera plan: agents propose with propose_camera_plan; the person's Apply writes layout.json.
 - Canvases: removal proposals (Keep it or Remove), Mark as fine on a mechanics overlap and the Auto layout after agents switch.
 - Only a person can: save API keys, set the OpenAI image cap, sign in to Codex, install Blender and the tools, open a workspace.
-A waiting answer gives status \"waiting for approval\", pollEverySeconds and whereToApprove.
-Free: send_to_3d with provider by-hand, add_built_asset.
+Waits answer \"waiting for approval\" (by hand \"waiting for model\") with pollEverySeconds; at stopPolling tell the person and stop.
 
 ALWAYS
 start_page_preview runs the site repo's dev command here; only a repo a person set runs it unasked. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.

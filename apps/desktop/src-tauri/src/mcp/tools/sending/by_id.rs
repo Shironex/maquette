@@ -3,7 +3,7 @@
 //! `project`, and an id that is a send of several projects without it is
 //! refused with the projects to choose from and what to pass.
 
-use maquette_core::providers::{JobState, ProviderJob, ProviderJobs};
+use maquette_core::providers::{JobState, Provider, ProviderJob, ProviderJobs};
 use serde_json::{Value, json};
 
 use crate::mcp::hub::Hub;
@@ -12,6 +12,35 @@ use crate::mcp::tools::{ToolError, errors, to_value};
 /// The code of a job id given without its project while several projects
 /// have a send with that id.
 pub(in crate::mcp::tools) const SEVERAL_PROJECTS: &str = "job-in-several-projects";
+
+/// The code of a By hand send an agent asked for while the asset already
+/// has one waiting for its model.
+pub(in crate::mcp::tools) const BY_HAND_WAITING: &str = "by-hand-already-waiting";
+
+/// Refuses a By hand send of `asset` in `project` while one already waits
+/// for its model, naming that send, so an agent that polls, sees nothing
+/// and sends again does not pile up waits for the same asset.
+pub(super) fn refuse_second_wait(
+    jobs: &ProviderJobs,
+    project: &str,
+    assets: &[&str],
+) -> Result<(), ToolError> {
+    let waiting = jobs.list(Some(project)).into_iter().find(|j| {
+        j.provider == Provider::ByHand
+            && j.state == JobState::Waiting
+            && assets.contains(&j.asset.as_str())
+    });
+    match waiting {
+        None => Ok(()),
+        Some(job) => Err(ToolError {
+            message: format!(
+                "{} already waits for a by hand model: send {} in {}. Poll it with get_provider_job, or stop it with cancel_provider_jobs before sending again with other settings.",
+                job.asset_name, job.id, job.project
+            ),
+            code: BY_HAND_WAITING.to_string(),
+        }),
+    }
+}
 
 /// The send `id`: the one in `project` when given, else the only send of
 /// the workspace with that id. Ids are numbered per project, so an id two

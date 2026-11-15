@@ -230,25 +230,35 @@ impl McpTools {
                     })
                     .collect();
                 let empty = items.is_empty();
+                // While a send waits, the model is on its way: sending
+                // again would only pile up another wait.
+                let sends_wait = host
+                    .studio()
+                    .list(None)
+                    .iter()
+                    .any(|j| j.state.is_active());
                 let answer = json!({
                     "inbox": host.session().display(&inbox::inbox_dir(&root, &config)),
                     "items": items,
                     "discarded": discarded,
                 });
                 Ok(if empty {
-                    with_next(
-                        answer,
-                        vec![
-                            step(
-                                "list_handoffs",
-                                "See which By hand sends still wait for a model.",
-                            ),
-                            step(
-                                "send_to_3d",
-                                "Models land here after a send; by-hand is free.",
-                            ),
-                        ],
-                    )
+                    let mut next = vec![step(
+                        "list_handoffs",
+                        "See which By hand sends still wait for a model.",
+                    )];
+                    next.push(if sends_wait {
+                        step(
+                            "get_provider_job",
+                            "Sends are under way or waiting: read them with project instead of sending again.",
+                        )
+                    } else {
+                        step(
+                            "send_to_3d",
+                            "Models land here after a send; by-hand is free.",
+                        )
+                    });
+                    with_next(answer, next)
                 } else {
                     answer
                 })

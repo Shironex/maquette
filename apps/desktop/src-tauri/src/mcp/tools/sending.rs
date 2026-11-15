@@ -18,10 +18,13 @@ mod redo;
 mod requests;
 mod warnings;
 
-pub(super) use self::by_id::SEVERAL_PROJECTS;
-use self::by_id::{cancel_one, find_job};
+pub(super) use self::by_id::{BY_HAND_WAITING, SEVERAL_PROJECTS};
+use self::by_id::{cancel_one, find_job, refuse_second_wait};
 use self::requests::{batch_request, send_request};
-use super::{McpTools, Out, WAITING, failed, json_result, respond, to_value, workspace};
+use super::hints::{person_step, step};
+use super::{
+    McpTools, Out, WAITING, WAITING_FOR_MODEL, failed, json_result, respond, to_value, workspace,
+};
 
 /// Where a model gets made.
 #[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
@@ -172,11 +175,68 @@ pub struct CancelJobsArgs {
 /// Most ids one cancel_provider_jobs call takes.
 const MAX_CANCEL_IDS: usize = 50;
 
+/// True for a By hand send still waiting for its model.
+fn waits_for_model(job: &ProviderJob) -> bool {
+    job.provider == Provider::ByHand && job.state == JobState::Waiting
+}
+
+/// What an agent can do next with a send that waits for a model, failed or
+/// stopped; `None` while it is under way or done.
+fn job_next(job: &ProviderJob) -> Option<Vec<Value>> {
+    if waits_for_model(job) {
+        return Some(vec![
+            step(
+                "list_handoffs",
+                "See the By hand sends waiting and the downloads that may be their models.",
+            ),
+            step(
+                "add_model_file",
+                "When you have the model file yourself, add it as the asset's next version.",
+            ),
+            step(
+                "list_inbox",
+                "A model the person brought back lands here to accept.",
+            ),
+            step(
+                "attach_download",
+                "Attach a download list_handoffs found to this asset.",
+            ),
+        ]);
+    }
+    let retry = || {
+        if job.split.is_some() {
+            step(
+                "split_with_provider",
+                "Ask for the split again; a paid split waits for a person again.",
+            )
+        } else {
+            step(
+                "retry_provider_jobs",
+                "Send it again with the same settings; a paid send waits for a person again.",
+            )
+        }
+    };
+    match job.state {
+        JobState::Failed => Some(vec![retry()]),
+        JobState::Cancelled if job.denied => Some(vec![
+            person_step(
+                "A person denied this send. Ask them before sending it again; do not retry on your own.",
+            ),
+            retry(),
+        ]),
+        JobState::Cancelled => Some(vec![retry()]),
+        _ => None,
+    }
+    .filter(|_| job.retexture.is_none())
+}
+
 /// A provider job as agents read it.
 pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
     let approval = hub.pending_for_job(&job.project, &job.id);
     let status = if approval.is_some() {
         WAITING.to_string()
+    } else if waits_for_model(job) {
+        WAITING_FOR_MODEL.to_string()
     } else {
         to_value(job.state).as_str().unwrap_or_default().to_string()
     };
@@ -204,13 +264,34 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
         "cancel": to_value(job.cancel),
     });
     if let Some(approval) = approval {
+        out["waitingSinceMs"] = json!(approval.requested_at_ms);
         out["approval"] = json!({
             "id": approval.id,
-            "note": "A person approves or denies spending these credits in the Maquette app. Poll get_provider_job; do not send again.",
+            "note": "A person approves or denies spending these credits in the Maquette app. Poll get_provider_job; do not send again. cancel_provider_jobs withdraws it.",
+            "requestedAtMs": approval.requested_at_ms,
             "error": hub.unrecorded(&approval.id),
         });
+    } else if waits_for_model(job) {
+        out["waitingSinceMs"] = json!(job.created_at_ms);
+    }
+    if let Some(next) = job_next(job) {
+        out["next"] = Value::Array(next);
     }
     out
+}
+
+/// For a By hand send an agent asks for: refused while any of `assets`
+/// already waits for a by hand model.
+pub(super) fn guard_by_hand(
+    host: &dyn Host,
+    project: &str,
+    provider: Provider,
+    assets: &[&str],
+) -> Result<(), super::ToolError> {
+    if provider != Provider::ByHand {
+        return Ok(());
+    }
+    refuse_second_wait(host.studio(), project, assets)
 }
 
 /// A job with who answered its approval (`null` for a send started in the
@@ -275,6 +356,7 @@ impl McpTools {
         let sent = self
             .blocking(move |host, hub| {
                 let request = send_request(host, &args)?;
+                guard_by_hand(host, &request.project, request.provider, &[&request.asset])?;
                 let approval = request.provider != Provider::ByHand;
                 let job = host.studio().send(&request, approval, true)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
@@ -302,7 +384,7 @@ impl McpTools {
             // a send of another project too.
             let name = job.export_name().unwrap_or_else(|| job.id.clone());
             out["note"] = json!(format!(
-                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder and exports it as {name}; Maquette picks that file up from Downloads. Or they drop the GLB on the asset's card in Maquette, or save it into the inbox as {name}.glb.",
+                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder and exports it as {name}; Maquette picks that file up from Downloads. Or they drop the GLB on the asset's card in Maquette, or save it into the inbox as {name}.glb. The send waits for that model: poll get_provider_job or list_handoffs, follow next, and do not send the asset again while it waits.",
                 job.service.label()
             ));
         }
@@ -316,6 +398,8 @@ impl McpTools {
         let sent = self
             .blocking(move |host, hub| {
                 let request = batch_request(host, &args)?;
+                let assets: Vec<&str> = request.items.iter().map(|i| i.asset.as_str()).collect();
+                guard_by_hand(host, &request.project, request.provider, &assets)?;
                 let approval = request.provider != Provider::ByHand;
                 let sent = host.studio().send_batch(&request, approval, true)?;
                 let waiting: Vec<ProviderJob> = sent
@@ -356,8 +440,10 @@ impl McpTools {
             .jobs
             .first()
             .is_some_and(|j| j.provider == Provider::ByHand);
-        let status = if by_hand || sent.jobs.is_empty() {
+        let status = if sent.jobs.is_empty() {
             "started"
+        } else if by_hand {
+            WAITING_FOR_MODEL
         } else {
             WAITING
         };
@@ -369,7 +455,7 @@ impl McpTools {
             "failed": sent.failed.iter().map(|f| json!({ "asset": f.asset, "message": f.message })).collect::<Vec<_>>(),
         });
         out["note"] = json!(if by_hand {
-            "Nothing is spent. Each asset has its own handoff folder with its images and settings card; a person makes the models in the web app and brings each GLB back in Maquette."
+            "Nothing is spent. Each asset has its own handoff folder with its images and settings card; a person makes the models in the web app and brings each GLB back in Maquette. Poll list_handoffs and do not send these assets again while they wait."
         } else {
             "A person approves or denies the whole batch once in the Maquette app. Poll get_provider_job for each job; do not send again."
         });
@@ -377,7 +463,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). Job ids are numbered per project (an asset's first send in a project is <asset>-1), so pass project with id; an id that is a send in several projects answers code job-in-several-projects without it. With project and no id, every send in the project.",
+        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, \"waiting for model\" for a by hand send, inbox, accepted, failed or cancelled), waitingSinceMs while it waits, next for a by hand wait, a failed or a cancelled send, phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). Job ids are numbered per project (an asset's first send in a project is <asset>-1), so pass project with id; an id that is a send in several projects answers code job-in-several-projects without it. With project and no id, every send in the project.",
         annotations(read_only_hint = true)
     )]
     async fn get_provider_job(&self, Parameters(args): Parameters<ProviderJobArgs>) -> Out {
