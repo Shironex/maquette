@@ -5,6 +5,7 @@
  * which keeps them as theirs and clears the marks.
  */
 import type { RecipeDrafts, RecipeLayer } from '@/ipc/client';
+import { agentName } from '@/lib/agent-name';
 import { formatAgo } from '@/lib/format';
 
 /** The legend under the banner. */
@@ -48,13 +49,18 @@ function covered(d: RecipeDrafts): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
 }
 
-/** The banner's title and detail for `drafts`, at `nowMs`. */
+/**
+ * The banner's title and detail for `drafts`, at `nowMs`. The name and time
+ * are the newest write's, so "made" only stands while the write that made
+ * the recipe is the only one; after a later write it reads "edited".
+ */
 export function draftsBanner(drafts: RecipeDrafts, nowMs: number) {
   const when = Date.parse(drafts.at ?? '');
   const ago = Number.isNaN(when) ? '' : ` ${formatAgo(when, nowMs)}`;
-  const what = drafts.made ? 'made this recipe' : 'changed this recipe';
+  const made = drafts.made && (drafts.writes ?? 1) <= 1;
+  const what = made ? 'made this recipe' : 'edited this recipe';
   return {
-    title: `${drafts.by || 'An agent'} ${what}${ago}`,
+    title: `${agentName(drafts.by)} ${what}${ago}`,
     detail: `Drafted: ${covered(drafts)}. They are in the recipe now and bake as they are. Saving keeps them as yours.`,
   };
 }

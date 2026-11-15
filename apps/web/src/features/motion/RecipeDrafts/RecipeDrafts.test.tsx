@@ -28,7 +28,7 @@ describe('the agent drafts banner', () => {
     });
     rerender(<RecipeDrafts />);
     const banner = screen.getByRole('status', { name: 'Agent drafts' });
-    expect(banner).toHaveTextContent('Motion agent changed this recipe just now');
+    expect(banner).toHaveTextContent('Motion agent edited this recipe just now');
     expect(banner).toHaveTextContent('Drafted: 1 key and 1 change.');
     expect(banner).toHaveTextContent('Saving keeps them as yours.');
     expect(banner).toHaveTextContent('Blue: drafted by an agent, until you save.');
