@@ -19,6 +19,7 @@ use super::{
 use crate::error::{CoreError, CoreResult};
 use crate::plans::trimmed;
 use crate::project::{ProjectManifest, latin_slug, now_rfc3339, windows_safe};
+pub use trash::{RemovedRecipe, remove, restore};
 
 /// A line in the list of a project's recipes.
 #[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
@@ -412,24 +413,6 @@ pub fn rename_with(
     Ok(summary(id, &read, clip_mixamo))
 }
 
-/// Moves the recipe file into `trash_dir` (the workspace's trash for this
-/// project) as `recipes/<id>-<time>.recipe.json`, so it can still be got
-/// back by hand. Answers with where it went.
-///
-/// # Errors
-///
-/// Fails when the recipe is missing or the file cannot be moved.
-pub fn remove(project_dir: &Path, trash_dir: &Path, id: &str) -> CoreResult<String> {
-    let _lock = writing();
-    let file = path(project_dir, id)?;
-    if !file.is_file() {
-        return Err(CoreError::NotFound(format!("the recipe {id}")));
-    }
-    let to_dir = trash_dir.join(RECIPES_DIR);
-    fs::create_dir_all(&to_dir).map_err(|e| CoreError::io(&to_dir, e))?;
-    let stamp: String = now_rfc3339().chars().filter(char::is_ascii_digit).collect();
-    let to = to_dir.join(format!("{id}-{stamp}{RECIPE_SUFFIX}"));
-    crate::plans::move_file(&file, &to)?;
-    super::drafts::clear_held(project_dir, id)?;
-    Ok(to.display().to_string())
-}
+/// Removing a recipe to the trash and putting it back, beside the files.
+#[path = "trash.rs"]
+mod trash;

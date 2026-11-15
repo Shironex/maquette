@@ -110,9 +110,9 @@ fn remove_moves_the_file_to_the_trash() {
     let dir = tempfile::tempdir().expect("temp");
     let id = made(dir.path());
     let trash = dir.path().join("trash");
-    let to = remove(dir.path(), &trash, &id).expect("remove");
-    assert!(Path::new(&to).is_file());
-    assert!(to.contains("recipes"));
+    let removed = remove(dir.path(), &trash, &id).expect("remove");
+    assert!(trash.join(&removed.path).is_file());
+    assert!(removed.path.starts_with("recipes/"));
     assert!(
         list(dir.path(), &lantern_project())
             .expect("list")

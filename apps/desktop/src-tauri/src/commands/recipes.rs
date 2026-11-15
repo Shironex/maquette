@@ -10,12 +10,16 @@ use maquette_core::assets::remove::project_trash;
 use maquette_core::error::ErrorPayload;
 use maquette_core::project::now_rfc3339;
 use maquette_core::project::{self, ProjectManifest};
+use maquette_core::providers::ledger::Decision;
 use maquette_core::recipes::drafts;
-use maquette_core::recipes::{self, RecipeBase, RecipeChange, RecipeFile, RecipeSummary};
+use maquette_core::recipes::{
+    self, RecipeBase, RecipeChange, RecipeFile, RecipeSummary, RemovedRecipe,
+};
 use tauri::State;
 
 use super::CommandResult;
 use super::plans::project_dir;
+use super::recipe_bakes::RecipeBakeJobs;
 use crate::session::Session;
 
 /// The code of a recipe refused because its file would be too big to open
@@ -130,11 +134,32 @@ pub(crate) fn drafted(
     }
 }
 
-pub(crate) fn remove(session: &Session, project: &str, id: &str) -> CommandResult<String> {
+/// Moves the recipe and its draft marks into the workspace trash, refused
+/// while it bakes or its bake is being added. A staged bake stays in the
+/// cache and reads as out of date until the recipe is back; an agent's
+/// approval for it ends as cancelled.
+pub(crate) fn remove(
+    session: &Session,
+    jobs: &RecipeBakeJobs,
+    project: &str,
+    id: &str,
+) -> CommandResult<RemovedRecipe> {
     let (root, config) = session.workspace()?;
     let dir = project_dir(session, project)?;
     let trash = project_trash(&root, &config.layout, project)?;
-    Ok(recipes::remove(&dir, &trash, id)?)
+    let removed = jobs.0.while_idle(&root, &config, project, id, || {
+        recipes::remove(&dir, &trash, id)
+    })?;
+    jobs.1.close_recipe_bake(project, id, Decision::Cancelled);
+    Ok(removed)
+}
+
+/// Puts a removed recipe back with its draft marks; answers its id.
+pub(crate) fn restore(session: &Session, project: &str, trash: &str) -> CommandResult<String> {
+    let (root, config) = session.workspace()?;
+    let dir = project_dir(session, project)?;
+    let from = project_trash(&root, &config.layout, project)?;
+    Ok(recipes::restore(&dir, &from, trash)?)
 }
 
 #[tauri::command(async)]
@@ -212,13 +237,27 @@ pub fn save(
     library_recipes::save(&root, &dir, &manifest, id, change).map_err(coded)
 }
 
-/// Moves the recipe file into the workspace trash; returns where it went.
+/// Moves the recipe and its draft marks into the workspace trash, refused
+/// while it bakes; a person only, no MCP tool removes a recipe.
 #[tauri::command(async)]
 #[specta::specta]
 pub fn recipe_remove(
     session: State<'_, Session>,
+    jobs: State<'_, RecipeBakeJobs>,
     project: String,
     id: String,
+) -> CommandResult<RemovedRecipe> {
+    remove(&session, &jobs, &project, &id)
+}
+
+/// Puts a removed recipe back from the workspace trash (Undo); answers its
+/// id. Refused when a recipe with that id is in the project again.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn recipe_restore(
+    session: State<'_, Session>,
+    project: String,
+    trash: String,
 ) -> CommandResult<String> {
-    remove(&session, &project, &id)
+    restore(&session, &project, &trash)
 }

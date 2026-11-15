@@ -41,12 +41,17 @@ function onWidth(change: () => void) {
 // Without media queries (tests) the window counts as wide.
 const isWide = () => !hasMedia() || window.matchMedia(WIDE).matches;
 
-/** Whether the approval tray is folded to its rail, its width, and the toggles. */
+/**
+ * Whether the approval tray is folded to its rail, its width, and the
+ * toggles. On Settings it starts folded, since Settings > Agents lists the
+ * cards in place; the rail keeps the count in sight wherever the page is.
+ */
 export function useApprovalTray() {
   const chosen = useApprovalTrayStore(s => s.folded);
   const setFolded = useApprovalTrayStore(s => s.setFolded);
   const wide = useSyncExternalStore(onWidth, isWide);
-  const folded = chosen ?? !wide;
+  const settings = useAppStore(s => s.view === 'settings');
+  const folded = chosen ?? (!wide || settings);
   return {
     folded,
     width: folded ? APPROVAL_RAIL_WIDTH : APPROVAL_TRAY_WIDTH,
@@ -56,8 +61,9 @@ export function useApprovalTray() {
 }
 
 /**
- * The approvals to float over the current view; Settings > Agents lists them
- * in place, and so do the Pipeline view's Ship diff for the open game, the
+ * The approvals to float over the current view, Settings too (its tray
+ * starts folded, see useApprovalTray). Some views answer a card in place,
+ * and it does not float there: the Pipeline view's Ship diff for the open game, the
  * Avatar view for the rest pose, the weights and the spring chains of its
  * asset, and the Rig doctor for the case it shows (Add and Discard answer it).
  */
@@ -67,7 +73,6 @@ export function useFloatingApprovals() {
   const project = useAppStore(s => s.workspace?.project);
   const avatar = useAvatarStore(s => s.asset);
   const rigCase = useRigStore(s => s.record?.id);
-  if (view === 'settings') return undefined;
   // The Avatar view asks about each step of the asset it shows itself.
   if (view === 'avatar') {
     return approvals?.filter(

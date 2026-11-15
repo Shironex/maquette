@@ -172,6 +172,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             recipes::recipe_rename,
             recipes::recipe_update,
             recipes::recipe_remove,
+            recipes::recipe_restore,
             recipe_bakes::recipe_bake_start,
             recipe_bakes::recipe_bake_get,
             recipe_bakes::recipe_bake_cancel,

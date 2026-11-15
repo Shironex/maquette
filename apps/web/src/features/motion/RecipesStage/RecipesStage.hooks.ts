@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { RecipeSummary } from '@/ipc/client';
 import { libraryNote } from '@/state/recipe-library';
 import { useAppStore } from '@/state/use-app-store';
@@ -8,6 +8,7 @@ import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import { useRecipeEditorStore } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
+import { useRecipeTrashStore } from '@/state/use-recipe-trash-store';
 
 /**
  * The open project's recipes, loaded when the project changes, the one
@@ -80,11 +81,8 @@ export function useRecipesStage() {
         .exportRecipe({ project, recipe: r.id, entry: null, revision: null }, r.name),
     compare: (id: string) =>
       project ? void useRecipeCompareStore.getState().open(project, id) : undefined,
+    /** Remove recipe: to the workspace trash, with Undo on the notice. */
+    remove: (r: RecipeSummary) =>
+      project ? void useRecipeTrashStore.getState().remove(project, r.id, r.name) : undefined,
   };
-}
-
-/** Whether a recipe row's More menu is open. */
-export function useRowMenu() {
-  const [open, setOpen] = useState(false);
-  return { open, toggle: () => setOpen(o => !o), close: () => setOpen(false) };
 }

@@ -11,6 +11,7 @@ import {
   useRecipeEditorStore,
 } from '@/state/use-recipe-editor-store';
 import { useRecipesStore } from '@/state/use-recipes-store';
+import { useAppStore } from '@/state/use-app-store';
 import { useRecipeCompareStore } from '@/state/use-recipe-compare-store';
 import { useRecipeLibraryStore } from '@/state/use-recipe-library-store';
 import { useRecipeSaveStore } from '@/state/use-recipe-save-store';
@@ -322,5 +323,60 @@ describe('the recipes stage and the recipe library', () => {
     expect(await screen.findByText('Sit and wave')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('list', { name: 'Import notes' })).toBeNull();
+  });
+
+  it('removes a recipe from the row menu to the trash and Undo puts it back', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    await userEvent.click(
+      within(reach).getByRole('button', { name: 'More for Reach for the lantern' })
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Remove recipe/ }));
+    await vi.waitFor(() => expect(within(list).queryByText('Reach for the lantern')).toBeNull());
+    const notice = useAppStore.getState().notice;
+    expect(notice).toMatchObject({
+      status: 'done',
+      title: 'Reach for the lantern is in the workspace trash',
+      action: { label: 'Undo' },
+    });
+    act(() => notice?.action?.run());
+    expect(await within(list).findByText('Reach for the lantern')).toBeVisible();
+    expect(useAppStore.getState().notice?.title).toBe('Reach for the lantern is back');
+  });
+
+  it('keeps Remove recipe off while the recipe bakes', async () => {
+    await openWithModels();
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    await userEvent.click(await within(reach).findByRole('button', { name: 'Apply' }));
+    expect(await within(reach).findByRole('progressbar')).toBeVisible();
+    await userEvent.click(
+      within(reach).getByRole('button', { name: 'More for Reach for the lantern' })
+    );
+    const remove = screen.getByRole('menuitem', { name: /^Remove recipe/ });
+    expect(remove).toHaveAttribute('aria-disabled', 'true');
+    expect(remove).toHaveTextContent('It is baking');
+    await expect(commands.recipeRemove('frostveil', 'reach-for-the-lantern')).rejects.toMatchObject(
+      {
+        message: expect.stringContaining('is baking'),
+      }
+    );
+  });
+
+  it('removes the recipe open in the editor and goes back to the list', async () => {
+    await openMockLibrary('demo');
+    render(<RecipesStage />);
+    const list = await screen.findByRole('list', { name: 'Project recipes' });
+    const reach = within(list).getByText('Reach for the lantern').closest('li')!;
+    await userEvent.click(within(reach).getByRole('button', { name: 'Edit' }));
+    await screen.findByRole('region', { name: 'Recipe Reach for the lantern' });
+    await userEvent.click(screen.getByRole('button', { name: 'More for Reach for the lantern' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Remove recipe/ }));
+    const back = await screen.findByRole('list', { name: 'Project recipes' });
+    await vi.waitFor(() => expect(within(back).queryByText('Reach for the lantern')).toBeNull());
+    expect(useRecipeEditorStore.getState().editing).toBeNull();
   });
 });
