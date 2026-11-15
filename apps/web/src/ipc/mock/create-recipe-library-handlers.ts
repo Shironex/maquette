@@ -25,6 +25,7 @@ import type {
 } from '../client';
 import { events } from '../generated/bindings';
 import { clock } from '@/lib/clock';
+import { MAX_TIMELINE_FRAMES, lengthWithin } from '@/state/recipe-timeline';
 import { fail, type Args } from './backend-options';
 import { HOME } from './fixtures';
 import { slugOf } from './plan-store';
@@ -119,6 +120,8 @@ export function createRecipeLibraryHandlers(ctx: LibraryContext) {
       revisions: e.entry.revisions,
       base: newest?.base.name ?? '',
       frames: newest?.base.frames ?? 0,
+      joined: (newest?.joined ?? []).map(c => c.name),
+      length: newest ? (lengthWithin(newest) ?? MAX_TIMELINE_FRAMES) : 0,
       mixamo: newest ? isMixamo(ctx.clips(), newest.base) : false,
       layers: newest?.layers.length ?? 0,
       blanks: newest?.blanks.length ?? 0,

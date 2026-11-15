@@ -73,6 +73,8 @@ describe('the library recipes', () => {
         revisions: [],
         base: '',
         frames: 0,
+        joined: [],
+        length: 0,
         mixamo: false,
         layers: 0,
         blanks: 0,

@@ -8,6 +8,8 @@ const summary = (over: Partial<RecipeSummary> = {}): RecipeSummary => ({
   name: 'Reach',
   base: 'Standing Idle',
   frames: 120,
+  joined: [],
+  length: 120,
   mixamo: true,
   layers: 2,
   blanks: 1,
@@ -25,6 +27,11 @@ const summary = (over: Partial<RecipeSummary> = {}): RecipeSummary => ({
 describe('recipe lines', () => {
   it('names the base clip, frames, changes and open blanks', () => {
     expect(recipeLine(summary())).toBe('Standing Idle · 120 f · 2 changes · 1 open blank');
+  });
+
+  it('names the joined clips and the length they run together', () => {
+    const joined = summary({ base: 'Slash', frames: 45, joined: ['Block', 'Idle'], length: 98 });
+    expect(recipeLine(joined)).toBe('Slash + 2 clips · 98 f · 2 changes · 1 open blank');
   });
 
   it('leaves out the blanks when none are open', () => {
