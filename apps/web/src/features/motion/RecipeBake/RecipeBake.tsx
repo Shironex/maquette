@@ -1,5 +1,6 @@
-import { Button, Icon, InlineBanner, cn } from '@maquette/ui';
+import { Button, Icon, IconButton, InlineBanner, cn } from '@maquette/ui';
 import type { RecipeBakeRecord } from '@/ipc/client';
+import { useRememberedFlag } from '@/lib/useRememberedFlag';
 import {
   STATUS_LOOK,
   addedLine,
@@ -47,7 +48,13 @@ function Running({
   );
 }
 
-/** A finished bake's numbers against their limits, and Review. */
+/** Whether a finished bake's numbers are folded away, remembered across recipes. */
+const FOLDED_KEY = 'maquette.recipes.bakeFolded';
+
+/**
+ * A finished bake's numbers against their limits, and Review. The numbers
+ * fold away to the one line, so a laptop keeps room for the lanes.
+ */
 function Done({
   record,
   stale,
@@ -57,9 +64,11 @@ function Done({
   stale: string | null;
   onReview?: () => void;
 }) {
+  const [folded, setFolded] = useRememberedFlag(FOLDED_KEY);
   const result = record.result;
   if (!result) return null;
   const review = record.review ?? null;
+  const details = review || stale || result.warnings.length > 0;
   const lines = review?.lines.map(line => {
     const look = STATUS_LOOK[line.status];
     return (
@@ -104,6 +113,9 @@ function Done({
           </span>
         ) : null}
         <span className="flex-1" />
+        {folded && review ? (
+          <span className="text-meta text-fg-mute">{reviewSummary(review)}</span>
+        ) : null}
         {onReview ? (
           <Button
             size="sm"
@@ -115,17 +127,30 @@ function Done({
             Review
           </Button>
         ) : null}
+        {details ? (
+          <IconButton
+            icon={folded ? 'caret-right' : 'caret-down'}
+            label={folded ? 'Show the bake numbers' : 'Hide the bake numbers'}
+            size="sm"
+            aria-expanded={!folded}
+            onClick={() => setFolded(!folded)}
+          />
+        ) : null}
       </div>
-      {stale ? <p className="text-meta text-amber">{stale}</p> : null}
-      {review ? (
+      {folded ? null : (
         <>
-          <p className="text-meta text-fg-mute">{reviewSummary(review)}</p>
-          <ul aria-label="Bake result" className="flex list-none flex-col gap-1">
-            {lines}
-          </ul>
+          {stale ? <p className="text-meta text-amber">{stale}</p> : null}
+          {review ? (
+            <>
+              <p className="text-meta text-fg-mute">{reviewSummary(review)}</p>
+              <ul aria-label="Bake result" className="flex list-none flex-col gap-1">
+                {lines}
+              </ul>
+            </>
+          ) : null}
+          {warnings}
         </>
-      ) : null}
-      {warnings}
+      )}
     </div>
   );
 }
