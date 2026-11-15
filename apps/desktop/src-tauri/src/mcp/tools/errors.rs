@@ -108,6 +108,11 @@ const NO_PLACED: Advice = agent(
     "set_layout",
 );
 
+const NO_MODELS: Advice = agent(
+    "Get a model into the project first: add_built_asset makes one with a Blender script (free, no approval), add_model_file adds a .glb you have, send_to_3d sends a ref to Tripo, Meshy or by hand. Then run again.",
+    "add_built_asset",
+);
+
 /// Message parts to the advice they call for, first match wins. Whole phrases,
 /// because a bare word can sit in an asset's name or a path. A test reads the
 /// sources these come from, so a reworded message fails it.
@@ -135,6 +140,12 @@ const BY_MESSAGE: &[(&str, Advice)] = &[
     ("No workspace is open", NO_WORKSPACE),
     ("No camera stops:", NO_STOPS),
     ("No placed models:", NO_PLACED),
+    ("No models:", NO_MODELS),
+    // The Export starter's own words, from a run that got that far.
+    (
+        "add .glb files to models/ and run Build scene again",
+        NO_MODELS,
+    ),
     // The Ship starter's own words, from a run whose Ship was not checked first.
     ("add the stops in the Inspector", NO_STOPS),
     (

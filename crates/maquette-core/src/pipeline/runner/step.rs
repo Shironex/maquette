@@ -179,8 +179,11 @@ impl Execution {
             match self.spawn(step, &tool, &full, &root, &mut tracker) {
                 Ok(0) => {}
                 Ok(code) => {
-                    let why =
-                        exit_message(&program_name(&tool), code, self.last_error_line.as_deref());
+                    let line = self
+                        .last_error_line
+                        .as_ref()
+                        .or(self.last_script_line.as_ref());
+                    let why = exit_message(&program_name(&tool), code, line.map(String::as_str));
                     return StepOutcome::Failed(why, Some(code));
                 }
                 Err(SpawnError::Cancelled) => return StepOutcome::Cancelled,
@@ -405,22 +408,27 @@ impl Execution {
 /// The longest part of a tool's own error line a step message carries.
 const MAX_REASON_CHARS: usize = 400;
 
+/// The words of a line a starter script wrote, without its one word tag in
+/// brackets (`[ship] ...`), or None for any other line (a tool's banner).
+pub(super) fn script_reason(line: &str) -> Option<&str> {
+    match line.trim().strip_prefix('[')?.split_once("] ") {
+        Some((tag, rest)) if !tag.is_empty() && !tag.contains(' ') && !rest.trim().is_empty() => {
+            Some(rest.trim())
+        }
+        _ => None,
+    }
+}
+
 /// Why a call that exited with `code` failed: the last line it wrote to
-/// stderr, when it wrote one, then the exit code. A starter script prefixes
-/// its lines with its name in brackets (`[ship] ...`), which the message
-/// leaves out.
+/// stderr, or else the last tagged line it wrote to stdout, then the exit
+/// code. A starter script prefixes its lines with its name in brackets
+/// (`[ship] ...`), which the message leaves out.
 pub(super) fn exit_message(program: &str, code: i32, last_error_line: Option<&str>) -> String {
     let exit = format!("{program} exited with code {code}.");
     let Some(line) = last_error_line.map(str::trim).filter(|l| !l.is_empty()) else {
         return exit;
     };
-    let line = match line
-        .strip_prefix('[')
-        .and_then(|rest| rest.split_once("] "))
-    {
-        Some((tag, rest)) if !tag.contains(' ') && !rest.trim().is_empty() => rest.trim(),
-        _ => line,
-    };
+    let line = script_reason(line).unwrap_or(line);
     let line = line.trim_end_matches(['.', ' ']);
     if line.is_empty() {
         return exit;

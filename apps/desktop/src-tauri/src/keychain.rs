@@ -3,7 +3,8 @@
 //! the app ever writes a key down.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, mpsc};
+use std::time::Duration;
 
 use maquette_core::providers::secrets::SecretStore;
 use maquette_core::{CoreError, CoreResult};
@@ -20,26 +21,69 @@ pub struct KeychainStore {
 /// ask whether a key exists: a look is a read, and an unsigned build can raise a
 /// prompt on any read. So [`SecretStore::is_saved`] reads an account at most
 /// once, and a refused read is remembered as unknown until a real use reads again.
+///
+/// A read waiting on a Keychain prompt blocks until a person answers it, so it
+/// runs on its own thread and is given up on after a few seconds: the answer is
+/// then unknown, and while that read still waits no other read starts, so
+/// asking again never piles up threads or prompts. Once the person answers,
+/// the read notes what it found.
 #[derive(Default)]
-struct SeenKeys(Mutex<HashMap<String, Option<bool>>>);
+struct SeenKeys(Arc<Mutex<Seen>>);
+
+#[derive(Default)]
+struct Seen {
+    known: HashMap<String, Option<bool>>,
+    /// The account a read given up on still waits for.
+    pending: Option<String>,
+}
+
+/// How long a look at a key may wait before it reads as unknown.
+const READ_WAIT: Duration = Duration::from_secs(3);
 
 impl SeenKeys {
-    fn map(&self) -> MutexGuard<'_, HashMap<String, Option<bool>>> {
+    fn seen(&self) -> MutexGuard<'_, Seen> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn note(&self, account: &str, saved: Option<bool>) {
-        self.map().insert(account.to_string(), saved);
+        self.seen().known.insert(account.to_string(), saved);
     }
 
-    fn is_saved(&self, account: &str, read: impl FnOnce() -> Option<bool>) -> Option<bool> {
-        if let Some(known) = self.map().get(account) {
-            return *known;
+    /// A read still waits, most likely on a prompt only a person can answer.
+    fn waiting(&self) -> bool {
+        self.seen().pending.is_some()
+    }
+
+    fn is_saved(
+        &self,
+        account: &str,
+        wait: Duration,
+        read: impl FnOnce() -> Option<bool> + Send + 'static,
+    ) -> Option<bool> {
+        {
+            let mut seen = self.seen();
+            if let Some(known) = seen.known.get(account) {
+                return *known;
+            }
+            if seen.pending.is_some() {
+                return None;
+            }
+            seen.pending = Some(account.to_string());
         }
         // Not held over the read, which can wait on a prompt for a long time.
-        let saved = read();
-        self.note(account, saved);
-        saved
+        let (tx, rx) = mpsc::channel();
+        let shared = Arc::clone(&self.0);
+        let owner = account.to_string();
+        std::thread::spawn(move || {
+            let saved = read();
+            let mut seen = shared.lock().unwrap_or_else(PoisonError::into_inner);
+            seen.pending = None;
+            // A real use that answered meanwhile knows better.
+            seen.known.entry(owner).or_insert(saved);
+            drop(seen);
+            let _ = tx.send(saved);
+        });
+        rx.recv_timeout(wait).ok().flatten()
     }
 }
 
@@ -123,8 +167,14 @@ impl SecretStore for KeychainStore {
     }
 
     fn is_saved(&self, account: &str) -> Option<bool> {
-        self.seen
-            .is_saved(account, || read(account).ok().map(|key| key.is_some()))
+        let owned = account.to_string();
+        self.seen.is_saved(account, READ_WAIT, move || {
+            read(&owned).ok().map(|key| key.is_some())
+        })
+    }
+
+    fn prompt_waiting(&self) -> bool {
+        self.seen.waiting()
     }
 }
 
@@ -147,32 +197,73 @@ impl SecretStore for NoKeychain {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::Cell;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+
+    const WAIT: Duration = Duration::from_secs(5);
 
     #[test]
     fn asking_again_reads_the_keychain_only_once() {
         let seen = SeenKeys::default();
-        let reads = Cell::new(0);
-        let read = |answer| {
-            reads.set(reads.get() + 1);
-            answer
+        let reads = Arc::new(AtomicUsize::new(0));
+        let read = |answer: Option<bool>| {
+            let reads = Arc::clone(&reads);
+            move || {
+                reads.fetch_add(1, Ordering::SeqCst);
+                answer
+            }
         };
         for _ in 0..5 {
-            assert_eq!(seen.is_saved("tripo", || read(Some(true))), Some(true));
+            assert_eq!(seen.is_saved("tripo", WAIT, read(Some(true))), Some(true));
         }
-        assert_eq!(reads.get(), 1);
+        assert_eq!(reads.load(Ordering::SeqCst), 1);
 
         // A refused read stays unknown and does not ask again either.
         for _ in 0..5 {
-            assert_eq!(seen.is_saved("meshy", || read(None)), None);
+            assert_eq!(seen.is_saved("meshy", WAIT, read(None)), None);
         }
-        assert_eq!(reads.get(), 2);
+        assert_eq!(reads.load(Ordering::SeqCst), 2);
 
         // A real use updates what it said.
         seen.note("meshy", Some(false));
-        assert_eq!(seen.is_saved("meshy", || read(None)), Some(false));
-        assert_eq!(reads.get(), 2);
+        assert_eq!(seen.is_saved("meshy", WAIT, read(None)), Some(false));
+        assert_eq!(reads.load(Ordering::SeqCst), 2);
+        assert!(!seen.waiting());
+    }
+
+    #[test]
+    fn a_read_waiting_on_a_prompt_reads_as_unknown_and_starts_no_other() {
+        let seen = SeenKeys::default();
+        let reads = Arc::new(AtomicUsize::new(0));
+        let (answer, prompt) = mpsc::channel::<bool>();
+        let counted = Arc::clone(&reads);
+        let blocked = move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+            prompt.recv().ok()
+        };
+        let short = Duration::from_millis(50);
+        assert_eq!(seen.is_saved("tripo", short, blocked), None, "gave up");
+        assert!(seen.waiting());
+        // Asking again, for that key or another, starts no read while it waits.
+        for account in ["tripo", "meshy", "openai"] {
+            let counted = Arc::clone(&reads);
+            let again = move || {
+                counted.fetch_add(1, Ordering::SeqCst);
+                Some(true)
+            };
+            assert_eq!(seen.is_saved(account, short, again), None, "{account}");
+        }
+        assert_eq!(reads.load(Ordering::SeqCst), 1);
+
+        // The person answers: the read notes what it found.
+        answer.send(true).expect("answer");
+        let deadline = std::time::Instant::now() + WAIT;
+        while seen.waiting() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!seen.waiting());
+        assert_eq!(seen.is_saved("tripo", short, || None), Some(true));
+        assert_eq!(reads.load(Ordering::SeqCst), 1);
     }
 }

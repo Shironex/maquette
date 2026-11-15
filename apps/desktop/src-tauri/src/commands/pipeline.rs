@@ -335,6 +335,7 @@ pub async fn pipeline_run(
     }
     let for_run = ask.repo.is_some();
     let setup = setup(&session, &project, ask, tools)?;
+    run::refuse_empty(&setup)?;
     // A game's Ship writes into the game repo, so it waits for approval.
     let gate = super::game::ship_gate(&session, &project, &agents.hub, destination(&setup));
     let repo_for_run = destination(&setup).filter(|_| for_run);

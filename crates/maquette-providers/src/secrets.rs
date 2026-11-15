@@ -22,6 +22,11 @@ pub trait SecretStore: Send + Sync {
     fn is_saved(&self, account: &str) -> Option<bool> {
         self.get_account(account).ok().map(|key| key.is_some())
     }
+    /// A look at a key still waits on a prompt only a person can answer (the
+    /// macOS Keychain's), so [`Self::is_saved`] answered None without waiting.
+    fn prompt_waiting(&self) -> bool {
+        false
+    }
 
     fn get(&self, service: ProviderId) -> CoreResult<Option<String>> {
         self.get_account(account(service))

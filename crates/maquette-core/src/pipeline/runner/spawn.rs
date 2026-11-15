@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 use process_wrap::std::CommandWrap;
 
 use super::execution::Execution;
+use super::step::script_reason;
 use super::{POLL, lock};
 use crate::pipeline::StepDef;
 use crate::pipeline::history::{self, LogStream};
@@ -79,6 +80,7 @@ impl Execution {
             });
         }
         self.last_error_line = None;
+        self.last_script_line = None;
         let started = Instant::now();
         let mut timed_out = false;
         let (tx, rx) = mpsc::channel::<(LogStream, String)>();
@@ -102,6 +104,8 @@ impl Execution {
                 Ok((stream, text)) => {
                     if stream == LogStream::Stderr && !text.trim().is_empty() {
                         self.last_error_line = Some(text.clone());
+                    } else if stream == LogStream::Stdout && script_reason(&text).is_some() {
+                        self.last_script_line = Some(text.clone());
                     }
                     let level = history::classify(&text);
                     let moved = tracker.line(&text);

@@ -1078,6 +1078,47 @@ fn a_failed_step_says_why_in_the_words_it_wrote_to_stderr() {
 }
 
 #[test]
+fn a_failed_step_with_nothing_on_stderr_says_why_in_its_last_tagged_line() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("export", "tools/export.sh", &[], &[])],
+    );
+    // Blender's own banner lines around the script's carry no tag.
+    script(
+        &s,
+        "export.sh",
+        "echo 'Blender 4.2.0 (hash 1a2b3c)'\necho '[export_web] baked light on 0 of 0 objects'\necho '[export_web] nothing to export: add .glb files to models/ and run Build scene again'\necho ''\necho 'Blender quit'\nexit 1\n",
+    );
+    let runner = PipelineRunner::new(Arc::new(Recorder::default()));
+    let run = runner.run_blocking(s).expect("run");
+    assert_eq!(run.state, RunState::Failed);
+    assert_eq!(
+        run.steps[0].message.as_deref(),
+        Some(
+            "Nothing to export: add .glb files to models/ and run Build scene again. sh exited with code 1."
+        )
+    );
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("export", "tools/export.sh", &[], &[])],
+    );
+    script(
+        &s,
+        "export.sh",
+        "echo 'Blender 4.2.0'\necho 'Blender quit'\nexit 1\n",
+    );
+    let run = runner.run_blocking(s).expect("run");
+    assert_eq!(
+        run.steps[0].message.as_deref(),
+        Some("sh exited with code 1."),
+        "no banner line stands in for a reason"
+    );
+}
+
+#[test]
 fn an_exit_message_keeps_the_code_and_trims_the_line() {
     use super::step::exit_message;
     assert_eq!(exit_message("node", 1, None), "node exited with code 1.");
@@ -1205,4 +1246,48 @@ fn a_gated_ship_that_can_go_still_asks() {
     let run = history::load_runs(&s.cache_dir).remove(0);
     assert_eq!(run.state, RunState::Done, "{:?}", run.message);
     assert!(s.project_dir.join("ran.log").exists());
+}
+
+#[test]
+fn a_run_with_no_model_to_build_is_refused_before_it_starts() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut build = shell_step("build", "tools/build.sh", &[], &[]);
+    build.name = "Build scene".into();
+    build.args.extend(
+        ["--base", "blender/scene.blend", "--models", "models"]
+            .iter()
+            .map(|a| a.to_string()),
+    );
+    let export = shell_step("export", "tools/export.sh", &[], &["build"]);
+    let mut s = setup(dir.path(), vec![build, export]);
+    let why = s.nothing_to_build().expect("no models folder");
+    assert!(why.starts_with(super::NO_MODELS), "{why}");
+    assert!(
+        why.contains("models folder") && why.contains("Build scene"),
+        "{why}"
+    );
+    let built_only = RunSetup {
+        build_only: true,
+        ..s.clone()
+    };
+    assert!(
+        built_only.nothing_to_build().is_some(),
+        "buildOnly fails at Export too"
+    );
+    fs::create_dir_all(s.project_dir.join("models")).expect("models");
+    fs::write(s.project_dir.join("models/notes.txt"), "x").expect("notes");
+    assert!(s.nothing_to_build().is_some(), "only a model file counts");
+    s.from = Some("export".into());
+    assert_eq!(s.nothing_to_build(), None, "a run from after the build");
+    s.from = None;
+    fs::write(s.project_dir.join("models/lamp.GLB"), "glb").expect("model");
+    assert_eq!(s.nothing_to_build(), None);
+    fs::remove_file(s.project_dir.join("models/lamp.GLB")).expect("rm");
+    fs::create_dir_all(s.project_dir.join("blender")).expect("blender");
+    fs::write(s.project_dir.join("blender/scene.blend"), "blend").expect("base");
+    assert_eq!(
+        s.nothing_to_build(),
+        None,
+        "a base blend may hold the scene"
+    );
 }

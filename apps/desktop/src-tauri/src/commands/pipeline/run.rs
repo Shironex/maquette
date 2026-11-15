@@ -24,6 +24,23 @@ use crate::session::Session;
 /// nothing.
 pub(crate) const SHIP_NOT_READY: &str = "ship-not-ready";
 
+/// The code of a run refused before it starts because it has no model to
+/// build ([`RunSetup::nothing_to_build`]), whoever asked and with `buildOnly`
+/// too: its Export would fail with nothing to export.
+pub(crate) const NOTHING_TO_BUILD: &str = "nothing-to-build";
+
+/// Refuses a run with no model to build, with [`NOTHING_TO_BUILD`] and the
+/// reason, before anything is queued.
+pub(crate) fn refuse_empty(setup: &RunSetup) -> CommandResult<()> {
+    match setup.nothing_to_build() {
+        Some(reason) => Err(ErrorPayload {
+            code: NOTHING_TO_BUILD.to_string(),
+            message: reason,
+        }),
+        None => Ok(()),
+    }
+}
+
 /// What a run is asked to do besides its steps.
 #[derive(Debug, Clone, Default, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -148,7 +165,8 @@ fn setup_in(
 }
 
 /// [`setup`] for a run an agent starts, with the gate it passes before Ship,
-/// handed to `submit`, which queues the run. A run whose Ship would fail
+/// handed to `submit`, which queues the run. A run with no model to build is
+/// refused with [`NOTHING_TO_BUILD`]. A run whose Ship would fail
 /// before it copies anything is refused here with [`SHIP_NOT_READY`] and
 /// the reason; `buildOnly` leaves Ship out and is never refused for it. A
 /// game's Ship always waits. A website's waits when an agent chose the repo it ships into (the run names
@@ -176,6 +194,7 @@ pub(crate) fn agent_run<R>(
     let root = ctx.root.clone();
     let ask_before_shipping = ctx.config.agents.rules.ask_before_shipping;
     let setup = setup_in(session, ctx, project_id, ask, tools)?;
+    refuse_empty(&setup)?;
     if let Some(reason) = setup.ship_blocker() {
         return Err(ErrorPayload {
             code: SHIP_NOT_READY.to_string(),

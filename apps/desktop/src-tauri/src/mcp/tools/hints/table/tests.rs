@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::*;
 use crate::mcp::tools::McpTools;
@@ -263,4 +263,79 @@ fn an_answer_that_has_its_own_next_or_failed_keeps_it() {
     let added = read(&add_next("start_concepts", Some("p"), body(&bare)));
     assert_eq!(added["next"][0]["tool"], "get_concepts");
     assert_eq!(added["next"][0]["args"]["project"], "p");
+}
+
+/// A send of `provider` in `state`, as the studio keeps it.
+fn send(provider: &str, state: &str, denied: bool) -> maquette_core::providers::ProviderJob {
+    let json = json!({
+        "id": "lamp-1", "project": "p", "asset": "lamp", "assetName": "Lamp",
+        "provider": provider, "service": "tripo", "variant": "prop",
+        "images": ["refs/a.png"], "tripo": null, "meshy": null, "state": state,
+        "phase": null, "progress": 0.0, "remoteId": null, "credits": null,
+        "createdAtMs": 0.0, "startedAtMs": null, "finishedAtMs": null, "message": null,
+        "inboxFile": null, "handoff": null, "card": null, "version": null,
+        "viaAgent": true, "cancel": "free", "batch": null, "denied": denied
+    });
+    serde_json::from_value(json).expect("job")
+}
+
+/// Tools whose step may leave project out on purpose: accepting from the
+/// inbox files the model into the project it was sent for
+/// (`inbox::OTHER_PROJECT`), and discarding one needs only its id.
+const PROJECT_LEFT_OUT: &[(&str, &str)] = &[
+    ("list_inbox", "accept_inbox_model"),
+    ("list_inbox", "discard_inbox_model"),
+];
+
+#[test]
+fn every_step_to_a_tool_that_takes_a_project_carries_it() {
+    let takes: BTreeMap<String, (bool, bool)> = McpTools::router()
+        .list_all()
+        .into_iter()
+        .map(|tool| {
+            let props = tool.input_schema.get("properties");
+            let has = |key: &str| props.and_then(|p| p.get(key)).is_some();
+            (tool.name.to_string(), (has("project"), has("asset")))
+        })
+        .collect();
+    let check = |from: &str, steps: &[Value]| {
+        for s in steps {
+            let Some(tool) = s["tool"].as_str() else {
+                continue;
+            };
+            if PROJECT_LEFT_OUT.contains(&(from, tool)) {
+                continue;
+            }
+            let (project, _) = takes[tool];
+            if project {
+                assert_eq!(s["args"]["project"], "p", "{tool} after {from}: {s}");
+            }
+        }
+    };
+    for target in [ProjectTarget::Website, ProjectTarget::Game] {
+        check("the table", &every_step(target));
+    }
+    for (tool, answer) in answers() {
+        check(tool, &after_tool(tool, &answer, Some("p")).expect("steps"));
+    }
+    let refs = crate::mcp::tools::refs::refs_next("p", "lamp");
+    check("add_refs", &refs);
+    for (provider, state, denied) in [
+        ("by-hand", "waiting", false),
+        ("tripo", "failed", false),
+        ("tripo", "cancelled", true),
+    ] {
+        let next = crate::mcp::tools::sending::next::job_next(&send(provider, state, denied))
+            .expect("steps");
+        check("send_to_3d", &next);
+    }
+    // The steps on one asset name it too.
+    let by_hand = crate::mcp::tools::sending::next::job_next(&send("by-hand", "waiting", false))
+        .expect("steps");
+    for s in refs.iter().chain(&by_hand) {
+        let tool = s["tool"].as_str().expect("tool");
+        if takes[tool].1 {
+            assert_eq!(s["args"]["asset"], "lamp", "{s}");
+        }
+    }
 }

@@ -103,14 +103,64 @@ impl RunSetup {
     /// [`Self::ship_blocker_at`] for the Ship step this run reaches, or None
     /// when it reaches none (`build_only`, or a `from` after it).
     pub fn ship_blocker(&self) -> Option<String> {
-        let planned =
-            super::graph::plan_run(&self.def, self.from.as_deref(), self.force, self.build_only)
-                .ok()?;
-        planned
-            .iter()
-            .filter(|(_, p)| *p != super::graph::Planned::Skip)
-            .find_map(|(index, _)| self.ship_blocker_at(&self.def.steps[*index]))
+        self.planned_steps()
+            .find_map(|step| self.ship_blocker_at(step))
     }
+
+    /// Why this run has nothing to build, as a sentence that says what to
+    /// do, or None when it can go ahead: a scene or character build step it
+    /// runs (one taking `--base` and `--models`) finds no `.glb` or `.gltf`
+    /// in its models folder and no base blend, so Export would fail with
+    /// nothing to export. Checked whatever the site and with `build_only`
+    /// too, since such a run fails before it ever reaches Ship.
+    pub fn nothing_to_build(&self) -> Option<String> {
+        let root = self.def.root_dir(&self.project_dir);
+        self.planned_steps().find_map(|step| {
+            let models = arg_after(step, "--models")?;
+            let base = arg_after(step, "--base")?;
+            if root.join(base).is_file() || has_model_file(&root.join(models)) {
+                return None;
+            }
+            Some(format!(
+                "{NO_MODELS} the project's {models} folder has no .glb or .gltf file, so {} has nothing to put in the scene and Export would fail. Add a model to the project, then run again; nothing was run.",
+                step.name
+            ))
+        })
+    }
+
+    /// The steps this run does not skip, in run order.
+    fn planned_steps(&self) -> impl Iterator<Item = &StepDef> {
+        super::graph::plan_run(&self.def, self.from.as_deref(), self.force, self.build_only)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(_, p)| *p != super::graph::Planned::Skip)
+            .map(|(index, _)| &self.def.steps[index])
+    }
+}
+
+/// The start of the reason a run with no model to build is refused. Agents
+/// get advice by this phrase, so keep it in step with the MCP error table.
+pub const NO_MODELS: &str = "No models:";
+
+/// The argument after `flag` in `step`'s args.
+fn arg_after<'a>(step: &'a StepDef, flag: &str) -> Option<&'a str> {
+    let at = step.args.iter().position(|a| a == flag)?;
+    step.args.get(at + 1).map(String::as_str)
+}
+
+/// Whether `dir` holds a `.glb` or `.gltf` file.
+fn has_model_file(dir: &std::path::Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let path = entry.path();
+        path.is_file()
+            && path
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e.eq_ignore_ascii_case("glb") || e.eq_ignore_ascii_case("gltf"))
+    })
 }
 
 /// Extra controls for one run, for jobs that are not project pipelines
