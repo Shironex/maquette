@@ -100,3 +100,15 @@ export function roundLine(status: ImageApiStatus, count: number): string {
   }
   return `Runs on OpenAI Images (${quality}), about ${formatUsd(cost.usd)} for ${count}. ${month}.`;
 }
+
+/** The kinds of job an agent's change newly sends to the paid backend. */
+export function newlyPaidKinds(
+  before: ImageSettings | null | undefined,
+  after: ImageSettings | null | undefined
+): ImageJobKind[] {
+  const was = imageSettings(before).backends;
+  const now = imageSettings(after).backends;
+  return (Object.keys(now) as ImageJobKind[]).filter(
+    kind => now[kind] === 'openai-images' && was[kind] !== 'openai-images'
+  );
+}

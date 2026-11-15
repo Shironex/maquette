@@ -9,6 +9,8 @@ use std::sync::LazyLock;
 use maquette_core::WorkspaceConfig;
 use serde::Serialize;
 
+use rmcp::handler::server::router::tool::ToolRouter;
+
 use super::McpTools;
 
 /// One group, as Settings > Agents lists it.
@@ -51,7 +53,7 @@ pub const GROUPS: &[ToolGroup] = &[
     core(
         "project",
         "Projects",
-        "Projects, assets, the scene layout, copying assets and the asset trash",
+        "Projects, assets, the scene layout, copying, thumbnails and the asset trash",
     ),
     group(
         "lab",
@@ -81,7 +83,7 @@ pub const GROUPS: &[ToolGroup] = &[
     group(
         "prepare",
         "Prepare",
-        "Real size, fix-ups, parts, materials, assembling props and comparing versions",
+        "Real size, pad and bake switches, fix-ups, parts, materials, props, version compare",
     ),
     group(
         "built",
@@ -91,12 +93,12 @@ pub const GROUPS: &[ToolGroup] = &[
     group(
         "pipeline",
         "Pipeline and ship",
-        "Runs, presets, bake settings, starter scripts, shipping and the site's dev server",
+        "Runs, game export, presets, bake settings, starter scripts, ship plans, the dev server",
     ),
     group(
         "game",
         "Game projects",
-        "A game project's repo, format, budgets, imports and ship plan",
+        "A game project's repo, format, budgets and imports",
     ),
     group(
         "library",
@@ -110,8 +112,8 @@ pub const GROUPS: &[ToolGroup] = &[
     ),
     group(
         "export",
-        "Export packs",
-        "Export packs for other engines and render styles",
+        "Packs",
+        "Packs for other engines and render styles, not the game export",
     ),
     group(
         "avatar-rig",
@@ -119,6 +121,28 @@ pub const GROUPS: &[ToolGroup] = &[
         "VRM avatars and the rig doctor",
     ),
 ];
+
+/// Tools whose router sits in another file than the group a person would
+/// look in: their tag names that group instead.
+const REGROUPED: &[(&str, &str)] = &[
+    ("get_ship_plan", "pipeline"),
+    ("render_thumbnail", "project"),
+    ("set_skip_bake", "prepare"),
+];
+
+/// Starts every description in `router` with its group, so an agent can
+/// tell the groups apart in a long list.
+pub(super) fn tagged(group: &str, mut router: ToolRouter<McpTools>) -> ToolRouter<McpTools> {
+    for (name, route) in router.map.iter_mut() {
+        let group = REGROUPED
+            .iter()
+            .find(|(tool, _)| *tool == name.as_ref())
+            .map_or(group, |(_, moved)| *moved);
+        let text = route.attr.description.as_deref().unwrap_or_default();
+        route.attr.description = Some(format!("[{group}] {text}").into());
+    }
+    router
+}
 
 /// The group with this id.
 pub fn by_id(id: &str) -> Option<&'static ToolGroup> {

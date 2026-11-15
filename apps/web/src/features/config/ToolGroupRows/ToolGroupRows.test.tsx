@@ -43,7 +43,7 @@ describe('the tool group rows', () => {
     expect(onChange).toHaveBeenLastCalledWith(withGroup(config, 'avatar-rig', false));
     expect(onChange.mock.lastCall?.[0].agents.rules.toolGroupsOff).toEqual(['game', 'avatar-rig']);
     expect(screen.getByRole('switch', { name: 'Game projects tools' })).not.toBeChecked();
-    expect(screen.getByText('151 of 156 tools offered')).toBeInTheDocument();
+    expect(screen.getByText('152 of 156 tools offered')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('switch', { name: 'Game projects tools' }));
     expect(onChange.mock.lastCall?.[0].agents.rules.toolGroupsOff).toEqual([]);
   });

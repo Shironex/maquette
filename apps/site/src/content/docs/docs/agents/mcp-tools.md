@@ -14,19 +14,19 @@ Every tool belongs to one group, and its description starts with that group in b
 | Group          | Tools | What it covers                                                                           |
 | -------------- | ----- | ---------------------------------------------------------------------------------------- |
 | `[start]`      | 2     | `get_started` and `create_project`. Always on.                                           |
-| `[project]`    | 9     | Projects, assets, the scene layout, copying assets and the asset trash. Always on.       |
+| `[project]`    | 10    | Projects, assets, the scene layout, copying, thumbnails and the asset trash. Always on.  |
 | `[lab]`        | 14    | Concept images and their jobs, the style board, picks, image backends and Codex usage.   |
 | `[refs]`       | 5     | An asset's reference views: tagging, drawing missing ones, cleaning backgrounds.         |
 | `[plan]`       | 14    | Planning canvases and their nodes, the change log and a website's camera plan.           |
 | `[send]`       | 14    | Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads.          |
-| `[inbox]`      | 7     | Models waiting to be accepted: checks, accept, discard and restore.                      |
-| `[prepare]`    | 14    | Real size, fix-ups, parts, materials, assembling props and comparing versions.           |
+| `[inbox]`      | 6     | Models waiting to be accepted: checks, accept, discard and restore.                      |
+| `[prepare]`    | 15    | Real size, pad and bake switches, fix-ups, parts, materials, props, version compare.     |
 | `[built]`      | 4     | Models a Blender script in the project makes, with no credits.                           |
-| `[pipeline]`   | 17    | Runs, presets, bake settings, starter scripts, shipping and the site's dev server.       |
-| `[game]`       | 5     | A game project's repo, format, budgets, imports and ship plan.                           |
+| `[pipeline]`   | 17    | Runs, game export, presets, bake settings, starter scripts, ship plans, the dev server.  |
+| `[game]`       | 4     | A game project's repo, format, budgets and imports.                                      |
 | `[library]`    | 12    | Models kept outside any project, copied in and out.                                      |
 | `[animation]`  | 24    | The clip library, baking clips onto a rigged model, animation recipes and their library. |
-| `[export]`     | 8     | Export packs for other engines and render styles.                                        |
+| `[export]`     | 8     | Packs for other engines and render styles, not the game export.                          |
 | `[avatar-rig]` | 7     | VRM avatars and the rig doctor.                                                          |
 
 What turning a group off does:

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ImageApiStatus } from '@/ipc/client';
-import { backendFor, formatUsd, imageSettings, roundCost, roundLine } from './image-api';
+import {
+  backendFor,
+  formatUsd,
+  imageSettings,
+  newlyPaidKinds,
+  roundCost,
+  roundLine,
+} from './image-api';
 
 const status = (spent: number, pending = 0): ImageApiStatus => ({
   settings: { backends: { concepts: 'openai-images' }, quality: 'low', monthlyCapUsd: 10 },
@@ -53,5 +60,17 @@ describe('a round on the image api', () => {
     expect(roundCost(status(9.96), 4).over).toBe(true);
     expect(roundCost(status(9.9, 0.07), 4).over).toBe(true);
     expect(roundLine(status(9.96), 4)).toMatch(/would pass the monthly cap/);
+  });
+});
+
+describe('newlyPaidKinds', () => {
+  it('names the kinds an agent newly sent to the paid backend', () => {
+    const before = { backends: { concepts: 'openai-images' as const } };
+    const after = {
+      backends: { concepts: 'openai-images' as const, objectRefs: 'openai-images' as const },
+    };
+    expect(newlyPaidKinds(before, after)).toEqual(['objectRefs']);
+    expect(newlyPaidKinds(after, { backends: {} })).toEqual([]);
+    expect(newlyPaidKinds(undefined, undefined)).toEqual([]);
   });
 });

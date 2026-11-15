@@ -127,7 +127,7 @@ pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, To
 #[tool_router(router = inbox_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the models waiting in the workspace inbox, with their kind, size, triangle count and worst check, the version Accept would make of the asset each goes to (nextVersion) and replacedBy, the newer version of that asset made after the model arrived (a redo that was accepted; the model then only takes room). discarded lists the models moved aside into inbox/.discarded/, most recent first, which restore_inbox_model puts back by name until expiresMs, when the 30 days they are kept run out.",
+        description = "List the models waiting in the workspace inbox, which covers every project's models, not only the open one, with their kind, size, triangle count and worst check, the version Accept would make of the asset each goes to (nextVersion) and replacedBy, the newer version of that asset made after the model arrived (a redo that was accepted; the model then only takes room). discarded lists the models moved aside into inbox/.discarded/, most recent first, which restore_inbox_model puts back by name until expiresMs, when the 30 days they are kept run out.",
         annotations(read_only_hint = true)
     )]
     async fn list_inbox(&self) -> Out {
