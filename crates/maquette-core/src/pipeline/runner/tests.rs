@@ -905,6 +905,39 @@ fn compress_reads_a_tweaked_copy_and_reruns_when_the_tweaks_change() {
 }
 
 #[test]
+fn a_model_compress_makes_larger_ships_as_exported() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = compress_setup(dir.path(), &["cushion"]);
+    // A gltf-transform whose output is twice its input, as a tiny model
+    // whose textures grow in KTX2 can come out.
+    fs::write(
+        dir.path().join("gltf-transform"),
+        "#!/bin/sh\necho \"args: $*\"\ncat \"$2\" \"$2\" > \"$3\"\n",
+    )
+    .expect("fake");
+    let raw = s.project_dir.join("web/raw/cushion.glb");
+    fs::write(&raw, vec![7u8; 4096]).expect("raw");
+    let sink = Arc::new(Recorder::default());
+    let run = PipelineRunner::new(sink.clone())
+        .run_blocking(s.clone())
+        .expect("run");
+    assert_eq!(run.state, RunState::Done, "{:?}", sink.lines());
+    let shipped = fs::read(s.project_dir.join("web/dist/cushion.glb")).expect("shipped");
+    assert_eq!(
+        shipped,
+        vec![7u8; 4096],
+        "the smaller file, the export, ships"
+    );
+    assert!(
+        sink.lines().iter().any(|l| l.contains(
+            "cushion.glb came out of Compress larger than its export (8 KB against 4 KB)"
+        )),
+        "{:?}",
+        sink.lines()
+    );
+}
+
+#[test]
 fn run_next_moves_queued_runs_to_the_front_of_the_lane() {
     let dir = tempfile::tempdir().expect("tempdir");
     let s = setup(

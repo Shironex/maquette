@@ -1,4 +1,4 @@
-import { Button } from '@maquette/ui';
+import { Button, Icon, cn } from '@maquette/ui';
 import type { SizeReport } from '@/ipc/client';
 import { formatBytes, formatK } from '@/lib/format';
 import { keptShare, useCopyReport } from './SizeReportTable.hooks';
@@ -11,6 +11,22 @@ const bytes = (n: number | null) => (n ? formatBytes(n) : '·');
 const tris = (n: number | null) => (n === null ? '·' : formatK(n));
 
 const FORMAT_WORD = { ktx2: 'KTX2', webp: 'WebP', avif: 'AVIF' } as const;
+
+/** The kept share, amber with a "+" when the shipped file grew. */
+function KeptCell({ source, shipped }: { source: number | null; shipped: number | null }) {
+  const share = keptShare(source, shipped);
+  return (
+    <td
+      className={cn(
+        'px-2 py-1.5 text-right font-mono tabular-nums',
+        share.grew ? 'text-amber' : 'text-fg-mute'
+      )}
+      title={share.grew ? 'Larger than the source' : undefined}
+    >
+      {share.text}
+    </td>
+  );
+}
 
 /** Each model's source bytes and triangles against what ships. */
 export default function SizeReportTable({ report }: SizeReportTableProps) {
@@ -25,12 +41,16 @@ export default function SizeReportTable({ report }: SizeReportTableProps) {
         <span className="block truncate font-mono text-[11px] text-fg-mute" title={r.shippedFile}>
           v{r.version} · {r.shippedFile.split('/').pop()}
         </span>
+        {r.grew ? (
+          <span className="mt-0.5 flex items-start gap-1 text-[11px] text-amber">
+            <Icon name="warning" size={12} className="mt-px flex-none" />
+            {r.grew}
+          </span>
+        ) : null}
       </td>
       <td className="px-2 py-1.5 text-right font-mono tabular-nums">{bytes(r.sourceBytes)}</td>
       <td className="px-2 py-1.5 text-right font-mono tabular-nums">{bytes(r.shippedBytes)}</td>
-      <td className="px-2 py-1.5 text-right font-mono text-fg-mute tabular-nums">
-        {keptShare(r.sourceBytes, r.shippedBytes)}
-      </td>
+      <KeptCell source={r.sourceBytes} shipped={r.shippedBytes} />
       <td className="px-2 py-1.5 text-right font-mono tabular-nums">{tris(r.sourceTriangles)}</td>
       <td className="py-1.5 pr-3 pl-2 text-right font-mono tabular-nums">
         {tris(r.shippedTriangles)}
@@ -110,9 +130,7 @@ export default function SizeReportTable({ report }: SizeReportTableProps) {
                 <td className="px-2 py-1.5 text-right font-mono tabular-nums">
                   {bytes(totals.shippedBytes)}
                 </td>
-                <td className="px-2 py-1.5 text-right font-mono text-fg-mute tabular-nums">
-                  {keptShare(totals.sourceBytes, totals.shippedBytes)}
-                </td>
+                <KeptCell source={totals.sourceBytes} shipped={totals.shippedBytes} />
                 <td className="px-2 py-1.5 text-right font-mono tabular-nums">
                   {tris(totals.sourceTriangles)}
                 </td>

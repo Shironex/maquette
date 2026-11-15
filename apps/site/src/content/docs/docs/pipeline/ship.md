@@ -54,7 +54,9 @@ The plan is a dry run of the next Ship: for each file, whether it is new, replac
 
 ### The size report
 
-One row per model: the source file's bytes and triangles against what ships. The totals count only models measured on both sides. **Copy CSV** and **Copy Markdown** copy it, for a pull request or a note, and [`get_size_report`](/docs/agents/mcp-tools/#get_size_report) returns it with both texts.
+One row per model: the source file's bytes and triangles against what ships. The totals count only models measured on both sides. A shipped file larger than its source shows its growth in amber ("+157%") with the reason under the model's name: the pipeline added data the source does not have, such as Bake light's lightmaps and their UV set on a built asset with flat colours, and the reason says how much of the export Compress kept. The CSV adds each export's bytes and that reason. **Copy CSV** and **Copy Markdown** copy it, for a pull request or a note, and [`get_size_report`](/docs/agents/mcp-tools/#get_size_report) returns it with both texts.
+
+Compress never ships a model larger than the export it read: when its passes make a file bigger (a tiny PNG can grow in KTX2), the export ships as it is and the run log says so.
 
 ## Safe by design
 
