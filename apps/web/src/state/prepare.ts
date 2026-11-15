@@ -16,7 +16,7 @@ import type {
   TextureSize,
   WorkspaceConfig,
 } from '@/ipc/client';
-import { formatBytes, formatCount } from '@/lib/format';
+import { formatBytes, formatCount, trimNumber } from '@/lib/format';
 import { extentOf, formatDims, type Extent } from '@/lib/real-size';
 
 export const EMPTY_PREP: ModelPrep = { size: null, fixups: [], skipBake: null, padEdges: null };
@@ -73,11 +73,9 @@ const AXIS_WORD: Record<SizeAxis, string> = {
   longest: 'on its longest side',
 };
 
-const trim = (v: number) => String(Number(v.toFixed(3)));
-
 /** "45 cm high", "1.2 m wide", as the core says it. */
 export function describeSize(size: RealSize): string {
-  return `${trim(size.value ?? 0)} ${size.unit} ${AXIS_WORD[size.axis]}`;
+  return `${trimNumber(size.value ?? 0)} ${size.unit} ${AXIS_WORD[size.axis]}`;
 }
 
 /** "60k", "4.9k", "1.2M", as the inbox checks count. */
@@ -97,7 +95,7 @@ export function shortCount(n: number): string {
 function describeTurns(f: Extract<Fixup, { op: 'rotate' }>): string {
   const turns = (['x', 'y', 'z'] as const)
     .filter(axis => (f[axis] ?? 0) !== 0)
-    .map(axis => `${axis} ${trim(f[axis] ?? 0)}°`);
+    .map(axis => `${axis} ${trimNumber(f[axis] ?? 0)}°`);
   return turns.length ? `Rotate ${turns.join(', ')}` : 'Rotate (no turn)';
 }
 
@@ -111,7 +109,7 @@ export function describeFixup(f: Fixup): string {
     case 'shrink-textures':
       return `Shrink textures to ${f.maxSize} px`;
     case 'remove-loose':
-      return `Remove loose parts under ${trim((f.minShare ?? 0) * 100)}%`;
+      return `Remove loose parts under ${trimNumber((f.minShare ?? 0) * 100)}%`;
     case 'merge':
       return f.byMaterial ? 'Merge objects by material' : 'Merge objects';
     case 'split-parts':

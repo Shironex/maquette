@@ -75,10 +75,21 @@ describe('a built asset in the place of a model', () => {
     expect(scaleWords(side())).toBe('scaled by 0.3');
     expect(scaleWords(side({ scale: 0.99999994 }))).toBe('not scaled');
     expect(scaleWords(side({ scale: null }))).toBe('not scaled');
-    expect(boundsWords(side())).toBe('-0.15, 0, -0.1 to 0.15, 0.02, 0.1');
+    expect(boundsWords(side())).toBe('-0.15, 0, -0.105 to 0.15, 0.02, 0.105');
     expect(boundsWords(side({ max: null }))).toBeNull();
     expect(modelNumbers(side())).toBe('94.6k triangles · 4.1 MB');
     expect(modelNumbers(side({ triangles: null, bytes: null }))).toBe('');
+  });
+
+  it("rounds as the core's report does, so one number reads the same in the table and its lines", () => {
+    // The core writes "scales the built model by 1.034"; the table said 1.03.
+    expect(scaleWords(side({ scale: 1.0344 }))).toBe('scaled by 1.034');
+    expect(boundsWords(side({ min: [-0.1234, 0, 0], max: [0.1234, 1.0344, 0.5] }))).toBe(
+      '-0.123, 0, 0 to 0.123, 1.034, 0.5'
+    );
+    expect(standingSize(side({ min: [0, 0, 0], max: [0.30344, 0.02, 0.21] }))).toBe(
+      '30.344 × 2 × 21 cm'
+    );
   });
 
   it('groups the settings by what happens to them', () => {

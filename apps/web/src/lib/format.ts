@@ -71,6 +71,9 @@ export function shortPath(path: string, segments = 3): string {
 /** A path with forward slashes, whichever system wrote it. */
 export const slashed = (path: string) => path.replaceAll('\\', '/');
 
+/** "1.034", "30", "-0.5": at most three decimals, as the core's numbers read in its sentences. */
+export const trimNumber = (v: number) => String(Number(v.toFixed(3)));
+
 /** "image" for 1, else "images": the word a count of `n` takes. */
 export const noun = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 

@@ -12,7 +12,7 @@ import {
   type SwapSide,
   type UndoReport,
 } from '@/ipc/client';
-import { formatBytes, formatK } from '@/lib/format';
+import { formatBytes, formatK, trimNumber } from '@/lib/format';
 
 /** What the replace sheet is open for: a pair to confirm, or the asset whose replace it undoes. */
 export type ReplaceTarget =
@@ -57,10 +57,6 @@ export function modelNumbers(side: { triangles: number | null; bytes: number | n
     .join(' · ');
 }
 
-function trim(value: number): string {
-  return String(Number(value.toFixed(1)));
-}
-
 /** "30 × 10 × 10 cm" (width, height, depth) as the model stands, or null without bounds. */
 export function standingSize(side: SwapSide): string | null {
   const { min, max } = side;
@@ -68,17 +64,13 @@ export function standingSize(side: SwapSide): string | null {
   const extent = [0, 1, 2].map(k => (max[k] ?? 0) - (min[k] ?? 0));
   const longest = Math.max(...extent);
   const [unit, by] = longest < 0.01 ? ['mm', 1000] : longest < 1 ? ['cm', 100] : ['m', 1];
-  return `${extent.map(v => trim(v * by)).join(' × ')} ${unit}`;
+  return `${extent.map(v => trimNumber(v * by)).join(' × ')} ${unit}`;
 }
 
 /** "scaled by 0.6" for a model its real size scales, or "not scaled". */
 export function scaleWords(side: SwapSide): string {
   const scale = side.scale ?? 1;
-  return Math.abs(scale - 1) < 0.005 ? 'not scaled' : `scaled by ${trim2(scale)}`;
-}
-
-function trim2(value: number): string {
-  return String(Number(value.toFixed(2)));
+  return Math.abs(scale - 1) < 0.005 ? 'not scaled' : `scaled by ${trimNumber(scale)}`;
 }
 
 /** How many lines of a replace's report ask for a look. */
@@ -140,7 +132,7 @@ export function swapLine(swap: ShipSwap): string {
 export function boundsWords(side: SwapSide): string | null {
   const { min, max } = side;
   if (!min || !max) return null;
-  const point = (p: readonly (number | null)[]) => p.map(v => trim2(v ?? 0)).join(', ');
+  const point = (p: readonly (number | null)[]) => p.map(v => trimNumber(v ?? 0)).join(', ');
   return `${point(min)} to ${point(max)}`;
 }
 
