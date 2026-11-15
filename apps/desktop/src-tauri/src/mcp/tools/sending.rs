@@ -14,13 +14,17 @@ use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 
 mod by_id;
+mod next;
 mod redo;
 mod requests;
+mod retry;
 mod warnings;
 
-pub(super) use self::by_id::SEVERAL_PROJECTS;
-use self::by_id::{cancel_one, find_job};
+pub(super) use self::by_id::{BY_HAND_WAITING, SEVERAL_PROJECTS};
+use self::by_id::{cancel_one, find_job, refuse_second_wait};
+use self::next::{job_next, waits_for_model};
 use self::requests::{batch_request, send_request};
+use super::hints::WAITING_FOR_MODEL;
 use super::{McpTools, Out, WAITING, failed, json_result, respond, to_value, workspace};
 
 /// Where a model gets made.
@@ -177,6 +181,8 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
     let approval = hub.pending_for_job(&job.project, &job.id);
     let status = if approval.is_some() {
         WAITING.to_string()
+    } else if waits_for_model(job) {
+        WAITING_FOR_MODEL.to_string()
     } else {
         to_value(job.state).as_str().unwrap_or_default().to_string()
     };
@@ -204,13 +210,34 @@ pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
         "cancel": to_value(job.cancel),
     });
     if let Some(approval) = approval {
+        out["waitingSinceMs"] = json!(approval.requested_at_ms);
         out["approval"] = json!({
             "id": approval.id,
-            "note": "A person approves or denies spending these credits in the Maquette app. Poll get_provider_job; do not send again.",
+            "note": "A person approves or denies spending these credits in the Maquette app. Poll get_provider_job; do not send again. cancel_provider_jobs withdraws it.",
+            "requestedAtMs": approval.requested_at_ms,
             "error": hub.unrecorded(&approval.id),
         });
+    } else if waits_for_model(job) {
+        out["waitingSinceMs"] = json!(job.created_at_ms);
+    }
+    if let Some(next) = job_next(job) {
+        out["next"] = Value::Array(next);
     }
     out
+}
+
+/// For a By hand send an agent asks for: refused while any of `assets`
+/// already waits for a by hand model.
+pub(super) fn guard_by_hand(
+    host: &dyn Host,
+    project: &str,
+    provider: Provider,
+    assets: &[&str],
+) -> Result<(), super::ToolError> {
+    if provider != Provider::ByHand {
+        return Ok(());
+    }
+    refuse_second_wait(host.studio(), project, assets)
 }
 
 /// A job with who answered its approval (`null` for a send started in the
@@ -275,6 +302,7 @@ impl McpTools {
         let sent = self
             .blocking(move |host, hub| {
                 let request = send_request(host, &args)?;
+                guard_by_hand(host, &request.project, request.provider, &[&request.asset])?;
                 let approval = request.provider != Provider::ByHand;
                 let job = host.studio().send(&request, approval, true)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
@@ -302,7 +330,7 @@ impl McpTools {
             // a send of another project too.
             let name = job.export_name().unwrap_or_else(|| job.id.clone());
             out["note"] = json!(format!(
-                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder and exports it as {name}; Maquette picks that file up from Downloads. Or they drop the GLB on the asset's card in Maquette, or save it into the inbox as {name}.glb.",
+                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder and exports it as {name}; Maquette picks that file up from Downloads. Or they drop the GLB on the asset's card in Maquette, or save it into the inbox as {name}.glb. The send waits for that model: poll get_provider_job or list_handoffs, follow next, and do not send the asset again while it waits.",
                 job.service.label()
             ));
         }
@@ -316,6 +344,8 @@ impl McpTools {
         let sent = self
             .blocking(move |host, hub| {
                 let request = batch_request(host, &args)?;
+                let assets: Vec<&str> = request.items.iter().map(|i| i.asset.as_str()).collect();
+                guard_by_hand(host, &request.project, request.provider, &assets)?;
                 let approval = request.provider != Provider::ByHand;
                 let sent = host.studio().send_batch(&request, approval, true)?;
                 let waiting: Vec<ProviderJob> = sent
@@ -356,8 +386,10 @@ impl McpTools {
             .jobs
             .first()
             .is_some_and(|j| j.provider == Provider::ByHand);
-        let status = if by_hand || sent.jobs.is_empty() {
+        let status = if sent.jobs.is_empty() {
             "started"
+        } else if by_hand {
+            WAITING_FOR_MODEL
         } else {
             WAITING
         };
@@ -369,7 +401,7 @@ impl McpTools {
             "failed": sent.failed.iter().map(|f| json!({ "asset": f.asset, "message": f.message })).collect::<Vec<_>>(),
         });
         out["note"] = json!(if by_hand {
-            "Nothing is spent. Each asset has its own handoff folder with its images and settings card; a person makes the models in the web app and brings each GLB back in Maquette."
+            "Nothing is spent. Each asset has its own handoff folder with its images and settings card; a person makes the models in the web app and brings each GLB back in Maquette. Poll list_handoffs and do not send these assets again while they wait."
         } else {
             "A person approves or denies the whole batch once in the Maquette app. Poll get_provider_job for each job; do not send again."
         });
@@ -377,7 +409,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). Job ids are numbered per project (an asset's first send in a project is <asset>-1), so pass project with id; an id that is a send in several projects answers code job-in-several-projects without it. With project and no id, every send in the project.",
+        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, \"waiting for model\" for a by hand send, inbox, accepted, failed or cancelled), waitingSinceMs while it waits, next for a by hand wait, a failed or a cancelled send, phase, progress, credits spent, message and decision: who answered its approval, when, from which card, with what input and whether the window was focused and visible (null for a send started in the app or still waiting). Job ids are numbered per project (an asset's first send in a project is <asset>-1), so pass project with id; an id that is a send in several projects answers code job-in-several-projects without it. With project and no id, every send in the project.",
         annotations(read_only_hint = true)
     )]
     async fn get_provider_job(&self, Parameters(args): Parameters<ProviderJobArgs>) -> Out {
@@ -410,7 +442,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids of project (job ids are numbered per project; without project each id must be a send of one project only, else it is refused with code job-in-several-projects). Each id is stopped on its own and answers with its project, new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why. A send waiting for approval is refused: a person approves or denies those in the Maquette app."
+        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids of project (job ids are numbered per project; without project each id must be a send of one project only, else it is refused with code job-in-several-projects). Each id is stopped on its own and answers with its project, new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send waiting for approval is withdrawn for free: it ends cancelled as taken back by the agent, not denied, and its approval prompt goes away. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why."
     )]
     async fn cancel_provider_jobs(&self, Parameters(args): Parameters<CancelJobsArgs>) -> Out {
         let mut ids: Vec<String> = Vec::new();
@@ -430,10 +462,10 @@ impl McpTools {
         }
         let project = args.project.as_deref().map(str::trim).map(str::to_string);
         let found = self
-            .blocking(move |host, hub| {
+            .blocking(move |host, _| {
                 let results: Vec<Value> = ids
                     .iter()
-                    .map(|id| cancel_one(host.studio(), hub, id, project.as_deref()))
+                    .map(|id| cancel_one(host.studio(), id, project.as_deref()))
                     .collect();
                 let stopped = results.iter().filter(|r| r["ok"] == json!(true)).count();
                 Ok(json!({ "stopped": stopped, "refused": results.len() - stopped, "results": results }))

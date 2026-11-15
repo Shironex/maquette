@@ -11,6 +11,7 @@ import type {
   WorkspaceSnapshot,
 } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
+import { waitingAssetCount } from '@/state/checklist';
 import { usageLabel, usageTone, type UsageTone } from '@/state/codex-usage';
 import { isWaiting } from '@/state/lab';
 import { serverHost } from '@/state/page';
@@ -157,7 +158,7 @@ function runItems(latest: RunRecord | undefined, now: number): StatusBarItem[] {
 
 function sendItems(sends: readonly ProviderJob[]): StatusBarItem[] {
   const sending = sends.filter(j => j.state === 'running' || j.state === 'queued').length;
-  const handWaiting = sends.filter(j => j.state === 'waiting').length;
+  const handWaiting = waitingAssetCount(sends.filter(j => j.state === 'waiting'));
   const sendParts = [
     sending ? `${sending} ${sending === 1 ? 'model' : 'models'} on the way` : null,
     handWaiting ? `${handWaiting} by hand` : null,

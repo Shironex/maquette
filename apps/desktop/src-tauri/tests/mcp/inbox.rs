@@ -27,7 +27,7 @@ use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use serde_json::{Value, json};
 
-use super::support::{TestHost, call, raw_call};
+use super::support::{TestHost, call, raw_call, text};
 
 /// A workspace with one project and an asset named Lantern.
 fn fixture(dir: &Path) -> (Session, String, String) {
@@ -222,6 +222,51 @@ async fn the_inbox_tools_agree_on_the_checks_and_a_discard_moves_a_model_aside()
     assert!(inbox.join(&sent_file).is_file(), "back in the inbox");
     let refused = raw_call(&client, "restore_inbox_model", json!({ "name": sent_file })).await;
     assert_eq!(refused.is_error, Some(true), "already restored");
+
+    // Another project is refused for a model sent for this one, alone or
+    // in a batch, and the model stays in the inbox.
+    let other = project::create(
+        &root,
+        &config.layout,
+        NewProject {
+            name: "Lighthouse".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("other project")
+    .id;
+    let wrong = raw_call(
+        &client,
+        "accept_inbox_model",
+        json!({ "id": sent_file, "project": other }),
+    )
+    .await;
+    assert_eq!(wrong.is_error, Some(true));
+    let body: Value = serde_json::from_str(&text(&wrong)).expect("error body");
+    assert_eq!(body["code"], json!("model-for-another-project"), "{body}");
+    assert_eq!(body["tryTool"], json!("list_inbox"), "{body}");
+    assert!(
+        body["error"]
+            .as_str()
+            .is_some_and(|e| e.contains(&project_id)),
+        "{body}"
+    );
+    let batch = call(
+        &client,
+        "accept_inbox_models",
+        json!({ "ids": [sent_file], "project": other }),
+    )
+    .await;
+    assert_eq!(batch["failed"], json!(1), "{batch}");
+    assert_eq!(
+        batch["results"][0]["code"],
+        json!("model-for-another-project")
+    );
+    assert!(inbox.join(&sent_file).is_file(), "still in the inbox");
 
     let accepted = call(
         &client,

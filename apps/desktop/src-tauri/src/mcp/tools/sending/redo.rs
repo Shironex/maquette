@@ -18,8 +18,11 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::requests::{studio_choice, with_overrides};
-use super::{MeshArg, ProviderArg, RigArg, VariantArg, await_send_approval, job_value};
+use super::{
+    MeshArg, ProviderArg, RigArg, VariantArg, await_send_approval, guard_by_hand, job_value,
+};
 use crate::mcp::host::Host;
+use crate::mcp::tools::hints::WAITING_FOR_MODEL;
 use crate::mcp::tools::{McpTools, Out, WAITING, failed, json_result, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -271,6 +274,7 @@ impl McpTools {
         let sent = self
             .blocking(move |host, hub| {
                 let (request, earlier) = redo_request(host, &args)?;
+                guard_by_hand(host, &request.project, request.provider, &[&request.asset])?;
                 let approval = request.provider != Provider::ByHand;
                 let job = host.studio().send(&request, approval, true)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
@@ -306,6 +310,8 @@ impl McpTools {
         let sent = self
             .blocking(move |host, hub| {
                 let request = redo_batch(host, &args)?;
+                let assets: Vec<&str> = request.items.iter().map(|i| i.asset.as_str()).collect();
+                guard_by_hand(host, &request.project, request.provider, &assets)?;
                 let approval = request.provider != Provider::ByHand;
                 let sent = host.studio().send_batch(&request, approval, true)?;
                 let waiting: Vec<ProviderJob> = sent
@@ -328,8 +334,12 @@ impl McpTools {
             await_send_approval(Arc::clone(&self.host), Arc::clone(&self.hub), approval, ids);
         }
         let jobs: Vec<Value> = sent.jobs.iter().map(|j| job_value(&self.hub, j)).collect();
+        let by_hand = sent
+            .jobs
+            .first()
+            .is_some_and(|j| j.provider == Provider::ByHand);
         json_result(&json!({
-            "status": if waiting { WAITING } else { "started" },
+            "status": if waiting { WAITING } else if by_hand { WAITING_FOR_MODEL } else { "started" },
             "batch": sent.batch,
             "jobs": jobs,
             "failed": sent.failed.iter().map(|f| json!({ "asset": f.asset, "message": f.message })).collect::<Vec<_>>(),

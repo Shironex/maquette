@@ -13,14 +13,30 @@ use crate::meshy::{self, Meshy};
 use crate::presets::ProviderId;
 use maquette_base::history::now_ms;
 
+/// Why a job stops.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Stop {
+    /// Cancel, from the app's queue or an agent.
+    Cancel,
+    /// A person turned down a send that waited for approval.
+    Deny,
+    /// The agent that asked took back its own send before anyone answered.
+    Withdraw,
+}
+
+/// The message of a send the agent withdrew before it was approved.
+pub(super) const WITHDRAWN: &str =
+    "Withdrawn by the agent before anyone approved it. Nothing was spent.";
+
 /// What stopping a job in `mode` says, and whether the provider gives the
 /// credits back. It does only for a model task it called off before it
 /// started: a job that already has its model task on the provider (a
 /// resumed one, or a Meshy chain at its rig step) has spent them.
-pub(super) fn stopped(mode: CancelMode, deny: bool, stored: &Stored) -> (String, bool) {
+pub(super) fn stopped(mode: CancelMode, how: Stop, stored: &Stored) -> (String, bool) {
     let has_model = stored.chain.model_task.is_some();
     let message = match mode {
-        CancelMode::Free if deny => "Denied in Maquette. Nothing was spent.",
+        CancelMode::Free if how == Stop::Deny => "Denied in Maquette. Nothing was spent.",
+        CancelMode::Free if how == Stop::Withdraw => WITHDRAWN,
         CancelMode::Free if has_model => {
             "Cancelled. The provider already has this model's task, so its credits are spent."
         }
@@ -41,16 +57,23 @@ impl ProviderJobs {
     /// says plainly when it is not. Meshy is asked over the network, so
     /// call it off the UI thread.
     pub fn cancel(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
-        self.stop_job(&JobKey::new(project, id), false)
+        self.stop_job(&JobKey::new(project, id), Stop::Cancel)
     }
 
     /// Turns down a send an agent asked for. Nothing was sent, so nothing
     /// is spent.
     pub fn deny(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
-        self.stop_job(&JobKey::new(project, id), true)
+        self.stop_job(&JobKey::new(project, id), Stop::Deny)
     }
 
-    fn stop_job(&self, key: &JobKey, deny: bool) -> CoreResult<ProviderJob> {
+    /// Takes back a send an agent asked for, while it still waits for
+    /// approval. Nothing was sent, so nothing is spent, and it is not a
+    /// person's no: the job is cancelled, not denied.
+    pub fn withdraw(&self, project: &str, id: &str) -> CoreResult<ProviderJob> {
+        self.stop_job(&JobKey::new(project, id), Stop::Withdraw)
+    }
+
+    fn stop_job(&self, key: &JobKey, how: Stop) -> CoreResult<ProviderJob> {
         let (stored, stop) = {
             let jobs = self.shared.jobs();
             let entry = jobs
@@ -59,7 +82,8 @@ impl ProviderJobs {
                 .ok_or_else(|| no_job(&key.project, &key.id))?;
             (entry.stored.clone(), Arc::clone(&entry.stop))
         };
-        if deny && stored.job.state != JobState::Approval {
+        let deny = how == Stop::Deny;
+        if how != Stop::Cancel && stored.job.state != JobState::Approval {
             return Err(CoreError::Invalid(
                 "This send is not waiting for approval.".to_string(),
             ));
@@ -89,7 +113,7 @@ impl ProviderJobs {
             }
             CancelMode::Free | CancelMode::StopWaiting => {}
         }
-        let (message, refunded) = stopped(mode, deny, &stored);
+        let (message, refunded) = stopped(mode, how, &stored);
         self.mark_cancelled(key, true);
         stop.stop();
         update(&self.shared, key, true, |stored| {
@@ -101,7 +125,7 @@ impl ProviderJobs {
             Ok(())
         })?;
         let job = self.job(&key.project, &key.id)?;
-        if deny {
+        if how != Stop::Cancel {
             settle::put_back(&self.shared, &job.project, &job.asset);
         }
         settle::settle_asset(&self.shared, &job.project, &job.asset);

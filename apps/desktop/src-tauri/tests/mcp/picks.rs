@@ -491,6 +491,8 @@ async fn agents_tag_ref_views_and_sends_follow_them_with_warnings() {
         Ok(())
     })
     .expect("model");
+    // One by hand wait per asset: the earlier send stops first.
+    stop_waits(&host.studio, &project_id);
     let batch = call(
         &client,
         "send_batch_to_3d",
@@ -511,6 +513,8 @@ async fn agents_tag_ref_views_and_sends_follow_them_with_warnings() {
     );
     assert_eq!(job["refWarnings"].as_array().expect("warnings").len(), 2);
     assert_eq!(batch["assetsWithRefWarnings"], json!(1));
+    // One by hand wait per asset: the earlier send stops first.
+    stop_waits(&host.studio, &project_id);
     let single = call(
         &client,
         "send_to_3d",
@@ -649,4 +653,14 @@ async fn agents_replace_a_filled_view_and_the_old_ref_moves_aside() {
 
     client.cancel().await.expect("close");
     server.stop();
+}
+
+/// Stops every By hand send of `project` still waiting for its model, as
+/// Stop waiting does, so the next by hand send of the asset is allowed.
+fn stop_waits(studio: &ProviderJobs, project: &str) {
+    for job in studio.list(Some(project)) {
+        if job.state == maquette_core::providers::JobState::Waiting {
+            studio.cancel(&job.project, &job.id).expect("stop waiting");
+        }
+    }
 }

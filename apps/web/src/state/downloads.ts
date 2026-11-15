@@ -13,6 +13,7 @@ import type {
   WatchStatus,
 } from '@/ipc/client';
 import { formatAgo, formatBytes } from '@/lib/format';
+import { waitingAssetCount } from './checklist';
 import { SERVICE_LABEL } from './providers';
 
 export interface ArrivalNotice {
@@ -209,7 +210,7 @@ export function watchLine(status: WatchStatus | null): {
     return { text: 'Off. Use Add model or Check Downloads instead.', tone: 'mute' };
   if (status.error) return { text: status.error, tone: 'error' };
   if (!status.watching) return { text: 'Not watching yet', tone: 'mute' };
-  const n = status.pending.length;
+  const n = waitingAssetCount(status.pending);
   return {
     text:
       n === 0

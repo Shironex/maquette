@@ -49,7 +49,7 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
   row(
     'send',
     'Send to 3D',
-    14,
+    15,
     'Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads'
   ),
   row('inbox', 'Inbox', 6, 'Models waiting to be accepted: checks, accept, discard and restore'),

@@ -198,6 +198,14 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Call again with project set to the project the send is in: every send answer carries it, and get_provider_job with project and no id lists that project's sends.",
             "get_provider_job",
         )),
+        super::sending::BY_HAND_WAITING => Some(agent(
+            "Poll the waiting send with get_provider_job (the message names it) and follow its next. To send with other settings, stop it with cancel_provider_jobs first.",
+            "get_provider_job",
+        )),
+        super::inbox::OTHER_PROJECT => Some(agent(
+            "Leave project out to accept the model into the project it was sent for (list_inbox shows sentFor and aimedAt), or give asset to file it in this project on purpose.",
+            "list_inbox",
+        )),
         super::handoffs::STAGED_BAKE => Some(agent(
             "Call add_recipe_bake: a person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's.",
             "add_recipe_bake",
@@ -282,15 +290,6 @@ pub(super) fn without_off_tool(mut body: Value, off: &[&super::groups::ToolGroup
         map.insert("fix".to_string(), Value::String(fix));
     }
     body
-}
-
-/// The message of an error body, for the activity list. Text that is not
-/// one stays as it is.
-pub(super) fn message_of(text: String) -> String {
-    serde_json::from_str::<Value>(&text)
-        .ok()
-        .and_then(|v| v.get("error").and_then(Value::as_str).map(str::to_string))
-        .unwrap_or(text)
 }
 
 #[cfg(test)]

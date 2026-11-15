@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use super::cancel::stopped;
+use super::cancel::{Stop, WITHDRAWN, stopped};
 use super::owner::match_job;
 use super::spend;
 use super::{CancelMode, JobState, Stored, cancel_mode, resume_fixup};
@@ -40,7 +40,7 @@ pub(super) fn meshy_job(state: &str, chain: serde_json::Value) -> Stored {
 /// Cancels `stored` the way `stop_job` does and returns the ledger outcome.
 fn cancel(stored: &Stored) -> (String, Option<SpendOutcome>, f64, bool) {
     let before = spend::before(stored);
-    let (message, refunded) = stopped(cancel_mode(stored), false, stored);
+    let (message, refunded) = stopped(cancel_mode(stored), Stop::Cancel, stored);
     let mut after = stored.clone();
     after.job.state = JobState::Cancelled;
     after.chain.refunded = refunded;
@@ -91,4 +91,15 @@ fn a_resumed_job_cancelled_while_queued_has_spent_its_credits() {
     let (message, outcome, _, _) = cancel(&fresh);
     assert_eq!(message, "Cancelled. Nothing was spent.");
     assert_eq!(outcome, None);
+}
+
+#[test]
+fn a_withdrawn_send_reads_as_taken_back_not_denied() {
+    let waiting = meshy_job("approval", json!({}));
+    assert_eq!(cancel_mode(&waiting), CancelMode::Free);
+    let (withdrawn, refunded) = stopped(CancelMode::Free, Stop::Withdraw, &waiting);
+    assert_eq!(withdrawn, WITHDRAWN);
+    assert!(!refunded);
+    let (denied, _) = stopped(CancelMode::Free, Stop::Deny, &waiting);
+    assert_ne!(denied, withdrawn);
 }

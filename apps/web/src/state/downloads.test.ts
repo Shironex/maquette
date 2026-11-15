@@ -216,5 +216,12 @@ describe('Downloads watcher words', () => {
     expect(watchLine(status({ pending: [pending('lantern-1', 'moon', 'Lantern')] })).text).toBe(
       'Watching for 1 By hand send.'
     );
+    // Repeat waits for one asset count once.
+    const repeats = [
+      pending('lantern-1', 'moon', 'Lantern'),
+      pending('lantern-2', 'moon', 'Lantern'),
+      pending('crate-1', 'moon', 'Crate'),
+    ];
+    expect(watchLine(status({ pending: repeats })).text).toBe('Watching for 2 By hand sends.');
   });
 });

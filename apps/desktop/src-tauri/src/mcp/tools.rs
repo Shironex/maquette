@@ -9,6 +9,7 @@
 //! Tripo or Meshy always waits for a person before it spends credits.
 
 pub mod animations;
+mod answers;
 pub mod avatar;
 pub mod bake;
 pub mod built;
@@ -200,6 +201,7 @@ impl McpTools {
             "send",
             Self::sending_router()
                 + Self::redo_router()
+                + Self::retry_router()
                 + Self::splitting_router()
                 + Self::credits_router()
                 + Self::handoffs_router(),
@@ -340,7 +342,7 @@ fn outcome(result: &Result<CallToolResponse, ErrorData>) -> Logged {
                 _ => None,
             });
             if answer.is_error == Some(true) {
-                return done(CallOutcome::Error, text.map(errors::message_of));
+                return done(CallOutcome::Error, text.map(answers::message_of));
             }
             let value = text
                 .as_deref()
@@ -428,7 +430,7 @@ impl ServerHandler for McpTools {
             }
         };
         let result = hints::table::add_next(&tool, project.as_deref(), result);
-        let result = groups::scrub_off_tools(result, &groups::off_now(self.host.as_ref()));
+        let result = answers::finish(result, &groups::off_now(self.host.as_ref()), &self.hub);
         let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
         let ms = started.elapsed().as_millis() as f64;
