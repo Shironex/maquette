@@ -6,7 +6,6 @@
 use maquette_core::providers::{JobState, Provider, ProviderJob, ProviderJobs};
 use serde_json::{Value, json};
 
-use crate::mcp::hub::Hub;
 use crate::mcp::tools::{ToolError, errors, to_value};
 
 /// The code of a job id given without its project while several projects
@@ -75,9 +74,10 @@ pub(super) fn find_job(
 }
 
 /// Stops one job for [`cancel_provider_jobs`]: the one in `project`, or the
-/// only send with that id. A send that waits for approval is left to the
-/// person, so an agent cannot deny its own sends.
-pub(super) fn cancel_one(jobs: &ProviderJobs, hub: &Hub, id: &str, project: Option<&str>) -> Value {
+/// only send with that id. A send that waits for approval is withdrawn: it
+/// spends nothing and is recorded as taken back, not as a person's no. The
+/// approval thread sees it leave the approval state and drops the prompt.
+pub(super) fn cancel_one(jobs: &ProviderJobs, id: &str, project: Option<&str>) -> Value {
     let refuse = |error: String| json!({ "id": id, "ok": false, "error": error });
     let job = match find_job(jobs, id, project) {
         Ok(job) => job,
@@ -89,13 +89,12 @@ pub(super) fn cancel_one(jobs: &ProviderJobs, hub: &Hub, id: &str, project: Opti
             return out;
         }
     };
-    if job.state == JobState::Approval || hub.pending_for_job(&job.project, id).is_some() {
-        return refuse(
-            "This send is waiting for approval. A person denies it in the Maquette app; an agent cannot deny its own sends."
-                .to_string(),
-        );
-    }
-    match jobs.cancel(&job.project, id) {
+    let stopped = if job.state == JobState::Approval {
+        jobs.withdraw(&job.project, id)
+    } else {
+        jobs.cancel(&job.project, id)
+    };
+    match stopped {
         Ok(job) => json!({
             "id": id,
             "project": job.project,

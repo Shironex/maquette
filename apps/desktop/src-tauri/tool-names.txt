@@ -116,6 +116,7 @@ restore_asset
 restore_inbox_model
 restore_to_library
 retry_concept_jobs
+retry_provider_jobs
 retry_usage_limited_jobs
 run_pipeline
 run_rig_doctor

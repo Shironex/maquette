@@ -204,6 +204,7 @@ impl McpTools {
             "send",
             Self::sending_router()
                 + Self::redo_router()
+                + Self::retry_router()
                 + Self::splitting_router()
                 + Self::credits_router()
                 + Self::handoffs_router(),

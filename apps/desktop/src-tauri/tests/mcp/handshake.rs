@@ -762,13 +762,16 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(refused.is_error, Some(true));
     assert!(text(&refused).contains("lowpoly"), "{}", text(&refused));
 
-    // Nothing an agent can call answers it: cancelling is refused, and
-    // reading it shows no decision yet.
-    let cancel = call(&client, "cancel_provider_jobs", json!({ "ids": [job_id] })).await;
-    assert_eq!(cancel["refused"], json!(1), "{cancel}");
+    // Reading it shows no decision yet, and when it was asked for.
     let waiting = call(&client, "get_provider_job", json!({ "id": job_id })).await;
     assert_eq!(waiting["status"], json!("waiting for approval"));
     assert_eq!(waiting["decision"], Value::Null);
+    assert_eq!(
+        waiting["waitingSinceMs"],
+        json!(approvals[0].requested_at_ms),
+        "{waiting}"
+    );
+    assert_eq!(waiting["stopPolling"], json!(false));
     assert_eq!(hub.approvals().len(), 1, "still waiting for a person");
     assert_eq!(
         host.studio.get(&project_id, &job_id).expect("job").state,
@@ -835,7 +838,43 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         json!({ "project": project_id, "asset": "stone-lantern", "provider": "by-hand" }),
     )
     .await;
-    assert_eq!(by_hand["status"], json!("waiting"), "{by_hand}");
+    assert_eq!(by_hand["status"], json!("waiting for model"), "{by_hand}");
+    // A by hand wait paces its polls, names the tools that follow it and
+    // refuses a second send of the same asset while it waits.
+    assert!(by_hand["waitingSinceMs"].is_number(), "{by_hand}");
+    assert_eq!(by_hand["pollEverySeconds"], json!(5));
+    assert!(by_hand["whereToFinish"].is_string(), "{by_hand}");
+    let follow: Vec<&str> = by_hand["next"]
+        .as_array()
+        .expect("next")
+        .iter()
+        .filter_map(|s| s["tool"].as_str())
+        .collect();
+    assert_eq!(
+        follow,
+        [
+            "list_handoffs",
+            "add_model_file",
+            "list_inbox",
+            "attach_download"
+        ]
+    );
+    let again = raw_call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "stone-lantern", "provider": "by-hand" }),
+    )
+    .await;
+    assert_eq!(again.is_error, Some(true));
+    let again: Value = serde_json::from_str(&text(&again)).expect("error body");
+    assert_eq!(again["code"], json!("by-hand-already-waiting"), "{again}");
+    assert_eq!(again["tryTool"], json!("get_provider_job"));
+    assert!(
+        again["error"]
+            .as_str()
+            .is_some_and(|e| e.contains(by_hand["id"].as_str().expect("id"))),
+        "{again}"
+    );
     assert!(hub.approvals().is_empty());
     let handoff = std::path::PathBuf::from(by_hand["handoff"].as_str().expect("handoff"));
     assert!(handoff.join("settings.md").is_file());
@@ -904,7 +943,8 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             .is_some_and(|e| e.contains("no-such-job-9")),
         "{unknown}"
     );
-    // A send waiting for approval is the person's to deny.
+    // A send waiting for approval is withdrawn by the agent that asked,
+    // as taken back, not as a person's no.
     let waiting = call(
         &client,
         "send_to_3d",
@@ -925,26 +965,63 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         json!({ "ids": [waiting_id, "no-such-job-9", again_id, again_id] }),
     )
     .await;
-    assert_eq!(mixed["stopped"], json!(1), "{mixed}");
-    assert_eq!(mixed["refused"], json!(2), "{mixed}");
+    assert_eq!(mixed["stopped"], json!(2), "{mixed}");
+    assert_eq!(mixed["refused"], json!(1), "{mixed}");
     let results = mixed["results"].as_array().expect("results");
     assert_eq!(results.len(), 3, "a repeated id is answered once");
-    assert_eq!(results[0]["ok"], json!(false));
+    assert_eq!(results[0]["ok"], json!(true), "{mixed}");
+    assert_eq!(results[0]["status"], json!("cancelled"));
     assert!(
-        results[0]["error"]
+        results[0]["message"]
             .as_str()
-            .is_some_and(|e| e.contains("denies it in the Maquette app")),
+            .is_some_and(|m| m.starts_with("Withdrawn by the agent")),
         "{mixed}"
     );
     assert_eq!(results[1]["ok"], json!(false));
     assert_eq!(results[2]["status"], json!("cancelled"));
+    let withdrawn = host.studio.get(&project_id, &waiting_id).expect("job");
+    assert_eq!(withdrawn.state, JobState::Cancelled);
+    assert!(
+        !withdrawn.denied,
+        "the agent took it back; nobody denied it"
+    );
+    // Its prompt goes away, and the job offers a retry.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !hub.approvals().is_empty() {
+        assert!(Instant::now() < deadline, "the prompt stayed up");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let read = call(&client, "get_provider_job", json!({ "id": waiting_id })).await;
     assert_eq!(
-        host.studio
-            .get(&project_id, &waiting_id)
-            .expect("job")
-            .state,
-        JobState::Approval,
-        "the agent did not deny it"
+        read["next"][0]["tool"],
+        json!("retry_provider_jobs"),
+        "{read}"
+    );
+    // A retry repeats the request under a new approval.
+    let retried = call(
+        &client,
+        "retry_provider_jobs",
+        json!({ "ids": [waiting_id], "project": project_id }),
+    )
+    .await;
+    assert_eq!(
+        retried["status"],
+        json!("waiting for approval"),
+        "{retried}"
+    );
+    assert_eq!(retried["retries"], json!([waiting_id]));
+    assert_eq!(retried["settings"], read["settings"]);
+    assert_ne!(retried["id"], read["id"]);
+    let refused = raw_call(
+        &client,
+        "retry_provider_jobs",
+        json!({ "ids": [retried["id"]], "project": project_id }),
+    )
+    .await;
+    assert_eq!(
+        refused.is_error,
+        Some(true),
+        "a send under way is not retried"
     );
     for ids in [
         json!([]),
@@ -956,6 +1033,17 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let approvals = hub.approvals();
     assert_eq!(approvals.len(), 1);
     assert!(hub.decide(&approvals[0].id, false));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !hub.approvals().is_empty()
+        || host
+            .studio
+            .list(Some(&project_id))
+            .iter()
+            .any(|j| j.state == JobState::Approval)
+    {
+        assert!(Instant::now() < deadline, "the denial never landed");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
 
     // A batch to Tripo waits for one approval that lists every asset.
     let batch = call(
@@ -1023,7 +1111,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         }),
     )
     .await;
-    assert_eq!(by_hand["status"], json!("started"), "{by_hand}");
+    assert_eq!(by_hand["status"], json!("waiting for model"), "{by_hand}");
     let cards: Vec<String> = by_hand["jobs"]
         .as_array()
         .expect("jobs")
@@ -1049,7 +1137,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert!(cards[1].contains("| Tab | HD Model |"), "{}", cards[1]);
     assert!(cards[1].contains("| Rig | None |"), "{}", cards[1]);
     for job in by_hand["jobs"].as_array().expect("jobs") {
-        assert_eq!(job["status"], json!("waiting"));
+        assert_eq!(job["status"], json!("waiting for model"));
         let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));
         assert!(folder.join("settings.md").is_file());
     }
@@ -1798,11 +1886,11 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
         json!({ "ids": ["stone-lantern-1.glb", "desk-lamp-1.glb"] }),
     )
     .await;
-    assert_eq!(many["status"], json!("started"), "{many}");
+    assert_eq!(many["status"], json!("waiting for model"), "{many}");
     let jobs = many["jobs"].as_array().expect("jobs");
     assert_eq!(jobs.len(), 2);
     for job in jobs {
-        assert_eq!(job["status"], json!("waiting"));
+        assert_eq!(job["status"], json!("waiting for model"));
         assert!(job["redoOf"].as_str().is_some_and(|r| r.ends_with("-1")));
         let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));
         let card = std::fs::read_to_string(folder.join("settings.md")).expect("card");

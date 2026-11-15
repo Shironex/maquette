@@ -32,10 +32,14 @@ in the app: agents may propose a tour, never apply one.
 - Every send to Tripo or Meshy over the API (`provider` `tripo` or `meshy`) spends credits and
   waits for the person to Approve in the app. Never start one unless they asked for an API send.
   The default of this skill is `provider: "by-hand"`, which spends nothing. After an API send
-  answers `waiting for approval`, poll `get_provider_job`; never send again.
-- `cancel_provider_jobs` cannot deny a send that waits for approval: the person denies it in the
-  app. No tool approves anything. Once answered, `get_provider_job` carries `decision`: who
-  answered, when, from which card and with what input.
+  answers `waiting for approval`, poll `get_provider_job` at `pollEverySeconds`; never send
+  again. Once `stopPolling` is true, tell the person where to approve and stop; nothing is lost.
+- A by hand send answers `waiting for model` and lists `next`; a second by hand send of the same
+  asset is refused while one waits (`by-hand-already-waiting`).
+- `cancel_provider_jobs` withdraws your own send while it waits for approval (cancelled, not
+  denied). No tool approves anything. `retry_provider_jobs` sends a failed or cancelled send
+  again; ask the person first when they denied it. Once answered, `get_provider_job` carries
+  `decision`: who answered, when, from which card and with what input.
 - Never attach, accept or dismiss a download on a similarity score alone. LOOK at both pictures
   first (step 4).
 - Never capture the screen. Renders are files written headless.

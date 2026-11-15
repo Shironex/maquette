@@ -199,21 +199,6 @@ async fn a_job_id_reaches_the_send_of_the_project_it_is_given() {
         json!("There is no send lantern-1 in moon.")
     );
 
-    // An agent cannot cancel a send that waits for approval, in either project.
-    let held = call(
-        &client,
-        "cancel_provider_jobs",
-        json!({ "ids": ["lantern-1"], "project": HARBOUR }),
-    )
-    .await;
-    assert_eq!(held["refused"], json!(1), "{held}");
-    assert!(
-        held["results"][0]["error"]
-            .as_str()
-            .is_some_and(|e| e.contains("waiting for approval")),
-        "{held}"
-    );
-
     // A no in the app to the first project's send leaves the second waiting.
     assert!(hub.decide(&approval_of(HARBOUR), false));
     let deadline = Instant::now() + Duration::from_secs(20);
@@ -238,10 +223,27 @@ async fn a_job_id_reaches_the_send_of_the_project_it_is_given() {
         denied["message"],
         json!("Denied in Maquette. Nothing was spent.")
     );
-    assert!(hub.decide(&left[0].id, false));
+    // The agent withdraws the other project's send itself: cancelled, not
+    // denied, and its prompt goes away.
+    let withdrawn = call(
+        &client,
+        "cancel_provider_jobs",
+        json!({ "ids": ["lantern-1"], "project": LIGHTHOUSE }),
+    )
+    .await;
+    assert_eq!(withdrawn["stopped"], json!(1), "{withdrawn}");
+    assert_eq!(withdrawn["results"][0]["project"], json!(LIGHTHOUSE));
+    assert_eq!(state(LIGHTHOUSE, "lantern-1"), Some(JobState::Cancelled));
+    assert!(
+        !host
+            .studio
+            .get(LIGHTHOUSE, "lantern-1")
+            .expect("job")
+            .denied
+    );
     let deadline = Instant::now() + Duration::from_secs(20);
-    while state(LIGHTHOUSE, "lantern-1") == Some(JobState::Approval) {
-        assert!(Instant::now() < deadline, "the denial never landed");
+    while !hub.approvals().is_empty() {
+        assert!(Instant::now() < deadline, "the prompt stayed up");
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
 
@@ -328,6 +330,24 @@ async fn a_job_id_reaches_the_send_of_the_project_it_is_given() {
     assert_eq!(stopped["results"][0]["project"], json!(LIGHTHOUSE));
     assert_eq!(state(LIGHTHOUSE, "lantern-2"), Some(JobState::Cancelled));
     assert_eq!(state(HARBOUR, "lantern-2"), Some(JobState::Waiting));
+
+    // A second by hand send of an asset that still waits is refused with
+    // the send it waits on; the other project's asset is free again.
+    let twice = refused(&client, "send_to_3d", send(HARBOUR, "by-hand")).await;
+    assert_eq!(twice["code"], json!("by-hand-already-waiting"), "{twice}");
+    assert!(
+        twice["error"]
+            .as_str()
+            .is_some_and(|e| e.contains("lantern-2 in harbour")),
+        "{twice}"
+    );
+    let stopped = call(
+        &client,
+        "cancel_provider_jobs",
+        json!({ "ids": ["lantern-2"], "project": HARBOUR }),
+    )
+    .await;
+    assert_eq!(stopped["stopped"], json!(1), "{stopped}");
 
     // An id only one project has still needs no project.
     let third = call(&client, "send_to_3d", send(HARBOUR, "by-hand")).await;

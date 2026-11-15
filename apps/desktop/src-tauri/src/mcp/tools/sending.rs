@@ -16,6 +16,7 @@ use crate::mcp::hub::Hub;
 mod by_id;
 mod redo;
 mod requests;
+mod retry;
 mod warnings;
 
 pub(super) use self::by_id::{BY_HAND_WAITING, SEVERAL_PROJECTS};
@@ -496,7 +497,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids of project (job ids are numbered per project; without project each id must be a send of one project only, else it is refused with code job-in-several-projects). Each id is stopped on its own and answers with its project, new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why. A send waiting for approval is refused: a person approves or denies those in the Maquette app."
+        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids of project (job ids are numbered per project; without project each id must be a send of one project only, else it is refused with code job-in-several-projects). Each id is stopped on its own and answers with its project, new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send waiting for approval is withdrawn for free: it ends cancelled as taken back by the agent, not denied, and its approval prompt goes away. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why."
     )]
     async fn cancel_provider_jobs(&self, Parameters(args): Parameters<CancelJobsArgs>) -> Out {
         let mut ids: Vec<String> = Vec::new();
@@ -516,10 +517,10 @@ impl McpTools {
         }
         let project = args.project.as_deref().map(str::trim).map(str::to_string);
         let found = self
-            .blocking(move |host, hub| {
+            .blocking(move |host, _| {
                 let results: Vec<Value> = ids
                     .iter()
-                    .map(|id| cancel_one(host.studio(), hub, id, project.as_deref()))
+                    .map(|id| cancel_one(host.studio(), id, project.as_deref()))
                     .collect();
                 let stopped = results.iter().filter(|r| r["ok"] == json!(true)).count();
                 Ok(json!({ "stopped": stopped, "refused": results.len() - stopped, "results": results }))
