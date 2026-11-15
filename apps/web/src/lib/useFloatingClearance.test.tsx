@@ -32,8 +32,7 @@ describe('keeping the floating layers clear of a bottom bar', () => {
     } as DOMRect);
     const { unmount } = render(<Bar />);
     expect(Object.values(useClearanceStore.getState().bars)).toEqual([120]);
-    const lift = renderHook(() => useFloatingLift(true)).result.current;
-    expect(lift).toEqual({ bottom: 136, maxHeight: 'calc(100vh - 332px)' });
+    expect(renderHook(() => useFloatingLift()).result.current).toEqual({ bottom: 136 });
     unmount();
     expect(useClearanceStore.getState().bars).toEqual({});
     expect(renderHook(() => useFloatingLift()).result.current).toBeUndefined();

@@ -1,12 +1,12 @@
 /**
  * The sheets' shots for scripts/visual-check.mjs (ONLY=sheets): with an
- * agent's approval cards floating, the Plan view's Apply review, its
+ * agent's approval cards in their tray, the Plan view's Apply review, its
  * Compare after layout.json changed and the Export pack sheet keep every
  * button in their bottom bar clear of the cards, at 1440 by 1000 and at
  * the minimum window size. The camera panel's Apply to layout.json is
  * checked on the way.
  */
-import { assertClear } from './floating.mjs';
+import { assertClear, showCards } from './floating.mjs';
 import { FROSTVEIL, mock, openCamera } from './plan-camera.mjs';
 
 const SIZES = [
@@ -44,8 +44,8 @@ async function reviewUnderCards(page) {
 export async function sheetShots({ open, shot }) {
   for (const [viewport, suffix] of SIZES) {
     const plan = await openCamera(open, viewport, '&agents=batch');
-    // The camera panel's own bar keeps its Apply clear too.
-    await plan.getByRole('alertdialog').first().waitFor();
+    // The camera panel's own bar keeps its Apply clear too, with the tray open at either size.
+    await showCards(plan);
     const toLayout = plan.getByRole('button', { name: 'Apply to layout.json' });
     await assertClear(plan, toLayout, 'Apply to layout.json');
     await shot(plan, `sheet-camera-panel-cards${suffix}`);
@@ -69,6 +69,7 @@ export async function sheetShots({ open, shot }) {
       '#/library',
       viewport
     );
+    await showCards(library);
     await library.getByRole('button', { name: 'Export pack', exact: true }).click();
     const pack = library.getByRole('dialog', { name: 'Export pack' });
     await pack.getByRole('button', { name: 'Export and check' }).waitFor();

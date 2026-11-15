@@ -1,7 +1,6 @@
 /**
  * A sheet's bottom button bar. It runs to the window's bottom edge, so the
- * floating approval cards and notices sit above it instead of over its
- * buttons. Sheet's `footer` renders one; a footer that lives deeper in a
+ * notices sit above it instead of over its buttons. Sheet's `footer` renders one; a footer that lives deeper in a
  * sheet's body uses it directly.
  */
 import type { ReactNode } from 'react';

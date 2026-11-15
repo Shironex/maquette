@@ -87,6 +87,8 @@ export async function gripShots({ open, shot }) {
   await asked.waitForTimeout(400);
   await assertClear(asked, review.getByRole('button', { name: 'Save as r3' }), 'Save as r3');
   await assertClear(asked, review.getByRole('button', { name: 'Cancel' }), 'Cancel');
+  // The plan section (What it holds, or What changes for a saved grip) stays in view.
+  await assertClear(asked, review.getByRole('region', { name: 'What changes' }), 'What changes');
   await shot(asked, 'motion-recipe-grip-review');
   await asked.context().close();
 }

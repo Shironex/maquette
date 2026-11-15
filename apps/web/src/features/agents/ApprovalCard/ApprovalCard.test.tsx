@@ -173,6 +173,18 @@ describe('an approval card', () => {
     expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
   });
 
+  it('names its project, and says so when another project is open', async () => {
+    await openAgentSession('batch');
+    const send = approval('approval-2');
+    const name = useAppStore.getState().workspace!.projects.find(p => p.id === send.project)!.name;
+    const { unmount } = render(<ApprovalCard approval={send} />);
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(name);
+    expect(screen.queryByText(/not the open project/)).toBeNull();
+    unmount();
+    render(<ApprovalCard approval={{ ...send, project: 'elsewhere' }} />);
+    expect(screen.getByText('In elsewhere, not the open project')).toBeVisible();
+  });
+
   it('says a game ship replaces the imported originals and to commit first', async () => {
     await openMockGame('crypt');
     await useAgentsStore.getState().load();
@@ -207,12 +219,16 @@ describe('an approval card', () => {
       estimateUsd: null,
       asset: 'spiked-hound',
       version: 1,
-      sheets: null,
+      sheets: { before: '/cache/rig/before.png', after: '/cache/rig/after.png' },
     } satisfies Approval;
     render(<ApprovalCard approval={rig} />);
-    expect(screen.getByRole('alertdialog', { name: 'Add Spiked hound v2?' })).toBeInTheDocument();
+    // Compact: the sheets are read in the rig doctor, not on the card.
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(
+      screen.getByRole('alertdialog', { name: 'Add the rig doctor fix as Spiked hound v2?' })
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Open the sheets' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Open the rig doctor' }));
     expect(showCase).toHaveBeenCalledWith('spiked-hound-v1');
   });
 
@@ -239,7 +255,9 @@ describe('an approval card', () => {
       version: 2,
     } satisfies Approval;
     render(<ApprovalCard approval={ask} />);
-    expect(screen.getByRole('alertdialog', { name: 'Add Clay figure v3?' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('alertdialog', { name: 'Add the recipe bake as Clay figure v3?' })
+    ).toBeInTheDocument();
     expect(screen.getByText(/2 numbers of the review warn/)).toBeVisible();
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Review the bake' }));

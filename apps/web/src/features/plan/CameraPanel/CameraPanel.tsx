@@ -18,7 +18,7 @@ const placeNote = (from: number | null, to: number | null, added: boolean) =>
  */
 export default function CameraPanel({ onClose, hidden }: { onClose: () => void; hidden: boolean }) {
   const v = useCameraPanel();
-  // The approval cards float above Apply, never over it.
+  // Notices float above Apply, never over it.
   const foot = useKeepClearOfFloating<HTMLDivElement>();
   const review = v.review;
   const diff = review?.diff;

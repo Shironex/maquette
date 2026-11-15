@@ -82,8 +82,11 @@ export default function AppShell() {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <SyncConflictBanner />
-        <div className="flex min-h-0 flex-1 flex-col">
-          <CurrentView view={showsView(target, view) ? view : 'board'} />
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <CurrentView view={showsView(target, view) ? view : 'board'} />
+          </div>
+          <ApprovalPrompt />
         </div>
         <ShellStatusBar />
       </div>
@@ -108,7 +111,6 @@ export default function AppShell() {
       <QuickView />
       <AnimationDialogs />
       <RetargetDialog />
-      <ApprovalPrompt />
       <RepoPrompt />
       <QuitDialog />
     </div>

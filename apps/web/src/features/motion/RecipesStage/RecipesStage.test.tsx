@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { act } from 'react';
-import { useAgentsStore } from '@/state/use-agents-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRecipeBakesStore } from '@/state/use-recipe-bakes-store';
 import {
@@ -42,19 +41,6 @@ async function openWithModels() {
 }
 
 describe('the recipes stage', () => {
-  it('leaves room under the last row for a floating approval card', async () => {
-    await openMockLibrary('demo');
-    render(<RecipesStage />);
-    const list = await screen.findByRole('list', { name: 'Project recipes' });
-    expect(list).not.toHaveClass('pb-72');
-    const status = { approvals: [{ id: 'a' }] } as unknown as NonNullable<
-      ReturnType<typeof useAgentsStore.getState>['status']
-    >;
-    act(() => useAgentsStore.setState({ status }));
-    expect(list).toHaveClass('pb-72');
-    act(() => useAgentsStore.setState(useAgentsStore.getInitialState(), true));
-  });
-
   it('reads the recipes again when the window comes back, for a file edited by hand', async () => {
     await openMockLibrary('demo');
     render(<RecipesStage />);

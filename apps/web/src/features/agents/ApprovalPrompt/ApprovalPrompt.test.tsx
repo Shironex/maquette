@@ -2,17 +2,23 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useClearanceStore } from '@/lib/useFloatingClearance';
 import { openAgentSession } from '../openAgentSession';
+import {
+  APPROVAL_RAIL_WIDTH,
+  APPROVAL_TRAY_WIDTH,
+  useApprovalTrayStore,
+} from './ApprovalPrompt.hooks';
 import { ApprovalPrompt } from '.';
 
 afterEach(() => {
   clearMocks();
   useAgentsStore.setState({ status: null });
   useClearanceStore.setState({ bars: {} });
+  useApprovalTrayStore.setState({ folded: null });
 });
 
 describe('the approval prompt', () => {
@@ -59,26 +65,54 @@ describe('the approval prompt', () => {
     expect(within(card).getByRole('button', { name: 'Approve and run' })).toBeVisible();
   });
 
-  it('holds the bottom right corner, clear of the views header controls', async () => {
+  it('docks in a tray beside the view instead of floating over it', async () => {
     await openAgentSession('batch');
     act(() => useAppStore.setState({ view: 'board' }));
-    const { container } = render(<ApprovalPrompt />);
-    const column = container.firstElementChild;
-    expect(column).toHaveClass('bottom-11', 'right-5', 'overflow-y-auto');
-    expect(column).not.toHaveClass('top-[68px]');
+    render(<ApprovalPrompt />);
+    const tray = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(tray).toHaveStyle({ width: `${APPROVAL_TRAY_WIDTH}px` });
+    expect(tray).toHaveClass('flex-none');
+    expect(tray).not.toHaveClass('fixed');
+    expect(within(tray).getAllByRole('alertdialog')).toHaveLength(2);
   });
 
-  it('rises above a view bottom action bar instead of covering its buttons', async () => {
+  it('folds to a rail with the count and opens again, keeping every card waiting', async () => {
+    await openAgentSession('batch');
+    act(() => useAppStore.setState({ view: 'board' }));
+    render(<ApprovalPrompt />);
+    await userEvent.click(screen.getByRole('button', { name: 'Fold the approval cards' }));
+    const rail = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(rail).toHaveStyle({ width: `${APPROVAL_RAIL_WIDTH}px` });
+    expect(rail).toHaveTextContent('2');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the approval cards' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(2);
+  });
+
+  it('starts folded in a window too narrow for a view beside the tray', async () => {
+    const narrow = vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    vi.stubGlobal('matchMedia', narrow);
+    await openAgentSession('batch');
+    act(() => useAppStore.setState({ view: 'board' }));
+    render(<ApprovalPrompt />);
+    expect(screen.getByRole('button', { name: 'Show the approval cards' })).toBeVisible();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('stays in its tray when a view registers a bottom bar', async () => {
     await openAgentSession('batch');
     act(() => useAppStore.setState({ view: 'inbox' }));
     act(() => useClearanceStore.getState().set('rig-doctor-bar', 110));
-    const { container } = render(<ApprovalPrompt />);
-    const column = container.firstElementChild as HTMLElement;
-    expect(column.style.bottom).toBe('126px');
-    expect(column.style.maxHeight).toBe('calc(100vh - 322px)');
-    act(() => useClearanceStore.getState().set('rig-doctor-bar', null));
-    expect(column.style.bottom).toBe('');
-    expect(column).toHaveClass('bottom-11');
+    render(<ApprovalPrompt />);
+    const tray = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(tray.style.bottom).toBe('');
+    expect(tray.style.maxHeight).toBe('');
   });
 
   it('renders nothing with no approvals', async () => {

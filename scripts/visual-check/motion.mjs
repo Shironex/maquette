@@ -62,7 +62,7 @@ async function recipeReviewShots(open, shot) {
   await review.context().close();
 
   const asked = await openReview(open, 'demo&library=demo&agents=recipe');
-  const card = asked.getByRole('alertdialog', { name: 'Add Clay figure v3?' });
+  const card = asked.getByRole('alertdialog', { name: 'Add the recipe bake as Clay figure v3?' });
   await card.waitFor();
   await asked.getByRole('button', { name: 'Pause' }).click();
   await asked.waitForTimeout(400);
@@ -72,6 +72,11 @@ async function recipeReviewShots(open, shot) {
     asked,
     asked.getByText('It can still be added', { exact: false }),
     'the worth a look note'
+  );
+  await assertClear(
+    asked,
+    asked.getByRole('list', { name: 'Review numbers' }),
+    'the review numbers'
   );
   await shot(asked, 'motion-recipe-review-approval');
   await asked.context().close();

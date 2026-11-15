@@ -19,7 +19,7 @@ async function openCase(open, state, name, viewport = { width: 1440, height: 100
   return page;
 }
 
-/** An agent's two drafts: the open case's card stays home, the other floats above Add. */
+/** An agent's two drafts: the open case's card stays home, the other docks clear of Add. */
 async function agentDraftShots(open, shot) {
   for (const [viewport, name] of [
     [{ width: 1440, height: 1000 }, 'rig-agent-card'],
@@ -29,8 +29,20 @@ async function agentDraftShots(open, shot) {
     const page = await openCase(open, 'agent-fixed', /^Spiked hound: draft v2 waits/, viewport);
     const add = page.getByRole('button', { name: 'Add as v2' });
     await add.waitFor();
-    await page.getByRole('alertdialog', { name: 'Add Duchess Vesperine v2?' }).waitFor();
-    if (await page.getByRole('alertdialog', { name: 'Add Spiked hound v2?' }).count()) {
+    // A window too narrow for the view and the tray starts with the tray folded to its rail.
+    if (viewport.width < 1400) {
+      await page.getByRole('button', { name: 'Show the approval cards' }).waitFor();
+      await shot(page, `${name}-folded`);
+      await page.getByRole('button', { name: 'Show the approval cards' }).click();
+    }
+    await page
+      .getByRole('alertdialog', { name: 'Add the rig doctor fix as Duchess Vesperine v2?' })
+      .waitFor();
+    if (
+      await page
+        .getByRole('alertdialog', { name: 'Add the rig doctor fix as Spiked hound v2?' })
+        .count()
+    ) {
       throw new Error('The open case still floats its own card');
     }
     await assertClear(page, add, 'Add as v2');

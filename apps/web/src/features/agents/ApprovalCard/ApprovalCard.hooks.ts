@@ -145,15 +145,17 @@ function useApprovalHold(layout: string, anyOpen: boolean) {
 /**
  * Which of a list of approval cards are open, the toggle each one gets, and
  * the hold on their Approve: `column` goes on the element around the cards.
+ * `shown` is false while the cards are folded away; showing them again is a
+ * new layout, so it restarts the hold too.
  */
-export function useApprovalStack(approvals: readonly Approval[] | undefined) {
+export function useApprovalStack(approvals: readonly Approval[] | undefined, shown = true) {
   const [stored, setOpen] = useState<Readonly<Record<string, boolean>>>({});
   const ids = approvals?.map(a => a.id) ?? [];
   const open = settleOpen(stored, ids);
   if (open !== stored) setOpen(open);
   const { column, armed } = useApprovalHold(
-    ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','),
-    ids.some(id => open[id])
+    `${shown ? 'shown' : 'folded'}|${ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(',')}`,
+    shown && ids.some(id => open[id])
   );
   return {
     column,
@@ -163,12 +165,18 @@ export function useApprovalStack(approvals: readonly Approval[] | undefined) {
   };
 }
 
-/** The project an approval is for, the clock for its age, and the decision. */
+/**
+ * The project an approval is for and whether another one is open, the clock
+ * for its age, and the decision.
+ */
 export function useApprovalCard(approval: Approval) {
   const decide = useAgentsStore(s => s.decide);
   const deciding = useAgentsStore(s => s.deciding === approval.id);
   const projects = useAppStore(s => s.workspace?.projects);
   const site = projects?.find(p => p.id === approval.project);
+  // A card for another project than the one open says so.
+  const open = useAppStore(s => s.workspace?.project?.id);
+  const elsewhere = Boolean(open) && open !== approval.project;
   const now = useNow(15_000);
   const estimate = approval.estimate;
   const usd = approval.estimateUsd;
@@ -183,7 +191,7 @@ export function useApprovalCard(approval: Approval) {
   const game = useGameNotes(approval, approval.kind === 'ship' && site?.target === 'game');
   const swaps = useSwapNotes(approval);
   const notes = [...swaps, ...game];
-  return { decide, deciding, site, now, cost, notes, pose: useRestPose(approval) };
+  return { decide, deciding, site, elsewhere, now, cost, notes, pose: useRestPose(approval) };
 }
 
 /** Turns down the avatar step `approval` names, and says what that means. */

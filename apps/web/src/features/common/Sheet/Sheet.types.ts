@@ -13,8 +13,8 @@ export interface SheetProps {
   width?: number;
   children: ReactNode;
   /**
-   * The bottom button bar, under the body. The floating approval cards and
-   * notices keep clear of it (see SheetFooter).
+   * The bottom button bar, under the body. The notices keep clear of it
+   * (see SheetFooter).
    */
   footer?: ReactNode;
 }

@@ -77,6 +77,9 @@ export async function recipeLibraryShots({ open, shot }) {
   });
   await card.waitFor();
   await asked.waitForTimeout(400);
+  // The recipe rows' Edit and Apply sit at the right edge, where the tray docks beside them.
+  for (const button of await asked.getByRole('button', { name: /^(Edit|Apply)$/ }).all())
+    await assertClear(asked, button, 'a recipe row button');
   await shot(asked, 'motion-recipe-save-approval');
   await card.getByRole('button', { name: 'Review', exact: true }).click();
   const review = asked.getByRole('dialog', { name: 'Save to library' });

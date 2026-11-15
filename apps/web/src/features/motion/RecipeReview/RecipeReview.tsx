@@ -66,7 +66,7 @@ function Line({ line }: { line: RecipeReviewLine }) {
  * A finished bake under review: the baked clip on the staged model next to
  * (or instead of) the base clip on the model as it is now, the numbers
  * against their limits, why it is out of date, and Add as vN in a bottom
- * bar the floating cards keep clear of.
+ * bar the notices keep clear of.
  */
 export default function RecipeReview() {
   const r = useRecipeReview();
@@ -230,7 +230,7 @@ export default function RecipeReview() {
           ) : null}
           {review ? (
             <>
-              {/* The note sits above the numbers, where a floating card never reaches. */}
+              {/* The note sits above the numbers. */}
               <div className="flex flex-col gap-0.5">
                 <p className="text-meta font-medium text-fg-dim">{reviewSummary(review)}</p>
                 <p className="text-meta text-fg-mute">{worthALook(review)}</p>

@@ -32,7 +32,7 @@ export default function ApprovalCard({
   onToggle,
   armed = true,
 }: ApprovalCardProps) {
-  const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
+  const { decide, deciding, site, elsewhere, now, cost, notes, pose } = useApprovalCard(approval);
   const source = floating ? 'floating-card' : 'agents-panel';
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';
@@ -49,6 +49,8 @@ export default function ApprovalCard({
   const shipTo =
     approval.kind === 'ship' ? approval.detail : gripSave ? gripSaveLine(approval) : null;
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
+  // A rig doctor card stays compact: its sheets are read in the rig doctor.
+  const sheets = rest && !doctor ? pose.sheets : null;
   const items = approval.items.map(item => (
     <li
       key={item.job}
@@ -76,10 +78,7 @@ export default function ApprovalCard({
     <section
       role="alertdialog"
       aria-labelledby={titleId}
-      className={cn(
-        'pointer-events-auto flex flex-col gap-3 rounded-card border border-amber/40 bg-panel p-3.5',
-        floating && 'shadow-window'
-      )}
+      className="flex flex-col gap-3 rounded-card border border-amber/40 bg-panel p-3.5"
     >
       <div className="flex items-start gap-3">
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
@@ -106,6 +105,11 @@ export default function ApprovalCard({
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {title}
           </h2>
+          <p className={cn('truncate text-meta', elsewhere ? 'text-amber' : 'text-fg-dim')}>
+            {elsewhere
+              ? `In ${site?.name ?? approval.project}, not the open project`
+              : (site?.name ?? approval.project)}
+          </p>
           {collapsed ? (
             <p className="mt-0.5 text-meta font-medium text-amber">
               Waiting for you · {formatAgo(approval.requestedAtMs ?? now, now)}
@@ -130,8 +134,7 @@ export default function ApprovalCard({
             </p>
           ) : doctor ? (
             <p className="mt-0.5 text-meta text-fg-mute">
-              An agent started this rig doctor run over MCP. Nothing is added until you look at the
-              sheets and add it yourself.
+              An agent started it over MCP. Nothing is added until you add it in the rig doctor.
             </p>
           ) : chains ? (
             <p className="mt-0.5 text-meta text-fg-mute">
@@ -251,18 +254,18 @@ export default function ApprovalCard({
               {detailLine}
             </p>
           ) : null}
-          {rest && pose.sheets ? (
+          {sheets ? (
             <div className="ml-11 grid grid-cols-2 gap-2">
-              {pose.sheets.before ? (
+              {sheets.before ? (
                 <img
-                  src={pose.sheets.before}
+                  src={sheets.before}
                   alt="The before sheet"
                   className="w-full rounded-[7px] border border-line"
                 />
               ) : null}
-              {pose.sheets.after ? (
+              {sheets.after ? (
                 <img
-                  src={pose.sheets.after}
+                  src={sheets.after}
                   alt="The after sheet"
                   className="w-full rounded-[7px] border border-line"
                 />
@@ -313,7 +316,13 @@ export default function ApprovalCard({
                 }
                 onClick={pose.open}
               >
-                {recipeSave ? 'Review' : recipeBake ? 'Review the bake' : 'Open the sheets'}
+                {recipeSave
+                  ? 'Review'
+                  : recipeBake
+                    ? 'Review the bake'
+                    : doctor
+                      ? 'Open the rig doctor'
+                      : 'Open the sheets'}
               </Button>
             </div>
           ) : (
