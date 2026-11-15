@@ -78,7 +78,7 @@ pub(in crate::mcp::tools) fn start_of(place: Place<'_>, has_repo: bool, can: Can
                 )
             } else {
                 person_step(
-                    "Sign in to Codex (codex login) for concept images, or bring your own images as refs.",
+                    "Sign in to Codex (codex login) for concept images, or bring your own images as refs with add_refs (free, no image backend).",
                 )
             });
             if can.blender {
