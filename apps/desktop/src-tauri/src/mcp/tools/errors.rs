@@ -198,6 +198,10 @@ fn by_code(code: &str, message: &str) -> Option<Advice> {
             "Call again with project set to the project the send is in: every send answer carries it, and get_provider_job with project and no id lists that project's sends.",
             "get_provider_job",
         )),
+        super::inbox::OTHER_PROJECT => Some(agent(
+            "Leave project out to accept the model into the project it was sent for (list_inbox shows sentFor and aimedAt), or give asset to file it in this project on purpose.",
+            "list_inbox",
+        )),
         super::handoffs::STAGED_BAKE => Some(agent(
             "Call add_recipe_bake: a person reviews the bake in the Motion view and adds it as a version there, which keeps whether it counts as Mixamo's.",
             "add_recipe_bake",

@@ -23,7 +23,8 @@ pub struct AcceptManyArgs {
     pub ids: Vec<String>,
     /// The project that gets every model. Left out, each goes to the project
     /// of the asset it was sent for or attached to, and a model with neither
-    /// fails on its own.
+    /// fails on its own. A model sent for or attached to an asset of another
+    /// project fails on its own, as accept_inbox_model refuses it.
     pub project: Option<String>,
 }
 
@@ -34,31 +35,13 @@ pub struct RestoreArgs {
     pub name: String,
 }
 
-/// The project inbox model `id` goes to without one given: its send's, else its aim's.
-fn home_project(host: &dyn Host, id: &str) -> Result<String, ToolError> {
-    let (root, config) = workspace(host)?;
-    let mut item = inbox::item(&root, &config, id)?;
-    host.studio().link_inbox(std::slice::from_mut(&mut item));
-    item.link
-        .map(|l| l.project)
-        .or(item.aim.map(|a| a.project))
-        .ok_or_else(|| {
-            format!("{id} was not sent for or attached to an asset; give project to accept it.")
-        })
-        .map_err(ToolError::from)
-}
-
 /// Accepts one model as accept_inbox_model does and answers its result row.
 fn accept_one(host: &dyn Host, id: &str, project: Option<&str>) -> Result<Value, ToolError> {
-    let project = match project {
-        Some(p) => p.to_string(),
-        None => home_project(host, id)?,
-    };
     let done = accept_item(
         host,
         AcceptArgs {
             id: id.to_string(),
-            project: project.clone(),
+            project: project.map(str::to_string),
             asset: None,
             name: None,
         },
@@ -66,7 +49,7 @@ fn accept_one(host: &dyn Host, id: &str, project: Option<&str>) -> Result<Value,
     Ok(json!({
         "id": id,
         "ok": true,
-        "project": project,
+        "project": done["project"],
         "asset": done["asset"],
         "version": done["version"],
         "file": done["file"],
@@ -76,7 +59,7 @@ fn accept_one(host: &dyn Host, id: &str, project: Option<&str>) -> Result<Value,
 #[tool_router(router = inbox_triage_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Accept several inbox models in one call (1 to 200 ids), each as accept_inbox_model does: it goes to the asset it was sent for or attached to, as that asset's next version, in that asset's project unless project is given. Each model answers on its own, with ok true and its project, asset, version and file, or ok false and why (an unreadable file, a model that goes nowhere without project), and one failure does not stop the rest; the answer also counts accepted and failed. A By hand send of an accepted asset still waiting closes as done. Spends nothing and needs no approval, like accept_inbox_model."
+        description = "Accept several inbox models in one call (1 to 200 ids), each as accept_inbox_model does: it goes to the asset it was sent for or attached to, as that asset's next version, in that asset's project; project is for models sent for nothing, and a model of another project fails on its own. Each model answers on its own, with ok true and its project, asset, version and file, or ok false and why (an unreadable file, a model that goes nowhere without project, one of another project), and one failure does not stop the rest; the answer also counts accepted and failed. A By hand send of an accepted asset still waiting closes as done. Spends nothing and needs no approval, like accept_inbox_model."
     )]
     async fn accept_inbox_models(&self, Parameters(args): Parameters<AcceptManyArgs>) -> Out {
         let found = self
@@ -89,7 +72,7 @@ impl McpTools {
                     .iter()
                     .map(|id| {
                         accept_one(host, id, args.project.as_deref()).unwrap_or_else(
-                            |why| json!({ "id": id, "ok": false, "error": why.message }),
+                            |why| json!({ "id": id, "ok": false, "error": why.message, "code": why.code }),
                         )
                     })
                     .collect();

@@ -28,10 +28,13 @@ pub struct InboxItemArgs {
 pub struct AcceptArgs {
     /// The inbox item id (its file name).
     pub id: String,
-    /// The project that gets the model.
-    pub project: String,
-    /// An existing asset id to add a version to. Without it, the asset named
-    /// `name` (or after the file) is found or created.
+    /// The project that gets the model. By default the project of the asset it
+    /// was sent for or attached to (sentFor or aimedAt in list_inbox); another
+    /// project is refused unless asset is given too.
+    pub project: Option<String>,
+    /// An existing asset id to add a version to. Without it, the asset the model
+    /// was sent for or attached to, else the asset named `name` (or after the
+    /// file), found or created.
     pub asset: Option<String>,
     /// The asset name, when a new asset is made.
     pub name: Option<String>,
@@ -70,6 +73,52 @@ fn resolve_model(root: &Path, file: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// The code of an accept into a project other than the one the model was
+/// sent for or attached to, without an asset to say it is meant.
+pub(super) const OTHER_PROJECT: &str = "model-for-another-project";
+
+/// The project and asset a model goes to: the one given, else the asset it
+/// was sent for, else the one a download was attached to. A project other
+/// than its own is refused unless an asset is given too, so a paid model
+/// never lands as a new asset in the wrong project by mistake.
+fn destination(
+    item: &inbox::InboxItem,
+    project: Option<String>,
+    asset: Option<&str>,
+) -> Result<(String, Option<String>), ToolError> {
+    let home = item
+        .link
+        .as_ref()
+        .map(|l| (l.project.clone(), l.asset.clone(), l.asset_name.clone()))
+        .or_else(|| {
+            item.aim
+                .as_ref()
+                .map(|a| (a.project.clone(), a.asset.clone(), a.asset_name.clone()))
+        });
+    match (project, home) {
+        (Some(project), Some((own, _, name))) if project != own => {
+            if asset.is_some() {
+                return Ok((project, None));
+            }
+            Err(ToolError {
+                message: format!(
+                    "{} is for {name} in {own}, not {project}. Leave project out to accept it there, or give asset to file it in {project} on purpose.",
+                    item.id
+                ),
+                code: OTHER_PROJECT.to_string(),
+            })
+        }
+        (Some(project), Some((_, linked, _))) => Ok((project, Some(linked))),
+        (Some(project), None) => Ok((project, None)),
+        (None, Some((own, linked, _))) => Ok((own, Some(linked))),
+        (None, None) => Err(format!(
+            "{} was not sent for or attached to an asset; give project to accept it.",
+            item.id
+        )
+        .into()),
+    }
+}
+
 /// Accepts inbox item `args.id` into its project, as accept_inbox_model does,
 /// and starts its thumbnail.
 pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, ToolError> {
@@ -78,13 +127,10 @@ pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, To
     // core falls back on the asset a download was attached to.
     let mut item = inbox::item(&root, &config, &args.id)?;
     host.studio().link_inbox(std::slice::from_mut(&mut item));
-    let linked = item
-        .link
-        .filter(|l| l.project == args.project)
-        .map(|l| l.asset);
+    let (project, linked) = destination(&item, args.project, args.asset.as_deref())?;
     let request = AcceptRequest {
         item: args.id,
-        project: args.project.clone(),
+        project: project.clone(),
         asset: args.asset.or(linked),
         name: args.name,
         prep: None,
@@ -97,7 +143,7 @@ pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, To
         result.version.version,
     );
     let target = ThumbTarget {
-        project: args.project,
+        project: project.clone(),
         asset: result.asset.id.clone(),
         version: result.version.version,
     };
@@ -118,6 +164,7 @@ pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, To
     }
     host.project_changed(&result.project);
     Ok(json!({
+        "project": project,
         "asset": { "id": result.asset.id, "name": result.asset.name, "stage": to_value(result.asset.stage) },
         "version": result.version.version,
         "file": result.file,
@@ -244,7 +291,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless. Without asset it goes to the asset the model was sent for, or the one a download was attached to (aimedAt in list_inbox). A By hand send of that asset still waiting for its model closes as done; a Tripo or Meshy send runs on."
+        description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless. project defaults to the project of the asset the model was sent for or attached to (sentFor or aimedAt in list_inbox); another project is refused (code model-for-another-project) unless asset is given too. Without asset it goes to the asset the model was sent for, or the one a download was attached to. A By hand send of that asset still waiting for its model closes as done; a Tripo or Meshy send runs on."
     )]
     async fn accept_inbox_model(&self, Parameters(args): Parameters<AcceptArgs>) -> Out {
         let found = self.blocking(move |host, _| accept_item(host, args)).await;

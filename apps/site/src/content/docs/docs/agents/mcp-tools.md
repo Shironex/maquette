@@ -721,11 +721,11 @@ Moves a model from the inbox into a project as a new asset version on the Board,
 | Parameter | Type   | Required | Notes                                                |
 | --------- | ------ | -------- | ---------------------------------------------------- |
 | `id`      | string | yes      | The inbox item id, its file name, from `list_inbox`. |
-| `project` | string | yes      | The project that gets the model.                     |
+| `project` | string | no       | The project that gets the model.                     |
 | `asset`   | string | no       | An existing asset id to add a version to.            |
 | `name`    | string | no       | The asset name, when a new asset is made.            |
 
-Without `asset` it goes to the asset the model was sent for, or the one a download was attached to (`aimedAt` in `list_inbox`).
+Without `project` it goes to the project of the asset the model was sent for, or the one a download was attached to (`sentFor` and `aimedAt` in `list_inbox`). Another project is refused with code `model-for-another-project` unless `asset` is given too, so a paid model never lands as a new asset in the wrong project. Without `asset` it goes to the asset the model was sent for, or the one a download was attached to.
 
 ### discard_inbox_model
 
@@ -741,7 +741,7 @@ Throws away an inbox model, such as the losing version of a redo or a bad downlo
 
 `changes the project`
 
-Accepts several inbox models in one call, each as `accept_inbox_model` does: it goes to the asset it was sent for or attached to, as that asset's next version. Without `project` each model goes to the project of that asset, and a model that goes nowhere fails on its own; with `project` every model goes there. Every model answers on its own, so an unreadable file does not stop the rest. The answer counts `accepted` and `failed`, and `results` lists each id with `ok`, then its `project`, `asset`, `version` and `file`, or its `error`. A By hand send of an accepted asset still waiting closes as done. It spends nothing and needs no approval, like `accept_inbox_model`.
+Accepts several inbox models in one call, each as `accept_inbox_model` does: it goes to the asset it was sent for or attached to, as that asset's next version. Without `project` each model goes to the project of that asset, and a model that goes nowhere fails on its own; `project` is for models sent for nothing, and a model of another project fails on its own with code `model-for-another-project`. Every model answers on its own, so an unreadable file does not stop the rest. The answer counts `accepted` and `failed`, and `results` lists each id with `ok`, then its `project`, `asset`, `version` and `file`, or its `error` and `code`. A By hand send of an accepted asset still waiting closes as done. It spends nothing and needs no approval, like `accept_inbox_model`.
 
 | Parameter | Type     | Required | Notes                                                                          |
 | --------- | -------- | -------- | ------------------------------------------------------------------------------ |

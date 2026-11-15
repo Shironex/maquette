@@ -187,7 +187,7 @@ impl McpTools {
                 let accepted = if args.accept.unwrap_or(false) {
                     let accept = AcceptArgs {
                         id: added.inbox_file.clone(),
-                        project: args.project.clone(),
+                        project: Some(args.project.clone()),
                         asset: Some(added.asset.clone()),
                         name: None,
                     };
