@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 mod add;
 mod fixes;
 mod grips;
+mod idle;
 mod job;
 mod pins;
 mod result;
@@ -283,6 +284,8 @@ mod tests_blender_pins;
 mod tests_blender_seams;
 #[cfg(test)]
 mod tests_grips;
+#[cfg(test)]
+mod tests_idle;
 #[cfg(test)]
 mod tests_joined;
 #[cfg(test)]
