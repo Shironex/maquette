@@ -121,7 +121,7 @@ async fn get_started_lists_what_waits_and_next_follows_the_send() {
     assert_eq!(unknown.is_error, Some(true));
     assert!(text(&unknown).contains("list_projects"));
 
-    // A denied send leads to sending again.
+    // A denied send leads to retrying it.
     for approval in hub.approvals() {
         assert!(hub.decide(&approval.id, false));
     }
@@ -140,7 +140,7 @@ async fn get_started_lists_what_waits_and_next_follows_the_send() {
     )
     .await;
     assert_eq!(denied["status"], "cancelled");
-    assert_eq!(tools(&denied["next"]), ["send_to_3d"]);
+    assert_eq!(tools(&denied["next"]), ["retry_provider_jobs"]);
     let after = call(&client, "get_started", json!({})).await;
     assert_eq!(
         after["waiting"],
