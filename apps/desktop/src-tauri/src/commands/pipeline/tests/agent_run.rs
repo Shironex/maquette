@@ -35,7 +35,14 @@ fn shipping(rule: bool, by: RepoSetBy) -> (tempfile::TempDir, Session, String) {
         source_folder: None,
     };
     let manifest = create_in_workspace(&session, new, by).expect("project");
-    // A placed model and a camera stop, so a site that takes scene data can ship.
+    // A model to build, and a placed model and a camera stop, so a site that
+    // takes scene data can ship.
+    let models = context(&session, &manifest.id)
+        .expect("context")
+        .project_dir
+        .join("models");
+    std::fs::create_dir_all(&models).expect("models");
+    std::fs::write(models.join("lamp.glb"), b"glTF").expect("model");
     write_layout(&session, &manifest.id, true);
     (dir, session, manifest.id)
 }
@@ -308,4 +315,36 @@ fn a_run_whose_ship_would_fail_is_refused_before_it_raises_a_card() {
     // With a stop the run goes on to its gate as before.
     write_layout(&session, &id, true);
     assert!(waits(&session, &id, None).expect("asks").contains(CHOSE));
+}
+
+#[test]
+fn a_run_with_no_model_to_build_is_refused_whatever_the_site_and_with_build_only() {
+    let (_dir, session, id) = shipping(false, RepoSetBy::Person);
+    let project_dir = context(&session, &id).expect("context").project_dir;
+    std::fs::remove_file(project_dir.join("models/lamp.glb")).expect("rm");
+    let hub = Arc::new(Hub::new(|| {}));
+    let tools = maquette_core::pipeline::tools::Toolbox::default;
+    for build_only in [false, true] {
+        let ask = RunAsk {
+            build_only,
+            ..RunAsk::default()
+        };
+        let refused = agent_run::<()>(&session, &hub, &id, ask, tools(), |_, _| {
+            panic!("a run with nothing to build is never queued")
+        })
+        .expect_err("refused");
+        assert_eq!(refused.code, run::NOTHING_TO_BUILD);
+        assert!(
+            refused
+                .message
+                .starts_with(maquette_core::pipeline::runner::NO_MODELS),
+            "{}",
+            refused.message
+        );
+    }
+    // The app's own Run button is refused the same way.
+    let setup = run::setup(&session, &id, RunAsk::default(), tools()).expect("setup");
+    let refused = run::refuse_empty(&setup).expect_err("refused");
+    assert_eq!(refused.code, run::NOTHING_TO_BUILD);
+    assert!(hub.approvals().is_empty(), "no card was raised");
 }

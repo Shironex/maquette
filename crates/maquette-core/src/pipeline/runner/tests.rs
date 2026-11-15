@@ -1247,3 +1247,47 @@ fn a_gated_ship_that_can_go_still_asks() {
     assert_eq!(run.state, RunState::Done, "{:?}", run.message);
     assert!(s.project_dir.join("ran.log").exists());
 }
+
+#[test]
+fn a_run_with_no_model_to_build_is_refused_before_it_starts() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut build = shell_step("build", "tools/build.sh", &[], &[]);
+    build.name = "Build scene".into();
+    build.args.extend(
+        ["--base", "blender/scene.blend", "--models", "models"]
+            .iter()
+            .map(|a| a.to_string()),
+    );
+    let export = shell_step("export", "tools/export.sh", &[], &["build"]);
+    let mut s = setup(dir.path(), vec![build, export]);
+    let why = s.nothing_to_build().expect("no models folder");
+    assert!(why.starts_with(super::NO_MODELS), "{why}");
+    assert!(
+        why.contains("models folder") && why.contains("Build scene"),
+        "{why}"
+    );
+    let built_only = RunSetup {
+        build_only: true,
+        ..s.clone()
+    };
+    assert!(
+        built_only.nothing_to_build().is_some(),
+        "buildOnly fails at Export too"
+    );
+    fs::create_dir_all(s.project_dir.join("models")).expect("models");
+    fs::write(s.project_dir.join("models/notes.txt"), "x").expect("notes");
+    assert!(s.nothing_to_build().is_some(), "only a model file counts");
+    s.from = Some("export".into());
+    assert_eq!(s.nothing_to_build(), None, "a run from after the build");
+    s.from = None;
+    fs::write(s.project_dir.join("models/lamp.GLB"), "glb").expect("model");
+    assert_eq!(s.nothing_to_build(), None);
+    fs::remove_file(s.project_dir.join("models/lamp.GLB")).expect("rm");
+    fs::create_dir_all(s.project_dir.join("blender")).expect("blender");
+    fs::write(s.project_dir.join("blender/scene.blend"), "blend").expect("base");
+    assert_eq!(
+        s.nothing_to_build(),
+        None,
+        "a base blend may hold the scene"
+    );
+}

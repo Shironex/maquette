@@ -124,6 +124,14 @@ fn the_table_matches_what_the_sources_really_say() {
             source!("crates/maquette-core/src/site/ready.rs"),
         ),
         (
+            "No models:",
+            source!("crates/maquette-core/src/pipeline/runner.rs"),
+        ),
+        (
+            "add .glb files to models/ and run Build scene again",
+            source!("crates/maquette-core/starter/export_web.py"),
+        ),
+        (
             "add the stops in the Inspector",
             source!("crates/maquette-core/starter/ship.mjs"),
         ),
@@ -260,4 +268,25 @@ fn a_ship_that_cannot_go_says_what_fixes_it() {
     let script = "Ship failed. The layout has 1 placed models and 0 camera stops. Place the models and add the stops in the Inspector, then ship again; nothing was copied. node exited with code 1.";
     assert!(fix_for(script).is_some());
     assert!(fix_for("Ship failed. node exited with code 1.").is_none());
+}
+
+#[test]
+fn a_run_with_no_model_says_how_to_get_one() {
+    let refused = body(&ToolError {
+        message: format!(
+            "{} the project's models folder has no .glb or .gltf file.",
+            maquette_core::pipeline::runner::NO_MODELS
+        ),
+        code: "nothing-to-build".to_string(),
+    });
+    assert_eq!(refused["tryTool"], "add_built_asset");
+    let fix = refused["fix"].as_str().expect("fix");
+    for tool in ["add_built_asset", "add_model_file", "send_to_3d"] {
+        assert!(fix.contains(tool), "{fix}");
+    }
+    let run = "Step Export GLB failed. Nothing to export: add .glb files to models/ and run Build scene again. Blender exited with code 1.";
+    assert_eq!(
+        fix_for(run).map(|(_, tool)| tool),
+        Some(Some("add_built_asset"))
+    );
 }
