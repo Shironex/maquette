@@ -4,7 +4,7 @@
 use serde_json::{Map, Value, json};
 
 /// What `detail: true` adds, said in the short answer.
-const MORE: &str = "Pass detail true for every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every approval a person gives (paid sends and image rounds, Ship, new dev servers, avatars). get_image_backend and list_projects read those parts alone.";
+const MORE: &str = "Pass detail true for every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every kind of approval a person gives (paid sends and image rounds, Ship, new dev servers, avatars). get_image_backend and list_projects read those parts alone.";
 
 fn works(tool: &Value) -> bool {
     tool["status"] == "found" && tool["warning"].is_null()

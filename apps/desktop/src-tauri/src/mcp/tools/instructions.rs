@@ -6,7 +6,7 @@ pub(super) const INSTRUCTIONS: &str = "\
 Maquette turns concept art into real-time 3D web scenes and game models, on this computer.
 
 START HERE
-1. get_started reads the workspace, tools, saved keys, projects and gates, and lists what to do next.
+1. get_started reads the workspace, tools, saved keys, projects, gates and what waits, and lists what to do next.
 2. create_project makes a website or game project when there is none. It spends nothing.
 3. Follow an answer's next list. Errors carry code, and fix and tryTool when they help.
 Each tool's description starts with its [group]; project tools take the project id as project.

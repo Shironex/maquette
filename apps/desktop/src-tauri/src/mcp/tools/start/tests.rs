@@ -332,4 +332,77 @@ fn sends_count_by_state_and_only_by_hand_waits_for_a_person() {
             by_hand: 1
         }
     );
+    let listed = super::waiting::listed(&[], &[("p", sends), ("q", Sends::default())], 0.0);
+    let kinds: Vec<&str> = listed.iter().filter_map(|w| w["kind"].as_str()).collect();
+    assert_eq!(
+        kinds,
+        ["sends", "by-hand"],
+        "a project with nothing in flight lists nothing"
+    );
+    assert_eq!(listed[0]["inFlight"], 2);
+    assert_eq!(listed[0]["poll"]["tool"], "get_provider_job");
+    assert_eq!(listed[0]["poll"]["args"]["project"], "p");
+    assert_eq!(listed[1]["poll"]["tool"], "list_handoffs");
+}
+
+#[test]
+fn every_waiting_approval_names_the_tool_that_follows_it_and_its_age() {
+    use crate::mcp::hub::Approval;
+    let approval = |kind: &str, at: f64| -> Approval {
+        serde_json::from_value(json!({
+            "id": format!("a-{kind}"), "kind": kind, "project": "p", "runId": "p-run-3",
+            "job": "lamp-1", "assetName": "Lamp", "items": [], "requestedAtMs": at,
+            "asset": "lamp", "recipeSave": { "recipe": "wave", "revision": 1 },
+        }))
+        .expect(kind)
+    };
+    let kinds = [
+        ("ship", "get_run"),
+        ("send-to-3d", "get_provider_job"),
+        ("image-round", "get_concepts"),
+        ("rest-pose", "get_avatar"),
+        ("reweight", "get_avatar"),
+        ("springs", "get_avatar"),
+        ("rig-doctor", "get_rig_doctor"),
+        ("recipe-bake", "get_recipe_bake"),
+        ("recipe-save", "get_recipe"),
+        ("grip-save", "list_grips"),
+        ("page-preview", "get_page_preview"),
+    ];
+    // Newest first in, oldest first out.
+    let approvals: Vec<Approval> = kinds
+        .iter()
+        .enumerate()
+        .map(|(i, (kind, _))| approval(kind, 1000.0 * (20 - i) as f64))
+        .collect();
+    let listed = super::waiting::listed(&approvals, &[], 30_000.0);
+    assert_eq!(listed.len(), kinds.len());
+    let known = McpTools::tool_names();
+    for (row, (kind, tool)) in listed.iter().rev().zip(kinds) {
+        assert_eq!(row["kind"], kind);
+        assert_eq!(row["poll"]["tool"], tool, "{kind}");
+        assert!(known.contains(&tool.to_string()), "{tool}");
+        assert_eq!(row["project"], "p");
+        assert_eq!(row["approval"], format!("a-{kind}"));
+    }
+    assert_eq!(listed[0]["kind"], "page-preview");
+    assert_eq!(listed[0]["ageSeconds"], 20);
+    let ship = listed.iter().find(|r| r["kind"] == "ship").expect("ship");
+    assert_eq!(
+        ship["poll"]["args"],
+        json!({ "project": "p", "runId": "p-run-3" })
+    );
+    let send = listed
+        .iter()
+        .find(|r| r["kind"] == "send-to-3d")
+        .expect("send");
+    assert_eq!(
+        send["poll"]["args"],
+        json!({ "project": "p", "id": "lamp-1" })
+    );
+    let save = listed
+        .iter()
+        .find(|r| r["kind"] == "recipe-save")
+        .expect("save");
+    assert_eq!(save["poll"]["args"]["recipe"], "wave");
 }

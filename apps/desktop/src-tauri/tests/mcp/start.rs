@@ -304,6 +304,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
         next_tools(&for_game),
         ["scan_game_models", "import_game_models"]
     );
+    assert_eq!(for_game["waiting"], json!([]));
     let inbox = call(&client, "list_inbox", json!({})).await;
     assert_eq!(next_tools(&inbox)[0], "list_handoffs");
     let lab = call(&client, "get_concepts", json!({ "project": "moon-island" })).await;

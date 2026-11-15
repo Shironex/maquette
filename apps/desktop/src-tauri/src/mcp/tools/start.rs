@@ -3,6 +3,7 @@
 
 use maquette_core::app_state::RepoSetBy;
 use maquette_core::game::inspect_game_repo;
+use maquette_core::pipeline::history::now_ms;
 use maquette_core::providers::{ProviderId, secrets};
 use maquette_core::settings::game::{DEFAULT_MODELS_DIR, GameFormat, GameTemplateId, NewGame};
 use maquette_core::{
@@ -21,11 +22,13 @@ use super::{McpTools, Out, ToolError, respond, to_value};
 use crate::commands::image_api;
 use crate::commands::project::{checked_repo, create_in_workspace, summaries};
 use crate::mcp::host::Host;
+use crate::mcp::hub::Hub;
 
 mod compact;
 mod next;
 #[cfg(test)]
 mod tests;
+mod waiting;
 
 use next::{Facts, ProjectFacts, next_steps};
 
@@ -61,8 +64,9 @@ pub struct CreateProjectArgs {
 #[serde(rename_all = "camelCase")]
 pub struct GetStartedArgs {
     /// true adds every tool's version and hint, each project's template, repo,
-    /// stages and activity, the image backend's settings and every gate a
-    /// person passes and the kinds of approval a person gives. Left out, the answer is short.
+    /// stages and activity, the image backend's settings and every kind of
+    /// gate a person passes. Left out, the answer is short. The approvals
+    /// waiting now are in waiting either way.
     pub detail: Option<bool>,
     /// The project id next is about. Left out, the app's open project, else
     /// the first one listed. nextFor names it.
@@ -318,16 +322,23 @@ fn read_keys(host: &dyn Host) -> Keys {
     }
 }
 
-fn started(host: &dyn Host, detail: bool, wanted: Option<&str>) -> Result<Value, ToolError> {
+fn started(
+    host: &dyn Host,
+    hub: &Hub,
+    detail: bool,
+    wanted: Option<&str>,
+) -> Result<Value, ToolError> {
     let reports = host.tool_reports();
     let tools: Vec<Value> = reports.iter().map(tool_value).collect();
     let jobs = host.studio().list(None);
+    let waiting = waiting::waiting(&hub.approvals(), &jobs, now_ms());
     let Ok((root, config)) = host.session().workspace() else {
         let next = next_steps(&Facts::no_workspace());
         let full = json!({
             "workspace": Value::Null,
             "toolchain": tools,
             "projects": [],
+            "waiting": waiting,
             "nextFor": Value::Null,
             "next": next,
         });
@@ -402,6 +413,7 @@ fn started(host: &dyn Host, detail: bool, wanted: Option<&str>) -> Result<Value,
         "projects": projects,
         "openProject": config.current_project,
         "personGates": if detail { gates(&reports, &keys, ask) } else { blocking_gates(&reports, &keys) },
+        "waiting": waiting,
         "nextFor": next_for,
         "next": next,
     });
@@ -411,14 +423,14 @@ fn started(host: &dyn Host, detail: bool, wanted: Option<&str>) -> Result<Value,
 #[tool_router(router = start_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now in the project nextFor names (project picks it, else the open project), each step a tool with its args or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and the kinds of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
+        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, waiting: every approval waiting for a person now (kind, project, age and poll, the tool and arguments that follow it) and each project's sends to 3D in flight, and next: what to do now in the project nextFor names (project picks it, else the open project), each step a tool with its args or a thing a person has to do. Follow what waits; never start it again. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and every kind of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
         annotations(read_only_hint = true)
     )]
     async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
         let detail = args.detail.unwrap_or(false);
         respond(
-            self.blocking(move |host, _| {
-                started(host, detail, args.project.as_deref())
+            self.blocking(move |host, hub| {
+                started(host, hub, detail, args.project.as_deref())
                     .map(|v| super::groups::with_off_line(v, host))
             })
             .await,
