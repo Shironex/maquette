@@ -4,7 +4,6 @@
 use maquette_core::app_state::RepoSetBy;
 use maquette_core::game::inspect_game_repo;
 use maquette_core::pipeline::history::now_ms;
-use maquette_core::providers::{ProviderId, secrets};
 use maquette_core::settings::game::{DEFAULT_MODELS_DIR, GameFormat, GameTemplateId, NewGame};
 use maquette_core::{
     ProjectManifest, ProjectTarget, ProjectTemplate, Stage, ToolId, ToolReport, ToolStatus, inbox,
@@ -25,11 +24,13 @@ use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 
 mod compact;
+mod keys;
 mod next;
 #[cfg(test)]
 mod tests;
 mod waiting;
 
+use keys::{Keys, read_keys};
 use next::{Facts, ProjectFacts, next_steps};
 
 /// Where the project ships, as list_projects says it.
@@ -287,39 +288,6 @@ fn blocking_gates(reports: &[ToolReport], keys: &Keys) -> Vec<Value> {
         ));
     }
     out
-}
-
-/// Whether each key is saved. None when the store could not say, which is not
-/// the same as no key.
-struct Keys {
-    tripo: Option<bool>,
-    meshy: Option<bool>,
-    openai: Option<bool>,
-}
-
-impl Keys {
-    /// A paid 3D provider's key is known to be saved. A store that could not
-    /// say is not a yes: `next` would offer providers that then fail.
-    fn any_saved(&self) -> bool {
-        self.tripo == Some(true) || self.meshy == Some(true)
-    }
-
-    /// The store could not say for at least one key (null above): `next` does
-    /// not offer paid providers on it.
-    fn unreadable(&self) -> bool {
-        [self.tripo, self.meshy, self.openai].contains(&None)
-    }
-}
-
-/// Reads through [`SecretStore::is_saved`], so asking again and again never
-/// raises a Keychain prompt.
-fn read_keys(host: &dyn Host) -> Keys {
-    let store = host.studio().secrets();
-    Keys {
-        tripo: store.is_saved(secrets::account(ProviderId::Tripo)),
-        meshy: store.is_saved(secrets::account(ProviderId::Meshy)),
-        openai: store.is_saved(secrets::OPENAI_ACCOUNT),
-    }
 }
 
 fn started(
