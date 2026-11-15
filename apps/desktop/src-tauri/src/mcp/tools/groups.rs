@@ -9,6 +9,8 @@ use std::sync::LazyLock;
 use maquette_core::WorkspaceConfig;
 use serde::Serialize;
 
+use rmcp::handler::server::router::tool::ToolRouter;
+
 use super::McpTools;
 
 /// One group, as Settings > Agents lists it.
@@ -119,6 +121,28 @@ pub const GROUPS: &[ToolGroup] = &[
         "VRM avatars and the rig doctor",
     ),
 ];
+
+/// Tools whose router sits in another file than the group a person would
+/// look in: their tag names that group instead.
+const REGROUPED: &[(&str, &str)] = &[
+    ("get_ship_plan", "pipeline"),
+    ("render_thumbnail", "project"),
+    ("set_skip_bake", "prepare"),
+];
+
+/// Starts every description in `router` with its group, so an agent can
+/// tell the groups apart in a long list.
+pub(super) fn tagged(group: &str, mut router: ToolRouter<McpTools>) -> ToolRouter<McpTools> {
+    for (name, route) in router.map.iter_mut() {
+        let group = REGROUPED
+            .iter()
+            .find(|(tool, _)| *tool == name.as_ref())
+            .map_or(group, |(_, moved)| *moved);
+        let text = route.attr.description.as_deref().unwrap_or_default();
+        route.attr.description = Some(format!("[{group}] {text}").into());
+    }
+    router
+}
 
 /// The group with this id.
 pub fn by_id(id: &str) -> Option<&'static ToolGroup> {

@@ -18,6 +18,7 @@ pub mod concepts;
 pub mod credits;
 pub mod game;
 pub mod groups;
+use groups::tagged;
 pub mod handoffs;
 mod hints;
 pub mod image_api;
@@ -136,28 +137,6 @@ where
 pub struct ProjectArgs {
     /// The project id, as list_projects returns it.
     pub project: String,
-}
-
-/// Tools whose router sits in another file than the group a person would
-/// look in: their tag names that group instead.
-const REGROUPED: &[(&str, &str)] = &[
-    ("get_ship_plan", "pipeline"),
-    ("render_thumbnail", "project"),
-    ("set_skip_bake", "prepare"),
-];
-
-/// Starts every description in `router` with its group, so an agent can
-/// tell the groups apart in a long list.
-fn tagged(group: &str, mut router: ToolRouter<McpTools>) -> ToolRouter<McpTools> {
-    for (name, route) in router.map.iter_mut() {
-        let group = REGROUPED
-            .iter()
-            .find(|(tool, _)| *tool == name.as_ref())
-            .map_or(group, |(_, moved)| *moved);
-        let text = route.attr.description.as_deref().unwrap_or_default();
-        route.attr.description = Some(format!("[{group}] {text}").into());
-    }
-    router
 }
 
 /// One MCP session's view of the app.
