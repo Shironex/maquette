@@ -279,6 +279,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
         ["add_built_asset", "set_ship_settings"]
     );
     assert_eq!(started["next"][0]["person"], true);
+    assert_eq!(started["nextFor"], "moon-island");
 
     // Empty answers lead on, and a run that never happened says how to start one.
     let assets = call(&client, "list_assets", json!({ "project": "moon-island" })).await;
@@ -295,6 +296,12 @@ async fn an_agent_starts_from_an_empty_workspace() {
     let game_assets = call(&client, "list_assets", json!({ "project": "frost" })).await;
     assert_eq!(
         next_tools(&game_assets),
+        ["scan_game_models", "import_game_models"]
+    );
+    let for_game = call(&client, "get_started", json!({ "project": "frost" })).await;
+    assert_eq!(for_game["nextFor"], "frost");
+    assert_eq!(
+        next_tools(&for_game),
         ["scan_game_models", "import_game_models"]
     );
     let inbox = call(&client, "list_inbox", json!({})).await;

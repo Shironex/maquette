@@ -64,6 +64,9 @@ pub struct GetStartedArgs {
     /// stages and activity, the image backend's settings and every gate a
     /// person passes and the kinds of approval a person gives. Left out, the answer is short.
     pub detail: Option<bool>,
+    /// The project id next is about. Left out, the app's open project, else
+    /// the first one listed. nextFor names it.
+    pub project: Option<String>,
 }
 
 const WEBSITE_DEFAULT: ProjectTemplate = ProjectTemplate::FloatingDiorama;
@@ -315,15 +318,17 @@ fn read_keys(host: &dyn Host) -> Keys {
     }
 }
 
-fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
+fn started(host: &dyn Host, detail: bool, wanted: Option<&str>) -> Result<Value, ToolError> {
     let reports = host.tool_reports();
     let tools: Vec<Value> = reports.iter().map(tool_value).collect();
+    let jobs = host.studio().list(None);
     let Ok((root, config)) = host.session().workspace() else {
         let next = next_steps(&Facts::no_workspace());
         let full = json!({
             "workspace": Value::Null,
             "toolchain": tools,
             "projects": [],
+            "nextFor": Value::Null,
             "next": next,
         });
         return Ok(if detail { full } else { compact::compact(full) });
@@ -363,20 +368,28 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
             "stages": stage_counts(&manifest),
             "activity": to_value(&row.activity),
         }));
-        facts.push(ProjectFacts::of(&manifest));
+        facts.push(ProjectFacts::of(&manifest, &jobs));
     }
-    let current = config
-        .current_project
-        .as_deref()
-        .and_then(|id| facts.iter().position(|p| p.id == id))
-        .unwrap_or(0);
+    let current = match wanted {
+        Some(id) => Some(facts.iter().position(|p| p.id == id).ok_or_else(|| {
+            ToolError::from(format!(
+                "There is no project {id:?}. list_projects names every project."
+            ))
+        })?),
+        None => config
+            .current_project
+            .as_deref()
+            .and_then(|id| facts.iter().position(|p| p.id == id))
+            .or_else(|| (!facts.is_empty()).then_some(0)),
+    };
+    let next_for = current.map(|i| facts[i].id.clone());
     let next = next_steps(&Facts {
         workspace_open: true,
         blender: blender_works(&reports),
         codex: tool_works(&reports, ToolId::Codex),
         any_key: keys.any_saved(),
         inbox: inbox_count,
-        project: facts.into_iter().nth(current),
+        project: current.and_then(|i| facts.into_iter().nth(i)),
         off: super::groups::off_in(&config),
     });
     let full = json!({
@@ -389,6 +402,7 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
         "projects": projects,
         "openProject": config.current_project,
         "personGates": if detail { gates(&reports, &keys, ask) } else { blocking_gates(&reports, &keys) },
+        "nextFor": next_for,
         "next": next,
     });
     Ok(if detail { full } else { compact::compact(full) })
@@ -397,14 +411,15 @@ fn started(host: &dyn Host, detail: bool) -> Result<Value, ToolError> {
 #[tool_router(router = start_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now, each step a tool or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and the kinds of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
+        description = "Start here: read where things stand on this computer, short by default. The workspace, how many tools of the toolchain work and the ones that are missing or broken with how to fix them, whether a Tripo, Meshy and OpenAI key is saved (true or false, never a value), the image backends, Ask before shipping, the inbox count, every project with its target, stage (empty, or the earliest stage an asset is at) and asset count, the open project, the gates in the way now that only a person can pass, and next: what to do now in the project nextFor names (project picks it, else the open project), each step a tool with its args or a thing a person has to do. detail true adds every tool with its version, each project's template, repo, stages and activity, the image backend's settings and the kinds of approval a person gives. Works with no workspace open. Reads only; spends nothing.",
         annotations(read_only_hint = true)
     )]
     async fn get_started(&self, Parameters(args): Parameters<GetStartedArgs>) -> Out {
         let detail = args.detail.unwrap_or(false);
         respond(
             self.blocking(move |host, _| {
-                started(host, detail).map(|v| super::groups::with_off_line(v, host))
+                started(host, detail, args.project.as_deref())
+                    .map(|v| super::groups::with_off_line(v, host))
             })
             .await,
         )

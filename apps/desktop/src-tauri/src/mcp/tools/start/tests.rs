@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::next::{Facts, ProjectFacts, next_steps};
+use super::next::{Facts, ProjectFacts, Sends, next_steps};
 use super::*;
 
 fn facts(project: Option<ProjectFacts>) -> Facts {
@@ -23,6 +23,7 @@ fn empty() -> ProjectFacts {
         assets: 0,
         at_refs: 0,
         with_model: 0,
+        sends: Sends::default(),
     }
 }
 
@@ -240,5 +241,95 @@ fn create_project_takes_target_and_still_reads_kind() {
     assert!(
         read(json!({ "name": "Nothing" })).is_err(),
         "one of them is needed"
+    );
+}
+
+#[test]
+fn every_step_of_a_project_names_it() {
+    let project = ProjectFacts {
+        id: "moon".into(),
+        has_repo: false,
+        assets: 2,
+        at_refs: 1,
+        with_model: 1,
+        ..empty()
+    };
+    for s in next_steps(&facts(Some(project))) {
+        assert_eq!(s["args"]["project"], "moon", "{s}");
+    }
+}
+
+#[test]
+fn a_send_in_flight_is_followed_and_never_sends_back_to_the_concepts() {
+    // The send moved the only asset to stage Tripo: nothing at refs, no model.
+    let project = ProjectFacts {
+        assets: 1,
+        sends: Sends {
+            approval: 1,
+            ..Sends::default()
+        },
+        ..empty()
+    };
+    let next = next_steps(&facts(Some(project)));
+    assert_eq!(tools(&next), ["get_provider_job"]);
+    assert_eq!(next[0]["args"]["project"], "p");
+    let by_hand = ProjectFacts {
+        assets: 1,
+        sends: Sends {
+            by_hand: 1,
+            ..Sends::default()
+        },
+        ..empty()
+    };
+    assert_eq!(tools(&next_steps(&facts(Some(by_hand)))), ["list_handoffs"]);
+    // With nothing in flight the same project is led to its concepts.
+    let idle = ProjectFacts {
+        assets: 1,
+        ..empty()
+    };
+    assert_eq!(tools(&next_steps(&facts(Some(idle)))), ["get_concepts"]);
+}
+
+#[test]
+fn an_empty_game_starts_from_its_repo_and_never_from_concepts() {
+    let with_repo = ProjectFacts {
+        target: ProjectTarget::Game,
+        ..empty()
+    };
+    assert_eq!(
+        tools(&next_steps(&facts(Some(with_repo)))),
+        ["scan_game_models", "import_game_models"]
+    );
+    let no_repo = ProjectFacts {
+        target: ProjectTarget::Game,
+        has_repo: false,
+        ..empty()
+    };
+    // The repo step comes once, first.
+    assert_eq!(
+        tools(&next_steps(&facts(Some(no_repo)))),
+        ["set_game_settings", "import_game_models"]
+    );
+}
+
+#[test]
+fn sends_count_by_state_and_only_by_hand_waits_for_a_person() {
+    use maquette_core::providers::{JobState, Provider};
+    let sends = Sends::count([
+        (JobState::Approval, Provider::Tripo),
+        (JobState::Running, Provider::Meshy),
+        (JobState::Queued, Provider::Tripo),
+        (JobState::Waiting, Provider::ByHand),
+        (JobState::Accepted, Provider::Tripo),
+        (JobState::Failed, Provider::Tripo),
+        (JobState::Inbox, Provider::ByHand),
+    ]);
+    assert_eq!(
+        sends,
+        Sends {
+            approval: 1,
+            running: 2,
+            by_hand: 1
+        }
     );
 }
