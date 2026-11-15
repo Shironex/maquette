@@ -118,6 +118,16 @@ describe('the shell status items', () => {
     expect(labels({ sends: [send('waiting')] })).toContain('1 waiting for your model');
   });
 
+  it('counts an asset with several By hand waits once', () => {
+    const wait = (project: string, asset: string) =>
+      ({ state: 'waiting', provider: 'by-hand', project, asset }) as ProviderJob;
+    expect(
+      labels({
+        sends: [wait('moon', 'lantern'), wait('moon', 'lantern'), wait('sun', 'lantern')],
+      })
+    ).toContain('2 waiting for your model');
+  });
+
   it('says how long ago the last run finished', () => {
     const latest = { state: 'done', finishedAtMs: 40_000, queuedAtMs: 10_000 } as RunRecord;
     const items = shellStatusItems({ ...base, latest });

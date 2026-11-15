@@ -65,6 +65,15 @@ export function waitingByHand(jobs: readonly ProviderJob[]): ProviderJob[] {
   return jobs.filter(wantsModel);
 }
 
+/**
+ * How many assets By hand waits are for. A second wait for the same asset is
+ * the same model still to make, so it counts once: stale repeats an agent
+ * left behind never pile up in a count.
+ */
+export function waitingAssetCount(waits: readonly { project: string; asset: string }[]): number {
+  return new Set(waits.map(w => `${w.project}/${w.asset}`)).size;
+}
+
 /** "4 of 6 back", "All 6 back". */
 export function backLabel(group: Pick<ChecklistGroup, 'jobs' | 'back'>): string {
   const live = liveJobs(group).length;
