@@ -16,7 +16,7 @@ Every tool belongs to one group, and its description starts with that group in b
 | `[start]`      | 2     | `get_started` and `create_project`. Always on.                                           |
 | `[project]`    | 10    | Projects, assets, the scene layout, copying, thumbnails and the asset trash. Always on.  |
 | `[lab]`        | 14    | Concept images and their jobs, the style board, picks, image backends and Codex usage.   |
-| `[refs]`       | 5     | An asset's reference views: tagging, drawing missing ones, cleaning backgrounds.         |
+| `[refs]`       | 6     | An asset's reference views: your own images, tagging, drawing missing ones, cleaning.    |
 | `[plan]`       | 14    | Planning canvases and their nodes, the change log and a website's camera plan.           |
 | `[send]`       | 14    | Tripo, Meshy and by hand sends, redos, splits, credits, handoffs and downloads.          |
 | `[inbox]`      | 6     | Models waiting to be accepted: checks, accept, discard and restore.                      |
@@ -136,6 +136,7 @@ These look at the workspace and change nothing.
 | [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                                                                                                                                                                                                 | Nothing | No       |
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                                                                                                                                                                                                          | Nothing | No       |
 | [`set_style_board`](#set_style_board)                 | Changes a project's style board: the line, the palette and the images, copied into `style/`                                                                                                                                                                            | Nothing | No       |
+| [`add_refs`](#set_ref_views)                          | Copies your own images (inside the workspace) into an asset's refs with their views, making the asset at Refs when it is new                                                                                                                                           | Nothing | No       |
 | [`set_ref_views`](#set_ref_views)                     | Sets the view of every ref of an asset: front, left, back, right or other                                                                                                                                                                                              | Nothing | No       |
 | `use_ref_candidate`                                   | Takes a drawn view into its slot (the ref it replaces moves to `refs/originals`), or a clean copy into the place of the ref it cleans (the original moves there too)                                                                                                   | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                                                                                                                                                                             | Nothing | No       |
@@ -343,6 +344,8 @@ Sets the view of every ref of an asset, as the refs sheet does. At most one ref 
 ```
 
 `make_other_views` (`{ project, asset, views?, count?, useStyle?, notes? }`) draws the empty slots by default, 2 candidates each, from the front with the front attached; naming a filled view draws it again, and the front is never drawn. `notes` (one line, at most 400 characters, for example "the sword in the left hand") goes into every view's prompt as extra instructions, so a retry keeps it. `clean_ref_background` (`{ project, asset, file, background?, pad?, extend? }`) cleans one ref; `background` is `studio-grey` (default) or `transparent`, and nothing the frame cut off is drawn unless `extend` is true. Both are Lab jobs on the Codex lane, like `start_concepts`, in a direction named "<asset> views" or "<asset> clean". `use_ref_candidate` (`{ project, asset, file, view?, replace? }`) then takes one candidate in; nothing reaches the refs before that. A drawn view for a filled slot replaces the ref there: it leaves the asset's refs and its file moves to `refs/originals`, unless another asset shows it or a send lists it, in which case the file stays where it is and only this asset lets it go. `replace: false` keeps the old ref with the asset as Other. The answer's `replaced` names the old file, its view and where it went (`movedTo`) or why it stayed (`keptBecause`).
+
+`add_refs` (`{ project, asset? | name?, kind?, images: [{ path, view? }] }`) brings images you already have in as refs, with no image backend: the free route when Codex is not signed in and no OpenAI key is saved. Each PNG, JPEG or WebP (judged by its bytes, 50 MB at most, 1 to 50 per call) is copied into `refs/`, never linked or moved. A `path` is relative to the workspace folder or absolute inside it; files outside the workspace are refused, so copy them in first. `asset` names an existing asset by id or name; `name` finds the asset of that name or makes a new one (`kind`, `prop` by default) at Refs, and an asset still at Concept moves up. A named `view` takes its slot and the ref that held it stays as other; an image without one joins as other, except that the first becomes the front of an asset with none. The answer reads as `get_ref_views` does, plus `added` (each image's ref, in order) and `created`; `send_to_3d` takes it from there.
 
 ### set_image_backend
 
@@ -1131,7 +1134,7 @@ They land in the project's `exports/renders/<asset>/views/v<n>/` (a set with ano
 
 `compare` renders a second version with the very same cameras, fitted to both models together, into `v<n>-vs-v<m>/` as `v3_front.png` and `v2_front.png`: a rebuild beside the model it replaces.
 
-A set that is already there answers at once. A render takes about a minute; past `waitSeconds` the answer has `status` `rendering`, and the same call again joins it. No credits, no approval.
+A set that is already there answers at once. A render takes about a minute, longer than one call waits; past `waitSeconds` the answer has `status` `rendering`, so poll with the same call: it joins the render and never starts another. No credits, no approval.
 
 | Parameter     | Type     | Required | Notes                                                                                                                                                                                      |
 | ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1143,7 +1146,7 @@ A set that is already there answers at once. A render takes about a minute; past
 | `closeUps`    | object[] | no       | Up to two of `{ node }` (an object of the model by name), `{ box }` (two corners in shares of the bounding box, x left to right, y bottom to top, z back to front) or `{ half }` (0 or 1). |
 | `asIs`        | boolean  | no       | Render the model files as they are, without fix-ups and real size.                                                                                                                         |
 | `cancel`      | boolean  | no       | Stop the render of this set that is running.                                                                                                                                               |
-| `waitSeconds` | number   | no       | How long to wait for Blender, 60 by default and 240 at most.                                                                                                                               |
+| `waitSeconds` | number   | no       | How long to wait for Blender, 45 by default and 50 at most, under common client tool timeouts. A larger value is clamped to 50.                                                            |
 
 ```json
 { "project": "frostveil", "asset": "book-stack", "compare": 1, "closeUps": [{ "node": "mug" }] }
@@ -1281,7 +1284,7 @@ Makes a recipe on a clip of the animation library (`clip`), or on the model's re
 
 `changes the project`
 
-Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, the blanks stay as they are and the change is never refused for them: a prop blank whose asset is gone keeps its prop in the file, so restoring the asset fills it again, and reads as open with a line in `warnings`. A prop blank you send open whose stored prop is such a gone asset keeps it the same way, since it only read as open; name it in `clear` to empty it for good. Sending `changes`, `blanks` or `clear` needs `expected`, the `version` `get_recipe` answered with (a hash of the file's bytes); without it the call is refused (`needs-version`). A recipe that a person, another agent, a hand edit or a sync changed since is refused (`moved`) with nothing written: read it again, keep what changed and resend. A name only update may leave `expected` out. A change without an id gets the lowest free `l-N`; the Motion view gives the entries a person adds random ids (`l-k3x9q`), so the two never meet. Answers with the recipe as `get_recipe` reads it.
+Changes a recipe's name (the file and id stay), its changes, its blanks, or any of them. `changes` and `blanks` each replace the list whole, so read `get_recipe` first and send every entry you keep. Everything is checked and lands in one write, and the revision does not move. Blanks you send must name assets of the project. When you leave `blanks` out, the blanks stay as they are and the change is never refused for them: a prop blank whose asset is gone keeps its prop in the file, so restoring the asset fills it again, and reads as open with a line in `warnings`. A prop blank you send open whose stored prop is such a gone asset keeps it the same way, since it only read as open; name it in `clear` to empty it for good. Sending `changes`, `blanks` or `clear` needs `expected`, the `version` `get_recipe` answered with (a hash of the file's bytes); without it the call is refused (`needs-version`). A recipe that a person, another agent, a hand edit or a sync changed since is refused (`moved`) with nothing written: read it again, keep what changed and resend. A name only update may leave `expected` out. A change without an id gets the lowest free `l-N`; the Motion view gives the entries a person adds random ids (`l-k3x9q`), so the two never meet. Answers with the recipe as `get_recipe` reads it. When the write leaves a foot pin spanning a seam over a clip whose root motion carries the body away, `warnings` says so now (the foot would drag in the bake), with the seam frame to end the pin before.
 
 A change is `{ id?, kind, bone, weight?, start?, end?, target?, rotation?, offset?, cycles?, amount? }`. Bones are VRM humanoid names. `start` and `end` are shares of the clip from 0 to 1, and `weight` is 0 to 1 (1 by default).
 
@@ -1403,13 +1406,13 @@ Asks a person to add a recipe's finished bake as its model's next version, as th
 
 `read only`
 
-Lists the [recipe library](/docs/guides/animation-recipes/#the-recipe-library): recipes kept outside any project in `library/recipes` at the workspace root. Each entry has its `id`, `name`, `latest` revision, every revision with where it came from (`project` and `recipe` it was saved from, or the file it was `imported` from, and `savedAt`), the newest revision's `base` clip, `frames`, `mixamo`, `layers` and `blanks` counts, and its `version`. An entry that cannot be read lists with its `problem`. `starters` lists the [starter recipes](/docs/guides/animation-recipes/#starters) built into the app, read only: each has `starter: true`, an `id` such as `starter:wave-hello`, its `name`, what it does (`about`), its `base` (clip names tried in order, or the rest pose) with `library` as `found`, `missing` or `rest` on this computer, and its change and blank counts. A combat starter (`starter:slash-combo`, `starter:scythe-charge` and their `-left` copies) also names the clips it joins (`joined`), and a left handed copy says `mirror: true`. Listing writes nothing.
+Lists the [recipe library](/docs/guides/animation-recipes/#the-recipe-library): recipes kept outside any project in `library/recipes` at the workspace root. Each entry has its `id`, `name`, `latest` revision, every revision with where it came from (`project` and `recipe` it was saved from, or the file it was `imported` from, and `savedAt`), the newest revision's `base` clip, `frames`, `mixamo`, `layers` and `blanks` counts, its `version`, and `joined`: each clip it joins after the base, with `library` as `found`, `hash-differs` or `missing` on this computer. An entry that cannot be read lists with its `problem`. `starters` lists the [starter recipes](/docs/guides/animation-recipes/#starters) built into the app, read only: each has `starter: true`, an `id` such as `starter:wave-hello`, its `name`, what it does (`about`), its `base` (clip names tried in order, or the rest pose) with `library` as `found`, `missing` or `rest` on this computer, and its change and blank counts. A combat starter (`starter:slash-combo`, `starter:scythe-charge` and their `-left` copies) also names the clips it joins (`joined`, each with `library` as `found` or `missing`, so you can import a missing one before `use_recipe`), and a left handed copy says `mirror: true`. Listing writes nothing.
 
 ### get_library_recipe
 
 `read only`
 
-Reads one library recipe: its name, `version`, every revision with where it came from, and one revision in full (the newest unless `revision` is given): its name, `base` with `library` (`found`, `hash-differs`, `missing` or `rest` in this computer's clip library), `mixamo`, `blanks` and `changes`. A revision never changes once it is saved. A starter id (`starter:...`) reads that starter in full instead: its base by name or rest, its blanks and its changes.
+Reads one library recipe: its name, `version`, every revision with where it came from, and one revision in full (the newest unless `revision` is given): its name, `base` with `library` (`found`, `hash-differs`, `missing` or `rest` in this computer's clip library), `joined` (each clip joined after the base, matched the same way), `mixamo`, `blanks` and `changes`. A revision never changes once it is saved. A starter id (`starter:...`) reads that starter in full instead: its base by name or rest, its blanks and its changes.
 
 | Parameter  | Type   | Required | Notes                                                        |
 | ---------- | ------ | -------- | ------------------------------------------------------------ |
@@ -1471,7 +1474,7 @@ Writes a recipe to one `.recipe.json`: a project's recipe (`project` and `recipe
 
 `read only`
 
-Opens the rig doctor's case of a rigged model and reads the file at once, with no Blender: the route (humanoid for Mixamo names, creature otherwise), what it refuses and why, hand and arm weight far from the limb, and whether it is one continuous mesh. An Inbox model must be accepted with `accept_inbox_model` before it can run. See [Rig doctor](/docs/views/rig-doctor/).
+Opens the rig doctor's case of a rigged model and reads the file at once, with no Blender: the route (humanoid for Mixamo names, creature otherwise), what it refuses and why, hand and arm weight far from the limb, and whether it is one continuous mesh. An Inbox model must be accepted with `accept_inbox_model` before it can run. The case id holds the project, the asset name and the version (`moon-island-hero-v1`), or the name and `inbox` for an Inbox model, so two projects never share one. See [Rig doctor](/docs/views/rig-doctor/).
 
 | Argument  | Type   | Required | What                                              |
 | --------- | ------ | -------- | ------------------------------------------------- |
@@ -1507,7 +1510,7 @@ A case's state, model, refusals, defects by place, creature chains, before and a
 
 `read only`
 
-The cases, newest first: id, name, state, route, round, who started it and the version it landed as.
+The cases of every project, newest first: id, project, name, state, route, round, who started it and the version it landed as.
 
 ### list_canvases
 
