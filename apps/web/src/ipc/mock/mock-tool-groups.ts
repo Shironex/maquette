@@ -37,8 +37,8 @@ export const MOCK_TOOL_GROUPS: McpToolGroup[] = [
   row(
     'refs',
     'Refs',
-    5,
-    "An asset's reference views: tagging, drawing missing ones, cleaning backgrounds"
+    6,
+    "An asset's reference views: your own images, tagging, drawing missing ones, cleaning backgrounds"
   ),
   row(
     'plan',
