@@ -20,7 +20,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [send] Refs to Tripo, Meshy or by hand, redos, splits, credits, By hand handoffs and downloads.
 [inbox] Models waiting to be accepted: checks, accept, discard, restore.
 [prepare] Real size, fix-ups, parts, materials, assembling props, comparing versions.
-[built] Blender-script models, free, no approval; replace_with_built_asset swaps one in.
+[built] add_built_asset: Blender-script models, free, no approval; replace_with_built_asset swaps one in.
 [pipeline] Runs (run_pipeline is the game export), presets, bake settings, starter scripts, ship plan, dev server.
 [game] A game project's repo, format, budgets and imports.
 [library] Models outside any project, copied, never linked; free.
@@ -29,7 +29,7 @@ TOOL GROUPS (Settings > Agents may turn off any but start and project; toolGroup
 [avatar-rig] VRM avatars and the rig doctor.
 
 WAITS FOR A PERSON (in the Maquette app; never resend while waiting, only once failed or cancelled)
-- Spending: send_to_3d, send_batch_to_3d, redo_inbox_model(s), retry_provider_jobs and split_with_provider on Tripo or Meshy; by-hand is free but waits for a model (follow get_provider_job).
+- Spending: send_to_3d, send_batch_to_3d, redo_inbox_model(s) and split_with_provider on Tripo or Meshy; by-hand is free but waits for a model (follow get_provider_job).
 - Paid images: a round an agent asks for on openai-images (follow get_concepts).
 - Shipping: run_pipeline at Ship while Ask before shipping is on; always in a game, with repo, or into a site repo an agent set (follow get_run). buildOnly stops before Ship.
 - Page preview: start_page_preview on a repo an agent set, first and when its path or command changes (follow get_page_preview).
