@@ -419,8 +419,16 @@ export const commands = {
 	 *  checked whole first. A person saves here ([`save`]).
 	 */
 	recipeUpdate: (project: string, id: string, change: RecipeChange_Deserialize) => __TAURI_INVOKE<RecipeDoc_Serialize>("recipe_update", { project, id, change }),
-	/**  Moves the recipe file into the workspace trash; returns where it went. */
-	recipeRemove: (project: string, id: string) => __TAURI_INVOKE<string>("recipe_remove", { project, id }),
+	/**
+	 *  Moves the recipe and its draft marks into the workspace trash, refused
+	 *  while it bakes; a person only, no MCP tool removes a recipe.
+	 */
+	recipeRemove: (project: string, id: string) => __TAURI_INVOKE<RemovedRecipe>("recipe_remove", { project, id }),
+	/**
+	 *  Puts a removed recipe back from the workspace trash (Undo); answers its
+	 *  id. Refused when a recipe with that id is in the project again.
+	 */
+	recipeRestore: (project: string, trash: string) => __TAURI_INVOKE<string>("recipe_restore", { project, trash }),
 	/**
 	 *  Bakes a recipe onto a rigged model of its project, headless: the base
 	 *  clip through the retarget with the recipe's changes solved over it. The
@@ -8468,6 +8476,20 @@ export type RemovedProject = {
 	removedAt: string,
 	assets: number,
 	/**  Relative to the workspace, with `/` separators. */
+	path: string,
+};
+
+/**  A recipe [`remove`] moved to the trash. */
+export type RemovedRecipe = {
+	/**  The trash name [`restore`] takes. */
+	trash: string,
+	id: string,
+	/**  The recipe's name; its id when the file could not be read. */
+	name: string,
+	/**
+	 *  Where the file went, relative to the workspace trash folder of the
+	 *  project, with `/` separators.
+	 */
 	path: string,
 };
 
