@@ -4,6 +4,7 @@ import { RecipeBlanks } from '../RecipeBlanks';
 import { GripPicker } from '../GripPicker';
 import { RecipeChanges } from '../RecipeChanges';
 import { RecipeDrafts } from '../RecipeDrafts';
+import { RecipeMoreMenu, removeBlocked, removeItem } from '../RecipeMoreMenu';
 import { RecipePlayer } from '../RecipePlayer';
 import { ApplyButton, EditorBake } from './EditorApply';
 import { EditorDialogs } from './EditorDialogs';
@@ -60,6 +61,10 @@ export default function RecipeEditor() {
           Save
         </Button>
         <ApplyButton v={applying} />
+        <RecipeMoreMenu
+          name={doc.recipe.name}
+          items={[removeItem(v.remove, removeBlocked(applying.bake.running, v.dirty))]}
+        />
       </div>
       <EditorBake v={applying} />
       {v.gone ? (

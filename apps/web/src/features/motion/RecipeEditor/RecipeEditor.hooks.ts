@@ -3,6 +3,7 @@ import type { RecipeOutside } from '@/state/recipe-editor.types';
 import { checkDraft, problemCount } from '@/state/recipe-check';
 import { blankFilled } from '@/state/recipe-draft';
 import { isDirty, useRecipeEditorStore } from '@/state/use-recipe-editor-store';
+import { useRecipeTrashStore } from '@/state/use-recipe-trash-store';
 import { useRecipeTimeline } from '@/state/use-recipe-timeline';
 import { useBakeModel, useRecipeBake } from '../RecipeBake';
 
@@ -56,6 +57,13 @@ export function useRecipeEditor() {
     save: () => void store.save(),
     discard: store.discard,
     back: () => void store.leave({ to: 'list' }),
+    /** Remove recipe, offered only with no unsaved edits; the editor goes back to the list. */
+    remove: () =>
+      editing
+        ? void useRecipeTrashStore
+            .getState()
+            .remove(editing.project, editing.id, editing.doc.recipe.name)
+        : undefined,
     leave: leaving
       ? {
           blocked: toFix

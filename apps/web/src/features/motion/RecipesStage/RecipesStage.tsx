@@ -1,5 +1,4 @@
 import { Button, EmptyState, Icon, IconButton, InlineBanner, Loader } from '@maquette/ui';
-import { Menu } from '@/features/common/Menu';
 import { MixamoBadge } from '@/features/common/MixamoBadge';
 import type { RecipeSummary } from '@/ipc/client';
 import type { LibraryNote } from '@/state/recipe-library';
@@ -8,58 +7,11 @@ import { MotionTabs } from '../MotionTabs';
 import { RecipeBake, useRecipeBake } from '../RecipeBake';
 import { RecipeEditor } from '../RecipeEditor';
 import { RecipeReview } from '../RecipeReview';
-import { useRecipesStage, useRowMenu } from './RecipesStage.hooks';
+import { RecipeMoreMenu, removeBlocked, removeItem } from '../RecipeMoreMenu';
+import { useRecipesStage } from './RecipesStage.hooks';
 
 const ABOUT =
   'A recipe is a clip from the animation library with changes laid over it. Apply bakes it onto a rigged model as a single clip, staged for a review.';
-
-/** Save to library and Export, behind the row's More button. */
-function RowMenu({
-  name,
-  onSave,
-  onExport,
-}: {
-  name: string;
-  onSave: () => void;
-  onExport: () => void;
-}) {
-  const menu = useRowMenu();
-  return (
-    <span className="relative flex-none">
-      <IconButton
-        icon="dots-three"
-        size="sm"
-        label={`More for ${name}`}
-        aria-haspopup="menu"
-        aria-expanded={menu.open}
-        onClick={menu.toggle}
-      />
-      {menu.open ? (
-        <Menu
-          label={`More for ${name}`}
-          onClose={menu.close}
-          className="absolute top-[calc(100%+2px)] right-0 z-30 w-[220px]"
-          items={[
-            {
-              id: 'save',
-              label: 'Save to library',
-              icon: 'books',
-              detail: 'As a new revision or a new library recipe',
-              onSelect: onSave,
-            },
-            {
-              id: 'export',
-              label: 'Export',
-              icon: 'export',
-              detail: 'As a .recipe.json where you choose',
-              onSelect: onExport,
-            },
-          ]}
-        />
-      ) : null}
-    </span>
-  );
-}
 
 /** "Library has r3" with What changed, or that the library recipe it came from is gone. */
 function LibraryLine({ note, onCompare }: { note: LibraryNote | null; onCompare: () => void }) {
@@ -86,6 +38,7 @@ function Row({
   onSave,
   onExport,
   onCompare,
+  onRemove,
 }: {
   project: string;
   recipe: RecipeSummary;
@@ -95,6 +48,7 @@ function Row({
   onSave: () => void;
   onExport: () => void;
   onCompare: () => void;
+  onRemove: () => void;
 }) {
   const bake = useRecipeBake(
     project,
@@ -111,6 +65,10 @@ function Row({
           <b className="block truncate font-semibold">{recipe.file}</b>
           <span className="block text-meta text-fg-mute">{recipe.problem}</span>
         </span>
+        <RecipeMoreMenu
+          name={recipe.file}
+          items={[removeItem(onRemove, removeBlocked(bake.running))]}
+        />
       </li>
     );
   }
@@ -144,7 +102,26 @@ function Row({
         >
           Apply
         </Button>
-        <RowMenu name={recipe.name} onSave={onSave} onExport={onExport} />
+        <RecipeMoreMenu
+          name={recipe.name}
+          items={[
+            {
+              id: 'save',
+              label: 'Save to library',
+              icon: 'books',
+              detail: 'As a new revision or a new library recipe',
+              onSelect: onSave,
+            },
+            {
+              id: 'export',
+              label: 'Export',
+              icon: 'export',
+              detail: 'As a .recipe.json where you choose',
+              onSelect: onExport,
+            },
+            removeItem(onRemove, removeBlocked(bake.running)),
+          ]}
+        />
       </div>
       <LibraryLine note={note} onCompare={onCompare} />
       <RecipeBake
@@ -186,6 +163,7 @@ export default function RecipesStage() {
       onSave={() => library.saveToLibrary(r.id)}
       onExport={() => library.exportFile(r)}
       onCompare={() => library.compare(r.id)}
+      onRemove={() => library.remove(r)}
     />
   ));
   const importButton = (
