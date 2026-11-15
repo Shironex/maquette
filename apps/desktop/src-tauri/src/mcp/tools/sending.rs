@@ -14,6 +14,7 @@ use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 
 mod by_id;
+mod next;
 mod redo;
 mod requests;
 mod retry;
@@ -21,11 +22,10 @@ mod warnings;
 
 pub(super) use self::by_id::{BY_HAND_WAITING, SEVERAL_PROJECTS};
 use self::by_id::{cancel_one, find_job, refuse_second_wait};
+use self::next::{job_next, waits_for_model};
 use self::requests::{batch_request, send_request};
-use super::hints::{person_step, step};
-use super::{
-    McpTools, Out, WAITING, WAITING_FOR_MODEL, failed, json_result, respond, to_value, workspace,
-};
+use super::hints::WAITING_FOR_MODEL;
+use super::{McpTools, Out, WAITING, failed, json_result, respond, to_value, workspace};
 
 /// Where a model gets made.
 #[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
@@ -175,61 +175,6 @@ pub struct CancelJobsArgs {
 
 /// Most ids one cancel_provider_jobs call takes.
 const MAX_CANCEL_IDS: usize = 50;
-
-/// True for a By hand send still waiting for its model.
-fn waits_for_model(job: &ProviderJob) -> bool {
-    job.provider == Provider::ByHand && job.state == JobState::Waiting
-}
-
-/// What an agent can do next with a send that waits for a model, failed or
-/// stopped; `None` while it is under way or done.
-fn job_next(job: &ProviderJob) -> Option<Vec<Value>> {
-    if waits_for_model(job) {
-        return Some(vec![
-            step(
-                "list_handoffs",
-                "See the By hand sends waiting and the downloads that may be their models.",
-            ),
-            step(
-                "add_model_file",
-                "When you have the model file yourself, add it as the asset's next version.",
-            ),
-            step(
-                "list_inbox",
-                "A model the person brought back lands here to accept.",
-            ),
-            step(
-                "attach_download",
-                "Attach a download list_handoffs found to this asset.",
-            ),
-        ]);
-    }
-    let retry = || {
-        if job.split.is_some() {
-            step(
-                "split_with_provider",
-                "Ask for the split again; a paid split waits for a person again.",
-            )
-        } else {
-            step(
-                "retry_provider_jobs",
-                "Send it again with the same settings; a paid send waits for a person again.",
-            )
-        }
-    };
-    match job.state {
-        JobState::Failed => Some(vec![retry()]),
-        JobState::Cancelled if job.denied => Some(vec![
-            person_step(
-                "A person denied this send. Ask them before sending it again; do not retry on your own.",
-            ),
-            retry(),
-        ]),
-        JobState::Cancelled => Some(vec![retry()]),
-        _ => None,
-    }
-    .filter(|_| job.retexture.is_none())
-}
 
 /// A provider job as agents read it.
 pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {

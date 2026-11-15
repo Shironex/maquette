@@ -16,9 +16,8 @@ use serde_json::{Value, json};
 use super::by_id::find_job;
 use super::{await_send_approval, guard_by_hand, job_value};
 use crate::mcp::host::Host;
-use crate::mcp::tools::{
-    McpTools, Out, ToolError, WAITING, WAITING_FOR_MODEL, failed, json_result,
-};
+use crate::mcp::tools::hints::WAITING_FOR_MODEL;
+use crate::mcp::tools::{McpTools, Out, ToolError, WAITING, failed, json_result};
 
 /// Most sends one retry_provider_jobs call takes, as a batch does.
 const MAX_RETRY_IDS: usize = 24;

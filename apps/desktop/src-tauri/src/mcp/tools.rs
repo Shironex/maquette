@@ -9,6 +9,7 @@
 //! Tripo or Meshy always waits for a person before it spends credits.
 
 pub mod animations;
+mod answers;
 pub mod avatar;
 pub mod bake;
 pub mod built;
@@ -88,10 +89,6 @@ use instructions::INSTRUCTIONS;
 
 /// The status a run reports while its Ship step waits for a person.
 pub const WAITING: &str = "waiting for approval";
-
-/// The status of a By hand send while it waits for a person to make and
-/// bring back its model. Nothing is spent, but it waits like an approval.
-pub const WAITING_FOR_MODEL: &str = "waiting for model";
 
 type Out = Result<CallToolResult, ErrorData>;
 
@@ -330,53 +327,6 @@ fn approval_of(value: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-/// The approval id a waiting answer names, as an object or a bare id.
-fn waiting_on(value: &Value) -> Option<&str> {
-    ["/approval/id", "/approval", "/jobs/0/approval/id"]
-        .iter()
-        .find_map(|at| value.pointer(at).and_then(Value::as_str))
-}
-
-/// Gives a waiting answer `waitingSinceMs` from its approval when the tool
-/// did not, and paces its polls by it, so every wait carries the same exit
-/// rule.
-fn pace_waits(
-    mut result: Result<CallToolResponse, ErrorData>,
-    hub: &Hub,
-) -> Result<CallToolResponse, ErrorData> {
-    let Ok(CallToolResponse::Complete(answer)) = &mut result else {
-        return result;
-    };
-    if answer.is_error == Some(true) {
-        return result;
-    }
-    for block in &mut answer.content {
-        let ContentBlock::Text(t) = block else {
-            continue;
-        };
-        let Ok(mut body) = serde_json::from_str::<Value>(&t.text) else {
-            continue;
-        };
-        if body.get("status").and_then(Value::as_str) != Some(WAITING)
-            || body.get("waitingSinceMs").is_some()
-        {
-            continue;
-        }
-        let since = waiting_on(&body).and_then(|id| {
-            hub.approvals()
-                .into_iter()
-                .find(|a| a.id == id)
-                .map(|a| a.requested_at_ms)
-        });
-        if let Some(since) = since {
-            body["waitingSinceMs"] = serde_json::json!(since);
-            hints::add_waiting_fields(&mut body);
-            t.text = serde_json::to_string_pretty(&body).unwrap_or_else(|_| body.to_string());
-        }
-    }
-    result
-}
-
 /// The status word, error text and approval of a result.
 fn outcome(result: &Result<CallToolResponse, ErrorData>) -> Logged {
     let done = |outcome, message| Logged {
@@ -392,7 +342,7 @@ fn outcome(result: &Result<CallToolResponse, ErrorData>) -> Logged {
                 _ => None,
             });
             if answer.is_error == Some(true) {
-                return done(CallOutcome::Error, text.map(errors::message_of));
+                return done(CallOutcome::Error, text.map(answers::message_of));
             }
             let value = text
                 .as_deref()
@@ -480,8 +430,7 @@ impl ServerHandler for McpTools {
             }
         };
         let result = hints::table::add_next(&tool, project.as_deref(), result);
-        let result = groups::scrub_off_tools(result, &groups::off_now(self.host.as_ref()));
-        let result = pace_waits(result, &self.hub);
+        let result = answers::finish(result, &groups::off_now(self.host.as_ref()), &self.hub);
         let logged = outcome(&result);
         #[expect(clippy::cast_precision_loss, reason = "call durations are small")]
         let ms = started.elapsed().as_millis() as f64;

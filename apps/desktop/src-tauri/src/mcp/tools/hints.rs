@@ -5,7 +5,11 @@
 use maquette_core::pipeline::history::now_ms;
 use serde_json::{Value, json};
 
-use super::{WAITING, WAITING_FOR_MODEL};
+use super::WAITING;
+
+/// The status of a By hand send while it waits for a person to make and
+/// bring back its model. Nothing is spent, but it waits like an approval.
+pub(super) const WAITING_FOR_MODEL: &str = "waiting for model";
 
 pub(super) mod table;
 

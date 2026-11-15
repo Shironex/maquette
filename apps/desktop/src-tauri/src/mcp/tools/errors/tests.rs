@@ -215,10 +215,3 @@ fn a_try_tool_in_a_group_that_is_off_is_dropped() {
     assert_eq!(list["tryTool"], "get_started");
     assert_eq!(without_off_tool(err("plain"), &off), err("plain"));
 }
-
-#[test]
-fn the_activity_list_reads_the_message_of_a_body() {
-    let text = err("nope").to_string();
-    assert_eq!(message_of(text), "nope");
-    assert_eq!(message_of("plain".to_string()), "plain");
-}

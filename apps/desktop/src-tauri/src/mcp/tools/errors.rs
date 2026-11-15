@@ -292,14 +292,5 @@ pub(super) fn without_off_tool(mut body: Value, off: &[&super::groups::ToolGroup
     body
 }
 
-/// The message of an error body, for the activity list. Text that is not
-/// one stays as it is.
-pub(super) fn message_of(text: String) -> String {
-    serde_json::from_str::<Value>(&text)
-        .ok()
-        .and_then(|v| v.get("error").and_then(Value::as_str).map(str::to_string))
-        .unwrap_or(text)
-}
-
 #[cfg(test)]
 mod tests;

@@ -22,9 +22,8 @@ use super::{
     MeshArg, ProviderArg, RigArg, VariantArg, await_send_approval, guard_by_hand, job_value,
 };
 use crate::mcp::host::Host;
-use crate::mcp::tools::{
-    McpTools, Out, WAITING, WAITING_FOR_MODEL, failed, json_result, workspace,
-};
+use crate::mcp::tools::hints::WAITING_FOR_MODEL;
+use crate::mcp::tools::{McpTools, Out, WAITING, failed, json_result, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
