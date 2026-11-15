@@ -289,7 +289,7 @@ fn a_run_whose_ship_would_fail_is_refused_before_it_raises_a_card() {
         panic!("a run whose Ship cannot go is never queued")
     })
     .expect_err("refused");
-    assert_eq!(refused.code, SHIP_NOT_READY);
+    assert_eq!(refused.code, run::SHIP_NOT_READY);
     assert!(
         refused.message.starts_with(maquette_core::site::NO_STOPS),
         "{}",
