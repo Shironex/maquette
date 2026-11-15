@@ -11,6 +11,8 @@ Usage: blender -b --factory-startup -P rig_models.py -- <which> out.glb
   facing-x    humanoid turned to face +X in the file
   winged      one continuous shell with a wing off each shoulder blade weighted to that arm, as an auto rig
               leaves wings: the narrow reweight splits them between arm and trunk
+  sleeved     a clean rig in loose sleeves, each a flared tube around the forearm outside the arm's own surface and
+              weighted the way an auto rig does it, from the nearest arm bones: clothing, not a rigid part
   biped-x     the same with its own bone names, so it takes the creature route: an upright creature facing +X
   long-robe   a clean rig under a floor length robe whose weights blend from the hips to the legs, and a wide walk
   robe-torn   the same robe with rows of it on the hips and on the thigh in turn: a real tear in the walk
@@ -182,7 +184,10 @@ def humanoid(shift_left_arm=0.0):
             for i in range(7):
                 z = 0.60 + 0.05 * i
                 tube(bm, (k * 0.06, 0.08, 0.70 + 0.015 * (i - 3)), (k * 0.42, 0.16, z), 0.028, 0.02, 8, 12)
-    if which != "webbed" and not robe and not wings:
+    if which == "sleeved":
+        for k in (1, -1):   # from just below the elbow to the wrist, flaring out
+            tube(bm, (k * 0.205, 0, 0.65), (k * 0.30, 0, 0.53), 0.05, 0.07, 16, 10)
+    if which not in ("webbed", "sleeved") and not robe and not wings:
         panel(bm, ((-0.12, 0.095, 0.80), (0.12, 0.095, 0.80), (0.18, 0.13, 0.15), (-0.18, 0.13, 0.15)))   # the cape
         for x in (-0.03, 0.03):
             tube(bm, (x, 0.07, 0.97), (x * 1.5, 0.10, 0.74), 0.012, 0.006, 6, 14)                         # hair strands
@@ -206,7 +211,11 @@ def humanoid(shift_left_arm=0.0):
             if abs(co.x) > 0.12 + 5e-7:
                 return {P + kx + "Arm": 0.7, P + "Spine2": 0.3}
             return {P + "Spine2": 1.0}
-        if which == "webbed":
+        if which == "sleeved" and abs(co.x) < 0.09:   # the chest inside the shoulders is the trunk's alone
+            ds = sorted(((seg_dist(co, *segs[n]), n) for n in all_names if n != P + "HeadTop_End" and "Arm" not in n and "Hand" not in n), key=lambda x: x[0])[:3]
+            iw = {n: 1 / max(d, 0.005) ** 4 for d, n in ds}
+            return {n: w / sum(iw.values()) for n, w in iw.items()}
+        if which in ("webbed", "sleeved"):
             return out_
         on_wing = abs(co.y - (0.08 + (abs(co.x) - 0.06) * 0.222)) < 0.045
         if wings:   # the wing follows the arm; there is no cape or hair

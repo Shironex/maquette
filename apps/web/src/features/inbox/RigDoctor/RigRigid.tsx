@@ -18,24 +18,32 @@ function worstLine(bind: RigRigid): string | null {
 function Picker({ record, parts }: { record: RigRecord; parts: RigPart[] }) {
   const { bindRigid, busy } = useRigActions();
   const bones = record.bodyBones ?? [];
-  const [picked, setPicked] = useChoice<number[]>(parts.map(p => p.part));
+  const [picked, setPicked] = useChoice<number[]>(parts.filter(p => !p.notRigid).map(p => p.part));
   const [bone, setBone] = useChoice(bones.find(b => bare(b) === 'Spine2') ?? bones[0] ?? '');
   const held = jointMoveHoldsBind(record);
   const toggle = (n: number, on: boolean) =>
     setPicked(on ? [...picked, n].sort((a, b) => a - b) : picked.filter(p => p !== n));
   const rows = parts.map(p => (
     <li key={p.part} className="flex flex-col gap-0.5 rounded-[9px] border border-line p-2">
-      <Checkbox
-        checked={picked.includes(p.part)}
-        onChange={on => toggle(p.part, on)}
-        label={`Part ${p.part}, ${p.side}`}
-      />
+      {p.notRigid ? (
+        <p className="m-0 ml-6 text-fg-dim">{`Part ${p.part}, ${p.side}`}</p>
+      ) : (
+        <Checkbox
+          checked={picked.includes(p.part)}
+          onChange={on => toggle(p.part, on)}
+          label={`Part ${p.part}, ${p.side}`}
+        />
+      )}
       <p className="m-0 ml-6 font-mono text-meta text-fg-mute">
         {p.vertices.toLocaleString('en')} vertices, {mm(p.acrossCm)} cm across, on{' '}
         {p.bones.join(', ') || 'the arm'}
       </p>
+      {p.notRigid ? (
+        <p className="m-0 ml-6 text-meta text-amber">Not a rigid part. {p.notRigid}</p>
+      ) : null}
     </li>
   ));
+  const offered = parts.some(p => !p.notRigid);
   return (
     <>
       {held ? <p className="m-0 text-meta text-amber">{held}</p> : null}
@@ -54,7 +62,12 @@ function Picker({ record, parts }: { record: RigRecord; parts: RigPart[] }) {
           icon="bone"
           disabled={busy || picked.length === 0 || Boolean(held)}
           disabledReason={
-            held ?? (picked.length === 0 ? 'Pick at least one part' : WAIT_FOR_ANSWER)
+            held ??
+            (!offered
+              ? 'No part here is rigid'
+              : picked.length === 0
+                ? 'Pick at least one part'
+                : WAIT_FOR_ANSWER)
           }
           onClick={() => void bindRigid(picked, bone || null)}
         >
@@ -70,6 +83,7 @@ function Asked({ bind }: { bind: RigRigid }) {
   const { decideRigid, busy } = useRigActions();
   const failed = bind.checks.filter(c => !c.ok);
   const worst = worstLine(bind);
+  const worse = Boolean(bind.worse);
   const moved = (bind.sheet?.rows ?? []).filter(r => r.change && r.change.stretch !== 'same');
   const problems = failed.map(c => (
     <p key={c.title} className="m-0 ml-[42px] text-meta text-danger">
@@ -105,7 +119,14 @@ function Asked({ bind }: { bind: RigRigid }) {
           </p>
         </div>
       </div>
-      {worst ? <p className="m-0 ml-[42px] text-meta text-sage">{worst}</p> : null}
+      {worst ? (
+        <p className={`m-0 ml-[42px] text-meta ${worse ? 'text-amber' : 'text-sage'}`}>{worst}</p>
+      ) : null}
+      {worse ? (
+        <p className="m-0 ml-[42px] text-meta text-danger" role="status">
+          {bind.worse}
+        </p>
+      ) : null}
       {rows.length > 0 ? (
         <ul
           aria-label="Rows the bind moved"
@@ -118,7 +139,7 @@ function Asked({ bind }: { bind: RigRigid }) {
       <div className="flex justify-end gap-2">
         <Button
           size="sm"
-          variant="secondary"
+          variant={worse ? 'primary' : 'secondary'}
           disabled={busy}
           disabledReason={WAIT_FOR_ANSWER}
           onClick={() => void decideRigid(false)}
@@ -127,7 +148,7 @@ function Asked({ bind }: { bind: RigRigid }) {
         </Button>
         <Button
           size="sm"
-          variant="primary"
+          variant={worse ? 'secondary' : 'primary'}
           icon="check"
           disabled={busy || failed.length > 0}
           disabledReason={

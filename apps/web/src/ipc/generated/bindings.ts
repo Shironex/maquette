@@ -9175,6 +9175,12 @@ export type RigPart = {
 	bones: string[],
 	/**  Its longest side, cm at a one metre tall model. */
 	acrossCm: number | null,
+	/**
+	 *  Why it is not offered as a rigid part (it wraps the arm like a
+	 *  sleeve, or a bind of it stretched the draft more), or `None`. A bind
+	 *  refuses it.
+	 */
+	notRigid?: string | null,
 };
 
 export type RigProbe = {
@@ -9285,6 +9291,12 @@ export type RigRigid = {
 	row: string | null,
 	stretchBefore: number | null,
 	stretchAfter: number | null,
+	/**
+	 *  Why the bind made things worse: its pose test stretches more than
+	 *  the fix's draft. Its parts are then not offered again, and the
+	 *  answer leans to keeping the fix's weights.
+	 */
+	worse?: string | null,
 };
 
 export type RigRoute = 

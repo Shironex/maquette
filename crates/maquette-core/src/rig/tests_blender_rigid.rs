@@ -37,6 +37,11 @@ fn wings_on_the_arm_bones_bind_to_the_chest_and_stretch_less() {
     assert_eq!(tested.state, RigState::Tested, "{:?}", tested.error);
     // One part per wing, each held by its own arm.
     assert_eq!(tested.parts.len(), 2, "{:?}", tested.parts);
+    assert!(
+        tested.parts.iter().all(|p| p.not_rigid.is_none()),
+        "{:?}",
+        tested.parts
+    );
     let sides: Vec<&str> = tested.parts.iter().map(|p| p.side.as_str()).collect();
     assert!(
         sides.contains(&"left") && sides.contains(&"right"),
@@ -87,6 +92,7 @@ fn wings_on_the_arm_bones_bind_to_the_chest_and_stretch_less() {
         rigid.stretch_after.expect("after"),
     );
     assert!(after < before * 0.5, "{:?}: {before} to {after}", rigid.row);
+    assert_eq!(rigid.worse, None);
     assert!(!rigid.sheet.as_ref().expect("sheet").rows.is_empty());
 
     let yes = both
@@ -112,4 +118,64 @@ fn wings_on_the_arm_bones_bind_to_the_chest_and_stretch_less() {
         .decide_rigid(root, &config, &open.id, false)
         .expect("undo");
     assert_eq!(undo.draft.as_deref(), Some(draft.as_str()));
+}
+
+/// The pose test's parts of the fixture `which`, read in real Blender.
+fn parts_of(which: &str) -> Vec<RigPart> {
+    let Some(blender) = crate::test_blender::blender() else {
+        return Vec::new();
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let (root, config) = (dir.path(), WorkspaceConfig::default());
+    let file = build(&blender, root, which);
+    let both = doctors();
+    let open = both
+        .0
+        .open(root, &config, which, &file, at_v1(which), RigStarter::Agent)
+        .expect("open");
+    assert_eq!(open.route, Some(RigRoute::Humanoid));
+    let tested = go(
+        &both,
+        (root, &config, blender.as_path()),
+        &open.id,
+        RigRun::PoseTest,
+    );
+    assert_eq!(tested.state, RigState::Tested, "{:?}", tested.error);
+    tested.parts
+}
+
+#[test]
+fn sleeves_on_the_forearms_are_not_offered_as_rigid_parts() {
+    if crate::test_blender::blender().is_none() {
+        return;
+    }
+    let parts = parts_of("sleeved");
+    // Both sleeves are read, and each says why it is left out.
+    assert_eq!(parts.len(), 2, "{parts:?}");
+    for part in &parts {
+        let why = part.not_rigid.as_deref().expect("left out");
+        assert!(
+            why.contains(&format!("{} forearm like a sleeve", part.side)),
+            "{why}"
+        );
+    }
+}
+
+#[test]
+fn a_cape_and_hair_on_the_arm_bones_are_still_offered() {
+    if crate::test_blender::blender().is_none() {
+        return;
+    }
+    let parts = parts_of("humanoid");
+    assert!(parts.len() >= 3, "{parts:?}");
+    assert!(parts.iter().all(|p| p.not_rigid.is_none()), "{parts:?}");
+    // The cape across the back, and a strand of hair on each hand's bones.
+    assert!(parts[0].across_cm > 50.0, "{parts:?}");
+    for side in ["Left", "Right"] {
+        let finger = format!("{side}HandIndex1");
+        assert!(
+            parts.iter().any(|p| p.bones.contains(&finger)),
+            "{side}: {parts:?}"
+        );
+    }
 }

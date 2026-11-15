@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buttonClass } from '@maquette/ui';
 import { commands, type RigRecord } from '@/ipc/client';
 import { rigidSeeds } from '@/ipc/mock/rig-rigid';
 import { fixedCase } from '@/ipc/mock/rig-fixtures';
@@ -94,6 +95,37 @@ describe('RigRigid', () => {
     );
     expect(screen.getByText(/Undo the bound parts first/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Keep weights only' }));
+    expect(decide).toHaveBeenCalledWith(c.id, false);
+  });
+
+  it('lists sleeves with why they are not rigid, and offers nothing to bind', async () => {
+    const c = rigidSeeds['rigid-sleeves']();
+    const bind = vi.spyOn(commands, 'rigBindRigid').mockResolvedValue(c);
+    show(c);
+    expect(
+      screen.getAllByText(/Not a rigid part\. It wraps the (left|right) forearm/)
+    ).toHaveLength(2);
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    const button = screen.getByRole('button', { name: 'Bind rigidly' });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(button);
+    expect(bind).not.toHaveBeenCalled();
+  });
+
+  it('says when a bind stretches more and leans to keeping the fix weights', async () => {
+    const c = rigidSeeds['rigid-worse']();
+    const decide = vi.spyOn(commands, 'rigDecideRigid').mockResolvedValue(c);
+    show(c);
+    const card = screen.getByRole('alertdialog', { name: 'Use the bound parts?' });
+    expect(card).toHaveTextContent(/worst stretch 37 to 91 mm/);
+    expect(screen.getByRole('status')).toHaveTextContent(/it stretches more/);
+    const keep = screen.getByRole('button', { name: "Keep the fix's weights" });
+    const primary = buttonClass('primary', 'sm');
+    expect(keep.className).toContain(primary);
+    expect(screen.getByRole('button', { name: 'Use bound parts' }).className).not.toContain(
+      primary
+    );
+    await userEvent.click(keep);
     expect(decide).toHaveBeenCalledWith(c.id, false);
   });
 });

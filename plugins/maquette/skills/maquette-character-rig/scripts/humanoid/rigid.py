@@ -3,7 +3,8 @@
 The parts are what the arm chains hold away from the arm: each connected patch of vertices that an arm chain
 (upper arm, forearm, hand, fingers) holds at least a quarter of, yet that sits outside the arm's tube. A wing,
 a cape or a braid on the arm bones each make one. They are read from the source's weights, so the list stays
-the same after the fix moved weight. Binding gives the part's vertices the one bone, and blends it into
+the same after the fix moved weight. A patch that wraps an arm segment along its length, close around it, is a
+sleeve: it has to bend with the arm, so it is listed with why it is not rigid and a bind refuses it. Binding gives the part's vertices the one bone, and blends it into
 the rings of vertices around the part, so nothing tears where the part meets the rest. Only JOINTS_0 and
 WEIGHTS_0 change.
 
@@ -24,6 +25,9 @@ MIN_PART = 16        # vertices, and at least MIN_SHARE of the mesh, for a patch
 MIN_SHARE = 0.002
 MAX_PARTS = 8
 RINGS = 3            # rings of neighbours the bone blends into, fading out
+SLEEVE = 0.08       # of the model's height: a sleeve's surface lies within this of the arm bones, on its median
+ALONG = 0.8          # a sleeve has at least this share of its vertices beside an arm segment, not past its ends
+WRAPS = 0.5          # and fills at least this share of the eight sectors around that segment
 BODY = ("Spine2", "Spine1", "Spine", "Hips", "Neck", "Head", "LeftShoulder", "RightShoulder")
 
 
@@ -49,8 +53,41 @@ def neighbours(g, inv):
     return out
 
 
+def sleeve(g, PFX, ni, P, H):
+    """Why the points P are a sleeve (they wrap an upper arm or forearm along its length), or None."""
+    best = None
+    for side in ("Left", "Right"):
+        names = [PFX + side + n for n in ("Arm", "ForeArm", "Hand")]
+        if not all(n in ni for n in names):
+            continue
+        J = [g.jpos[ni[n]] for n in names]
+        for seg, (a, b) in zip(("upper arm", "forearm"), zip(J, J[1:])):
+            ab = b - a
+            L = max(float(np.linalg.norm(ab)), 1e-9)
+            d = ab / L
+            X = P - a
+            s = (X @ d) / L
+            R = X - np.outer(X @ d, d)
+            r = np.linalg.norm(R, axis=1)
+            beside = (s >= -0.05) & (s <= 1.05)
+            if beside.mean() < ALONG or np.median(r) > SLEEVE * H:
+                continue
+            u = np.cross(d, [0.0, 1.0, 0.0])
+            if np.linalg.norm(u) < 1e-3:
+                u = np.cross(d, [1.0, 0.0, 0.0])
+            u = u / np.linalg.norm(u)
+            ang = np.arctan2(R[beside] @ np.cross(d, u), R[beside] @ u)
+            sectors = float((np.histogram(ang, 8, (-np.pi, np.pi))[0] > 0).mean())
+            if sectors >= WRAPS and (best is None or beside.mean() > best[0]):
+                best = (beside.mean(), f"{side.lower()} {seg}")
+    if best is None:
+        return None
+    return f"It wraps the {best[1]} like a sleeve, so it has to bend with the arm: bound rigidly it would tear."
+
+
 def read_parts(g):
-    """The parts, largest first, each as (welded vertex ids, side, the arm bones holding it)."""
+    """The parts, largest first, each as (welded vertex ids, side, the arm bones holding it, its vertices, why it is
+    not rigid or None)."""
     H = glbio.height(g)
     PFX = prefix(g)
     ni = {n: i for i, n in enumerate(g.names)}
@@ -94,7 +131,8 @@ def read_parts(g):
         sides = {side_of[v] for v in patch}
         totals = W[verts].sum(0)
         held = [g.names[i][len(PFX):] for i in np.argsort(-totals)[:3] if totals[i] > 0 and g.names[i][len(PFX):].startswith(("Left", "Right"))]
-        out.append((patch, "both" if len(sides) > 1 else sides.pop().lower(), held, verts))
+        why = sleeve(g, PFX, ni, g.pos[verts], H)
+        out.append((patch, "both" if len(sides) > 1 else sides.pop().lower(), held, verts, why))
     return out, inv, nb, H
 
 
@@ -102,10 +140,10 @@ def listing(g):
     parts, _, _, H = read_parts(g)
     PFX = prefix(g)
     rows = []
-    for i, (patch, side, held, verts) in enumerate(parts, 1):
+    for i, (patch, side, held, verts, why) in enumerate(parts, 1):
         p = g.pos[verts]
         across = float((p.max(0) - p.min(0)).max() / max(H, 1e-9) * 100)
-        rows.append(dict(part=i, vertices=int(len(verts)), side=side, bones=held, across_cm=round(across, 1)))
+        rows.append(dict(part=i, vertices=int(len(verts)), side=side, bones=held, across_cm=round(across, 1), not_rigid=why))
     bones = [PFX + b for b in BODY if PFX + b in g.names]
     return dict(parts=rows, bones=bones, height=H)
 
@@ -116,6 +154,8 @@ def bind(src, base, dst, chosen, bone):
     for part in chosen:
         if not 1 <= part <= len(parts):
             raise SystemExit(f"rigid.py: there is no part {part}; the model has {len(parts)}")
+        if parts[part - 1][4]:
+            raise SystemExit(f"rigid.py: part {part} is not rigid. {parts[part - 1][4]}")
     if bone not in g.names:
         raise SystemExit(f"rigid.py: the model has no bone {bone}")
     b = glbio.load(base)

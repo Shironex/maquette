@@ -4,7 +4,10 @@
 //! bind runs on a copy of the draft and is measured against it. Anyone may
 //! ask for it, a person or an agent; only a person uses the result, through
 //! [`RigDoctors::decide_rigid`], which no agent tool reaches, and the same
-//! call puts the draft before it back.
+//! call puts the draft before it back. A sleeve is held by the arm chain too,
+//! but it has to bend with the arm: it is listed with why it is not rigid,
+//! and a bind refuses it. A bind whose pose test stretches the draft more
+//! says so, and its parts are no longer offered.
 
 use std::path::{Path, PathBuf};
 
@@ -36,6 +39,11 @@ pub struct RigPart {
     pub bones: Vec<String>,
     /// Its longest side, cm at a one metre tall model.
     pub across_cm: f64,
+    /// Why it is not offered as a rigid part (it wraps the arm like a
+    /// sleeve, or a bind of it stretched the draft more), or `None`. A bind
+    /// refuses it.
+    #[serde(default)]
+    pub not_rigid: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -76,6 +84,11 @@ pub struct RigRigid {
     pub row: Option<String>,
     pub stretch_before: Option<f64>,
     pub stretch_after: Option<f64>,
+    /// Why the bind made things worse: its pose test stretches more than
+    /// the fix's draft. Its parts are then not offered again, and the
+    /// answer leans to keeping the fix's weights.
+    #[serde(default)]
+    pub worse: Option<String>,
 }
 
 /// The bone a part follows unless a person picks another.
@@ -106,6 +119,13 @@ pub(super) fn cannot_bind(case: &RigRecord, parts: &[u32], bone: &str) -> Option
         .find(|p| !case.parts.iter().any(|x| x.part == **p))
     {
         return Some(format!("This model has no part {p}."));
+    } else if let Some((p, why)) = case.parts.iter().find_map(|x| {
+        x.not_rigid
+            .as_ref()
+            .filter(|_| parts.contains(&x.part))
+            .map(|why| (x.part, why))
+    }) {
+        return Some(format!("Part {p} is not a rigid part. {why}"));
     } else if !case.body_bones.iter().any(|b| b == bone) {
         return Some(format!("{bone} is not a body bone of this model."));
     } else {
@@ -196,6 +216,7 @@ impl RigDoctors {
                 row: None,
                 stretch_before: None,
                 stretch_after: None,
+                worse: None,
             });
             Ok(())
         })
@@ -267,6 +288,7 @@ pub(super) fn read_parts(run: &Run, input: &Path) -> CoreResult<()> {
             side: p["side"].as_str().unwrap_or_default().to_string(),
             bones: defects::names(&p["bones"]),
             across_cm: p["across_cm"].as_f64().unwrap_or(0.0),
+            not_rigid: p["not_rigid"].as_str().map(str::to_string),
         })
         .collect();
     let bones = defects::names(&found["bones"]);
@@ -288,7 +310,10 @@ pub(super) fn bind(run: &Run) -> CoreResult<()> {
         c.stop = stop;
         c.step = RigStep::Land;
         match outcome {
-            Ok(done) => c.rigid = Some(done),
+            Ok(done) => {
+                refuse_again(&mut c.parts, &done);
+                c.rigid = Some(done);
+            }
             Err(error) => {
                 c.rigid = None;
                 c.error = Some(format!("The rigid bind did not finish. {error}"));
@@ -375,9 +400,38 @@ fn made(run: &Run) -> CoreResult<RigRigid> {
             .find(|r| r.id == worst.id)
             .map(|r| r.stretch_mm);
     }
+    ask.worse = worse_of(&sheet, &ask.bone);
     ask.vertices = u32::try_from(num(&report, "vertices")).unwrap_or(0);
     ask.file = Some(arg(&out));
     ask.sheet = Some(sheet);
     ask.state = RigidState::Asked;
     Ok(ask)
+}
+
+/// Why a bind made the draft worse, or `None`: the most any pose of its
+/// test stretches against the most any pose of the fix's draft did.
+pub(super) fn worse_of(sheet: &RigSheet, bone: &str) -> Option<String> {
+    let before = sheet
+        .rows
+        .iter()
+        .filter_map(|r| r.change.as_ref().map(|c| c.stretch_before))
+        .fold(0.0, f64::max);
+    let (at, after) = verdict::peak(&sheet.rows, |r| r.stretch_mm);
+    (after - before >= verdict::SAME_MM).then(|| {
+        format!(
+            "Bound to {} it stretches more: worst stretch {before:.0} to {after:.0} mm, at {at}. Keep the fix's weights.",
+            bare_joint_name(bone)
+        )
+    })
+}
+
+/// Marks the parts of a bind that made things worse as not rigid, so they
+/// are not offered again.
+pub(super) fn refuse_again(parts: &mut [RigPart], bind: &RigRigid) {
+    let Some(why) = bind.worse.as_ref() else {
+        return;
+    };
+    for part in parts.iter_mut().filter(|p| bind.parts.contains(&p.part)) {
+        part.not_rigid = Some(why.clone());
+    }
 }
