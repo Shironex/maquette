@@ -6,9 +6,10 @@
 import { Suspense } from 'react';
 import type { Timeline } from '@/state/recipe-timeline';
 import type { StageLaid } from '@/features/viewer/RecipeStage';
-import { StageLoader } from '@/features/common/ViewLoader';
+import { StageLoader, useStageReady } from '@/features/common/ViewLoader';
 import { lazyAfterPaint } from '@/lib/after-paint';
 import { Icon, InlineBanner } from '@maquette/ui';
+import { CameraBar, useFollow } from '@/features/viewer/CameraBar';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { fileUrl } from '@/ipc/files';
 import type { RecipeLayer } from '@/ipc/client';
@@ -91,6 +92,10 @@ export default function RecipePreview(props: RecipePreviewProps) {
   // A new set of clip files is a new stage; trims and time edits only pose it again.
   const stageKey = `${modelUrl}#${v.files}`;
   const waiting = why(props);
+  const cam = useFollow();
+  // The bone map, the model and every clip load before the first frame shows.
+  const shown = useStageReady(stageKey);
+  const loading = !waiting && !problem && !shown.ready;
   return (
     <figure
       aria-label={props.name ?? 'Recipe preview'}
@@ -98,7 +103,7 @@ export default function RecipePreview(props: RecipePreviewProps) {
     >
       {ready ? (
         <CanvasBoundary resetKey={stageKey}>
-          <Suspense fallback={<StageLoader />}>
+          <Suspense fallback={null}>
             <RecipeStage
               key={stageKey}
               className="absolute! inset-0"
@@ -110,13 +115,15 @@ export default function RecipePreview(props: RecipePreviewProps) {
               layers={props.layers}
               markers={props.markers}
               play={props.play}
-              onChecks={props.onChecks}
               laid={props.laid}
-              onError={setFailed}
+              camera={{ follow: cam.follow }}
+              report={{ onChecks: props.onChecks, onLoaded: shown.onLoaded, onError: setFailed }}
             />
           </Suspense>
         </CanvasBoundary>
       ) : null}
+      {loading ? <StageLoader /> : null}
+      {ready && shown.ready ? <CameraBar follow={cam.follow} onFollow={cam.setFollow} /> : null}
       {waiting ? (
         <figcaption className="absolute inset-0 grid place-items-center p-3 text-center text-meta text-fg-mute">
           {waiting}

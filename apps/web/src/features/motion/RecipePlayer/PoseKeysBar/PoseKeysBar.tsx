@@ -1,4 +1,5 @@
 import { IconButton, Kbd, SegmentedControl } from '@maquette/ui';
+import { FRAME_KEY } from '@/features/viewer/frame-key';
 import type { GizmoSpace } from '@/state/use-pose-keys-store';
 import { usePoseKeysBar } from './PoseKeysBar.hooks';
 
@@ -12,6 +13,7 @@ const SHORTCUTS: readonly (readonly [string | string[], string])[] = [
   ['K', 'key'],
   [['[', ']'], 'keys'],
   ['M', 'mirror pose'],
+  [FRAME_KEY, 'frame'],
 ];
 
 /** Under the preview while pose keys are edited: the gizmo's space, the turn on show and the shortcuts. */

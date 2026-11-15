@@ -13,8 +13,13 @@ export interface MotionStageProps {
   skeleton: boolean;
   /** The path the root walks over the clip, dashed on the floor. */
   trail: boolean;
-  /** Spin slowly until someone drags. */
-  turntable: boolean;
+  /**
+   * How the camera moves: `turntable` spins slowly until someone drags.
+   * With `follow` set, F frames the model where it stands, and while it is
+   * true the camera moves with a root that travels in place of framing the
+   * whole walk. The floor's shadow follows the root either way.
+   */
+  camera: { turntable?: boolean; follow?: boolean };
   /** Object state offsets by part name, from each part's rest pose. */
   poses: Record<string, PartOffset> | null;
   /** Parts to outline. */

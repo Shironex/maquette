@@ -14,6 +14,7 @@ import { useOrbitControls } from '../ModelPreview/Controls/Controls.hooks';
 import PoseGizmo, { type PoseGizmoProps } from '../PoseGizmo';
 import { useFraming, useStudioRig } from '../ModelPreview/Studio/Studio.hooks';
 import { useMotionModel } from '../MotionStage/Scene/Scene.hooks';
+import { useRootFollow } from '../root-follow';
 import type { Playable, Timeline } from '@/state/recipe-timeline';
 import {
   useJoinedSkeletons,
@@ -21,6 +22,7 @@ import {
   useRecipeSetup,
   useTargets,
 } from './RecipeStage.hooks';
+import { useStageLoaded } from './use-stage-loaded';
 import { SkeletonLoad } from './SkeletonLoad';
 
 /** Marker colours, the theme's clay for a prop and sage for a point, as the editor's blank rows. */
@@ -41,8 +43,17 @@ export interface RecipeStageProps {
   /** A recipe that joins, trims, retimes or mirrors: each clip's file and rate, and the timeline. */
   joined?: { urls: readonly string[]; fps: readonly number[]; timeline: Timeline } | null;
   laid?: StageLaid;
-  onChecks?: (checks: ReachCheck[]) => void;
-  onError?: (message: string) => void;
+  /** The camera moves with a root that travels (the floor's shadow always does); on unless off. */
+  camera?: { follow?: boolean };
+  /**
+   * The live checks at each reach's end, the model up and posed (its first
+   * frame on screen), or why it could not load.
+   */
+  report?: {
+    onChecks?: (checks: ReachCheck[]) => void;
+    onLoaded?: () => void;
+    onError?: (message: string) => void;
+  };
   label: string;
   className?: string;
 }
@@ -94,7 +105,8 @@ function Markers({
 }
 
 function Scene(props: SceneProps) {
-  const { modelUrl, clipUrl, pairs, layers, markers, onError, onChecks, joined } = props;
+  const { modelUrl, clipUrl, pairs, layers, markers, joined } = props;
+  const { onError, onChecks, onLoaded } = props.report ?? {};
   const keys = props.laid?.keys;
   const model = useMotionModel(modelUrl, onError);
   const skeleton = useMotionModel(clipUrl, onError);
@@ -110,6 +122,15 @@ function Scene(props: SceneProps) {
     grips: props.laid?.grips,
   });
   const controls = useOrbitControls(false, framing?.target ?? null);
+  useRootFollow({
+    scene: model?.scene ?? null,
+    rig,
+    framing,
+    controls,
+    follow: props.camera?.follow ?? true,
+    frameKey: true,
+  });
+  useStageLoaded(setup, onLoaded);
   const box = framing?.box;
   const size = box ? box.max.y - box.min.y || 1.7 : 1.7;
   const loads = extra.map(url => (

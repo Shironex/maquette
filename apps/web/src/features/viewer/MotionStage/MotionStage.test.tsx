@@ -19,7 +19,7 @@ describe('the motion stage', () => {
       time: 0.5,
       skeleton: true,
       trail: false,
-      turntable: false,
+      camera: {},
       poses: null,
       outline: [],
     };

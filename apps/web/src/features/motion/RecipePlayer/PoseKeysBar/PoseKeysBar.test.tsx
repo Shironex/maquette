@@ -23,6 +23,7 @@ describe('the turn gizmo bar', () => {
     expect(screen.getByText(/^Chest\s+X 12\.0°\s+Y 18\.0°\s+Z 0\.0°$/)).toBeVisible();
     expect(screen.getByText('Frame 20 has a key')).toBeVisible();
     expect(screen.getByText('mirror pose')).toBeVisible();
+    expect(screen.getByText('frame')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'World' }));
     expect(usePoseKeysStore.getState().space).toBe('world');
     await userEvent.click(screen.getByRole('button', { name: 'Hide the turn rings' }));

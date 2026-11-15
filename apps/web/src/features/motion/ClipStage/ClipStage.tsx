@@ -103,7 +103,7 @@ export default function ClipStage() {
                 time={stage.time}
                 skeleton={overlays.skeleton}
                 trail={overlays.trail}
-                turntable={overlays.turntable}
+                camera={{ turntable: overlays.turntable }}
                 poses={null}
                 outline={[]}
                 onFrame={stage.tick}

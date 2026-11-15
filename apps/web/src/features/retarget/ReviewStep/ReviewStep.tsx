@@ -44,7 +44,7 @@ function Stage({
                 time={time}
                 skeleton
                 trail
-                turntable={false}
+                camera={{}}
                 poses={null}
                 outline={[]}
                 onFrame={onFrame}
