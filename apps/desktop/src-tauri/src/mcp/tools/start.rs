@@ -14,7 +14,8 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::hints::{person_step, step};
+use super::hints::person_step;
+use super::hints::table::{Can, Place, start_of};
 use super::image_api::status_value;
 use super::{McpTools, Out, ToolError, respond, to_value};
 use crate::commands::image_api;
@@ -163,29 +164,11 @@ fn new_project(
 
 /// What to do in a project just made.
 fn after_create(manifest: &ProjectManifest) -> Vec<Value> {
-    let mut steps = vec![
-        step(
-            "start_concepts",
-            "Make concept images (Codex usage, or a paid backend a person approves).",
-        ),
-        step(
-            "add_built_asset",
-            "Or make a model with a Blender script: no credits, no approval.",
-        ),
-    ];
-    if manifest.site_repo.is_none() {
-        steps.push(match manifest.target {
-            ProjectTarget::Website => step(
-                "set_ship_settings",
-                "Set siteRepo before shipping. Until then run with buildOnly true.",
-            ),
-            ProjectTarget::Game => step(
-                "set_game_settings",
-                "Set repo before shipping. Until then run with buildOnly true.",
-            ),
-        });
-    }
-    steps
+    let place = Place {
+        project: &manifest.id,
+        target: manifest.target,
+    };
+    start_of(place, manifest.site_repo.is_some(), Can::BOTH)
 }
 
 fn tool_value(report: &ToolReport) -> Value {
