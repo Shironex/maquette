@@ -22,13 +22,18 @@ afterEach(() => {
 });
 
 describe('the approval prompt', () => {
-  it('floats the waiting approvals over every view but Settings', async () => {
+  it('floats the waiting approvals over every view, folded to the rail on Settings', async () => {
     await openAgentSession('batch');
     act(() => useAppStore.setState({ view: 'board' }));
     render(<ApprovalPrompt />);
     expect(screen.getAllByRole('alertdialog')).toHaveLength(2);
+    // Settings > Agents lists the cards in place, so the tray starts as its rail with the count.
     act(() => useAppStore.setState({ view: 'settings' }));
     expect(screen.queryByRole('alertdialog')).toBeNull();
+    const rail = screen.getByRole('complementary', { name: 'Waiting for approval' });
+    expect(rail).toHaveTextContent('2');
+    await userEvent.click(within(rail).getByRole('button', { name: 'Show the approval cards' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(2);
   });
 
   it('opens one card of several; a folded one names the ask and has no way to answer', async () => {
