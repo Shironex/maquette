@@ -374,7 +374,7 @@ fn started(
     let full = json!({
         "workspace": host.session().display(&root),
         "toolchain": tools,
-        "keys": { "tripo": keys.tripo, "meshy": keys.meshy, "openai": keys.openai, "unreadable": keys.unreadable() },
+        "keys": keys.value(),
         "imageBackend": image_value,
         "askBeforeShipping": ask,
         "inboxModels": inbox_count,

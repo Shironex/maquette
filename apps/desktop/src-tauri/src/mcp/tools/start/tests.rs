@@ -142,6 +142,7 @@ fn a_key_the_store_could_not_read_is_not_called_missing() {
         tripo,
         meshy,
         openai: None,
+        prompt: false,
     };
     assert!(says_no_key(&keys(Some(false), Some(false))));
     assert!(!says_no_key(&keys(None, Some(false))));
@@ -155,6 +156,7 @@ fn an_unreadable_key_store_is_not_a_saved_key() {
         tripo,
         meshy,
         openai: None,
+        prompt: false,
     };
     assert!(keys(Some(true), None).any_saved());
     assert!(keys(None, Some(true)).any_saved());
@@ -165,8 +167,25 @@ fn an_unreadable_key_store_is_not_a_saved_key() {
         tripo: Some(false),
         meshy: Some(false),
         openai: Some(false),
+        prompt: false,
     };
     assert!(!all_read.unreadable());
+    assert!(all_read.value().get("note").is_none());
+    // A read given up on while a Keychain prompt waits says to answer it.
+    let waiting = Keys {
+        tripo: None,
+        prompt: true,
+        ..all_read
+    };
+    let value = waiting.value();
+    assert_eq!(value["unreadable"], true);
+    assert_eq!(value["tripo"], serde_json::Value::Null);
+    assert!(
+        value["note"]
+            .as_str()
+            .expect("note")
+            .contains("Keychain prompt")
+    );
 }
 
 fn found(id: ToolId, warning: &str) -> ToolReport {
@@ -190,6 +209,7 @@ fn a_found_blender_with_a_warning_works_and_a_codex_not_signed_in_does_not() {
         tripo: Some(true),
         meshy: Some(true),
         openai: None,
+        prompt: false,
     };
     let says = |reports: &[ToolReport], what: &str| {
         gates(reports, &keys, true)
