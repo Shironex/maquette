@@ -100,7 +100,7 @@ importers:
     dependencies:
       '@react-three/fiber':
         specifier: 9.8.2
-        version: 9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.186.1)
+        version: 9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.187.0)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -108,8 +108,8 @@ importers:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
       three:
-        specifier: 0.186.1
-        version: 0.186.1
+        specifier: 0.187.0
+        version: 0.187.0
     devDependencies:
       '@astrojs/check':
         specifier: 0.9.12
@@ -145,8 +145,8 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
       '@types/three':
-        specifier: 0.186.0
-        version: 0.186.0
+        specifier: 0.187.0
+        version: 0.187.0
       astro:
         specifier: 7.4.2
         version: 7.4.2(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
@@ -170,16 +170,16 @@ importers:
         version: link:../../packages/ui
       '@pixiv/three-vrm':
         specifier: 3.5.5
-        version: 3.5.5(three@0.186.1)
+        version: 3.5.5(three@0.187.0)
       '@react-three/fiber':
         specifier: 9.8.2
-        version: 9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.186.1)
+        version: 9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.187.0)
       '@tauri-apps/api':
         specifier: 2.12.4
         version: 2.12.4
       '@xyflow/react':
-        specifier: 12.12.0
-        version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 12.12.1
+        version: 12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -187,11 +187,11 @@ importers:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
       three:
-        specifier: 0.186.1
-        version: 0.186.1
+        specifier: 0.187.0
+        version: 0.187.0
       zustand:
-        specifier: 5.0.16
-        version: 5.0.16(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))
+        specifier: 5.1.0
+        version: 5.1.0(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))
     devDependencies:
       '@tailwindcss/vite':
         specifier: 4.3.3
@@ -218,8 +218,8 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
       '@types/three':
-        specifier: 0.186.0
-        version: 0.186.0
+        specifier: 0.187.0
+        version: 0.187.0
       '@vitejs/plugin-react':
         specifier: 6.1.2
         version: 6.1.2(vite@8.3.5(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1))
@@ -242,8 +242,8 @@ importers:
   packages/ui:
     dependencies:
       '@tanstack/react-virtual':
-        specifier: 3.14.22
-        version: 3.14.22(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 3.14.26
+        version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -1608,14 +1608,14 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tanstack/react-virtual@3.14.22':
-    resolution: {integrity: sha512-zNiB9IF3prySTfAUrj9tPHjD/lonBYkfxrPP4v4ITUx+qwHajJR5cY/xirjvwc+KWkur10GX3TpsbKh7JkD8Lw==}
+  '@tanstack/react-virtual@3.14.26':
+    resolution: {integrity: sha512-HUDlfsrYH6ko5xH56L62Mcl/uzT+AGVNMHFuDNqDJMdZWc1AQa2oeVKNUvZ/RWBZQ4TYtyQerFrNvLnp39h65A==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  '@tanstack/virtual-core@3.19.7':
-    resolution: {integrity: sha512-gxy5SvH0mFRJ0YujtrflB/1HAu9Wn1KGvL0bjZfQkYVVMsIpQiwcf1mR06/ViN4NjllUb4HNCjqE9FGwgTvMCQ==}
+  '@tanstack/virtual-core@3.19.11':
+    resolution: {integrity: sha512-/5iHb0RHBvj8Di59FDs4ESNm45jls33aZAi4zccVXZjc/6ZvwQP6nzEYeT6weXjTf9E6/vrp2JhYWRyO+ZP13A==}
 
   '@tauri-apps/api@2.12.4':
     resolution: {integrity: sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg==}
@@ -1819,8 +1819,8 @@ packages:
   '@types/stats.js@0.17.4':
     resolution: {integrity: sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA==}
 
-  '@types/three@0.186.0':
-    resolution: {integrity: sha512-mxYSBpDC+D0pLfSP6sW4WZTcT+nrtmZcimMqnVmy36Hte3XpeYSrvgg4TRdaM1GemGog1AWzI5qL2VoIfMXbJQ==}
+  '@types/three@0.187.0':
+    resolution: {integrity: sha512-v+vKNarUtk4n2QRZ4+CN5ygMM0ARUjXjIQl0R/unMUfmStFeVqGbgqarbrpoGTXRZoulSH16ePrVJVxPJEbMUA==}
 
   '@types/unist@2.0.11':
     resolution: {integrity: sha512-CmBKiL6NNo/OqgmMn95Fk9Whlp2mtvIv+KNpQKN2F4SjvrEesubTRWGYSg+BnWZOnlCaSTU1sMpsBOzgbYhnsA==}
@@ -2004,8 +2004,8 @@ packages:
   '@xterm/headless@6.0.0':
     resolution: {integrity: sha512-5Yj1QINYCyzrZtf8OFIHi47iQtI+0qYFPHmouEfG8dHNxbZ9Tb9YGSuLcsEwj9Z+OL75GJqPyJbyoFer80a2Hw==}
 
-  '@xyflow/react@12.12.0':
-    resolution: {integrity: sha512-74oXI0Rgm1Eu33cHQAd74J6oVgCH9mbFyTVQbsGgp2kmWwh0HdtBr2VP04z8mbPD+M/xO69nqG5dDEt7/EN2rQ==}
+  '@xyflow/react@12.12.1':
+    resolution: {integrity: sha512-g41OHmP+GL5wDBQKpgYt8AF6RlB4CrABtiStXhCMqdItK6gPdSpsuDk8V0YtdyvIvMPTjDJvkuLkz0JbSYu5Cw==}
     peerDependencies:
       '@types/react': '>=17'
       '@types/react-dom': '>=17'
@@ -2017,8 +2017,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@xyflow/system@0.0.83':
-    resolution: {integrity: sha512-a//eDjez3WZF47aaPTfVUDD0OINOq+WVwBZCRTqG+m0a5euX8EwlJ4jMY1Wxz0Ocj4xOeekJ70V22Pq0ll8RJw==}
+  '@xyflow/system@0.0.84':
+    resolution: {integrity: sha512-96zfGFjH3oZ3T0MRdH4gJ0SlXuCIxbBuHVevZ4xry5UTxqjzjt010+LRdholgepq7jhrcaz1JNtzrETscwnkEA==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2344,42 +2344,42 @@ packages:
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
-  d3-color@3.1.0:
-    resolution: {integrity: sha512-zg/chbXyeBtMQ1LbD/WSoW2DpC3I0mpmPdW+ynRTj/x2DAWYrIY7qeZIHidozwV24m4iavr15lNwIwLxRmOxhA==}
+  d3-color@3.1.1:
+    resolution: {integrity: sha512-lfab8x0Bj0UO7SNsY8dZSbNIA6ipbkE3X0NG9nqjCu6CfCHZseuDnOSJY7hidKrjpP++i1M2qT+FlAdPKYRilA==}
     engines: {node: '>=12'}
 
-  d3-dispatch@3.0.1:
-    resolution: {integrity: sha512-rzUyPU/S7rwUflMyLc1ETDeBj0NRuHKKAcvukozwhshr6g6c5d8zh4c2gQjY2bZ0dXeGLWc1PF174P2tVvKhfg==}
+  d3-dispatch@3.0.2:
+    resolution: {integrity: sha512-sAzH4Y4nsLo8eSqw5jKiZt+LU2wZmL/qS+OkxQGjhwazB/D7TY34R/QK1eshfGr7cZEKymKZ/Haem7m+lu98Sg==}
     engines: {node: '>=12'}
 
-  d3-drag@3.0.0:
-    resolution: {integrity: sha512-pWbUJLdETVA8lQNJecMxoXfH6x+mO2UQo8rSmZ+QqxcbyA3hfeprFgIT//HW2nlHChWeIIMwS2Fq+gEARkhTkg==}
+  d3-drag@3.0.1:
+    resolution: {integrity: sha512-OWeoayCq8J69hUIjvL+Mb6Q6Oaj/fyHV5XaXByEUAG+JUjIfTGDnk3qGpcXrD3VmQ3BSV96fcbM6fqq7C0tbPA==}
     engines: {node: '>=12'}
 
-  d3-ease@3.0.1:
-    resolution: {integrity: sha512-wR/XK3D3XcLIZwpbvQwQ5fK+8Ykds1ip7A2Txe0yxncXSdq1L9skcG7blcedkOX+ZcgxGAmLX1FrRGbADwzi0w==}
+  d3-ease@3.0.2:
+    resolution: {integrity: sha512-B5znKqRmKROAN4oHWQ50W/qisVjA9GXh2WMsVKdFVp4DxWmcrOsweqgUOUVsv5th96kwaZlokU6SlV4J3gak1w==}
     engines: {node: '>=12'}
 
-  d3-interpolate@3.0.1:
-    resolution: {integrity: sha512-3bYs1rOD33uo8aqJfKP3JWPAibgw8Zm2+L9vBKEHJ2Rg+viTR7o5Mmv5mZcieN+FRYaAOWX5SJATX6k1PWz72g==}
+  d3-interpolate@3.0.2:
+    resolution: {integrity: sha512-IRzGU62DtxhvsnSTWMQIdnoZ6gA+BCWwBon1EJI6SjoN595799b6z/QRBzXfFhE8iupUPp3042yBNo0STPqnzQ==}
     engines: {node: '>=12'}
 
-  d3-selection@3.0.0:
-    resolution: {integrity: sha512-fmTRWbNMmsmWq6xJV8D19U/gw/bwrHfNXxrIN+HfZgnzqTHp9jOmKMhsTUjXOJnZOdZY9Q28y4yebKzqDKlxlQ==}
+  d3-selection@3.0.1:
+    resolution: {integrity: sha512-ODSf35vqCrlCfp7hrm0eZjvOosSXSYLjqvIlhMBV9q9VOx7EBJG6pc+uXBswEZNJgCGJ+qnKYcWutbZDIxe/Xg==}
     engines: {node: '>=12'}
 
-  d3-timer@3.0.1:
-    resolution: {integrity: sha512-ndfJ/JxxMd3nw31uyKoY2naivF+r29V+Lc0svZxe1JvvIRmi8hUsrMvdOwgS1o6uBHmiz91geQ0ylPP0aj1VUA==}
+  d3-timer@3.0.2:
+    resolution: {integrity: sha512-1Il1aliroVSErrv5aulRBxAY+7+DnaoLIWGd1C6SsBTWDeobWiP/V69vwb8vT6abR1kKwaNe1196pmaQ1fK90A==}
     engines: {node: '>=12'}
 
-  d3-transition@3.0.1:
-    resolution: {integrity: sha512-ApKvfjsSR6tg06xrL434C0WydLr7JewBB3V+/39RMHsaXTOG0zmt/OAXeng5M5LBm0ojmxJrpomQVZ1aPvBL4w==}
+  d3-transition@3.0.2:
+    resolution: {integrity: sha512-RcjCsdFgyFoDB+QXLC5m60ZkTN0k9zH+ovoLlTdJnDS1AbfbcuowiM4pCKSTOclNibS4f4J4cbv2m7O7y8NTOQ==}
     engines: {node: '>=12'}
     peerDependencies:
       d3-selection: 2 - 3
 
-  d3-zoom@3.0.0:
-    resolution: {integrity: sha512-b8AmV3kfQaqWAuacbPuNbL6vahnOJflOhexLzMMNLga62+/nh0JzvJ0aO/5a5MVgUFGS7Hu1P9P03o3fJkDCyw==}
+  d3-zoom@3.0.1:
+    resolution: {integrity: sha512-kfjD3BDQu/FOatpZ6JdMSyIoDwTxIpI29ySTI2J5ZlDaH1WbuJGQJ2Q9oJkWTEZEW98j6idezoomSD3Cn2zwiw==}
     engines: {node: '>=12'}
 
   data-urls@8.0.0:
@@ -3936,8 +3936,8 @@ packages:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
 
-  three@0.186.1:
-    resolution: {integrity: sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==}
+  three@0.187.0:
+    resolution: {integrity: sha512-Qiu7R+Cmh8CstZsY1uJOSWnVlfo7ZtNLV7mF8Jltk3LB3AtDu9cRZlcnRKkAk8Y4z6KKw35z7Y7Urd7jWY8etA==}
 
   tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
@@ -4506,8 +4506,8 @@ packages:
       use-sync-external-store:
         optional: true
 
-  zustand@5.0.16:
-    resolution: {integrity: sha512-Uv7e327ihlCfayfja3hDc0M64Upev1LWBKpRobdK4NyovDDPeeX4imWXc/wzC1yc6fkYPoAY/ncKVPAs2jrtQw==}
+  zustand@5.1.0:
+    resolution: {integrity: sha512-ciJZlP48M1PTQbVQq81CGVFxHTLpZNrFjKqwjtCU34AWuXTZT/jrF3p9+fI84Cf1eSCMLapxqBy/SNTfwOBuqA==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@types/react': '>=18.0.0'
@@ -5499,50 +5499,50 @@ snapshots:
 
   '@phosphor-icons/core@2.1.1': {}
 
-  '@pixiv/three-vrm-core@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm-core@3.5.5(three@0.187.0)':
     dependencies:
       '@pixiv/types-vrm-0.0': 3.5.5
       '@pixiv/types-vrmc-vrm-1.0': 3.5.5
-      three: 0.186.1
+      three: 0.187.0
 
-  '@pixiv/three-vrm-materials-hdr-emissive-multiplier@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm-materials-hdr-emissive-multiplier@3.5.5(three@0.187.0)':
     dependencies:
       '@pixiv/types-vrmc-materials-hdr-emissive-multiplier-1.0': 3.5.5
-      three: 0.186.1
+      three: 0.187.0
 
-  '@pixiv/three-vrm-materials-mtoon@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm-materials-mtoon@3.5.5(three@0.187.0)':
     dependencies:
       '@pixiv/types-vrm-0.0': 3.5.5
       '@pixiv/types-vrmc-materials-mtoon-1.0': 3.5.5
-      three: 0.186.1
+      three: 0.187.0
 
-  '@pixiv/three-vrm-materials-v0compat@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm-materials-v0compat@3.5.5(three@0.187.0)':
     dependencies:
       '@pixiv/types-vrm-0.0': 3.5.5
       '@pixiv/types-vrmc-materials-mtoon-1.0': 3.5.5
-      three: 0.186.1
+      three: 0.187.0
 
-  '@pixiv/three-vrm-node-constraint@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm-node-constraint@3.5.5(three@0.187.0)':
     dependencies:
       '@pixiv/types-vrmc-node-constraint-1.0': 3.5.5
-      three: 0.186.1
+      three: 0.187.0
 
-  '@pixiv/three-vrm-springbone@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm-springbone@3.5.5(three@0.187.0)':
     dependencies:
       '@pixiv/types-vrm-0.0': 3.5.5
       '@pixiv/types-vrmc-springbone-1.0': 3.5.5
       '@pixiv/types-vrmc-springbone-extended-collider-1.0': 3.5.5
-      three: 0.186.1
+      three: 0.187.0
 
-  '@pixiv/three-vrm@3.5.5(three@0.186.1)':
+  '@pixiv/three-vrm@3.5.5(three@0.187.0)':
     dependencies:
-      '@pixiv/three-vrm-core': 3.5.5(three@0.186.1)
-      '@pixiv/three-vrm-materials-hdr-emissive-multiplier': 3.5.5(three@0.186.1)
-      '@pixiv/three-vrm-materials-mtoon': 3.5.5(three@0.186.1)
-      '@pixiv/three-vrm-materials-v0compat': 3.5.5(three@0.186.1)
-      '@pixiv/three-vrm-node-constraint': 3.5.5(three@0.186.1)
-      '@pixiv/three-vrm-springbone': 3.5.5(three@0.186.1)
-      three: 0.186.1
+      '@pixiv/three-vrm-core': 3.5.5(three@0.187.0)
+      '@pixiv/three-vrm-materials-hdr-emissive-multiplier': 3.5.5(three@0.187.0)
+      '@pixiv/three-vrm-materials-mtoon': 3.5.5(three@0.187.0)
+      '@pixiv/three-vrm-materials-v0compat': 3.5.5(three@0.187.0)
+      '@pixiv/three-vrm-node-constraint': 3.5.5(three@0.187.0)
+      '@pixiv/three-vrm-springbone': 3.5.5(three@0.187.0)
+      three: 0.187.0
 
   '@pixiv/types-vrm-0.0@3.5.5': {}
 
@@ -5558,7 +5558,7 @@ snapshots:
 
   '@pixiv/types-vrmc-vrm-1.0@3.5.5': {}
 
-  '@react-three/fiber@9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.186.1)':
+  '@react-three/fiber@9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.187.0)':
     dependencies:
       '@babel/runtime': 7.29.10
       '@types/webxr': 0.5.24
@@ -5569,7 +5569,7 @@ snapshots:
       react-use-measure: 2.1.7(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       scheduler: 0.28.0
       suspend-react: 0.1.3(react@19.3.1)
-      three: 0.186.1
+      three: 0.187.0
       use-sync-external-store: 1.7.0(react@19.3.1)
       zustand: 5.0.15(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))
     optionalDependencies:
@@ -5784,13 +5784,13 @@ snapshots:
       tailwindcss: 4.3.3
       vite: 8.3.5(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
 
-  '@tanstack/react-virtual@3.14.22(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@tanstack/react-virtual@3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@tanstack/virtual-core': 3.19.7
+      '@tanstack/virtual-core': 3.19.11
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@tanstack/virtual-core@3.19.7': {}
+  '@tanstack/virtual-core@3.19.11': {}
 
   '@tauri-apps/api@2.12.4': {}
 
@@ -5970,7 +5970,7 @@ snapshots:
 
   '@types/stats.js@0.17.4': {}
 
-  '@types/three@0.186.0':
+  '@types/three@0.187.0':
     dependencies:
       '@dimforge/rapier3d-compat': 0.12.0
       '@tweenjs/tween.js': 23.1.3
@@ -6213,9 +6213,9 @@ snapshots:
 
   '@xterm/headless@6.0.0': {}
 
-  '@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@xyflow/react@12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@xyflow/system': 0.0.83
+      '@xyflow/system': 0.0.84
       classcat: 5.0.5
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -6226,17 +6226,17 @@ snapshots:
     transitivePeerDependencies:
       - immer
 
-  '@xyflow/system@0.0.83':
+  '@xyflow/system@0.0.84':
     dependencies:
       '@types/d3-drag': 3.0.7
       '@types/d3-interpolate': 3.0.4
       '@types/d3-selection': 3.0.12
       '@types/d3-transition': 3.0.9
       '@types/d3-zoom': 3.0.9
-      d3-drag: 3.0.0
-      d3-interpolate: 3.0.1
-      d3-selection: 3.0.0
-      d3-zoom: 3.0.0
+      d3-drag: 3.0.1
+      d3-interpolate: 3.0.2
+      d3-selection: 3.0.1
+      d3-zoom: 3.0.1
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
@@ -6640,41 +6640,41 @@ snapshots:
 
   csstype@3.2.3: {}
 
-  d3-color@3.1.0: {}
+  d3-color@3.1.1: {}
 
-  d3-dispatch@3.0.1: {}
+  d3-dispatch@3.0.2: {}
 
-  d3-drag@3.0.0:
+  d3-drag@3.0.1:
     dependencies:
-      d3-dispatch: 3.0.1
-      d3-selection: 3.0.0
+      d3-dispatch: 3.0.2
+      d3-selection: 3.0.1
 
-  d3-ease@3.0.1: {}
+  d3-ease@3.0.2: {}
 
-  d3-interpolate@3.0.1:
+  d3-interpolate@3.0.2:
     dependencies:
-      d3-color: 3.1.0
+      d3-color: 3.1.1
 
-  d3-selection@3.0.0: {}
+  d3-selection@3.0.1: {}
 
-  d3-timer@3.0.1: {}
+  d3-timer@3.0.2: {}
 
-  d3-transition@3.0.1(d3-selection@3.0.0):
+  d3-transition@3.0.2(d3-selection@3.0.1):
     dependencies:
-      d3-color: 3.1.0
-      d3-dispatch: 3.0.1
-      d3-ease: 3.0.1
-      d3-interpolate: 3.0.1
-      d3-selection: 3.0.0
-      d3-timer: 3.0.1
+      d3-color: 3.1.1
+      d3-dispatch: 3.0.2
+      d3-ease: 3.0.2
+      d3-interpolate: 3.0.2
+      d3-selection: 3.0.1
+      d3-timer: 3.0.2
 
-  d3-zoom@3.0.0:
+  d3-zoom@3.0.1:
     dependencies:
-      d3-dispatch: 3.0.1
-      d3-drag: 3.0.0
-      d3-interpolate: 3.0.1
-      d3-selection: 3.0.0
-      d3-transition: 3.0.1(d3-selection@3.0.0)
+      d3-dispatch: 3.0.2
+      d3-drag: 3.0.1
+      d3-interpolate: 3.0.2
+      d3-selection: 3.0.1
+      d3-transition: 3.0.2(d3-selection@3.0.1)
 
   data-urls@8.0.0:
     dependencies:
@@ -8628,7 +8628,7 @@ snapshots:
 
   tapable@2.3.3: {}
 
-  three@0.186.1: {}
+  three@0.187.0: {}
 
   tiny-inflate@1.0.3: {}
 
@@ -9145,7 +9145,7 @@ snapshots:
       react: 19.3.1
       use-sync-external-store: 1.7.0(react@19.3.1)
 
-  zustand@5.0.16(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1)):
+  zustand@5.1.0(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1)):
     optionalDependencies:
       '@types/react': 19.3.0
       react: 19.3.1
